@@ -24,3 +24,9 @@ coverage/
 # --- System ---
 .DS_Store
 Thumbs.db
+
+# from react-router
+/node_modules/
+# React Router
+/.react-router/
+/build/
