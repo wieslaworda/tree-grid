@@ -7,6 +7,11 @@ import {
   ScrollRestoration,
 } from "react-router";
 
+import { StyleProvider } from "@ant-design/cssinjs";
+import { ConfigProvider } from "antd";
+import plPL from "antd/locale/pl_PL";
+import "dayjs/locale/pl";
+
 import type { Route } from "./+types/root";
 import "./app.css";
 
@@ -42,7 +47,16 @@ export function Layout({ children }: { children: React.ReactNode }) {
 }
 
 export default function App() {
-  return <Outlet />;
+  // `layer` must match the server-side StyleProvider so client-rendered styles
+  // land in the same `antd` layer the ordering in app.css expects. The cache is
+  // inherited from the provider in entry.server.tsx during SSR.
+  return (
+    <StyleProvider layer>
+      <ConfigProvider locale={plPL}>
+        <Outlet />
+      </ConfigProvider>
+    </StyleProvider>
+  );
 }
 
 export function ErrorBoundary({ error }: Route.ErrorBoundaryProps) {

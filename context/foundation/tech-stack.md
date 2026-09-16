@@ -3,9 +3,9 @@ starter_id: react-router
 package_manager: npm
 project_name: tree-grid
 hints:
-  language_family: js
+  language_family: multi
   team_size: solo
-  deployment_target: self-host
+  deployment_target: fly
   ci_provider: github-actions
   ci_default_flow: auto-deploy-on-merge
   bootstrapper_confidence: verified
@@ -16,7 +16,7 @@ hints:
     from_official_starter: true
     conventions: true
     docs_current: true
-    can_judge_agent: false
+    can_judge_agent: true
   has_auth: true
   has_payments: false
   has_realtime: false
@@ -26,4 +26,5 @@ hints:
 
 ## Why this stack
 
-Praca solo, 6 tygodni po godzinach, aplikacja webowa z logowaniem i zapisem widoków per użytkownik. Wyjściowym wyborem było Vite + React + TypeScript, ale ten wariant oblewa bramkę konwencji — nie niesie tras, warstwy danych ani układu projektu — i nie ma żadnego backendu, którego wymagają FR-001 oraz zapis i odczyt ekranów. React Router v7 stoi na tym samym fundamencie (Vite, React, TypeScript), dokładając trasy plikowe, loadery danych i warstwę serwerową; przechodzi wszystkie cztery kryteria przyjazności dla agenta, a jego scaffolding jest sprawdzony end-to-end. Warstwę komponentów stanowi Ant Design (`antd`), dołożony do stacku po wyborze startera. Wykluczenie usług chmurowych poza własną infrastrukturą odcięło Cloudflare, Vercel i Fly, więc celem wdrożenia jest własny hosting, a preferencja SQLite dobrze się z tym składa, bo znika osobny serwer bazy. CI na GitHub Actions z automatycznym wdrożeniem po scaleniu do main. Samoocena wypadła pozytywnie w czterech punktach na pięć — niezaznaczony został punkt o rozpoznawaniu, kiedy agent odchodzi od praktyki stacku, dlatego plik instrukcji projektu powinien opisywać konwencje React Router v7 i Ant Design pełniej, niż wynikałoby to z samego startera.
+Samodzielny programista, sześć tygodni pracy po godzinach i aplikacja internetowa, której główną wartością jest złożony widok łączący drzewo z tabelą (grid) oraz możliwość zapisywania układu ekranu przez użytkownika. Wybrano niestandardowe podejście, ponieważ frontend i backend należą do różnych rodzin technologicznych: za widok drzewa i tabeli odpowiada biblioteka antd (wymagająca Reacta), natomiast API oraz warstwa trwałości danych (SQLite) zostały celowo oparte na ASP.NET Core – stąd oznaczenie `language_family: multi`. Spośród dostępnych szablonów dla Reacta, jedynie `react-router` spełnia wszystkie cztery kryteria przyjazności dla narzędzi automatyzujących (tzw. agentów) i jest już wstępnie skonfigurowany w tym katalogu; `vite-react` lepiej pasuje do modelu SPA, ale nie spełnia wymogów konwencji (brak routingu, warstwy danych czy narzuconego układu), a szablony `t3` oraz `10x-astro-starter` odrzucono, ponieważ zawierają własne, wbudowane rozwiązania backendowe i bazodanowe, które kolidowałyby z API opartym na .NET, zamiast je wspierać. Część .NET-owa jest umieszczana ręcznie w podkatalogu, a proces inicjalizacji wskazuje jedynie szablon frontendu, którego niezawodność w tym zakresie została zweryfikowana. Jako platformę wdrożeniową wybrano Fly, ponieważ – w przeciwieństwie do domyślnego dla tego szablonu Cloudflare Pages (który nie obsługuje ASP.NET Core) – pozwala ona na hostowanie obu części aplikacji. Uwierzytelnianie jest jedyną funkcjonalnością wymuszającą konkretne rozwiązania technologiczne; płatności, komunikacja w czasie rzeczywistym, AI oraz zadania wykonywane w tle wykraczają poza zakres określony w specyfikacji produktu (PRD).
+

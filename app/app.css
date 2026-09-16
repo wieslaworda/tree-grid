@@ -1,3 +1,12 @@
+/* Layer order decides who wins when antd and Tailwind style the same element.
+   Tailwind's preflight (`base`) lands first so it cannot flatten antd's
+   components; `antd` sits above it; Tailwind utilities sit above antd, so a
+   className on an antd component still overrides the component's own styles.
+   antd emits into the `antd` layer only because <StyleProvider layer> is set
+   in app/root.tsx and app/entry.server.tsx — dropping that prop unlayers antd
+   and this ordering silently stops applying. */
+@layer theme, base, antd, components, utilities;
+
 @import "tailwindcss";
 
 @theme {
