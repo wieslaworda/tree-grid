@@ -122,10 +122,37 @@ skonfigurowane.
 
 ## Wdrożenie
 
-Build kontenera opisuje `@Dockerfile`. Hand-off wskazuje **Fly** jako cel
-wdrożenia, wybrany właśnie dlatego, że może hostować w jednym miejscu i ten
-frontend, i przyszły backend .NET; Cloudflare Pages, domyślny cel samego
-startera, nie uruchomi ASP.NET Core. Konfiguracji Fly jeszcze w repo nie ma.
+Cel MVP to **self-hosting z Cloudflare Quick Tunnel**, wybrany dlatego, że
+plikowy SQLite ma leżeć obok aplikacji, a to eliminuje wszystkie platformy
+bezstanowe. Decyzję, punktację i rejestr ryzyk opisuje
+`@context/foundation/infrastructure.md`; faktyczny przebieg pierwszego wdrożenia
+— `@context/deployment/deploy-plan.md`. **Fly.io jest runner-upem** i pozostaje
+ścieżką wyjścia: architektura dwóch kontenerów plus wolumen jest przenośna, więc
+migracja nie wymaga zmian w kodzie. Konfiguracji Fly w repo nie ma.
+
+**Cloudflare pełni tu wyłącznie rolę wejścia ruchu. Nie wdrażamy na Cloudflare.**
+Aplikacja to zwykły serwer Node uruchamiany lokalnie, a `cloudflared` tylko
+przepuszcza do niego ruch. Stąd twarda reguła: **nie instaluj `wrangler` ani
+`@cloudflare/vite-plugin`**. To narzędzia ścieżki Cloudflare Workers, gdzie kod
+działa w izolacie V8, a dysk kontenera jest efemeryczny — plikowy SQLite by tam
+nie przetrwał, i to po cichu. Obie ścieżki nazywają się podobnie i łatwo je
+pomylić; ta pomyłka jest w rejestrze ryzyk wpisem o wysokim wpływie.
+
+Port produkcyjny to **3000** (`react-router-serve`), nie 5173 i nie 5000.
+Wystawienie obsługuje `.claude/skills/run-tunel-app/scripts/start-prod-tunnel.ps1`
+(`-Stop` zatrzymuje). Skrypt ustawia jawnie `PORT` i `HOST=127.0.0.1` — pierwsze
+zamienia cichy dryf na losowy port w głośny `EADDRINUSE`, drugie ogranicza
+nasłuch do pętli zwrotnej, więc jedyną drogą do aplikacji jest tunel.
+
+`@Dockerfile` zostaje jako kontrakt na przyszłość, ale **nie jest dziś ścieżką
+wdrożenia** — Docker nie jest na maszynie deweloperskiej zainstalowany. Wraca do
+gry razem z backendem .NET, gdy pojawi się wolumen na plik bazy.
+
+Dwie rzeczy do zapamiętania o samym quick tunnelu: **adres zmienia się przy
+każdym restarcie** i nie da się go przypiąć, więc nie zapisuj go na sztywno
+nigdzie w kodzie ani w ciasteczkach; **Cloudflare Access na `trycloudflare.com`
+nie działa**, więc od chwili uruchomienia tunelu jedyną kontrolą dostępu jest
+logowanie samej aplikacji. Dopóki go nie ma, adresu nikomu nie przekazuj.
 
 ## Znane luki
 

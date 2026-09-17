@@ -30,3 +30,6 @@ Thumbs.db
 # React Router
 /.react-router/
 /build/
+
+# --- run-tunel-app (logi, PID-y, kopia vite.config) ---
+.tunnel-run/
