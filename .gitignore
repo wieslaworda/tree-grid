@@ -33,3 +33,11 @@ Thumbs.db
 
 # --- run-tunel-app (logi, PID-y, kopia vite.config) ---
 .tunnel-run/
+
+# --- .NET ---
+bin/
+obj/
+
+# --- SQLite (pliki poboczne trybu WAL) ---
+*.db-wal
+*.db-shm

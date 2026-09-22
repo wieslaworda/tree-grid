@@ -2,3 +2,7 @@
 build
 node_modules
 README.md
+**/bin
+**/obj
+src
+tests
