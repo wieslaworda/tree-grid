@@ -1,6 +1,7 @@
 using System.Data.Common;
 using Api.Data;
 using Api.Errors;
+using Microsoft.AspNetCore.Identity;
 using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Diagnostics;
@@ -25,6 +26,37 @@ var connectionString = InitializeDatabaseFile(
 builder.Services.AddDbContext<AppDbContext>(options => options
     .UseSqlite(connectionString)
     .AddInterceptors(new SqliteBusyTimeoutInterceptor(busyTimeoutMilliseconds)));
+
+// Progi blokady konta są decyzją produktową, nie techniczną, więc mieszkają
+// w konfiguracji — zmiana progu nie ma wymagać przebudowy aplikacji.
+var lockout = builder.Configuration.GetSection("Identity:Lockout");
+
+// `AddIdentityCore`, a nie `AddIdentity`. To drugie rejestruje własne schematy
+// uwierzytelniania ciasteczkowego, a sesja w tej aplikacji żyje wyłącznie po
+// stronie serwera React Routera — dwa równoległe mechanizmy sesji to dokładnie
+// ta konfiguracja, w której nie wiadomo, który wygrywa. Tutaj potrzebny jest
+// sam `UserManager`: magazyn kont i weryfikacja hasła, bez potoku HTTP.
+builder.Services
+    .AddIdentityCore<AppUser>(options =>
+    {
+        // Adres e-mail jest identyfikatorem logowania (PRD FR-001), więc dwa
+        // konta o tym samym adresie uczyniłyby logowanie niejednoznacznym.
+        options.User.RequireUniqueEmail = true;
+
+        // Podniesiona wyłącznie minimalna długość. Pozostałe reguły złożoności
+        // zostają domyślne — PRD nie stawia w tej sprawie żadnego wymagania,
+        // a wymyślanie go tutaj byłoby decyzją produktową bez podstawy.
+        options.Password.RequiredLength = 10;
+
+        // Blokada musi obejmować konta nowe, bo inaczej dotyczy dokładnie tych
+        // kont, których nikt nie atakuje. Licznik prowadzi ręcznie endpoint
+        // logowania z Fazy 2 — `AddIdentityCore` nie robi tego za nas.
+        options.Lockout.AllowedForNewUsers = true;
+        options.Lockout.MaxFailedAccessAttempts = lockout.GetValue("MaxFailedAccessAttempts", 5);
+        options.Lockout.DefaultLockoutTimeSpan =
+            TimeSpan.FromMinutes(lockout.GetValue("LockoutMinutes", 15));
+    })
+    .AddEntityFrameworkStores<AppDbContext>();
 
 var app = builder.Build();
 
@@ -72,14 +104,18 @@ if (app.Environment.IsDevelopment())
     app.MapOpenApi();
 }
 
-// Jedyny endpoint tego plastra (roadmap.md:93). Dowodzi trzech rzeczy naraz:
-// API żyje, baza jest osiągalna, a ścieżka błędna zwraca kontrakt.
+// Dowodzi dwóch rzeczy naraz: API żyje i baza jest osiągalna. Na tym endpoincie
+// opiera się wykrywanie gotowości API oraz trasa zasobowa `app/routes/api.health.ts`,
+// która przepuszcza treść bez interpretacji.
 //
-// Odczyt idzie przez EF Core do tabeli technicznej, więc nieudana migracja albo
-// niedostępny plik bazy dają błąd tutaj, a nie dopiero przy pierwszym realnym
-// zapisie. `?fail=true` wymusza ścieżkę błędną przez rzucenie wyjątku, a nie
-// przez ręcznie zbudowaną odpowiedź — ręczna dowiodłaby tylko tego, że umiemy
-// zserializować własny typ, podczas gdy sprawdzana jest ścieżka frameworka.
+// Sprawdzana jest osiągalność pliku bazy, a nie zawartość jakiejkolwiek tabeli.
+// Do F-01 endpoint liczył wiersze tabeli technicznej; ta tabela zniknęła razem
+// z rusztowaniem, a wiązanie zdrowia API z dowolną tabelą domenową oznaczałoby,
+// że każdy przyszły plaster przepisuje ten endpoint od nowa.
+//
+// `?fail=true` wymusza ścieżkę błędną przez rzucenie wyjątku, a nie przez ręcznie
+// zbudowaną odpowiedź — ręczna dowiodłaby tylko tego, że umiemy zserializować
+// własny typ, podczas gdy sprawdzana jest ścieżka frameworka.
 app.MapGet("/health", async (AppDbContext dbContext, bool? fail, CancellationToken cancellationToken) =>
 {
     if (fail == true)
@@ -88,9 +124,13 @@ app.MapGet("/health", async (AppDbContext dbContext, bool? fail, CancellationTok
             "Wymuszona ścieżka błędna endpointu /health (parametr fail=true).");
     }
 
-    var schemaProbes = await dbContext.SchemaProbes.CountAsync(cancellationToken);
+    if (!await dbContext.Database.CanConnectAsync(cancellationToken))
+    {
+        throw new InvalidOperationException(
+            "Baza danych jest nieosiągalna — plik bazy nie istnieje albo nie da się go otworzyć.");
+    }
 
-    return Results.Ok(new { status = "ok", schemaProbes });
+    return Results.Ok(new { status = "ok" });
 });
 
 app.Run();
