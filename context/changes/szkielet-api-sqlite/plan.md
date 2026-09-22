@@ -406,28 +406,28 @@ Tabela techniczna z Fazy 2 jest jawnie tymczasowa i znika w `S-01` razem z migra
 
 #### Automated
 
-- [x] 1.1 Build rozwiązania przechodzi: `dotnet build TreeGrid.sln`
-- [x] 1.2 Narzędzia odtwarzają się z manifestu: `dotnet tool restore`
-- [x] 1.3 Frontend nadal przechodzi kontrolę typów: `npm run typecheck`
-- [x] 1.4 Artefakty .NET nie są widoczne dla gita po buildzie
+- [x] 1.1 Build rozwiązania przechodzi: `dotnet build TreeGrid.sln` — 97710d0
+- [x] 1.2 Narzędzia odtwarzają się z manifestu: `dotnet tool restore` — 97710d0
+- [x] 1.3 Frontend nadal przechodzi kontrolę typów: `npm run typecheck` — 97710d0
+- [x] 1.4 Artefakty .NET nie są widoczne dla gita po buildzie — 97710d0
 
 #### Manual
 
-- [x] 1.5 API odpowiada na `127.0.0.1:5180` i nie odpowiada z sieci lokalnej
+- [x] 1.5 API odpowiada na `127.0.0.1:5180` i nie odpowiada z sieci lokalnej — 97710d0
 
 ### Phase 2: SQLite, EF Core i mechanizm migracji
 
 #### Automated
 
-- [ ] 2.1 Migracja aplikuje się czysto: `dotnet ef database update --project src/Api`
-- [ ] 2.2 Plik bazy powstaje we wskazanej lokalizacji
-- [ ] 2.3 Baza pracuje w trybie WAL: `PRAGMA journal_mode` zwraca `wal`
-- [ ] 2.4 Pliki bazy i pliki poboczne WAL nie są widoczne dla gita
+- [x] 2.1 Migracja aplikuje się czysto: `dotnet ef database update --project src/Api`
+- [x] 2.2 Plik bazy powstaje we wskazanej lokalizacji
+- [x] 2.3 Baza pracuje w trybie WAL: `PRAGMA journal_mode` zwraca `wal`
+- [x] 2.4 Pliki bazy i pliki poboczne WAL nie są widoczne dla gita
 
 #### Manual
 
-- [ ] 2.5 Start w Development tworzy i migruje bazę bez dodatkowych poleceń
-- [ ] 2.6 Start w Production z oczekującą migracją odmawia startu z komunikatem
+- [x] 2.5 Start w Development tworzy i migruje bazę bez dodatkowych poleceń
+- [x] 2.6 Start w Production z oczekującą migracją odmawia startu z komunikatem
 
 ### Phase 3: Kontrakt błędów po stronie API
 
