@@ -433,26 +433,26 @@ Tabela techniczna z Fazy 2 jest jawnie tymczasowa i znika w `S-01` razem z migra
 
 #### Automated
 
-- [x] 3.1 Testy przechodzą: `dotnet test TreeGrid.sln`
-- [x] 3.2 Build rozwiązania z projektem testowym przechodzi: `dotnet build TreeGrid.sln`
+- [x] 3.1 Testy przechodzą: `dotnet test TreeGrid.sln` — 9c04e22
+- [x] 3.2 Build rozwiązania z projektem testowym przechodzi: `dotnet build TreeGrid.sln` — 9c04e22
 
 #### Manual
 
-- [x] 3.3 Ścieżka błędna zwraca dokładnie kontrakt, bez pól `ProblemDetails`
-- [x] 3.4 Nieistniejąca ścieżka zwraca ten sam kształt, a nie pustą treść
+- [x] 3.3 Ścieżka błędna zwraca dokładnie kontrakt, bez pól `ProblemDetails` — 9c04e22
+- [x] 3.4 Nieistniejąca ścieżka zwraca ten sam kształt, a nie pustą treść — 9c04e22
 
 ### Phase 4: Strona React Routera — konsumpcja kontraktu
 
 #### Automated
 
-- [ ] 4.1 Kontrola typów przechodzi: `npm run typecheck`
-- [ ] 4.2 Build produkcyjny przechodzi: `npm run build`
-- [ ] 4.3 Adres API nie występuje w `build/client/`
+- [x] 4.1 Kontrola typów przechodzi: `npm run typecheck`
+- [x] 4.2 Build produkcyjny przechodzi: `npm run build`
+- [x] 4.3 Adres API nie występuje w `build/client/`
 
 #### Manual
 
-- [ ] 4.4 Trasa zasobowa zwraca kontrakt błędu przy zgaszonym API
-- [ ] 4.5 Strona główna renderuje się, a `app/welcome/` nie istnieje
+- [x] 4.4 Trasa zasobowa zwraca kontrakt błędu przy zgaszonym API
+- [x] 4.5 Strona główna renderuje się, a `app/welcome/` nie istnieje
 
 ### Phase 5: Dwa procesy i weryfikacja przez tunel
 
