@@ -223,6 +223,100 @@ przeglądarce. **Odbiorcy w innych sieciach mogą mieć ten sam problem** — to
 argument za nazwanym tunelem na własnej domenie, gdy adres ma trafić do kogoś
 poza Tobą.
 
+## Uruchomienie dwuprocesowe (API + serwer produkcyjny)
+
+Od plastra `szkielet-api-sqlite` aplikacja to **dwa procesy**: serwer React
+Routera i API .NET z `src/Api/`. Tryb produkcyjny wyżej opisuje tylko pierwszy
+z nich — drugi podnosi osobny skrypt.
+
+```powershell
+# 1. najpierw API (pętla zwrotna, bez tunelu)
+powershell -ExecutionPolicy Bypass -File .claude/skills/run-tunel-app/scripts/start-api.ps1
+
+# 2. dopiero potem serwer produkcyjny wraz z tunelem
+powershell -ExecutionPolicy Bypass -File .claude/skills/run-tunel-app/scripts/start-prod-tunnel.ps1
+```
+
+Zatrzymanie w odwrotnej kolejności — najpierw `start-prod-tunnel.ps1 -Stop`,
+potem `start-api.ps1 -Stop`.
+
+| Argument `start-api.ps1` | Znaczenie |
+|---|---|
+| `-Port 5180` | inny port API; trafia do procesu w linii poleceń, więc nadpisuje `appsettings.json` |
+| `-Environment Development` | `ASPNETCORE_ENVIRONMENT`; domyślnie `Production` |
+| `-SkipBuild` | `dotnet run --no-build` na aktualnych artefaktach |
+| `-Stop` | zatrzymuje proces API uruchomiony poprzednim wywołaniem |
+
+Stan w `.tunnel-run/api-pids.json`, logi w `api.{out,err}.log` — rozłączne
+z plikami trybu deweloperskiego i produkcyjnego, więc `-Stop` jednego skryptu
+nie rusza procesów drugiego.
+
+### Dlaczego ta kolejność
+
+`start-prod-tunnel.ps1` czeka na HTTP 200 z `/`, a strona główna nie odpytuje
+API. Serwer produkcyjny podniesiony jako pierwszy zgłosi więc gotowość, mimo że
+`/api/health` zwróci wtedy `502` z kodem `api_unreachable`. Weryfikacja
+przechodzi, a ścieżka jest niekompletna — dokładnie ten cichy fałsz, przed
+którym broni reszta tego skilla. API startuje pierwsze.
+
+### Sekrety, bez których API nie wstanie
+
+Od plastra `konto-i-logowanie` API czyta dwa sekrety — kod rejestracyjny i klucz
+podpisu ciasteczka sesji (`src/Api/Auth/AuthSecrets.cs`). Poza środowiskiem
+`Development` ich brak **przerywa start**: proces zapisuje w
+`.tunnel-run/api.err.log` wpis krytyczny z nazwą brakującego klucza i kończy się
+kodem 1. `start-api.ps1` domyślnie ustawia `ASPNETCORE_ENVIRONMENT` na
+`Production`, więc dotyczy to zwykłego uruchomienia. To nie jest awaria skryptu
+ani uszkodzony build — to niekompletna konfiguracja i tylko tak należy to
+czytać.
+
+Wartości nie ma w repozytorium i nie ma jej tam być (`context/foundation/lessons.md`,
+wpis o sekretach). Ustaw je raz dla swojego konta, **przed** uruchomieniem API;
+dwukropek z klucza konfiguracji zapisuje się jako podwójne podkreślenie:
+
+```powershell
+[Environment]::SetEnvironmentVariable('Auth__RegistrationCode', '<kod>', 'User')
+[Environment]::SetEnvironmentVariable('Auth__SessionSigningKey', '<co najmniej 32 znaki>', 'User')
+```
+
+Zmienną widzą wyłącznie procesy uruchomione po jej ustawieniu, więc otwarty
+terminal trzeba otworzyć ponownie — inaczej skrypt dalej startuje w starym
+środowisku i odmawia z tym samym komunikatem. Dla `-Environment Development`
+odpowiednikiem jest `dotnet user-secrets set "<klucz>" "<wartość>" --project src/Api`.
+
+Osobna konsekwencja dla wykrywania gotowości: serwer produkcyjny podniesiony bez
+działającego API **nadal zgłosi gotowość**. `/` przekierowuje teraz na
+`/logowanie`, a ten ekran musi zwracać 200 także wtedy, gdy klucza podpisu nie
+da się pobrać (`app/lib/session.server.ts`) — bez tego użytkownik nie miałby
+drogi powrotu. Brak sekretu wychodzi więc na jaw dopiero przy wysłaniu
+formularza, jako `502` z kodem `api_unreachable`. Kolejność „API pierwsze"
+z poprzedniej sekcji pozostaje jedynym zabezpieczeniem przed tym cichym fałszem.
+
+### Porty
+
+| Port | Proces | Skrypt | Tunelowany |
+|---|---|---|---|
+| 5173 | Vite (serwer deweloperski) | `start-tunnel.ps1` | tak, w trybie deweloperskim |
+| 3000 | `react-router-serve` | `start-prod-tunnel.ps1` | **tak — jedyny tunelowany** |
+| 5180 | Kestrel (API .NET) | `start-api.ps1` | **nie, nigdy** |
+
+### API nie jest tunelowane
+
+To nie jest przeoczenie, tylko warunek architektury. Quick tunnel przyjmuje
+**dokładnie jeden origin** (`context/foundation/infrastructure.md`), a API ma
+pozostać niewidoczne spoza tej maszyny: Kestrel nasłuchuje na `127.0.0.1:5180`,
+a jedynym klientem API są loadery React Routera wykonywane po stronie serwera.
+Przeglądarka nigdy nie łączy się z API bezpośrednio — dlatego nie ma tu CORS-u
+i nie ma drugiego tunelu. `cloudflared` dostaje wyłącznie `http://localhost:3000`.
+
+### Dlaczego osobny skrypt, a nie rozbudowa produkcyjnego
+
+`start-prod-tunnel.ps1` zostaje nietknięty. Rozdzielenie skryptów pozwala
+uruchomić samo API przy pracy nad backendem, daje każdemu procesowi własny plik
+stanu i własne logi, i sprawia, że `-Stop` jednego nie ubija drugiego. Cena jest
+jedna — dwie komendy zamiast jednej, w ustalonej kolejności — i jest zapisana
+wyżej właśnie po to, żeby nikt nie odtwarzał jej z pamięci.
+
 ## Czego ten skill nie robi
 
 - Nie tworzy nazwanego tunela ani nie konfiguruje DNS.

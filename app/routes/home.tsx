@@ -1,4 +1,5 @@
 import { Typography } from "antd";
+import { Form } from "react-router";
 
 import type { Route } from "./+types/home";
 
@@ -24,6 +25,16 @@ export default function Home() {
         Aplikacja jest w budowie. Szkielet API i kontrakt odpowiedzi błędów są
         już na miejscu.
       </Typography.Paragraph>
+
+      {/*
+        Jedyne wyjście z sesji w interfejsie. Formularz, a nie link: trasa
+        `/wylogowanie` przyjmuje wyłącznie `POST`, bo wylogowanie wywoływalne
+        `GET`-em da się wyzwolić obcym obrazkiem. Przycisk jest surowy — antd
+        dokłada faza 4.
+      */}
+      <Form method="post" action="/wylogowanie">
+        <button type="submit">Wyloguj się</button>
+      </Form>
     </main>
   );
 }

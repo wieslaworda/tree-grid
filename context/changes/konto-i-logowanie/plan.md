@@ -742,9 +742,9 @@ klucza podpisu sesji, inaczej API odmówi startu w Production.
 
 #### Automated
 
-- [x] 2.1 Build rozwiązania przechodzi: `dotnet build TreeGrid.sln`
-- [x] 2.2 Testy przechodzą: `dotnet test TreeGrid.sln`
-- [x] 2.3 Start w Production bez skonfigurowanych sekretów kończy się odmową startu z niezerowym kodem wyjścia
+- [x] 2.1 Build rozwiązania przechodzi: `dotnet build TreeGrid.sln` — 9904430
+- [x] 2.2 Testy przechodzą: `dotnet test TreeGrid.sln` — 9904430
+- [x] 2.3 Start w Production bez skonfigurowanych sekretów kończy się odmową startu z niezerowym kodem wyjścia — 9904430
 
 #### Manual
 
@@ -760,27 +760,27 @@ klucza podpisu sesji, inaczej API odmówi startu w Production.
 
 #### Automated
 
-- [ ] 3.1 Kontrola typów przechodzi: `npm run typecheck`
-- [ ] 3.2 Build produkcyjny przechodzi: `npm run build`
-- [ ] 3.3 Adres API nie wyciekł do przeglądarki: przeszukanie `build/client/` nie znajduje `127.0.0.1:5180`
-- [ ] 3.4 Klucz podpisu sesji nie występuje nigdzie w `build/`
+- [x] 3.1 Kontrola typów przechodzi: `npm run typecheck`
+- [x] 3.2 Build produkcyjny przechodzi: `npm run build`
+- [x] 3.3 Adres API nie wyciekł do przeglądarki: przeszukanie `build/client/` nie znajduje `127.0.0.1:5180`
+- [x] 3.4 Klucz podpisu sesji nie występuje nigdzie w `build/`
 
 #### Manual
 
-- [ ] 3.5 Wejście na `/` bez sesji przekierowuje na ekran logowania
-- [ ] 3.6 Rejestracja, logowanie i wylogowanie działają w przeglądarce od początku do końca
-- [ ] 3.7 Ciasteczko sesji ma `HttpOnly`, `Secure`, `SameSite=Lax`, nie ma `Domain` i nie ma daty wygaśnięcia
-- [ ] 3.8 Zamknięcie i ponowne otwarcie przeglądarki wymaga ponownego zalogowania
-- [ ] 3.9 Żądanie zmieniające stan z obcym nagłówkiem `Origin` jest odrzucane
-- [ ] 3.10 Przy zgaszonym API ekran logowania zwraca kontrakt błędu, a nie ślad stosu
+- [x] 3.5 Wejście na `/` bez sesji przekierowuje na ekran logowania
+- [x] 3.6 Rejestracja, logowanie i wylogowanie działają w przeglądarce od początku do końca
+- [x] 3.7 Ciasteczko sesji ma `HttpOnly`, `Secure`, `SameSite=Lax`, nie ma `Domain` i nie ma daty wygaśnięcia
+- [x] 3.8 Zamknięcie i ponowne otwarcie przeglądarki wymaga ponownego zalogowania
+- [x] 3.9 Żądanie zmieniające stan z obcym nagłówkiem `Origin` jest odrzucane
+- [x] 3.10 Przy zgaszonym API ekran logowania zwraca kontrakt błędu, a nie ślad stosu
 
 ### Phase 4: Formularze antd i weryfikacja przez tunel
 
 #### Automated
 
-- [ ] 4.1 Kontrola typów przechodzi: `npm run typecheck`
-- [ ] 4.2 Build produkcyjny przechodzi: `npm run build`
-- [ ] 4.3 Kontrakty renderowania przeżywają tunel: `@layer antd` obecne, ostatni `data-css-hash` przed `</head>`
+- [x] 4.1 Kontrola typów przechodzi: `npm run typecheck`
+- [x] 4.2 Build produkcyjny przechodzi: `npm run build`
+- [x] 4.3 Kontrakty renderowania przeżywają tunel: `@layer antd` obecne, ostatni `data-css-hash` przed `</head>`
 
 #### Manual
 

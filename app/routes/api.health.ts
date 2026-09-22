@@ -2,7 +2,9 @@ import {
   API_BASE_URL,
   ROUTE_ERROR_CODES,
   apiError,
+  describeCause,
   isApiErrorBody,
+  readJson,
 } from "~/lib/api.server";
 
 import type { Route } from "./+types/api.health";
@@ -89,30 +91,4 @@ function invalidResponse(apiStatus: number): Response {
     "API odpowiedziało w nieoczekiwanym formacie.",
     { path: HEALTH_PATH, status: apiStatus },
   );
-}
-
-/** Zwraca `undefined`, gdy treści nie da się odczytać jako JSON. */
-async function readJson(response: Response): Promise<unknown> {
-  try {
-    return await response.json();
-  } catch {
-    return undefined;
-  }
-}
-
-/**
- * `fetch` w Node zgłasza lakoniczne „fetch failed", a właściwy powód
- * (np. `ECONNREFUSED`) siedzi w `cause`. Bez rozwinięcia kontekst błędu nie
- * niósłby nic użytecznego.
- */
-function describeCause(cause: unknown): string {
-  if (!(cause instanceof Error)) {
-    return String(cause);
-  }
-
-  const inner = cause.cause;
-
-  return inner instanceof Error
-    ? `${cause.message}: ${inner.message}`
-    : cause.message;
 }

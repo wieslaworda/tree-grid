@@ -50,6 +50,13 @@ export const ROUTE_ERROR_CODES = {
    * tego, która warstwa odmówiła.
    */
   MethodNotAllowed: "method_not_allowed",
+  /**
+   * Żądanie zmieniające stan przyszło z nagłówkiem `Origin` wskazującym inny
+   * host niż ten, pod którym stoi aplikacja. Kod należy do warstwy tras, bo
+   * odrzucenie zapada po stronie React Routera — API o tym żądaniu nigdy się
+   * nie dowiaduje.
+   */
+  OriginMismatch: "origin_mismatch",
 } as const;
 
 /** Buduje kopertę błędu. `context` pominięty daje `{}`, nigdy brak pola. */
@@ -80,4 +87,35 @@ export function isApiErrorBody(value: unknown): value is ApiErrorBody {
     typeof (error as { code?: unknown }).code === "string" &&
     typeof (error as { message?: unknown }).message === "string"
   );
+}
+
+/**
+ * Odczytuje treść odpowiedzi jako JSON, zwracając `undefined`, gdy się nie da.
+ * Wyjątek z `response.json()` niósłby informację „treść nie jest JSON-em" w
+ * kształcie, którego nie da się przepuścić przez kontrakt, a każdy wywołujący
+ * i tak musi ten przypadek zamienić na `api_invalid_response`.
+ */
+export async function readJson(response: Response): Promise<unknown> {
+  try {
+    return await response.json();
+  } catch {
+    return undefined;
+  }
+}
+
+/**
+ * `fetch` w Node zgłasza lakoniczne „fetch failed", a właściwy powód
+ * (np. `ECONNREFUSED`) siedzi w `cause`. Bez rozwinięcia kontekst błędu nie
+ * niósłby nic użytecznego.
+ */
+export function describeCause(cause: unknown): string {
+  if (!(cause instanceof Error)) {
+    return String(cause);
+  }
+
+  const inner = cause.cause;
+
+  return inner instanceof Error
+    ? `${cause.message}: ${inner.message}`
+    : cause.message;
 }
