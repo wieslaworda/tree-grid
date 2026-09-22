@@ -419,27 +419,27 @@ Tabela techniczna z Fazy 2 jest jawnie tymczasowa i znika w `S-01` razem z migra
 
 #### Automated
 
-- [x] 2.1 Migracja aplikuje się czysto: `dotnet ef database update --project src/Api`
-- [x] 2.2 Plik bazy powstaje we wskazanej lokalizacji
-- [x] 2.3 Baza pracuje w trybie WAL: `PRAGMA journal_mode` zwraca `wal`
-- [x] 2.4 Pliki bazy i pliki poboczne WAL nie są widoczne dla gita
+- [x] 2.1 Migracja aplikuje się czysto: `dotnet ef database update --project src/Api` — e3d455b
+- [x] 2.2 Plik bazy powstaje we wskazanej lokalizacji — e3d455b
+- [x] 2.3 Baza pracuje w trybie WAL: `PRAGMA journal_mode` zwraca `wal` — e3d455b
+- [x] 2.4 Pliki bazy i pliki poboczne WAL nie są widoczne dla gita — e3d455b
 
 #### Manual
 
-- [x] 2.5 Start w Development tworzy i migruje bazę bez dodatkowych poleceń
-- [x] 2.6 Start w Production z oczekującą migracją odmawia startu z komunikatem
+- [x] 2.5 Start w Development tworzy i migruje bazę bez dodatkowych poleceń — e3d455b
+- [x] 2.6 Start w Production z oczekującą migracją odmawia startu z komunikatem — e3d455b
 
 ### Phase 3: Kontrakt błędów po stronie API
 
 #### Automated
 
-- [ ] 3.1 Testy przechodzą: `dotnet test TreeGrid.sln`
-- [ ] 3.2 Build rozwiązania z projektem testowym przechodzi: `dotnet build TreeGrid.sln`
+- [x] 3.1 Testy przechodzą: `dotnet test TreeGrid.sln`
+- [x] 3.2 Build rozwiązania z projektem testowym przechodzi: `dotnet build TreeGrid.sln`
 
 #### Manual
 
-- [ ] 3.3 Ścieżka błędna zwraca dokładnie kontrakt, bez pól `ProblemDetails`
-- [ ] 3.4 Nieistniejąca ścieżka zwraca ten sam kształt, a nie pustą treść
+- [x] 3.3 Ścieżka błędna zwraca dokładnie kontrakt, bez pól `ProblemDetails`
+- [x] 3.4 Nieistniejąca ścieżka zwraca ten sam kształt, a nie pustą treść
 
 ### Phase 4: Strona React Routera — konsumpcja kontraktu
 

@@ -1,5 +1,6 @@
 using System.Data.Common;
 using Api.Data;
+using Api.Errors;
 using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Diagnostics;
@@ -59,10 +60,38 @@ using (var scope = app.Services.CreateScope())
 }
 
 // Configure the HTTP request pipeline.
+
+// Kontrakt błędów wpina się przed routingiem, żeby objąć także te odpowiedzi,
+// których nie tworzy żaden nasz endpoint: nieobsłużone wyjątki i statusy
+// generowane przez sam framework. Wpięcie po routingu zostawiłoby 404 z literówki
+// w adresie w formacie ProblemDetails, czyli w kształcie sprzecznym z CLAUDE.md.
+app.UseApiErrorContract();
+
 if (app.Environment.IsDevelopment())
 {
     app.MapOpenApi();
 }
+
+// Jedyny endpoint tego plastra (roadmap.md:93). Dowodzi trzech rzeczy naraz:
+// API żyje, baza jest osiągalna, a ścieżka błędna zwraca kontrakt.
+//
+// Odczyt idzie przez EF Core do tabeli technicznej, więc nieudana migracja albo
+// niedostępny plik bazy dają błąd tutaj, a nie dopiero przy pierwszym realnym
+// zapisie. `?fail=true` wymusza ścieżkę błędną przez rzucenie wyjątku, a nie
+// przez ręcznie zbudowaną odpowiedź — ręczna dowiodłaby tylko tego, że umiemy
+// zserializować własny typ, podczas gdy sprawdzana jest ścieżka frameworka.
+app.MapGet("/health", async (AppDbContext dbContext, bool? fail, CancellationToken cancellationToken) =>
+{
+    if (fail == true)
+    {
+        throw new InvalidOperationException(
+            "Wymuszona ścieżka błędna endpointu /health (parametr fail=true).");
+    }
+
+    var schemaProbes = await dbContext.SchemaProbes.CountAsync(cancellationToken);
+
+    return Results.Ok(new { status = "ok", schemaProbes });
+});
 
 app.Run();
 return 0;
