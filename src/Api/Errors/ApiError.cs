@@ -26,6 +26,31 @@ public sealed record ApiError(
         string message,
         IReadOnlyDictionary<string, object?>? context = null)
         => new(new ApiErrorDetail(code, message, context ?? ApiErrorDetail.EmptyContext));
+
+    /// <summary>
+    /// Buduje kopertę błędu walidacji formularza: jeden kod
+    /// <see cref="ApiErrorCodes.ValidationError"/>, a naruszenia poszczególnych
+    /// pól w <c>context</c> pod jednym stałym kluczem
+    /// (<see cref="ApiErrorContextKeys.Fields"/>), jako odwzorowanie nazwy pola
+    /// na komunikat.
+    /// </summary>
+    /// <remarks>
+    /// Jeden kod, a nie kod na każde naruszenie: klient rozgałęzia się po
+    /// <c>code</c>, a „które pole i dlaczego" jest danymi, nie gatunkiem błędu.
+    /// Metoda przechodzi przez <see cref="Create"/> — kształt koperty ma
+    /// powstawać w jednym miejscu, także dla ścieżek, które dokładają
+    /// własne dane.
+    /// </remarks>
+    public static ApiError Validation(
+        string message,
+        IReadOnlyDictionary<string, string> fields)
+        => Create(
+            ApiErrorCodes.ValidationError,
+            message,
+            new Dictionary<string, object?>
+            {
+                [ApiErrorContextKeys.Fields] = fields,
+            });
 }
 
 /// <summary>
@@ -64,6 +89,50 @@ public static class ApiErrorCodes
     /// <summary>Metoda HTTP nieobsługiwana przez zasób (405 z routingu).</summary>
     public const string MethodNotAllowed = "method_not_allowed";
 
+    /// <summary>
+    /// Żądanie nie zostało uwierzytelnione albo poświadczenia są nieprawidłowe
+    /// (401). Kod jest wspólny dla nieistniejącego konta i złego hasła —
+    /// rozróżnienie ich w odpowiedzi pozwoliłoby wyliczyć listę adresów e-mail.
+    /// </summary>
+    public const string Unauthorized = "unauthorized";
+
+    /// <summary>
+    /// Uwierzytelnione żądanie bez uprawnień do zasobu (403). Model dostępu
+    /// jest dziś płaski i nic tego kodu nie zwraca, ale mapowanie statusów go
+    /// zna, żeby 403 wygenerowane kiedykolwiek przez framework nie wypadło
+    /// gałęzią zbiorczą.
+    /// </summary>
+    public const string Forbidden = "forbidden";
+
+    /// <summary>
+    /// Konto zablokowane po kolejnych nieudanych próbach logowania. Odrębny kod
+    /// względem <see cref="Unauthorized"/> jest świadomy: użytkownik musi
+    /// wiedzieć, że czekanie ma sens, a próbowanie kolejnych haseł nie.
+    /// </summary>
+    public const string AccountLocked = "account_locked";
+
+    /// <summary>
+    /// Przesłane dane nie przechodzą walidacji. Szczegóły — mapa „pole →
+    /// komunikat" — jadą w <c>context</c> pod
+    /// <see cref="ApiErrorContextKeys.Fields"/>.
+    /// </summary>
+    public const string ValidationError = "validation_error";
+
     /// <summary>Pozostałe statusy błędne wygenerowane przez framework.</summary>
     public const string HttpError = "http_error";
+}
+
+/// <summary>
+/// Klucze w <c>context</c>, po których klient sięga świadomie — w odróżnieniu
+/// od danych czysto diagnostycznych (<c>requestId</c>, <c>path</c>), których
+/// nikt nie odczytuje programowo. Stała istnieje po to, żeby literał nie
+/// powtarzał się po obu stronach granicy.
+/// </summary>
+public static class ApiErrorContextKeys
+{
+    /// <summary>
+    /// Mapa „nazwa pola formularza → komunikat" przy
+    /// <see cref="ApiErrorCodes.ValidationError"/>.
+    /// </summary>
+    public const string Fields = "fields";
 }

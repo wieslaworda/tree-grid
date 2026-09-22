@@ -4,6 +4,14 @@
     <TargetFramework>net10.0</TargetFramework>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
+    <!--
+      Identyfikator magazynu `user-secrets`. Nie jest sekretem — sam wskazuje
+      plik poza katalogiem projektu, w którym w Development leżą wartości
+      `Auth:RegistrationCode` i `Auth:SessionSigningKey`. Bez tego wpisu
+      `dotnet user-secrets` nie ma czego otworzyć, a dostawca konfiguracji
+      z `user-secrets` w ogóle się nie rejestruje.
+    -->
+    <UserSecretsId>978dbb71-8edc-4076-8a5a-e79c491bf6b3</UserSecretsId>
   </PropertyGroup>
 
   <ItemGroup>
@@ -14,6 +22,15 @@
       <PrivateAssets>all</PrivateAssets>
     </PackageReference>
     <PackageReference Include="Microsoft.EntityFrameworkCore.Sqlite" Version="10.0.12" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!--
+      Reguły uwierzytelniania są `internal` — to szczegóły tej aplikacji, nie
+      biblioteka. Testy mają je jednak sprawdzać bez podnoszenia hosta, więc
+      widzi je projekt testowy i tylko on.
+    -->
+    <InternalsVisibleTo Include="Api.Tests" />
   </ItemGroup>
 
 </Project>

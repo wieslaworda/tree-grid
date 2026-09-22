@@ -58,8 +58,20 @@ internal static class ApiErrorHandling
     {
         var status = context.Response.StatusCode;
 
+        // Statusy uwierzytelniania mają własne gałęzie mimo tego, że dziś żaden
+        // endpoint nie oddaje 401 ani 403 frameworkowi — odpowiedzi logowania
+        // budowane są ręcznie i tu nie trafiają. Gałąź istnieje, bo bez niej
+        // pierwsze 401 wygenerowane przez potok (np. po dołożeniu autoryzacji)
+        // wyszłoby jako zbiorczy `http_error`: kod, po którym klient nie ma
+        // jak rozpoznać, że trzeba się zalogować.
         var (code, message) = status switch
         {
+            StatusCodes.Status401Unauthorized => (
+                ApiErrorCodes.Unauthorized,
+                "Żądanie wymaga uwierzytelnienia."),
+            StatusCodes.Status403Forbidden => (
+                ApiErrorCodes.Forbidden,
+                "Brak uprawnień do wskazanego zasobu."),
             StatusCodes.Status404NotFound => (
                 ApiErrorCodes.NotFound,
                 "Nie znaleziono zasobu pod wskazanym adresem."),

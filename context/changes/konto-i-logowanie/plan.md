@@ -726,12 +726,12 @@ klucza podpisu sesji, inaczej API odmówi startu w Production.
 
 #### Automated
 
-- [x] 1.1 Build rozwiązania przechodzi: `dotnet build TreeGrid.sln`
-- [x] 1.2 Testy przechodzą: `dotnet test TreeGrid.sln`
-- [x] 1.3 Migracja aplikuje się czysto: `dotnet ef database update --project src/Api`
-- [x] 1.4 W schemacie nie ma tabeli `SchemaProbes`, a są tabele Identity
-- [x] 1.5 Baza nadal pracuje w trybie WAL: `PRAGMA journal_mode` zwraca `wal`
-- [x] 1.6 Pliki bazy i pliki poboczne WAL nie są widoczne dla gita: `git status --porcelain`
+- [x] 1.1 Build rozwiązania przechodzi: `dotnet build TreeGrid.sln` — 3acb1cd
+- [x] 1.2 Testy przechodzą: `dotnet test TreeGrid.sln` — 3acb1cd
+- [x] 1.3 Migracja aplikuje się czysto: `dotnet ef database update --project src/Api` — 3acb1cd
+- [x] 1.4 W schemacie nie ma tabeli `SchemaProbes`, a są tabele Identity — 3acb1cd
+- [x] 1.5 Baza nadal pracuje w trybie WAL: `PRAGMA journal_mode` zwraca `wal` — 3acb1cd
+- [x] 1.6 Pliki bazy i pliki poboczne WAL nie są widoczne dla gita: `git status --porcelain` — 3acb1cd
 
 #### Manual
 
@@ -742,9 +742,9 @@ klucza podpisu sesji, inaczej API odmówi startu w Production.
 
 #### Automated
 
-- [ ] 2.1 Build rozwiązania przechodzi: `dotnet build TreeGrid.sln`
-- [ ] 2.2 Testy przechodzą: `dotnet test TreeGrid.sln`
-- [ ] 2.3 Start w Production bez skonfigurowanych sekretów kończy się odmową startu z niezerowym kodem wyjścia
+- [x] 2.1 Build rozwiązania przechodzi: `dotnet build TreeGrid.sln`
+- [x] 2.2 Testy przechodzą: `dotnet test TreeGrid.sln`
+- [x] 2.3 Start w Production bez skonfigurowanych sekretów kończy się odmową startu z niezerowym kodem wyjścia
 
 #### Manual
 

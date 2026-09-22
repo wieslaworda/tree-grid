@@ -1,4 +1,5 @@
 using System.Data.Common;
+using Api.Auth;
 using Api.Data;
 using Api.Errors;
 using Microsoft.AspNetCore.Identity;
@@ -58,7 +59,38 @@ builder.Services
     })
     .AddEntityFrameworkStores<AppDbContext>();
 
+// Sekrety aplikacji — kod rejestracyjny i klucz podpisu ciasteczka sesji —
+// czytane są ze standardowej konfiguracji: w Development z `user-secrets`,
+// poza nim ze zmiennych środowiskowych. Żadnego dodatkowego kodu to nie
+// wymaga, bo oba dostawcy są domyślne, a `appsettings.json` niesie wyłącznie
+// strukturę. Szczegóły i kształt poleceń — w `Api.Auth.AuthSecrets`.
+var authSecrets = AuthSecrets.FromConfiguration(builder.Configuration);
+builder.Services.AddSingleton(authSecrets);
+
 var app = builder.Build();
+
+// Ten sam wzorzec, którym niżej odmawia startu niezmigrowana baza: brak sekretu
+// jest błędem konfiguracji, więc ma zatrzymać start i nazwać brakujący klucz,
+// zamiast zamienić się w cichą podatność przy pierwszym żądaniu. Sprawdzenie
+// obejmuje każde środowisko poza Development — tam sekretów może jeszcze nie
+// być, a ścieżki, które ich potrzebują, i tak odmawiają działania bez nich
+// (`AuthSecrets.RequireRegistrationCode`). Do logu trafiają wyłącznie nazwy
+// kluczy; żadna wartość nie opuszcza konfiguracji.
+if (!app.Environment.IsDevelopment())
+{
+    var secretProblems = authSecrets.FindProblems();
+
+    if (secretProblems.Count > 0)
+    {
+        app.Logger.LogCritical(
+            "Konfiguracja sekretów jest niekompletna: {Problems} Start przerwany. " +
+            "Ustaw brakujące klucze zmiennymi środowiskowymi, zapisując dwukropek " +
+            "jako podwójne podkreślenie (np. Auth__RegistrationCode).",
+            string.Join(" ", secretProblems));
+
+        return 1;
+    }
+}
 
 // Ścieżki aplikowania migracji są rozdzielone świadomie. W Development schemat
 // dogania kod przy starcie, żeby pętla deweloperska nie wymagała pamiętania
@@ -132,6 +164,12 @@ app.MapGet("/health", async (AppDbContext dbContext, bool? fail, CancellationTok
 
     return Results.Ok(new { status = "ok" });
 });
+
+// Rejestracja, logowanie i wydanie klucza podpisu sesji. Endpointy mieszkają
+// w `Api.Auth`, bo ich treścią są reguły bezpieczeństwa, a nie uruchamianie
+// aplikacji — i ta odległość jest celowa: reguły mają się czytać w jednym
+// miejscu, razem z powodami, dla których są takie, a nie inne.
+app.MapAuthEndpoints();
 
 app.Run();
 return 0;
