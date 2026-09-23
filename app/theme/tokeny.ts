@@ -104,6 +104,7 @@ type Metryki = {
   sizeStep: number;
   lineHeight: number;
   wysokoscWiersza: number;
+  wysokoscNaglowka: number;
   fontFamily: string;
   fontFamilyCode: string;
 };
@@ -122,6 +123,15 @@ type Metryki = {
  * wyprowadza się `Tree.titleHeight` i (w `S-05`) skok wiersza gridu. Wpisanie
  * tej liczby w dwóch miejscach zamiast czytania stąd rozjeżdża drzewo z gridem
  * po kilku wierszach, a to jest rdzeń produktu, nie kosmetyka.
+ *
+ * `wysokoscNaglowka` też nie jest tokenem antd — z niej wyprowadza się
+ * `Menu.horizontalLineHeight`, a menu wyznacza wysokość nagłówka powłoki
+ * (`app/routes/powloka.tsx`). Wartość **musi pomieścić w pionie przełącznik
+ * motywu**: ten jest `fixed top-3` (12 px) i ma wysokość `controlHeight`
+ * (24 px, `app/components/PrzelacznikMotywu.tsx`), a nie należy do nagłówka,
+ * więc nagłówek nie ma jak się do niego dopasować sam. `12 + 24 + 12` = **48**
+ * to jedyna wartość, przy której przełącznik stoi w nagłówku wyśrodkowany;
+ * niższa przykleja go do dolnej krawędzi albo wypuszcza pod nią.
  */
 export const METRYKI: Metryki = {
   fontSize: 12,
@@ -135,6 +145,7 @@ export const METRYKI: Metryki = {
   // przy `components.Table` w `app/theme/antd.ts`.
   lineHeight: 1.75,
   wysokoscWiersza: 24,
+  wysokoscNaglowka: 48,
   fontFamily:
     '"Inter", ui-sans-serif, system-ui, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji"',
   fontFamilyCode:

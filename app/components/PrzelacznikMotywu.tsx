@@ -69,12 +69,17 @@ const OPCJE: { value: Wariant; label: string }[] = [
  * usterka do naprawienia przeniesieniem kontrolki wyżej — przeniesienie
  * wyprowadziłoby ją poza `ConfigProvider` i odebrało jej antd.
  *
- * ## Ścieżka migracji
+ * ## Czemu nie w nagłówku powłoki
  *
- * Gdy powstanie prawdziwa powłoka z nagłówkiem, kontrolka przenosi się do
- * niego, a `fixed` z pozycjonowaniem znika. API komponentu się nie zmienia,
- * bo jest samowystarczalne: nie przyjmuje żadnego propu, całość stanu bierze
- * z `KontekstMotywu`.
+ * Nagłówek z `app/routes/powloka.tsx` (S-07) istnieje, a kontrolka świadomie
+ * do niego nie przeszła. Powłoka obejmuje wyłącznie widoki za bramą —
+ * logowanie i rejestracja nagłówka nie mają, a przełącznik mają mieć.
+ * Przeniesienie wymagałoby więc drugiego miejsca montowania, czyli dokładnie
+ * tego rozgałęzienia, przed którym ostrzega sekcja wyżej. Zostaje jedno
+ * wystąpienie w `App`, `fixed` nad każdą trasą, a nagłówek robi mu miejsce:
+ * `METRYKI.wysokoscNaglowka` mieści kontrolkę w pionie, a prawy klaster
+ * nagłówka zostawia jej odstęp w poziomie. Zmiana pozycji, rozmiaru albo
+ * etykiet tej kontrolki pociąga za sobą oba te miejsca.
  */
 export function PrzelacznikMotywu() {
   const { wariant, ustawWariant } = useContext(KontekstMotywu);

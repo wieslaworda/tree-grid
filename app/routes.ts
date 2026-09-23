@@ -12,6 +12,11 @@ import {
  * Ten plik jest jedynym miejscem, w którym widać, co stoi za bramą, a co przed
  * nią. Wszystko wewnątrz `layout("routes/chronione.tsx", …)` wymaga sesji;
  * wszystko obok niego jest publiczne, a każdy taki wpis jest świadomą decyzją.
+ *
+ * Dwa wcięcia znaczą dwie różne rzeczy: wcięcie pod bramą = wymaga sesji,
+ * wcięcie pod powłoką (`layout("routes/powloka.tsx", …)`) = ma nagłówek
+ * z menu głównym. Powłoka stoi wewnątrz bramy, nigdy obok — jej loader czyta
+ * tożsamość odłożoną przez bramę i bez niej rzuca.
  */
 export default [
   // Publiczne z konieczności: bez sesji nie ma jak się zalogować ani założyć
@@ -27,15 +32,19 @@ export default [
   // Za bramą. Tu trafiają wszystkie widoki produktu — dzisiejszy i te, które
   // dołożą kolejne plastry.
   layout("routes/chronione.tsx", [
-    index("routes/home.tsx"),
+    // Pod nagłówkiem z menu. Widok za bramą, który nagłówka mieć nie powinien,
+    // staje obok tego layoutu, ale nadal wewnątrz bramy.
+    layout("routes/powloka.tsx", [
+      index("routes/home.tsx"),
 
-    // Słownik obiektów. Trzy trasy są rodzeństwem, a nie trasami
-    // zagnieżdżonymi: lista nie jest powłoką formularzy, więc nie ma
-    // `<Outlet />`, w którym mogłyby się wyrenderować. `obiekty/nowy` stoi
-    // przed `obiekty/:id` tylko dla czytelności — dopasowanie i tak woli
-    // segment statyczny od dynamicznego.
-    route("obiekty", "routes/obiekty.tsx"),
-    route("obiekty/nowy", "routes/obiekty.nowy.tsx"),
-    route("obiekty/:id", "routes/obiekty.$id.tsx"),
+      // Słownik obiektów. Trzy trasy są rodzeństwem, a nie trasami
+      // zagnieżdżonymi: lista nie jest powłoką formularzy, więc nie ma
+      // `<Outlet />`, w którym mogłyby się wyrenderować. `obiekty/nowy` stoi
+      // przed `obiekty/:id` tylko dla czytelności — dopasowanie i tak woli
+      // segment statyczny od dynamicznego.
+      route("obiekty", "routes/obiekty.tsx"),
+      route("obiekty/nowy", "routes/obiekty.nowy.tsx"),
+      route("obiekty/:id", "routes/obiekty.$id.tsx"),
+    ]),
   ]),
 ] satisfies RouteConfig;

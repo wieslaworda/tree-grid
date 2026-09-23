@@ -9,7 +9,7 @@
  * Sufiks `.server.ts` jest nośny — patrz `api.server.ts`.
  */
 
-import { redirect } from "react-router";
+import { createContext, redirect } from "react-router";
 
 import {
   API_BASE_URL,
@@ -88,6 +88,24 @@ export async function requireUser(request: Request): Promise<SessionUser> {
 
   return user;
 }
+
+/**
+ * Tożsamość zweryfikowana przez bramę (`app/routes/chronione.tsx`), odłożona
+ * do kontekstu żądania dla tras pod nią. Middleware biegnie przed wszystkimi
+ * loaderami, więc każdy loader za bramą dostaje wartość gotową — bez drugiego
+ * odczytu sesji.
+ *
+ * Świadomie **bez wartości domyślnej**. `context.get` na nieustawionym
+ * kontekście rzuca, i tak ma zostać: brak wartości znaczy, że trasa czytająca
+ * tożsamość została w `app/routes.ts` wyjęta spod bramy, czyli wystawiona bez
+ * logowania. Wartość domyślna zamieniłaby tę pomyłkę w działający, niechroniony
+ * widok.
+ *
+ * Modułowy singleton, bo kontekst routera jest kluczem po referencji — dwa
+ * wywołania `createContext` dałyby dwa różne klucze, a `get` pod drugim nie
+ * zobaczyłby tego, co `set` odłożył pod pierwszym.
+ */
+export const kontekstUzytkownika = createContext<SessionUser>();
 
 /**
  * Wystawia ciasteczko sesji i przekierowuje pod wskazany adres.

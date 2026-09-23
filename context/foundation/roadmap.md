@@ -23,9 +23,10 @@ milestone_status: open
 **M-1: Pierwszy własny ekran dyspozytora** — Status: open
 
 - **Intent:** Dyspozytor przechodzi pełną ścieżkę w jednej sesji — od założenia konta, przez zbudowanie własnej struktury drzewa i gridu z punktami czasowymi, po zapisany ekran, który odtwarza się bez zmian po ponownym zalogowaniu.
-- **Source materials:** `context/foundation/prd.md` (v1)
+- **Source materials:** `context/foundation/prd.md` (v1) + opis użytkownika z 2026-09-23 (kotwica `MS-01` poniżej)
 - **Done when:** każdy `F-NN` i `S-NN` poniżej ma status `done`.
-- **Scope anchors:** FR-001–FR-010, US-01, sekcje `Business Logic` i `Access Control`, oraz wymagania niefunkcjonalne (288 kolumn, izolacja kont, informacja zwrotna powyżej 2 s, gęstość odczytu liczb, dwa warianty motywu, kontrast i rola koloru).
+- **Scope anchors:** FR-001–FR-010, US-01, sekcje `Business Logic` i `Access Control`, oraz wymagania niefunkcjonalne (288 kolumn, izolacja kont, informacja zwrotna powyżej 2 s, gęstość odczytu liczb, dwa warianty motywu, kontrast i rola koloru). Spoza PRD:
+  - MS-01: Po zalogowaniu aplikacja ma menu główne, w którym pojawiają się kolejne funkcjonalności; pierwsza pozycja to „Obiekty", a kolejne pozycje są dopisywane sukcesywnie przez następne plastry.
 
 ## Vision recap
 
@@ -56,6 +57,7 @@ Przy celu sekwencjonowania `speed` to również fragment, który najtaniej odpow
 | S-04 | `kategorie-danych`    | przypisać obiektowi w drzewie kategorie danych z ograniczonej listy                        | S-03          | FR-006                                                 | proposed |
 | S-05 | `grid-czasowy`        | wybrać ziarno czasowe i dobę oraz zobaczyć grid z punktami czasowymi                       | S-04          | FR-007, FR-008, US-01, NFR (288 kolumn, feedback >2 s) | proposed |
 | S-06 | `zapisane-ekrany`     | zapisać ekran pod nazwą, wybrać go z listy własnych i odtworzyć bez zmian                  | S-01, S-05    | FR-009, FR-010, US-01, NFR (izolacja kont)             | proposed |
+| S-07 | `menu-glowne`         | po zalogowaniu przechodzić między funkcjami z menu głównego; pierwsza pozycja to „Obiekty" | S-01, S-02    | MS-01, FR-002, Access Control                          | in-progress |
 
 ## Streams
 
@@ -64,7 +66,7 @@ Navigation aid — groups items that share a Prerequisites chain. Canonical orde
 | Stream | Theme                   | Chain                                               | Note                                                                                                   |
 | ------ | ----------------------- | --------------------------------------------------- | ------------------------------------------------------------------------------------------------------ |
 | A      | Kontrolka drzewo + grid | `F-01` → `S-02` → `S-03` → `S-04` → `S-05` → `S-06` | Główna ścieżka rzeczy koniecznych; przy celu `speed` nic z niej nie schodzi do "Parked".                |
-| B      | Konto i izolacja danych | `S-01`                                              | Zależy tylko od `F-01`, więc może iść równolegle do `S-02`/`S-03`; dołącza do strumienia A przy `S-06`. |
+| B      | Konto i izolacja danych | `S-01` → `S-07`                                     | Zależy tylko od `F-01`, więc może iść równolegle do `S-02`/`S-03`; `S-07` łączy się ze strumieniem A przy `S-02`, a całość dołącza do A przy `S-06`. |
 | C      | Język wizualny          | `F-02`                                              | Nie zależy od niczego, więc może iść równolegle do A i B; musi być gotowy przed `S-05`, bo grid dziedziczy po nim gęstość i krój cyfr. |
 
 ## Baseline
@@ -184,6 +186,18 @@ Foundations below assume these are present and do NOT re-scaffold them.
 - **Risk:** Domyka główne kryterium sukcesu z PRD — całą ścieżkę w jednej sesji — więc siedzi na końcu łańcucha z założenia, nie przez przeoczenie. Dwa ryzyka: izolacja kont musi być egzekwowana po stronie serwera przy każdym odczycie ekranu (wymaganie mówi "bez wyjątków", więc ukrycie cudzych ekranów w interfejsie nie wystarczy), oraz zakres cyklu życia ekranu, którego PRD nie rozstrzyga — przy twardym terminie trzyma się tu minimum: zapis, lista, otwarcie.
 - **Status:** proposed
 
+### S-07: Menu główne aplikacji po zalogowaniu
+
+- **Outcome:** Zalogowany dyspozytor widzi na każdym widoku aplikacji menu główne i przechodzi z niego do dostępnych funkcji; pierwszą pozycją jest „Obiekty", a każdy kolejny plaster, który doda widok produktu, dopisuje do menu swoją pozycję. Niezalogowany użytkownik menu nie widzi.
+- **Change ID:** `menu-glowne`
+- **PRD refs:** MS-01, FR-002, sekcja `Access Control`
+- **Prerequisites:** S-01, S-02
+- **Parallel with:** S-03
+- **Blockers:** —
+- **Unknowns:** —
+- **Risk:** Menu staje się jedynym miejscem, do którego dopisuje się każdy kolejny widok, więc jego kształt musi przyjmować nowe pozycje bez przerabiania — a przy tym nie wolno dopisywać pozycji na zapas, zanim funkcja istnieje (`S-03`–`S-06` dodają swoje pozycje same). Drugie ryzyko: menu żyje obok bramy logowania z `S-01`, a nie w niej — zmieszanie powłoki wizualnej z regułą dostępu sprawiłoby, że każda zmiana menu wymagałaby ponownego czytania kodu bramy jako reguły bezpieczeństwa.
+- **Status:** in-progress
+
 ## Backlog Handoff
 
 | Roadmap ID | Change ID             | Suggested issue title                                                | Ready for `/10x-plan` | Notes                                                        |
@@ -196,6 +210,7 @@ Foundations below assume these are present and do NOT re-scaffold them.
 | S-04       | `kategorie-danych`    | Przypisywanie kategorii danych do obiektów w drzewie                 | no                    | Czeka na `S-03`                                              |
 | S-05       | `grid-czasowy`        | Grid z punktami czasowymi dla wybranego ziarna i doby                | no                    | Czeka na `S-04`                                              |
 | S-06       | `zapisane-ekrany`     | Zapisane ekrany — zapis, lista własnych ekranów, odtworzenie         | no                    | Czeka na `S-01` i `S-05`                                     |
+| S-07       | `menu-glowne`         | Menu główne aplikacji po zalogowaniu (pierwsza pozycja: Obiekty)     | yes                   | `S-01` i `S-02` mają działający kod; uruchom `/10x-plan menu-glowne` |
 
 This table is the clean handoff to Jira/Linear or any MCP-backed backlog. It carries one row for every `F-NN` and `S-NN` and deliberately does not duplicate the detailed roadmap body.
 

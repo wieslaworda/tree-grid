@@ -170,6 +170,29 @@ function zbudujMotyw(wariant: Wariant): ThemeConfig {
       Button: {
         primaryColor: tekstNaAkcencie,
       },
+
+      /**
+       * Menu główne w nagłówku powłoki (`app/components/MenuGlowne.tsx`).
+       * Domyślne `horizontalLineHeight` to `1,15 × controlHeightLG`
+       * (`menu/style/index.js:437`) — 46 px przy domyślnym motywie antd,
+       * a przy naszym `controlHeight: 24` ułamkowe 34,5 px, za mało na
+       * przełącznik motywu (12 px od góry + 24 px wysokości). Wartość
+       * wyprowadzona z ziarna nie ma więc związku z tym, co nagłówek musi
+       * pomieścić. Stąd `METRYKI.wysokoscNaglowka`, z tego samego powodu co
+       * `wysokoscWiersza` przy `Tree`: liczba wpisana tutaj byłaby drugim
+       * źródłem prawdy.
+       *
+       * Jednostka jest jawna, a nie dopisywana przez antd: token trafia do CSS
+       * jako `line-height`, a gołe `48` byłoby tam **mnożnikiem** rozmiaru
+       * czcionki (576 px), nie wysokością w pikselach.
+       *
+       * Kolorów tu nie ma świadomie — tło menu to `colorBgContainer`, czyli
+       * `panel`, dokładnie to samo co `bg-tg-panel` nagłówka, a akcent
+       * pozycji aktywnej wyprowadza się z ziarna `colorPrimary`.
+       */
+      Menu: {
+        horizontalLineHeight: `${METRYKI.wysokoscNaglowka}px`,
+      },
     },
   };
 }

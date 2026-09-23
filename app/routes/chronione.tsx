@@ -1,6 +1,6 @@
 import { Outlet } from "react-router";
 
-import { requireUser } from "~/lib/auth.server";
+import { kontekstUzytkownika, requireUser } from "~/lib/auth.server";
 
 import type { Route } from "./+types/chronione";
 
@@ -22,10 +22,15 @@ import type { Route } from "./+types/chronione";
  * wszystkimi. Middleware biegnie dla każdej dopasowanej trasy, przed filtrem
  * `_routes` i przed `action`. Sprawdzenie: krok 2.5 w
  * `context/changes/lista-obiektow/plan.md`.
+ *
+ * Zweryfikowaną tożsamość brama nie wyrzuca, tylko odkłada do kontekstu
+ * żądania (`kontekstUzytkownika`), skąd czytają ją widoki pod nią — dziś
+ * powłoka z `routes/powloka.tsx`, która pokazuje e-mail. To jest przekazanie
+ * danych, nie wygląd: brama nadal niczego nie renderuje.
  */
 export const middleware: Route.MiddlewareFunction[] = [
-  async ({ request }) => {
-    await requireUser(request);
+  async ({ request, context }) => {
+    context.set(kontekstUzytkownika, await requireUser(request));
   },
 ];
 
