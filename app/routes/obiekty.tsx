@@ -304,11 +304,18 @@ const KontekstFiltrow = createContext<{
  * `thead` tabeli z dodatkowym wierszem filtrów pod wierszem tytułów.
  *
  * antd nie ma wiersza filtrów — ma tylko rozwijane filtry przy tytule — więc
- * wiersz dokłada podmieniony `components.header.wrapper`. Komórki to `th`
- * w tym samym `thead`, więc dostają tło, obramowanie i odstępy nagłówka
- * z motywu, bez żadnej klasy stąd. Wiersz tytułów zostaje w całości antd:
- * na nim są strzałki i kliknięcia sortowania, więc pola filtrów nie mogą
- * stać w tych samych komórkach.
+ * wiersz dokłada podmieniony `components.header.wrapper`. Komórki to `td`
+ * w tym samym `thead`: antd stylizuje `thead > tr > td` tak samo jak `th`
+ * (`antd/es/table/style/index.js:84`), więc dostają tło, obramowanie
+ * i odstępy nagłówka z motywu bez żadnej klasy stąd, a nie są nagłówkami
+ * kolumn — `th` z polem tekstowym czytnik ekranu doklejałby do nazwy każdej
+ * komórki danych. Wiersz tytułów zostaje w całości antd: na nim są strzałki
+ * i kliknięcia sortowania, więc pola filtrów nie mogą stać w tych samych
+ * komórkach.
+ *
+ * Wiersz ma dokładnie tyle komórek, ile `KOLUMNY_TABELI`. `scroll.y`,
+ * `sticky` albo `virtual` na tabeli dokładają w nagłówku kolumnę paska
+ * przewijania — przy nich temu wierszowi zabrakłoby komórki.
  *
  * Komponent na poziomie modułu, a nie w renderze: nowa funkcja przy każdym
  * renderze to nowy typ elementu, czyli przemontowanie `thead` i utrata
@@ -326,7 +333,7 @@ function NaglowekZFiltrami({
       {kontekst === null ? null : (
         <tr>
           {KOLUMNY_TABELI.map(({ klucz, tytul }) => (
-            <th key={klucz} className="ant-table-cell">
+            <td key={klucz} className="ant-table-cell">
               <Input
                 size="small"
                 allowClear
@@ -337,7 +344,7 @@ function NaglowekZFiltrami({
                   kontekst.ustawFiltr(klucz, zdarzenie.target.value)
                 }
               />
-            </th>
+            </td>
           ))}
         </tr>
       )}
@@ -405,18 +412,22 @@ export default function Obiekty({
     () => stronaObiektu(widoczne, wybrany?.id) ?? 1,
   );
 
-  // Zmiana wyboru przenosi na stronę obiektu — przede wszystkim po dodaniu,
-  // gdy przekierowanie wybiera nowy obiekt, który może stać na innej stronie.
-  // Zależność tylko od `id` świadomie: zmiana filtra albo sortowania przy tym
-  // samym wyborze wraca na pierwszą stronę i ten efekt nie może tego cofać.
-  // Obiekt odsiany filtrem zostawia stronę bez zmian.
+  // Po każdym przebiegu loadera tabela staje na stronie wybranego obiektu —
+  // po dodaniu (nowy obiekt, inna strona) i po zapisie, który zmienia kod
+  // albo sortowaną kolumnę, więc przesuwa wiersz, choć `id` zostaje to samo.
+  //
+  // Zależności świadomie bez `filtry` i `sortowanie`: zmiana filtra albo
+  // sortowania wraca na pierwszą stronę i ten efekt nie może tego cofać.
+  // `obiekty` ma nową tożsamość wyłącznie po przebiegu loadera (wybór, zapis,
+  // rewalidacja po 409), nigdy po filtrze. Obiekt odsiany filtrem albo brak
+  // wyboru (po usunięciu) zostawia stronę, przyciętą do liczby stron — inaczej
+  // stan zostałby ponad nią i przeskoczył przy późniejszym dopływie wierszy.
   useEffect(() => {
     const docelowa = stronaObiektu(widoczne, wybrany?.id);
+    const ostatnia = Math.max(1, Math.ceil(widoczne.length / NA_STRONE));
 
-    if (docelowa !== null) {
-      ustawStrone(docelowa);
-    }
-  }, [wybrany?.id]);
+    ustawStrone((poprzednia) => docelowa ?? Math.min(poprzednia, ostatnia));
+  }, [wybrany?.id, obiekty]);
 
   // Po usunięciu albo zawężeniu filtrów zapamiętana strona może nie istnieć.
   const liczbaStron = Math.max(1, Math.ceil(widoczne.length / NA_STRONE));
@@ -535,12 +546,16 @@ export default function Obiekty({
           </KontekstFiltrow.Provider>
 
           {/*
-            `key` po wyborze: przejście z jednego obiektu na drugi albo do
-            dodawania zostaje na tej samej trasie, więc bez niego formularz
-            zachowałby stan i wartości startowe poprzedniego obiektu.
+            `key` z wyboru **i zapisanych wartości**: przejście z jednego
+            obiektu na drugi albo do dodawania zostaje na tej samej trasie,
+            a udany zapis przekierowuje na ten sam adres. Bez klucza formularz
+            zachowałby stan poprzedniego obiektu, a po zapisie — wpisane
+            wartości zamiast zapisanych (API obcina spacje z kodu i nazwy).
+            Nieudany zapis nie woła loadera, więc klucz zostaje i wpisane dane
+            przeżywają komunikat błędu.
           */}
           <PanelObiektu
-            key={wybrany?.id ?? "nowy"}
+            key={kluczPanelu(wybrany)}
             obiekt={wybrany}
             obiekty={obiekty}
             nieznany={nieznany}
@@ -693,6 +708,11 @@ function EdycjaObiektu({
           description="Tej operacji nie da się cofnąć."
           okText="Usuń"
           cancelText="Anuluj"
+          // Jedyny świadomy wyjątek od wypełnionych przycisków (`PRZYCISKI`
+          // w `app/theme/antd.ts`): w potwierdzeniu nieodwracalnej operacji
+          // akcja bezpieczna musi wyglądać inaczej niż „Usuń". Para
+          // `color` + `variant`, bo samo jedno z nich nie przebija kontekstu.
+          cancelButtonProps={{ color: "default", variant: "outlined" }}
           disabled={maPowiazania}
           onConfirm={() =>
             wyslij(
@@ -745,6 +765,18 @@ function RamkaPanelu({
       {children}
     </Card>
   );
+}
+
+/**
+ * Klucz panelu: „nowy" przy dodawaniu, a przy edycji identyfikator razem
+ * z zapisanymi wartościami, które pokazuje formularz. Obiekty nadrzędne
+ * świadomie poza kluczem — nie są polem formularza, a ich zmiana (np. po
+ * rewalidacji przy 409) nie powinna kasować niezapisanych edycji.
+ */
+function kluczPanelu(obiekt: CatalogObject | null): string {
+  return obiekt === null
+    ? "nowy"
+    : JSON.stringify([obiekt.id, obiekt.code, obiekt.name, obiekt.childIds]);
 }
 
 /**

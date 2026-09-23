@@ -2,6 +2,12 @@
 
 > Pełny plan: `context/changes/lista-obiektow/plan.md`
 
+> **Nieaktualne w części UI.** Brief opisuje układ z chwili planowania: osobne
+> trasy `/obiekty/nowy` i `/obiekty/:id` oraz link ze strony głównej. Od
+> 2026-09-23 słownik to jedna trasa `/obiekty` z panelem dodawania, edycji
+> i usuwania pod tabelą (stronicowanie, filtry, sortowanie), a wejście
+> prowadzi przez menu główne. Obowiązuje plan i jego addenda w Fazie 2.
+
 ## What & Why
 
 S-02 daje dyspozytorowi słownik obiektów, z których w S-03 zbuduje własne drzewo:

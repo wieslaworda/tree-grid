@@ -105,11 +105,13 @@ export function Layout({ children }: { children: React.ReactNode }) {
           kontrolek. Produkcja tego nie widziała, bo tam `<link>` do CSS stoi
           przed stylami antd na stałe.
 
-          Lista musi być identyczna z tą w `app/app.css`. Style dokładane przez
-          antd po hydracji lądują za istniejącymi stylami `prependQueue`
-          (`@rc-component/util/lib/Dom/dynamicCSS.js`), więc za tym elementem
-          — dopóki SSR wyemitował choć jeden styl antd, a robi to na każdej
-          trasie, bo przełącznik motywu jest komponentem antd.
+          Lista musi być identyczna z tą w `app/app.css`. Style komponentów
+          dokładane przez antd po hydracji nie wyprzedzą tego elementu: przy
+          `<StyleProvider layer>` cssinjs dokleja je na **koniec** `<head>`
+          (`prepend: enableLayer ? false : "queue"`,
+          `@ant-design/cssinjs/es/hooks/useStyleRegister.js:278`). Na początek
+          trafiają tylko style zmiennych i tokenów (`prependQueue`), a te nie są
+          opakowane w `@layer`, więc kolejności warstw nie ustalają.
         */}
         <style>{"@layer theme, base, antd, components, utilities;"}</style>
         <Meta />

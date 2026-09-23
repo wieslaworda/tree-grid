@@ -31,9 +31,12 @@ export const MOTYWY: Record<Wariant, ThemeConfig> = {
  * propu, w tym przyciski wewnętrzne antd (np. „Anuluj" w `Popconfirm`),
  * dostaje ten sam wygląd bez pamiętania o czymkolwiek.
  *
- * To tylko wartość domyślna — jawne `type`, `color` albo `variant` na
- * przycisku nadal wygrywa (`antd/es/button/Button.js:92-113`). Kolor tekstu
- * na wypełnieniu to `Button.primaryColor` niżej.
+ * To tylko wartość domyślna, ale przebija ją wyłącznie jawne `type` albo
+ * `danger`, albo **para** `color` + `variant` na przycisku
+ * (`antd/es/button/Button.js:91-111`). Samo `variant="text"` czy samo
+ * `color="default"` nie wystarczy — antd uzupełni brakującą połowę
+ * z kontekstu i przycisk po cichu zostanie wypełniony. Kolor tekstu na
+ * wypełnieniu to `Button.primaryColor` niżej.
  *
  * Stała modułowa z tego samego powodu co {@link MOTYWY}: świeży obiekt
  * w renderze unieważniałby memoizację `ConfigProvider`.

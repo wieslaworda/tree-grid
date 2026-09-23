@@ -27,8 +27,9 @@ public sealed class CatalogObject
     public const int NameMaxLength = 200;
 
     /// <summary>
-    /// Klucz całkowity z autoinkrementacją — adresy widoków mają postać
-    /// <c>/obiekty/12</c>, a identyfikator usuniętego obiektu nie wraca do obiegu.
+    /// Klucz całkowity z autoinkrementacją — widok wskazuje wybrany obiekt
+    /// adresem <c>/obiekty?id=12</c>, a identyfikator usuniętego obiektu nie
+    /// wraca do obiegu.
     /// </summary>
     public int Id { get; set; }
 

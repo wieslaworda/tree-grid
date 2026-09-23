@@ -444,6 +444,13 @@ obsługuje tylko `redirect` po stronie serwera — tak samo jak `LOGIN_ROUTE`.
 Wspólną stałą tras w module bez sufiksu `.server` wprowadza dopiero plaster,
 który doda kolejnego konsumenta.
 
+**Addendum (S-07, impl-review fazy 2 F5)**: kontrakt #7 jest nieaktualny od
+zmiany `menu-glowne` (commit `ff9a44b`) — `app/routes/home.tsx` nie ma już
+linku „Obiekty" ani akapitu zastępczego i zwraca `null`, a do słownika
+prowadzi pozycja „Obiekty" menu głównego w nagłówku powłoki
+(`app/components/MenuGlowne.tsx`, `app/routes/powloka.tsx`). Cel #7 —
+widok osiągalny bez wpisywania adresu — jest spełniony tamtą drogą.
+
 **Addendum (zmiana układu, 2026-09-23)**: po przeglądzie implementacji
 dodawanie, edycja i usuwanie przeszły z osobnych tras (`/obiekty/nowy`,
 `/obiekty/:id`) do panelu pod listą na `/obiekty` — decyzja użytkownika: lista
@@ -578,7 +585,7 @@ więc przed pierwszym startem po tej zmianie trzeba wykonać
 - Wzorzec testów reguł: `tests/Api.Tests/AuthErrorContractTests.cs`
 - Wzorzec klienta API: `app/lib/auth.server.ts:172-221`
 - Wzorzec formularza: `app/routes/logowanie.tsx:138-272`
-- Brama: `app/routes.ts:27-29`, `app/routes/chronione.tsx`
+- Brama: `app/routes.ts:34-45`, `app/routes/chronione.tsx`
 - Reguły: `context/foundation/lessons.md` (WAL i `busy_timeout`, origin za tunelem, kolory w trasach)
 
 ## Progress
@@ -611,10 +618,10 @@ więc przed pierwszym startem po tej zmianie trzeba wykonać
 > a po stronicowaniu, filtrach i sortowaniu wszystkie cztery kroki
 > automatyczne zostały sprawdzone ponownie na tym stanie kodu.
 
-- [x] 2.1 Typy przechodzą: `npm run typecheck`
-- [x] 2.2 Build produkcyjny przechodzi: `npm run build`
-- [x] 2.3 Nowe widoki nie zawierają literałów koloru ani palety Tailwinda
-- [x] 2.4 Adres API nie trafia do bundla klienckiego: `grep -r "127.0.0.1:5180" build/client` nic nie zwraca
+- [x] 2.1 Typy przechodzą: `npm run typecheck` — a4f64fd
+- [x] 2.2 Build produkcyjny przechodzi: `npm run build` — a4f64fd
+- [x] 2.3 Nowe widoki nie zawierają literałów koloru ani palety Tailwinda — a4f64fd
+- [x] 2.4 Adres API nie trafia do bundla klienckiego: `grep -r "127.0.0.1:5180" build/client` nic nie zwraca — a4f64fd
 
 #### Manual
 
