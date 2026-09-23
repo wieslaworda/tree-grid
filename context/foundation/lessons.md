@@ -29,3 +29,17 @@
 - **Problem**: `app/routes/logowanie.tsx` niósł lokalny motyw `MOTYW_SZKLA` (glassmorphism, `borderRadius: 12`, `controlHeight: 46`) plus gradient i `backdrop-blur` wpisane w JSX. Nic się nie psuło i nikt nie zgłosił błędu — ale `rejestracja.tsx` obok wyglądała jak goły starter, bo nie miała jak tej palety poznać, a systemowy tryb ciemny dawał prawie czarne tło pod jasnymi komponentami antd, bo `app.css` i `ConfigProvider` nie wiedziały o sobie nawzajem. Awaria tej klasy nie ma objawu poza tym, że dwa ekrany jednego produktu wyglądają jak dwa produkty — wychodzi dopiero, gdy ktoś zobaczy je obok siebie.
 - **Rule**: Kolory i metryki zawsze definiuj w `app/theme/tokeny.ts` i konsumuj przez tokeny antd albo klasy `tg-*`. Nigdy nie stawiaj zagnieżdżonego `ConfigProvidera` w pliku trasy i nigdy nie wpisuj do widoku literału koloru ani rozmiaru sterującego gęstością. Jeśli potrzebny kolor nie ma roli w palecie, dopisz rolę — nie literał. Wyjątek wolno zrobić wyłącznie świadomie, jednym tokenem i z uzasadnieniem w komentarzu.
 - **Applies to**: plan, implement, impl-review
+
+## Kontrakt API nie wyprzedza emitenta
+
+- **Context**: `src/Api/Objects/ObjectEndpoints.cs:433` (`ObjectFormFields.Form`), `:125` (`Results.Created($"/objects/{id}")`); konsument po stronie klienta: `app/components/FormularzObiektu.tsx:215` (`pola.form`).
+- **Problem**: (1) `ObjectFormFields.Form = "form"` jest wymagane planem i przypięte testem, ale żaden endpoint `/objects` go nie emituje — `FormularzObiektu.tsx:215` czyta `pola.form` na zapas, skopiowane z `logowanie.tsx`. Kłóci się to z zasadą „nic na zapas" w `ApiErrorCodes`. (2) `Results.Created($"/objects/{id}")` wskazuje adres, który ma tylko `PUT` i `DELETE` — `GET` zwróci 405 `method_not_allowed`. Klient nagłówek ignoruje, więc to kosmetyka.
+- **Rule**: Stała pola, kod błędu albo nagłówek trafia do kontraktu razem z pierwszym endpointem, który go emituje, a nie przez kopiowanie wzorca z sąsiedniego modułu.
+- **Applies to**: plan, implement, impl-review
+
+## Zmiany narzędziowe nie jadą w commicie fazy
+
+- **Context**: `CLAUDE.md`, `.claude/.10x-cli-manifest.json`, `.claude/skills/10x-impl-review/`, `context/foundation/roadmap.md` — drzewo robocze obok stage'u Fazy 2 zmiany `lista-obiektow`.
+- **Problem**: Stage zawiera dokładnie 7 plików z planu plus postęp w `plan.md` — to czyste. Poza stage'em leżą zmiany narzędziowe (podmiana bloku lekcji w `CLAUDE.md`, manifest, nowy skill) i status S-02 w roadmapie. Dodatki w samej implementacji (`requireUser` w akcjach, transakcja także w `POST`, pomijanie wiszących relacji w `GET`, dodatkowy test koperty) są korzystne i nie wymagają decyzji.
+- **Rule**: Commit fazy zawiera wyłącznie pliki z planu, jego postęp i poprawki z review tej zmiany. Aktualizacje toolkitu (`.claude/`, blok w `CLAUDE.md`, manifest) idą osobnym commitem, a status w roadmapie dołącza do commitu, który domyka plaster.
+- **Applies to**: implement, impl-review

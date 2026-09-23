@@ -430,6 +430,13 @@ internal static class ObjectFormFields
     /// Pole zbiorcze na naruszenia, które nie dotyczą żadnego konkretnego pola
     /// formularza — ta sama rola co <c>AuthFormFields.Form</c>.
     /// </summary>
+    /// <remarks>
+    /// Zarezerwowane: żaden endpoint <c>/objects</c> go dziś nie emituje, a
+    /// <c>FormularzObiektu.tsx</c> czyta je na zapas. Pierwsze naruszenie spoza
+    /// pól ma trafić właśnie tutaj, zamiast wprowadzać drugą nazwę. Świadomy
+    /// wyjątek od reguły „Kontrakt API nie wyprzedza emitenta"
+    /// (<c>context/foundation/lessons.md</c>, impl-review F6).
+    /// </remarks>
     public const string Form = "form";
 }
 

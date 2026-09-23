@@ -1,5 +1,5 @@
 import { Button, Typography } from "antd";
-import { Form } from "react-router";
+import { Form, Link } from "react-router";
 
 import type { Route } from "./+types/home";
 
@@ -23,7 +23,22 @@ export default function Home() {
       <Typography.Title level={1}>TreeGrid</Typography.Title>
       <Typography.Paragraph>
         Aplikacja jest w budowie. Szkielet API i kontrakt odpowiedzi błędów są
-        już na miejscu.
+        już na miejscu. Gotowy jest słownik obiektów, z których zbudujesz
+        własne drzewo.
+      </Typography.Paragraph>
+
+      {/*
+        Adres dosłowny, a nie `OBJECTS_ROUTE`: stała mieszka w module
+        `.server`, a ten komponent renderuje się także w przeglądarce — import
+        stamtąd wywaliłby build (nagłówek `app/lib/objects.server.ts`).
+      */}
+      <Typography.Paragraph>
+        <Link
+          to="/obiekty"
+          className="font-semibold text-tg-akcent underline-offset-4 hover:underline"
+        >
+          Obiekty
+        </Link>
       </Typography.Paragraph>
 
       {/*

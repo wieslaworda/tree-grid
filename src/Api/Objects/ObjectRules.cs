@@ -54,51 +54,46 @@ internal static class ObjectRules
         IReadOnlyDictionary<int, IReadOnlyCollection<int>> childrenByParent)
     {
         var exhausted = new HashSet<int>();
-        var path = new List<int> { objectId };
 
-        foreach (var childId in newChildIds)
+        // Jawny stos zamiast rekurencji: głębokość przejścia to najdłuższy
+        // łańcuch w grafie, a `StackOverflowException` w .NET nie da się
+        // złapać — kończy cały proces API. Ramka to węzeł bieżącej ścieżki
+        // i jego dzieci jeszcze do sprawdzenia, więc stos od dna jest drogą
+        // od `objectId` do właśnie badanego węzła.
+        var stack = new Stack<(int Node, IEnumerator<int> Children)>();
+        stack.Push((objectId, newChildIds.GetEnumerator()));
+
+        while (stack.Count > 0)
         {
-            if (Reaches(childId))
+            var children = stack.Peek().Children;
+
+            if (!children.MoveNext())
             {
-                return path;
+                stack.Pop();
+
+                continue;
             }
+
+            var child = children.Current;
+
+            if (child == objectId)
+            {
+                return [.. stack.Reverse().Select(frame => frame.Node), objectId];
+            }
+
+            if (!exhausted.Add(child))
+            {
+                continue;
+            }
+
+            stack.Push((
+                child,
+                childrenByParent.TryGetValue(child, out var grandchildren)
+                    ? grandchildren.GetEnumerator()
+                    : Enumerable.Empty<int>().GetEnumerator()));
         }
 
         return null;
-
-        // Czy z `node` da się dojść do `objectId`. Po sukcesie `path` niesie
-        // całą drogę, po porażce wraca do stanu sprzed wywołania.
-        bool Reaches(int node)
-        {
-            if (node == objectId)
-            {
-                path.Add(node);
-
-                return true;
-            }
-
-            if (!exhausted.Add(node))
-            {
-                return false;
-            }
-
-            path.Add(node);
-
-            if (childrenByParent.TryGetValue(node, out var children))
-            {
-                foreach (var child in children)
-                {
-                    if (Reaches(child))
-                    {
-                        return true;
-                    }
-                }
-            }
-
-            path.RemoveAt(path.Count - 1);
-
-            return false;
-        }
     }
 
     /// <summary>

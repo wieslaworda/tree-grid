@@ -6,18 +6,36 @@ import type { Route } from "./+types/chronione";
 
 /**
  * Brama. Layout bez własnego segmentu ścieżki — adresy widoków pod nim się nie
- * zmieniają, zmienia się tylko to, że ich `loader` nie ruszy, dopóki ten nie
- * przepuści żądania.
+ * zmieniają, zmienia się tylko to, że żaden ich `loader` ani `action` nie
+ * ruszy, dopóki ten plik nie przepuści żądania.
  *
  * Reguła stoi w jednym miejscu świadomie: wpisanie `requireUser` do każdej
  * trasy z osobna działa tak długo, jak długo nikt nie zapomni go dopisać przy
  * kolejnej — a zapomnienie nie daje żadnego objawu poza otwartym widokiem.
  * Tutaj domyślnie chroniony jest każdy widok wpisany do środka layoutu
  * w `app/routes.ts`, a wyjątek trzeba zadeklarować, wystawiając trasę obok.
+ *
+ * Brama jest `middleware`, a nie `loader`em, i to jest cały jej sens. Żądanie
+ * `.data` niesie parametr `_routes`, a serwer wykonuje wyłącznie wymienione
+ * w nim loadery — klient może więc pominąć loader layoutu i dostać dane widoku
+ * bez sesji. Loadery biegną poza tym równolegle, a `action` przed nimi
+ * wszystkimi. Middleware biegnie dla każdej dopasowanej trasy, przed filtrem
+ * `_routes` i przed `action`. Sprawdzenie: krok 2.5 w
+ * `context/changes/lista-obiektow/plan.md`.
  */
-export async function loader({ request }: Route.LoaderArgs) {
-  await requireUser(request);
+export const middleware: Route.MiddlewareFunction[] = [
+  async ({ request }) => {
+    await requireUser(request);
+  },
+];
 
+/**
+ * Pusty `loader` zostaje celowo. Przy nawigacji po stronie klienta serwer
+ * dostaje żądanie wyłącznie dla tras z `loader`em, a middleware serwera bez
+ * żądania nie ma kiedy się wykonać. Bez tego wejście do widoku, który nie ma
+ * własnego `loader`a, ominęłoby bramę.
+ */
+export function loader() {
   return null;
 }
 

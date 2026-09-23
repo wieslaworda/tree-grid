@@ -406,6 +406,14 @@ powiązań.". Odmowa 409 z API trafia do banera nad przyciskiem.
 `app/routes/logowanie.tsx:221-226`; akapit zastępczy dostaje zdanie o słowniku
 obiektów. Nic nie trafia do `routes/chronione.tsx`.
 
+**Addendum (impl-review F2)**: kontrakt „link do `OBJECTS_ROUTE`" był
+niewykonalny — stała mieszka w `app/lib/objects.server.ts`, a komponenty
+renderują się także w przeglądarce, więc import wywaliłby build. Linki
+(`home.tsx`, `obiekty.tsx`, `obiekty.nowy.tsx`, `obiekty.$id.tsx`) wpisują
+`/obiekty` dosłownie, a `OBJECTS_ROUTE` obsługuje tylko `redirect` po stronie
+serwera — tak samo jak `LOGIN_ROUTE`. Wspólną stałą tras w module bez sufiksu
+`.server` wprowadza dopiero plaster, który doda kolejnego konsumenta.
+
 ### Success Criteria:
 
 #### Automated Verification:
@@ -417,7 +425,7 @@ obiektów. Nic nie trafia do `routes/chronione.tsx`.
 
 #### Manual Verification:
 
-- Bez sesji `/obiekty`, `/obiekty/nowy` i `/obiekty/1` przekierowują na `/logowanie`
+- Bez sesji `/obiekty`, `/obiekty/nowy` i `/obiekty/1` przekierowują na `/logowanie` — zarówno żądanie dokumentu, jak i żądanie `.data` z `_routes` pomijającym bramę (`curl -si "http://127.0.0.1:3000/obiekty.data?_routes=routes%2Fobiekty"` → `SingleFetchRedirect` na `/logowanie`, nie dane; tak samo `/obiekty/nowy.data?_routes=routes%2Fobiekty.nowy` i `/obiekty/1.data?_routes=routes%2Fobiekty.%24id`)
 - Na pustej bazie lista pokazuje pusty stan, a po dodaniu obiekty są posortowane po kodzie z kolumną podobiektów
 - Podobiekty wybrane w formularzu dodawania i edycji zapisują się i są widoczne na liście
 - Duplikat kodu i zapętlenie pokazują komunikat pod właściwym polem w obu wariantach motywu
@@ -509,32 +517,32 @@ więc przed pierwszym startem po tej zmianie trzeba wykonać
 
 #### Automated
 
-- [x] 1.1 Build rozwiązania przechodzi: `dotnet build TreeGrid.sln`
-- [x] 1.2 Testy przechodzą, w tym testy reguł słownika: `dotnet test TreeGrid.sln`
-- [x] 1.3 Migracja aplikuje się czysto: `dotnet ef database update --project src/Api`
-- [x] 1.4 Model nie ma zmian bez migracji: `dotnet ef migrations has-pending-model-changes --project src/Api`
+- [x] 1.1 Build rozwiązania przechodzi: `dotnet build TreeGrid.sln` — 5063584
+- [x] 1.2 Testy przechodzą, w tym testy reguł słownika: `dotnet test TreeGrid.sln` — 5063584
+- [x] 1.3 Migracja aplikuje się czysto: `dotnet ef database update --project src/Api` — 5063584
+- [x] 1.4 Model nie ma zmian bez migracji: `dotnet ef migrations has-pending-model-changes --project src/Api` — 5063584
 
 #### Manual
 
-- [x] 1.5 Dodany obiekt wraca z `GET /objects` razem z `childIds` i `parentIds`
-- [x] 1.6 Kod ` gpz-01 ` przy istniejącym `GPZ-01` daje `validation_error` pod `code`
-- [x] 1.7 Zapis podobiektów zamykający cykl daje `validation_error` pod `childIds` ze ścieżką w komunikacie
-- [x] 1.8 `DELETE` obiektu z powiązaniami daje 409 `object_has_relations`, a bez powiązań 204
-- [x] 1.9 `PUT` i `DELETE` nieistniejącego obiektu dają 404 `not_found` w kontrakcie
-- [x] 1.10 Ścieżka produkcyjna: po `dotnet ef database update` `start-api.ps1` wstaje z nową migracją
+- [x] 1.5 Dodany obiekt wraca z `GET /objects` razem z `childIds` i `parentIds` — 5063584
+- [x] 1.6 Kod ` gpz-01 ` przy istniejącym `GPZ-01` daje `validation_error` pod `code` — 5063584
+- [x] 1.7 Zapis podobiektów zamykający cykl daje `validation_error` pod `childIds` ze ścieżką w komunikacie — 5063584
+- [x] 1.8 `DELETE` obiektu z powiązaniami daje 409 `object_has_relations`, a bez powiązań 204 — 5063584
+- [x] 1.9 `PUT` i `DELETE` nieistniejącego obiektu dają 404 `not_found` w kontrakcie — 5063584
+- [x] 1.10 Ścieżka produkcyjna: po `dotnet ef database update` `start-api.ps1` wstaje z nową migracją — 5063584
 
 ### Phase 2: Widoki słownika w React Routerze
 
 #### Automated
 
-- [ ] 2.1 Typy przechodzą: `npm run typecheck`
-- [ ] 2.2 Build produkcyjny przechodzi: `npm run build`
-- [ ] 2.3 Nowe widoki nie zawierają literałów koloru ani palety Tailwinda
-- [ ] 2.4 Adres API nie trafia do bundla klienckiego: `grep -r "127.0.0.1:5180" build/client` nic nie zwraca
+- [x] 2.1 Typy przechodzą: `npm run typecheck`
+- [x] 2.2 Build produkcyjny przechodzi: `npm run build`
+- [x] 2.3 Nowe widoki nie zawierają literałów koloru ani palety Tailwinda
+- [x] 2.4 Adres API nie trafia do bundla klienckiego: `grep -r "127.0.0.1:5180" build/client` nic nie zwraca
 
 #### Manual
 
-- [ ] 2.5 Bez sesji `/obiekty`, `/obiekty/nowy` i `/obiekty/1` przekierowują na `/logowanie`
+- [x] 2.5 Bez sesji `/obiekty`, `/obiekty/nowy` i `/obiekty/1` przekierowują na `/logowanie` — dokument i `.data` z `_routes` (brama jako `middleware`, sprawdzone po F1 z impl-review)
 - [ ] 2.6 Na pustej bazie lista pokazuje pusty stan, a po dodaniu obiekty są posortowane po kodzie z kolumną podobiektów
 - [ ] 2.7 Podobiekty wybrane w formularzu dodawania i edycji zapisują się i są widoczne na liście
 - [ ] 2.8 Duplikat kodu i zapętlenie pokazują komunikat pod właściwym polem w obu wariantach motywu

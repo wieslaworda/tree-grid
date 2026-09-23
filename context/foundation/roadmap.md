@@ -51,7 +51,7 @@ Przy celu sekwencjonowania `speed` to również fragment, który najtaniej odpow
 | F-01 | `szkielet-api-sqlite` | (foundation) działa proces API .NET obok aplikacji, z plikiem SQLite i kontraktem błędów   | —             | FR-001, FR-009, FR-010, NFR (izolacja kont)            | in-progress |
 | F-02 | `motyw-terminalowy`   | (foundation) aplikacja ma jeden motyw o gęstości roboczej, z przełącznikiem jasny/ciemny   | —             | NFR (gęstość odczytu liczb), NFR (dwa warianty motywu), NFR (kontrast i rola koloru) | in-progress |
 | S-01 | `konto-i-logowanie`   | założyć konto, zalogować się i wylogować; żaden widok nie jest dostępny bez logowania      | F-01          | FR-001, Access Control, NFR (izolacja kont)            | in-progress |
-| S-02 | `lista-obiektow`      | przeglądać, dodawać i edytować obiekty dostępne do budowy drzewa                           | F-01          | FR-002                                                 | proposed |
+| S-02 | `lista-obiektow`      | przeglądać, dodawać i edytować obiekty dostępne do budowy drzewa                           | F-01          | FR-002                                                 | in-progress |
 | S-03 | `budowa-drzewa`       | złożyć własną strukturę drzewa; zapętlenie jest odrzucane, a gałąź podrzędna rozstrzygana  | S-02          | FR-003, FR-004, FR-005, US-01, Business Logic          | blocked  |
 | S-04 | `kategorie-danych`    | przypisać obiektowi w drzewie kategorie danych z ograniczonej listy                        | S-03          | FR-006                                                 | proposed |
 | S-05 | `grid-czasowy`        | wybrać ziarno czasowe i dobę oraz zobaczyć grid z punktami czasowymi                       | S-04          | FR-007, FR-008, US-01, NFR (288 kolumn, feedback >2 s) | proposed |
@@ -132,7 +132,7 @@ Foundations below assume these are present and do NOT re-scaffold them.
 - **Blockers:** —
 - **Unknowns:** —
 - **Risk:** Formalnie zależy tylko od `F-01`, więc może powstawać równolegle do `S-01` — to jedyne miejsce w całej roadmapie, gdzie da się rozdzielić pracę, a przy głównym ryzyku `time` to realna dźwignia. Warunek: widoki tego plastra muszą finalnie wylądować za bramą logowania z `S-01`, bo sekcja `Access Control` nie przewiduje dostępu bez zalogowania. Drugie ryzyko: obiekty niosą relację rodzic–dziecko, od której zależy FR-005 w `S-03`; jeśli ta relacja nie powstanie tutaj, `S-03` trzeba będzie cofnąć.
-- **Status:** proposed
+- **Status:** in-progress
 
 ### S-03: Budowa struktury drzewa z blokadą zapętlenia
 

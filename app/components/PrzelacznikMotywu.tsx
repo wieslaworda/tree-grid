@@ -51,7 +51,7 @@ const OPCJE: { value: Wariant; label: string }[] = [
  *
  * ## Gdzie ta kontrolka **nie** mieszka
  *
- * - Nie w `app/routes/chronione.tsx`. Komentarz z linii 24-27 tamtego pliku
+ * - Nie w `app/routes/chronione.tsx`. Komentarz nad komponentem tamtego pliku
  *   zakazuje robienia z bramy powłoki wizualnej i ma zostać prawdą.
  * - Nie per-trasa. Kontrolka wklejana do każdego widoku z osobna znika po cichu
  *   w pierwszym widoku, do którego ktoś zapomni ją dopisać — bez błędu, bez
