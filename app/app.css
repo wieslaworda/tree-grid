@@ -4,7 +4,11 @@
    className on an antd component still overrides the component's own styles.
    antd emits into the `antd` layer only because <StyleProvider layer> is set
    in app/root.tsx and app/entry.server.tsx — dropping that prop unlayers antd
-   and this ordering silently stops applying. */
+   and this ordering silently stops applying.
+
+   Ta sama lista stoi też jako pierwszy `<style>` w `<head>` (`app/root.tsx`,
+   `Layout`) — w trybie dev ten plik trafia do dokumentu za stylami antd, więc
+   deklaracja tutaj przychodzi za późno. Zmieniając kolejność, zmień obie. */
 @layer theme, base, antd, components, utilities;
 
 @import "tailwindcss";

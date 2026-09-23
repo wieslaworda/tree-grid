@@ -34,8 +34,9 @@ const ELEMENTY: MenuProps["items"] = POZYCJE_MENU.map(
 
 /**
  * Pozycja aktywna dla bieżącej ścieżki. Prefiks z ukośnikiem, a nie sam
- * `startsWith(sciezka)`: dzięki temu „Obiekty" świeci się na `/obiekty/nowy`
- * i `/obiekty/:id`, ale nie na przyszłym `/obiektywy`. Na `/` nie pasuje nic,
+ * `startsWith(sciezka)`: dzięki temu pozycja świeci się także na trasach
+ * zagnieżdżonych pod swoją ścieżką, ale „Obiekty" nie świeci się na przyszłym
+ * `/obiektywy`. Na `/` nie pasuje nic,
  * i tak ma być — strona główna nie jest pozycją menu, prowadzi do niej nazwa
  * aplikacji w nagłówku.
  */

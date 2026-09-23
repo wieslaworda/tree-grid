@@ -5,7 +5,7 @@
  * pojedynczym widoku jest dokładnie tym, co ta zmiana likwiduje.
  */
 
-import { theme, type ThemeConfig } from "antd";
+import { theme, type ConfigProviderProps, type ThemeConfig } from "antd";
 
 import { METRYKI, PALETY, type Paleta, type Wariant } from "~/theme/tokeny";
 
@@ -21,6 +21,26 @@ import { METRYKI, PALETY, type Paleta, type Wariant } from "~/theme/tokeny";
 export const MOTYWY: Record<Wariant, ThemeConfig> = {
   ciemny: zbudujMotyw("ciemny"),
   jasny: zbudujMotyw("jasny"),
+};
+
+/**
+ * Domyślny wygląd **każdego** przycisku: wypełnienie akcentem, jak przycisk
+ * główny. Decyzja użytkownika — przycisk obrysowany (domyślny w antd) zlewał
+ * się z tłem panelu. Przechodzi przez `ConfigProvider` z `app/root.tsx`, a nie
+ * przez `type="primary"` przy każdym przycisku: przycisk dopisany bez tego
+ * propu, w tym przyciski wewnętrzne antd (np. „Anuluj" w `Popconfirm`),
+ * dostaje ten sam wygląd bez pamiętania o czymkolwiek.
+ *
+ * To tylko wartość domyślna — jawne `type`, `color` albo `variant` na
+ * przycisku nadal wygrywa (`antd/es/button/Button.js:92-113`). Kolor tekstu
+ * na wypełnieniu to `Button.primaryColor` niżej.
+ *
+ * Stała modułowa z tego samego powodu co {@link MOTYWY}: świeży obiekt
+ * w renderze unieważniałby memoizację `ConfigProvider`.
+ */
+export const PRZYCISKI: ConfigProviderProps["button"] = {
+  color: "primary",
+  variant: "solid",
 };
 
 /**

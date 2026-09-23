@@ -23,8 +23,9 @@ type Wlasciwosci = {
   /** Koperta z odpowiedzi `action`, gdy ostatni zapis się nie udał. */
   blad: ApiErrorBody | undefined;
   /**
-   * Wartość ukrytego pola `intent`. Potrzebna tylko tam, gdzie jedna `action`
-   * obsługuje więcej niż jeden formularz (edycja obok usuwania).
+   * Wartość ukrytego pola `intent`. Potrzebna tam, gdzie jedna `action`
+   * obsługuje więcej niż jedną operację — w `routes/obiekty.tsx` dodawanie,
+   * zapis i usuwanie idą do tej samej.
    */
   intent?: string;
   /** Tekst przycisku wysyłki. */
@@ -68,7 +69,7 @@ export function FormularzObiektu({
 
   // Stan przeżywa nieudaną wysyłkę, bo `action` zwracający błąd nie montuje
   // widoku od nowa. Zmianę obiektu przy tej samej trasie obsługuje `key`
-  // nadany przez widok edycji, a nie ten komponent.
+  // nadany panelowi w `routes/obiekty.tsx`, a nie ten komponent.
   const [podobiekty, ustawPodobiekty] = useState<number[]>(
     obiekt?.childIds ?? [],
   );
@@ -104,7 +105,12 @@ export function FormularzObiektu({
         <Alert className="mb-6" type="error" showIcon title={ogolny} />
       )}
 
-      <RouterForm method="post">
+      {/*
+        `preventScrollReset`: formularz stoi pod listą obiektów, a udany zapis
+        kończy się przekierowaniem na tę samą trasę — bez tego strona
+        wracałaby na górę i odsuwała panel z oczu.
+      */}
+      <RouterForm method="post" preventScrollReset>
         {intent === undefined ? null : (
           <input type="hidden" name="intent" value={intent} />
         )}

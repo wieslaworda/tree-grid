@@ -1,4 +1,4 @@
-import { createContext, useContext, useMemo, useState } from "react";
+import { useContext, useMemo, useState } from "react";
 import {
   isRouteErrorResponse,
   Links,
@@ -15,27 +15,14 @@ import plPL from "antd/locale/pl_PL";
 import "dayjs/locale/pl";
 
 import { PrzelacznikMotywu } from "~/components/PrzelacznikMotywu";
-import { MOTYWY } from "~/theme/antd";
+import { MOTYWY, PRZYCISKI } from "~/theme/antd";
 import { odczytajWariant } from "~/theme/ciasteczko";
+import { KontekstMotywu } from "~/theme/kontekst";
 import { WARIANT_DOMYSLNY, type Wariant } from "~/theme/tokeny";
 import { ZMIENNE_CSS } from "~/theme/zmienne";
 
 import type { Route } from "./+types/root";
 import "./app.css";
-
-/**
- * Wariant motywu dla całego dokumentu, razem z setterem dla przełącznika.
- *
- * Kontekst obejmuje `{children}` z `Layout`, a więc zarówno `App`, jak
- * i `ErrorBoundary` — ekran błędu też ma być w wybranym wariancie.
- */
-export const KontekstMotywu = createContext<{
-  wariant: Wariant;
-  ustawWariant: (wariant: Wariant) => void;
-}>({
-  wariant: WARIANT_DOMYSLNY,
-  ustawWariant: () => {},
-});
 
 /**
  * Loader korzenia czyta **wyłącznie** nagłówek `Cookie` i **nie ma prawa
@@ -107,6 +94,24 @@ export function Layout({ children }: { children: React.ReactNode }) {
       <head>
         <meta charSet="utf-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
+        {/*
+          Kolejność warstw musi paść w dokumencie **przed** pierwszym stylem
+          antd, bo o kolejności `@layer` decyduje pierwsze wystąpienie nazwy.
+          Deklaracja na górze `app/app.css` tego nie gwarantuje: w trybie dev
+          React Router po hydracji zdejmuje `critical.css`, a Vite wstrzykuje
+          `app.css` jako `<style>` na **końcu** `<head>` — za stylami antd.
+          Pierwsze było wtedy `@layer antd{…}`, `antd` stawało się warstwą
+          najsłabszą, a preflight Tailwinda zerował ramki i tła wszystkich
+          kontrolek. Produkcja tego nie widziała, bo tam `<link>` do CSS stoi
+          przed stylami antd na stałe.
+
+          Lista musi być identyczna z tą w `app/app.css`. Style dokładane przez
+          antd po hydracji lądują za istniejącymi stylami `prependQueue`
+          (`@rc-component/util/lib/Dom/dynamicCSS.js`), więc za tym elementem
+          — dopóki SSR wyemitował choć jeden styl antd, a robi to na każdej
+          trasie, bo przełącznik motywu jest komponentem antd.
+        */}
+        <style>{"@layer theme, base, antd, components, utilities;"}</style>
         <Meta />
         {/*
           Przed `<Links />` świadomie: to są wartości, a nie reguły
@@ -144,7 +149,11 @@ export default function App() {
 
   return (
     <StyleProvider layer>
-      <ConfigProvider locale={plPL} theme={MOTYWY[wariant]}>
+      <ConfigProvider
+        locale={plPL}
+        theme={MOTYWY[wariant]}
+        button={PRZYCISKI}
+      >
         <Outlet />
         {/*
           Przełącznik montuje się tutaj dokładnie raz, dla **każdej** trasy,

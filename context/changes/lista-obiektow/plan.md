@@ -59,10 +59,12 @@ Po wykonaniu planu:
    trzecią migracją; baza nadal pracuje w trybie WAL.
 3. Zalogowany dyspozytor pod `/obiekty` widzi wszystkie obiekty (wspólne dla
    wszystkich kont), posortowane po kodzie, z kolumną podobiektów; na świeżej
-   bazie — pusty stan z przyciskiem dodania.
-4. Dodaje obiekt (`/obiekty/nowy`) i edytuje istniejący (`/obiekty/:id`): kod,
-   nazwę i listę podobiektów. Kod różniący się od istniejącego tylko wielkością
-   liter albo spacjami na brzegach jest odrzucany z komunikatem pod polem.
+   bazie — pusty stan odsyłający do formularza dodawania pod listą.
+4. W tym samym widoku, pod listą, dodaje obiekt i edytuje istniejący (wybrany
+   kliknięciem w wiersz, adres `/obiekty?id=<id>`): kod, nazwę i listę
+   podobiektów — bez przechodzenia na osobną trasę. Kod różniący się od
+   istniejącego tylko wielkością liter albo spacjami na brzegach jest odrzucany
+   z komunikatem pod polem.
 5. Zapis podobiektów, który tworzyłby zapętlenie, jest odrzucany z komunikatem
    pod polem podobiektów, wskazującym ścieżkę (np. `GPZ-01 → L1 → GPZ-01`).
 6. Obiekt bez rodziców i bez podobiektów da się usunąć po potwierdzeniu; obiektu
@@ -114,7 +116,7 @@ Po wykonaniu planu:
 - **Żadnego filtrowania opcji podobiektów pod kątem cyklu po stronie klienta.**
   Formularz wyklucza tylko sam obiekt; regułą wiążącą jest odpowiedź API.
 - **Żadnej paginacji ani wyszukiwania na liście.** `data_volume: small` w PRD.
-- **Żadnego `GET /objects/{id}`.** Strona edycji i tak potrzebuje całej listy do
+- **Żadnego `GET /objects/{id}`.** Panel edycji i tak potrzebuje całej listy do
   wyboru podobiektów; endpoint dołoży plaster, który go użyje.
 - **Żadnej kontroli równoległej edycji tego samego obiektu.** Ostatni zapis
   wygrywa; spójność grafu chroni transakcja, a nie wersjonowanie wiersza.
@@ -135,8 +137,9 @@ oddzielonymi od endpointów tak samo, jak `AuthResponses` od `AuthEndpoints`.
 Endpointy robią wyłącznie trzy rzeczy: wiązanie żądania, odczyt i zapis w jednej
 transakcji oraz odwzorowanie wyniku reguły na kopertę błędu.
 
-Po stronie React Routera każdy z trzech widoków to osobna trasa za bramą,
-a dodawanie i edycja dzielą jeden komponent formularza. Komunikacja z API
+Po stronie React Routera słownik to jedna trasa za bramą: lista na górze, a pod
+nią panel dodawania, edycji i usuwania, przełączany parametrem `?id=` w adresie.
+Dodawanie i edycja dzielą jeden komponent formularza. Komunikacja z API
 powtarza semantykę `requestAccount`: każda porażka, łącznie ze zgaszonym API,
 kończy się kopertą `{ error: { code, message, context } }`.
 
@@ -154,6 +157,11 @@ stanem komponentu, który dla każdego wybranego obiektu renderuje ukryte
 `formData.getAll("childIds")`. Przycisk usuwania **nie** dostaje `danger`: NFR
 zastrzega kolor dla wartości danych, a czerwień palety to w gridzie „spadek".
 Zabezpieczeniem jest potwierdzenie (`Popconfirm`), nie kolor.
+
+Panel edycji stoi pod listą, więc każda nawigacja w obrębie widoku — wybór
+wiersza, „Nowy obiekt", wysyłka formularza i przekierowanie po niej — idzie
+z `preventScrollReset`. Bez tego `ScrollRestoration` wracałby na górę strony
+i odsuwał panel z oczu po każdym kliknięciu.
 
 ## Faza 1: API słownika obiektów
 
@@ -175,7 +183,7 @@ osobna encja relacji rodzic–dziecko, bo relacja jest wiele-do-wielu.
 z nawigacjami `Children` i `Parents` (kolekcje `CatalogObjectLink`).
 `CatalogObjectLink { int ParentId; int ChildId }` z nawigacjami `Parent`
 i `Child`. `Code` przechowywany tak, jak wpisano, po obcięciu spacji na brzegach.
-Klucz `int` (autoinkrementacja) — adresy `/obiekty/12`.
+Klucz `int` (autoinkrementacja) — adresy `/obiekty?id=12`.
 
 #### 2. Konfiguracja modelu
 
@@ -307,9 +315,9 @@ przy API uruchomionym w Development (`dotnet run --project src/Api`).
 
 ### Overview
 
-Klient API po stronie serwera, trzy trasy za bramą (lista, dodawanie, edycja
-z usuwaniem), wspólny formularz i wejście ze strony głównej; weryfikacja
-kontraktów renderowania i akcji przez adres tunelu.
+Klient API po stronie serwera, jedna trasa za bramą (lista z panelem
+dodawania, edycji i usuwania pod nią), wspólny formularz i wejście ze strony
+głównej; weryfikacja kontraktów renderowania i akcji przez adres tunelu.
 
 ### Changes Required:
 
@@ -331,12 +339,13 @@ dla tego modułu (patrz „What We're NOT Doing").
 
 **File**: `app/routes.ts`
 
-**Intent**: Trzy nowe widoki za bramą.
+**Intent**: Widok słownika za bramą.
 
-**Contract**: wewnątrz `layout("routes/chronione.tsx", […])`:
-`route("obiekty", "routes/obiekty.tsx")`, `route("obiekty/nowy", "routes/obiekty.nowy.tsx")`,
-`route("obiekty/:id", "routes/obiekty.$id.tsx")` — jako rodzeństwo, nie trasy
-zagnieżdżone. Plik trasy niewpisany tutaj nie robi nic (CLAUDE.md, kontrakt 3).
+**Contract**: wewnątrz `layout("routes/chronione.tsx", […])` (a od S-07 —
+pod powłoką `layout("routes/powloka.tsx", […])`):
+`route("obiekty", "routes/obiekty.tsx")` — jedna trasa. Obiekt wybrany do
+edycji niesie parametr `?id=`, nie segment ścieżki, więc wybór nie zmienia
+trasy. Plik trasy niewpisany tutaj nie robi nic (CLAUDE.md, kontrakt 3).
 
 #### 3. Wspólny formularz obiektu
 
@@ -350,51 +359,65 @@ i baner dla naruszeń spoza pól).
 pola `name="code"`, `name="name"` oraz sterowany `Select mode="multiple"`
 z wyszukiwaniem po kodzie i nazwie (etykieta opcji „KOD — Nazwa"), który dla
 każdego wyboru renderuje ukryte `name="childIds"` (patrz Critical Implementation
-Details). Na liście opcji nie ma edytowanego obiektu. Zero literałów koloru
-i rozmiarów sterujących gęstością (`context/foundation/lessons.md`, „Kolory
-i metryki nie mieszkają w plikach tras").
+Details). Na liście opcji nie ma edytowanego obiektu. Ukryte pole `intent`
+rozróżnia operacje wspólnej `action`. `RouterForm` ma `preventScrollReset`
+(patrz Critical Implementation Details). Zero literałów koloru i rozmiarów
+sterujących gęstością (`context/foundation/lessons.md`, „Kolory i metryki nie
+mieszkają w plikach tras").
 
-#### 4. Lista obiektów
+#### 4. Lista obiektów z panelem dodawania, edycji i usuwania
 
 **File**: `app/routes/obiekty.tsx`
 
-**Intent**: Przegląd słownika i wejście do dodawania oraz edycji.
+**Intent**: Przegląd słownika i — w tym samym widoku, pod listą — dodawanie,
+edycja i usuwanie obiektu, bez przechodzenia na osobną trasę.
 
-**Contract**: `loader` → `listObjects()`; porażka **nie** rzuca, tylko wraca do
-widoku, który pokazuje `Alert` z `error.message` (powód: `ErrorBoundary`
-z `app/root.tsx:167` nie czyta koperty). antd `Table size="small"`,
-`pagination={false}`, kolumny: Kod (link do `/obiekty/:id`), Nazwa, Podobiekty
-(kody po przecinku albo „—"); pusty stan z tekstem zachęcającym do dodania.
-Przycisk „Dodaj obiekt" → `/obiekty/nowy`, link powrotu na stronę główną.
+**Contract**:
+
+- `loader` → `listObjects()` i wybór obiektu po parametrze `?id=`
+  (`parseObjectId`). Porażka API **nie** rzuca, tylko wraca do widoku, który
+  pokazuje `Alert` z `error.message` zamiast tabeli i panelu (powód:
+  `ErrorBoundary` z `app/root.tsx:167` nie czyta koperty). `id`, które nie jest
+  identyfikatorem albo nie istnieje w słowniku, też **nie** rzuca 404 —
+  wywróciłoby całą listę — tylko wraca jako `nieznany` i daje ostrzeżenie nad
+  formularzem dodawania.
+- Lista: antd `Table size="small"`, `pagination={false}`, `scroll.y`, żeby przy
+  setkach pozycji panel pod listą został w zasięgu wzroku. Kolumny: Kod (link
+  do `/obiekty?id=<id>` — wybór przed hydracją i z klawiatury), Nazwa,
+  Podobiekty (kody po przecinku albo „—"). Kliknięcie w wiersz wybiera obiekt,
+  wybrany wiersz ma tło `zaznaczenieWiersza` (klasa `tg-*`). Pusty stan
+  odsyła do formularza poniżej. Bez linku powrotu — od S-07 prowadzi tam
+  nagłówek powłoki.
+- Panel pod listą, z `key` po wybranym `id`, żeby zmiana wyboru montowała
+  formularz od nowa: bez wyboru — „Nowy obiekt" (`FormularzObiektu`
+  z `intent=dodaj`); z wyborem — kod obiektu jako nagłówek, przycisk „Nowy
+  obiekt" czyszczący wybór, formularz z `intent=zapisz`, sekcja „Obiekty
+  nadrzędne" (kody albo „brak", tylko do odczytu) i sekcja usuwania.
+- Usuwanie bez własnego `<form>`: przycisk otwiera `Popconfirm`, a
+  potwierdzenie wysyła `{ intent: "usun" }` przez `useSubmit`. Przycisk
+  nieaktywny, gdy obiekt ma rodziców lub podobiekty, z wyjaśnieniem „Usunąć
+  można tylko obiekt bez powiązań.". Odmowa 409 z API trafia do banera nad
+  przyciskiem, a `shouldRevalidate` odświeża dane po 409.
+- `action`: `requireSameOrigin(request)` jako pierwsza instrukcja, potem
+  `requireUser` (obrona w głąb), rozgałęzienie po `intent`. `dodaj` →
+  `createObject`, sukces → `redirect("/obiekty?id=<nowe id>")` (nowy obiekt
+  podświetlony i otwarty w edycji). `zapisz` → `updateObject`, sukces →
+  `redirect("/obiekty?id=<id>")`. `usun` → `deleteObject`, sukces →
+  `redirect(OBJECTS_ROUTE)`. `zapisz` i `usun` biorą `id` z parametru adresu —
+  formularz i `useSubmit` bez `action` wysyłają pod bieżący adres razem
+  z parametrami; brak albo nieprawidłowe `id` → zwrócone (nie rzucone) 404
+  `not_found` w kopercie. Porażka API → `data(error, { status })`, nieznany
+  `intent` → 400 `validation_error`.
 
 #### 5. Dodawanie obiektu
 
-**File**: `app/routes/obiekty.nowy.tsx`
-
-**Intent**: Formularz nowego obiektu.
-
-**Contract**: `loader` → `listObjects()` (opcje podobiektów; porażka jak na
-liście). `action`: `requireSameOrigin(request)` jako pierwsza instrukcja, potem
-`createObject` z `code`, `name` i `formData.getAll("childIds")` zamienionymi na
-liczby; sukces → `redirect(OBJECTS_ROUTE)`, porażka → `data(error, { status })`.
+Wchłonięte przez #4 — patrz „Addendum (zmiana układu)". Plik
+`app/routes/obiekty.nowy.tsx` i trasa `/obiekty/nowy` zostały usunięte.
 
 #### 6. Edycja i usuwanie obiektu
 
-**File**: `app/routes/obiekty.$id.tsx`
-
-**Intent**: Formularz istniejącego obiektu, lista jego obiektów nadrzędnych
-i usuwanie obiektu bez powiązań.
-
-**Contract**: `loader` → `listObjects()` i wybór obiektu po `id`; `id`, które
-nie jest dodatnią liczbą całkowitą, albo brak obiektu → rzucone
-`data(apiError("not_found", …), { status: 404 })`; niedostępne API → widok
-z `Alert`. `action` z `requireSameOrigin`, rozgałęziona po polu `intent`:
-`zapisz` → `updateObject`, `usun` → `deleteObject`; sukces obu →
-`redirect(OBJECTS_ROUTE)`. Sekcja „Obiekty nadrzędne" (kody albo „brak"), tylko
-do odczytu. Usuwanie to osobny `RouterForm` (formularzy nie wolno zagnieżdżać)
-z ukrytym `intent=usun`, wysyłany z `Popconfirm`; przycisk nieaktywny, gdy
-obiekt ma rodziców lub podobiekty, z wyjaśnieniem „Usunąć można tylko obiekt bez
-powiązań.". Odmowa 409 z API trafia do banera nad przyciskiem.
+Wchłonięte przez #4 — patrz „Addendum (zmiana układu)". Plik
+`app/routes/obiekty.$id.tsx` i trasa `/obiekty/:id` zostały usunięte.
 
 #### 7. Wejście ze strony głównej
 
@@ -409,10 +432,30 @@ obiektów. Nic nie trafia do `routes/chronione.tsx`.
 **Addendum (impl-review F2)**: kontrakt „link do `OBJECTS_ROUTE`" był
 niewykonalny — stała mieszka w `app/lib/objects.server.ts`, a komponenty
 renderują się także w przeglądarce, więc import wywaliłby build. Linki
-(`home.tsx`, `obiekty.tsx`, `obiekty.nowy.tsx`, `obiekty.$id.tsx`) wpisują
-`/obiekty` dosłownie, a `OBJECTS_ROUTE` obsługuje tylko `redirect` po stronie
-serwera — tak samo jak `LOGIN_ROUTE`. Wspólną stałą tras w module bez sufiksu
-`.server` wprowadza dopiero plaster, który doda kolejnego konsumenta.
+(`home.tsx`, `obiekty.tsx`) wpisują `/obiekty` dosłownie, a `OBJECTS_ROUTE`
+obsługuje tylko `redirect` po stronie serwera — tak samo jak `LOGIN_ROUTE`.
+Wspólną stałą tras w module bez sufiksu `.server` wprowadza dopiero plaster,
+który doda kolejnego konsumenta.
+
+**Addendum (zmiana układu, 2026-09-23)**: po przeglądzie implementacji
+dodawanie, edycja i usuwanie przeszły z osobnych tras (`/obiekty/nowy`,
+`/obiekty/:id`) do panelu pod listą na `/obiekty` — decyzja użytkownika: lista
+na górze, operacje w tym samym widoku, bez przechodzenia na osobny widok.
+Wybór obiektu siedzi w parametrze `?id=`, a nie w stanie komponentu: przeżywa
+odświeżenie, działa przed hydracją (link w kolumnie kodu) i trafia do `action`
+bez osobnego pola. Konsekwencje:
+
+- Trzy `action` scalone w jedną, rozgałęzioną po `intent` (`dodaj`, `zapisz`,
+  `usun`). Reguły z poprzednich plików przeszły bez zmian: `requireSameOrigin`
+  jako pierwsza instrukcja, `requireUser` jako obrona w głąb,
+  `shouldRevalidate` po 409, brak `danger` na przycisku usuwania.
+- Nieistniejący obiekt nie jest już rzuconym 404 z `loader`a — lista zostaje,
+  a panel pokazuje ostrzeżenie i formularz dodawania.
+- Udany zapis nie wraca na „gołą" listę, tylko na listę z wybranym obiektem.
+- Stare adresy `/obiekty/nowy` i `/obiekty/:id` dają 404; nie ma przekierowań,
+  bo nikt poza tym plastrem ich nie używał.
+- `app/routes.ts` rejestruje jedną trasę; komentarze w `MenuGlowne.tsx`
+  i `objects.server.ts` przestały wymieniać usunięte adresy.
 
 ### Success Criteria:
 
@@ -425,19 +468,20 @@ serwera — tak samo jak `LOGIN_ROUTE`. Wspólną stałą tras w module bez sufi
 
 #### Manual Verification:
 
-- Bez sesji `/obiekty`, `/obiekty/nowy` i `/obiekty/1` przekierowują na `/logowanie` — zarówno żądanie dokumentu, jak i żądanie `.data` z `_routes` pomijającym bramę (`curl -si "http://127.0.0.1:3000/obiekty.data?_routes=routes%2Fobiekty"` → `SingleFetchRedirect` na `/logowanie`, nie dane; tak samo `/obiekty/nowy.data?_routes=routes%2Fobiekty.nowy` i `/obiekty/1.data?_routes=routes%2Fobiekty.%24id`)
+- Bez sesji `/obiekty` i `/obiekty?id=1` przekierowują na `/logowanie` — zarówno żądanie dokumentu, jak i żądanie `.data` z `_routes` pomijającym bramę (`curl -si "http://127.0.0.1:3000/obiekty.data?_routes=routes%2Fobiekty"` → `SingleFetchRedirect` na `/logowanie`, nie dane)
 - Na pustej bazie lista pokazuje pusty stan, a po dodaniu obiekty są posortowane po kodzie z kolumną podobiektów
 - Podobiekty wybrane w formularzu dodawania i edycji zapisują się i są widoczne na liście
 - Duplikat kodu i zapętlenie pokazują komunikat pod właściwym polem w obu wariantach motywu
 - Przycisk usuwania jest nieaktywny przy powiązaniach, a obiekt bez powiązań znika z listy po potwierdzeniu
-- Przy zgaszonym API lista pokazuje baner z komunikatem, a nieistniejący `/obiekty/999` daje 404
+- Przy zgaszonym API lista pokazuje baner z komunikatem, a nieistniejący `/obiekty?id=999` zostawia listę i pokazuje ostrzeżenie nad formularzem dodawania
+- Kliknięcie w wiersz otwiera edycję pod listą i podświetla wiersz; po dodaniu nowy obiekt jest wybrany, po usunięciu panel wraca do dodawania; strona nie przewija się na górę przy żadnym z tych przejść
 - Źródło strony `/obiekty` zawiera `@layer antd`, a ostatni `data-css-hash` stoi przed `</head>`
 - Przez adres tunelu dodanie, edycja i usunięcie obiektu przechodzą bez 400 i bez `origin_mismatch`
 
 **Implementation Note**: Po zakończeniu fazy i przejściu weryfikacji
 automatycznej zatrzymaj się i poczekaj na ręczne potwierdzenie. Kryterium
 o literałach koloru sprawdza polecenie
-`grep -nE "#[0-9a-fA-F]{3,8}\b|(bg|text|border)-(white|black|slate|gray|zinc|sky|red|green)" app/routes/obiekty*.tsx app/components/FormularzObiektu.tsx`,
+`grep -nE "#[0-9a-fA-F]{3,8}\b|(bg|text|border)-(white|black|slate|gray|zinc|sky|red|green)" app/routes/obiekty.tsx app/components/FormularzObiektu.tsx`,
 które ma nic nie zwrócić. Kontrakty
 renderowania sprawdza się w źródle strony w przeglądarce (Ctrl+U) po
 zalogowaniu — `curl` bez sesji dostaje przekierowanie, a ciasteczka sesji nie
@@ -478,7 +522,8 @@ sprawdź, czy portu 3000 nie trzyma stary proces (`netstat -ano | grep ":3000.*L
    `L1 → GPZ-01 → L1`.
 4. Usunąć `L1` — 409 z kodem `GPZ-01` w komunikacie; usunąć powiązanie, potem
    `L1` — 204.
-5. W przeglądarce powtórzyć kroki 1–4 przez formularze, w obu wariantach motywu.
+5. W przeglądarce powtórzyć kroki 1–4 przez panel pod listą na `/obiekty`
+   (wybór wiersza, „Nowy obiekt"), w obu wariantach motywu.
 6. Zgasić API i odświeżyć `/obiekty` — baner zamiast ekranu błędu.
 7. `npm run build`, API w Production po `dotnet ef database update`,
    `start-prod-tunnel.ps1`, a przez adres tunelu dodać, zmienić i usunąć obiekt.
@@ -535,18 +580,23 @@ więc przed pierwszym startem po tej zmianie trzeba wykonać
 
 #### Automated
 
+> Po zmianie układu (Addendum z 2026-09-23) kroki 2.2 i 2.4 wróciły do `[ ]` —
+> build nie był ponownie uruchomiony na nowym układzie. 2.1 i 2.3 sprawdzone
+> ponownie po zmianie.
+
 - [x] 2.1 Typy przechodzą: `npm run typecheck`
-- [x] 2.2 Build produkcyjny przechodzi: `npm run build`
+- [ ] 2.2 Build produkcyjny przechodzi: `npm run build`
 - [x] 2.3 Nowe widoki nie zawierają literałów koloru ani palety Tailwinda
-- [x] 2.4 Adres API nie trafia do bundla klienckiego: `grep -r "127.0.0.1:5180" build/client` nic nie zwraca
+- [ ] 2.4 Adres API nie trafia do bundla klienckiego: `grep -r "127.0.0.1:5180" build/client` nic nie zwraca
 
 #### Manual
 
-- [x] 2.5 Bez sesji `/obiekty`, `/obiekty/nowy` i `/obiekty/1` przekierowują na `/logowanie` — dokument i `.data` z `_routes` (brama jako `middleware`, sprawdzone po F1 z impl-review)
+- [x] 2.5 Bez sesji `/obiekty` i `/obiekty?id=1` przekierowują na `/logowanie` — dokument i `.data` z `_routes` (brama jako `middleware`, sprawdzone po F1 z impl-review; `/obiekty` to ta sama trasa, `/obiekty?id=1` → 302 na `/logowanie` sprawdzone po zmianie układu)
 - [ ] 2.6 Na pustej bazie lista pokazuje pusty stan, a po dodaniu obiekty są posortowane po kodzie z kolumną podobiektów
 - [ ] 2.7 Podobiekty wybrane w formularzu dodawania i edycji zapisują się i są widoczne na liście
 - [ ] 2.8 Duplikat kodu i zapętlenie pokazują komunikat pod właściwym polem w obu wariantach motywu
 - [ ] 2.9 Przycisk usuwania jest nieaktywny przy powiązaniach, a obiekt bez powiązań znika z listy po potwierdzeniu
-- [ ] 2.10 Przy zgaszonym API lista pokazuje baner z komunikatem, a nieistniejący `/obiekty/999` daje 404
+- [ ] 2.10 Przy zgaszonym API lista pokazuje baner z komunikatem, a nieistniejący `/obiekty?id=999` zostawia listę i pokazuje ostrzeżenie nad formularzem dodawania
 - [ ] 2.11 Źródło strony `/obiekty` zawiera `@layer antd`, a ostatni `data-css-hash` stoi przed `</head>`
 - [ ] 2.12 Przez adres tunelu dodanie, edycja i usunięcie obiektu przechodzą bez 400 i bez `origin_mismatch`
+- [ ] 2.13 Kliknięcie w wiersz otwiera edycję pod listą i podświetla wiersz; po dodaniu nowy obiekt jest wybrany, po usunięciu panel wraca do dodawania; strona nie przewija się na górę przy żadnym z tych przejść

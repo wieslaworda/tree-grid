@@ -37,14 +37,10 @@ export default [
     layout("routes/powloka.tsx", [
       index("routes/home.tsx"),
 
-      // Słownik obiektów. Trzy trasy są rodzeństwem, a nie trasami
-      // zagnieżdżonymi: lista nie jest powłoką formularzy, więc nie ma
-      // `<Outlet />`, w którym mogłyby się wyrenderować. `obiekty/nowy` stoi
-      // przed `obiekty/:id` tylko dla czytelności — dopasowanie i tak woli
-      // segment statyczny od dynamicznego.
+      // Słownik obiektów — jedna trasa: lista, a pod nią panel dodawania,
+      // edycji i usuwania. Obiekt wybrany do edycji niesie parametr `?id=`,
+      // nie segment ścieżki, więc wybór nie zmienia trasy.
       route("obiekty", "routes/obiekty.tsx"),
-      route("obiekty/nowy", "routes/obiekty.nowy.tsx"),
-      route("obiekty/:id", "routes/obiekty.$id.tsx"),
     ]),
   ]),
 ] satisfies RouteConfig;

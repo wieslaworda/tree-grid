@@ -155,8 +155,8 @@ export function readObjectForm(formData: FormData): ObjectFormResult {
  * Identyfikator obiektu albo `null`, gdy nie jest dodatnią liczbą całkowitą
  * w zakresie `int` z API. Wzorzec, a nie samo `Number(...)`: `Number("1e3")`,
  * `Number(" 7 ")`, `Number("0x10")` i `Number("07")` dają liczby, ale żadna
- * z tych wartości nie jest identyfikatorem obiektu. Jedno miejsce dla adresu
- * `/obiekty/:id` i dla pól `childIds`.
+ * z tych wartości nie jest identyfikatorem obiektu. Jedno miejsce dla
+ * parametru `?id=` z adresu `/obiekty` i dla pól `childIds`.
  */
 export function parseObjectId(value: string): number | null {
   if (!/^[1-9]\d*$/.test(value)) {

@@ -1,18 +1,15 @@
 /**
- * Import `KontekstMotywu` z `~/root` zamyka cykl modułów: `root.tsx` importuje
- * ten plik, a ten plik importuje `root.tsx`. Jest to bezpieczne, bo kontekst
- * jest **odczytywany** dopiero w ciele komponentu, czyli długo po tym, jak oba
- * moduły skończą się wykonywać — w trakcie ewaluacji nie sięgamy tu po nic
- * z `root.tsx`. Gdyby kiedyś trzeba było ten cykl rozciąć, kontekst przenosi
- * się do osobnego modułu, a nie odwrotnie: `root.tsx` musi go dostarczać
- * z `Layout`, więc to on zostaje importerem.
+ * `KontekstMotywu` przychodzi z `~/theme/kontekst`, a **nie** z `~/root`.
+ * Import z `root.tsx` zamykał cykl modułów, który w trybie dev rozszczepiał
+ * kontekst na dwa obiekty i po cichu wyłączał ten przełącznik — pełny opis
+ * w nagłówku `app/theme/kontekst.ts`.
  */
 
 import { Segmented } from "antd";
 import { useContext } from "react";
 
-import { KontekstMotywu } from "~/root";
 import { zapiszWariant } from "~/theme/ciasteczko";
+import { KontekstMotywu } from "~/theme/kontekst";
 import { jestWariantem, type Wariant } from "~/theme/tokeny";
 
 /**
