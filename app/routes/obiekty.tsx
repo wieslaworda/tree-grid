@@ -36,12 +36,19 @@ import {
 import type { Route } from "./+types/obiekty";
 
 /**
- * Kod odmowy usunięcia z API (`ApiErrorCodes.ObjectHasRelations`
- * w `src/Api/Errors/ApiError.cs`). Po nim widok rozpoznaje, że odpowiedź
- * dotyczy przycisku usuwania, a nie formularza obiektu — oba wysyłają do tej
- * samej `action`.
+ * Kody odmowy usunięcia z API (`src/Api/Errors/ApiError.cs`):
+ * `ObjectHasRelations` — obiekt ma rodzica albo podobiekt w słowniku,
+ * `ObjectInTree` — obiekt stoi w czyimkolwiek drzewie roboczym. Po nich widok
+ * rozpoznaje, że odpowiedź dotyczy przycisku usuwania, a nie formularza
+ * obiektu — oba wysyłają do tej samej `action`. Zbiór, a nie jedna stała:
+ * każdy kod, który API zwraca wyłącznie z `DELETE /objects/{id}`, należy
+ * tutaj, bo inaczej odmowa wylądowałaby w banerze formularza edycji, jakby
+ * zawinił zapis.
  */
-const ODMOWA_USUNIECIA = "object_has_relations";
+const ODMOWY_USUNIECIA: ReadonlySet<string> = new Set([
+  "object_has_relations",
+  "object_in_tree",
+]);
 
 /** Wartości pola `intent` — po nich `action` rozróżnia trzy operacje. */
 const DODAJ = "dodaj";
@@ -356,7 +363,9 @@ function EdycjaObiektu({
   // Odmowa usunięcia idzie do banera nad przyciskiem usuwania, wszystko inne
   // — do formularza obiektu, który ma swój baner i komunikaty pod polami.
   const odmowaUsuniecia =
-    blad?.error.code === ODMOWA_USUNIECIA ? blad : undefined;
+    blad !== undefined && ODMOWY_USUNIECIA.has(blad.error.code)
+      ? blad
+      : undefined;
   const bladZapisu = odmowaUsuniecia === undefined ? blad : undefined;
 
   const kody = new Map(obiekty.map((kandydat) => [kandydat.id, kandydat.code]));
@@ -367,6 +376,10 @@ function EdycjaObiektu({
   // Warunek z `ObjectRules.CanDelete` powtórzony wyłącznie dla wyglądu
   // przycisku. Wiążąca jest odpowiedź API, która odmawia także żądaniu
   // wysłanemu z pominięciem tego widoku albo na nieaktualnym stanie.
+  //
+  // Użycia w drzewach świadomie tu nie ma: słownik jest wspólny, a drzewa
+  // prywatne, więc widok nie wie, czy obiekt stoi w czyimś drzewie. Przycisk
+  // zostaje aktywny, a o drzewach decyduje API odmową `object_in_tree`.
   const maPowiazania = obiekt.parentIds.length > 0 || obiekt.childIds.length > 0;
 
   const wyslij = useSubmit();

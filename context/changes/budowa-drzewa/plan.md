@@ -764,12 +764,15 @@ bazy). Działające API blokuje build Debug — zatrzymaj je przed `dotnet build
 
 #### Automated
 
-- [x] 1.1 Build rozwiązania przechodzi: `dotnet build TreeGrid.sln`
-- [x] 1.2 Testy przechodzą, w tym testy reguł drzewa: `dotnet test TreeGrid.sln`
-- [x] 1.3 Migracja aplikuje się czysto: `dotnet ef database update --project src/Api`
-- [x] 1.4 Model nie ma zmian bez migracji: `dotnet ef migrations has-pending-model-changes --project src/Api`
+- [x] 1.1 Build rozwiązania przechodzi: `dotnet build TreeGrid.sln` — 4b5fdee
+- [x] 1.2 Testy przechodzą, w tym testy reguł drzewa: `dotnet test TreeGrid.sln` — 4b5fdee
+- [x] 1.3 Migracja aplikuje się czysto: `dotnet ef database update --project src/Api` — 4b5fdee
+- [x] 1.4 Model nie ma zmian bez migracji: `dotnet ef migrations has-pending-model-changes --project src/Api` — 4b5fdee
 
 #### Manual
+
+> Weryfikacja ręczna fazy 1 odłożona decyzją użytkownika do chwili, gdy widok
+> z fazy 2 będzie spięty z API.
 
 - [ ] 1.5 `GET /tree` bez nagłówka i z nieistniejącym identyfikatorem daje 401 `unauthorized` w kontrakcie
 - [ ] 1.6 Dodanie obiektu na najwyższy poziom i pod węzeł, z `includeBranch: true`, kopiuje gałąź ze słownika — widać to w `GET /tree`
@@ -785,12 +788,15 @@ bazy). Działające API blokuje build Debug — zatrzymaj je przed `dotnet build
 
 #### Automated
 
-- [ ] 2.1 Typy przechodzą: `npm run typecheck`
-- [ ] 2.2 Build produkcyjny przechodzi: `npm run build`
-- [ ] 2.3 Nowe widoki nie zawierają literałów koloru ani palety Tailwinda
-- [ ] 2.4 Adres API nie trafia do bundla klienckiego: `grep -r "127.0.0.1:5180" build/client` nic nie zwraca
+- [x] 2.1 Typy przechodzą: `npm run typecheck`
+- [x] 2.2 Build produkcyjny przechodzi: `npm run build`
+- [x] 2.3 Nowe widoki nie zawierają literałów koloru ani palety Tailwinda
+- [x] 2.4 Adres API nie trafia do bundla klienckiego: `grep -r "127.0.0.1:5180" build/client` nic nie zwraca
 
 #### Manual
+
+> Weryfikacja ręczna fazy 2 odłożona decyzją użytkownika do zakończenia
+> implementacji całego planu.
 
 - [ ] 2.5 Bez sesji `/drzewo` przekierowuje na `/logowanie` — dokument i żądanie `.data` z `_routes` pomijającym bramę
 - [ ] 2.6 Pozycja „Drzewo" jest w menu i podświetla się na `/drzewo`; drzewo stoi po lewej, lista po prawej, obie przewijają się osobno

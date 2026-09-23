@@ -45,6 +45,11 @@ export default [
       // Słownik kategorii — ten sam układ co obiekty: jedna trasa, wybór
       // w parametrze `?id=`.
       route("kategorie", "routes/kategorie.tsx"),
+
+      // Budowa drzewa — jedna trasa: drzewo użytkownika po lewej, lista
+      // obiektów słownika po prawej. Zaznaczenia żyją w stanie widoku, a nie
+      // w adresie; tożsamość do API bierze `loader` i `action` z bramy.
+      route("drzewo", "routes/drzewo.tsx"),
     ]),
   ]),
 ] satisfies RouteConfig;

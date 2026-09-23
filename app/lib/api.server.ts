@@ -123,19 +123,39 @@ export function describeCause(cause: unknown): string {
 /**
  * Porażka niesie gotową kopertę razem ze statusem, bo trasa nie ma czego do
  * niej dopisać — komunikaty dla użytkownika układa API, które jako jedyne zna
- * reguły słownika (duplikat kodu, zapętlenie, odmowa usunięcia).
+ * reguły słownika i drzewa (duplikat kodu, zapętlenie, odmowa usunięcia).
  */
 export type ApiFailure = { ok: false; status: number; error: ApiErrorBody };
 
 /**
- * Surowy wynik żądania do API słownika: treść jeszcze niesprawdzona co do
- * kształtu — to robi strażnik typu w kliencie danego słownika.
+ * Surowy wynik żądania do API: treść jeszcze niesprawdzona co do kształtu —
+ * to robi strażnik typu w kliencie danego zasobu.
  */
 export type ApiResult = { ok: true; status: number; body: unknown } | ApiFailure;
 
 /**
- * Żądanie do API słownika — jedna ścieżka dla klientów `objects.server.ts`
- * i `categories.server.ts`.
+ * Nagłówek z identyfikatorem zalogowanego konta dla endpointów `/tree`.
+ * Literał musi być identyczny z `TreeIdentity.UserHeader`
+ * (`src/Api/Tree/TreeIdentity.cs`, przypięty tam testem); rozjazd nie daje
+ * błędu kompilacji, tylko 401 `unauthorized` na każdym żądaniu drzewa.
+ *
+ * Wartość pochodzi **wyłącznie** z sesji odczytanej przez bramę
+ * (`kontekstUzytkownika`), nigdy z żądania przeglądarki — model zaufania
+ * i trzy zakazy, od których zależy, opisuje komentarz `TreeIdentity`.
+ */
+export const USER_HEADER = "X-TreeGrid-User";
+
+/**
+ * Opcje żądania. `userId` — tożsamość konta wysyłana nagłówkiem
+ * {@link USER_HEADER}; klienci słowników jej nie podają, bo słowniki są
+ * wspólne i API o konto nie pyta.
+ */
+export type ApiRequestOptions = { userId?: string };
+
+/**
+ * Żądanie do API — jedna ścieżka dla klientów słowników (`objects.server.ts`,
+ * `categories.server.ts`) i klienta drzewa (`tree.server.ts`), który jako
+ * jedyny podaje `options.userId`.
  *
  * Semantyka porażek jest ta sama co w `requestAccount` z `auth.server.ts`:
  * każda ścieżka, łącznie ze zgaszonym API, kończy się kopertą
@@ -148,14 +168,24 @@ export async function requestApi(
   method: "GET" | "POST" | "PUT" | "DELETE",
   path: string,
   payload?: object,
+  options?: ApiRequestOptions,
 ): Promise<ApiResult> {
   let response: Response;
+
+  const headers: Record<string, string> = {};
+
+  if (payload !== undefined) {
+    headers["Content-Type"] = "application/json";
+  }
+
+  if (options?.userId !== undefined) {
+    headers[USER_HEADER] = options.userId;
+  }
 
   try {
     response = await fetch(`${API_BASE_URL}${path}`, {
       method,
-      headers:
-        payload === undefined ? undefined : { "Content-Type": "application/json" },
+      headers,
       body: payload === undefined ? undefined : JSON.stringify(payload),
     });
   } catch (cause) {

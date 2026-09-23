@@ -41,7 +41,15 @@ export default function Powloka({ loaderData }: Route.ComponentProps) {
   const { email } = loaderData;
 
   return (
-    <>
+    // Kolumna na wysokość okna: nagłówek tyle, ile wyznaczy menu, a obszar
+    // widoku — dokładnie resztę. Dzięki temu widok z własnym przewijaniem
+    // (`routes/drzewo.tsx`) dostaje wysokość z układu (`h-full`), a nie
+    // z liczby powtarzającej wysokość nagłówka. Widoki dłuższe od okna
+    // (`/obiekty`, `/kategorie`) nic nie tracą: obszar ma `overflow`
+    // domyślne, więc treść z niego wystaje i przewija się cały dokument, jak
+    // dotąd. Opakowanie `Outlet` jest blokiem, a nie elementem flex, żeby
+    // `mx-auto` widoków nadal centrowało je na pełnej szerokości.
+    <div className="flex h-dvh flex-col">
       {/*
         Wysokości nagłówek nie ma w żadnej klasie: wyznacza ją menu, którego
         `horizontalLineHeight` pochodzi z `METRYKI.wysokoscNaglowka`
@@ -57,7 +65,7 @@ export default function Powloka({ loaderData }: Route.ComponentProps) {
         krój zastępczy, zanim dojedzie Inter. Zmiana etykiet przełącznika
         albo jego pozycji wymaga poprawienia tej klasy.
       */}
-      <header className="flex items-center gap-4 border-b border-tg-linia bg-tg-panel pr-36 pl-3">
+      <header className="flex shrink-0 items-center gap-4 border-b border-tg-linia bg-tg-panel pr-36 pl-3">
         <Link
           to="/"
           className="font-semibold text-tg-tekst hover:text-tg-akcent"
@@ -89,7 +97,9 @@ export default function Powloka({ loaderData }: Route.ComponentProps) {
         </div>
       </header>
 
-      <Outlet />
-    </>
+      <div className="min-h-0 flex-1">
+        <Outlet />
+      </div>
+    </div>
   );
 }
