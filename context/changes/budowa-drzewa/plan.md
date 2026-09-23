@@ -788,10 +788,10 @@ bazy). Działające API blokuje build Debug — zatrzymaj je przed `dotnet build
 
 #### Automated
 
-- [x] 2.1 Typy przechodzą: `npm run typecheck`
-- [x] 2.2 Build produkcyjny przechodzi: `npm run build`
-- [x] 2.3 Nowe widoki nie zawierają literałów koloru ani palety Tailwinda
-- [x] 2.4 Adres API nie trafia do bundla klienckiego: `grep -r "127.0.0.1:5180" build/client` nic nie zwraca
+- [x] 2.1 Typy przechodzą: `npm run typecheck` — 7788590
+- [x] 2.2 Build produkcyjny przechodzi: `npm run build` — 7788590
+- [x] 2.3 Nowe widoki nie zawierają literałów koloru ani palety Tailwinda — 7788590
+- [x] 2.4 Adres API nie trafia do bundla klienckiego: `grep -r "127.0.0.1:5180" build/client` nic nie zwraca — 7788590
 
 #### Manual
 
@@ -815,16 +815,16 @@ bazy). Działające API blokuje build Debug — zatrzymaj je przed `dotnet build
 
 #### Automated
 
-- [ ] 3.1 Typy przechodzą: `npm run typecheck`
-- [ ] 3.2 Build produkcyjny przechodzi: `npm run build`
-- [ ] 3.3 Nowe i zmienione widoki nie zawierają literałów koloru ani palety Tailwinda
+- [x] 3.1 Typy przechodzą: `npm run typecheck`
+- [x] 3.2 Build produkcyjny przechodzi: `npm run build`
+- [x] 3.3 Nowe i zmienione widoki nie zawierają literałów koloru ani palety Tailwinda
 
 #### Manual
 
-- [ ] 3.4 Przeciągnięcie obiektu z listy na węzeł dodaje go jako ostatnie dziecko; dla obiektu z podobiektami pojawia się dialog gałęzi
-- [ ] 3.5 Przeciągnięcie z listy na strefę najwyższego poziomu i na pusty stan dodaje obiekt na najwyższy poziom
-- [ ] 3.6 Upuszczenie z listy, które tworzy zapętlenie albo duplikat rodzeństwa, pokazuje baner i nie zmienia drzewa
-- [ ] 3.7 Przeciągnięcie węzła w przerwę przed albo za innym węzłem zmienia kolejność rodzeństwa (także w dół w obrębie tego samego rodzica); kolejność przeżywa odświeżenie
-- [ ] 3.8 Przeciągnięcie węzła na inny węzeł przenosi go z poddrzewem jako ostatnie dziecko; przesunięcie tworzące zapętlenie pokazuje baner ze ścieżką
-- [ ] 3.9 Kliknięcie w wiersz listy nadal zaznacza obiekt, a „Dodaj" i „Usuń węzeł" działają jak w fazie 2
-- [ ] 3.10 Przez adres tunelu przeciąganie z listy i przesunięcie węzła przechodzą bez 400 i bez `origin_mismatch`
+- [x] 3.4 Przeciągnięcie obiektu z listy na węzeł dodaje go jako ostatnie dziecko; dla obiektu z podobiektami pojawia się dialog gałęzi
+- [x] 3.5 Przeciągnięcie z listy na strefę najwyższego poziomu i na pusty stan dodaje obiekt na najwyższy poziom
+- [x] 3.6 Upuszczenie z listy, które tworzy zapętlenie albo duplikat rodzeństwa, pokazuje baner i nie zmienia drzewa
+- [x] 3.7 Przeciągnięcie węzła w przerwę przed albo za innym węzłem zmienia kolejność rodzeństwa (także w dół w obrębie tego samego rodzica); kolejność przeżywa odświeżenie
+- [x] 3.8 Przeciągnięcie węzła na inny węzeł przenosi go z poddrzewem jako ostatnie dziecko; przesunięcie tworzące zapętlenie pokazuje baner ze ścieżką
+- [x] 3.9 Kliknięcie w wiersz listy nadal zaznacza obiekt, a „Dodaj" i „Usuń węzeł" działają jak w fazie 2
+- [x] 3.10 Przez adres tunelu przeciąganie z listy i przesunięcie węzła przechodzą bez 400 i bez `origin_mismatch`

@@ -1,8 +1,9 @@
 /**
  * Czyste funkcje widoku budowy drzewa: płaska lista węzłów z API i słownik
  * obiektów zamienione na dane antd `Tree`, liczba węzłów poddrzewa (do
- * potwierdzenia usunięcia) i sprawdzenie, czy obiekt ma podobiekty w słowniku
- * (do dialogu gałęzi).
+ * potwierdzenia usunięcia), sprawdzenie, czy obiekt ma podobiekty w słowniku
+ * (do dialogu gałęzi), oraz przeliczenie upuszczenia węzła w drzewie na
+ * przeniesienie w semantyce API.
  *
  * Moduł świadomie **bez** sufiksu `.server` i bez żadnego importu z modułów
  * `.server` — także bez `import type`: czytają go komponenty renderowane
@@ -12,6 +13,17 @@
  */
 
 import type { TreeDataNode } from "antd";
+import type { Key } from "react";
+
+/**
+ * Typ MIME przeciągania obiektu z listy źródłowej do drzewa; wartością jest
+ * identyfikator obiektu. Własny, a nie `text/plain`: po nim drzewo odróżnia
+ * przeciąganie z listy od przeciągania węzła wewnątrz drzewa (rc-tree ustawia
+ * wtedy pusty `text/plain`), a pole tekstowe, na które ktoś upuści wiersz, nie
+ * dostanie wklejonego identyfikatora. Małymi literami, bo tak przeglądarka
+ * oddaje go w `dataTransfer.types`.
+ */
+export const TYP_PRZECIAGANEGO_OBIEKTU = "application/x-treegrid-object";
 
 /** Węzeł drzewa w kształcie `GET /tree` — tyle, ile widok potrzebuje. */
 export type WezelDrzewa = {
@@ -107,6 +119,102 @@ export function liczbaWezlowPodrzednych(
  */
 export function maPodobiekty(obiekt: ObiektSlownika): boolean {
   return obiekt.childIds.length > 0;
+}
+
+/** Przeniesienie węzła w semantyce `PUT /tree/nodes/{id}`. */
+export type Przeniesienie = {
+  nodeId: number;
+  /** Nowy rodzic albo `null` — najwyższy poziom. */
+  parentId: number | null;
+  /** Indeks wśród nowego rodzeństwa liczony **po** zdjęciu przenoszonego węzła. */
+  position: number;
+};
+
+/**
+ * Tyle z `info` antd `Tree.onDrop`, ile potrzeba do przeliczenia. Typ
+ * strukturalny, a nie typ rc-tree: `info` do niego pasuje bez rzutowania,
+ * a moduł nie zależy od wewnętrznych typów biblioteki.
+ */
+export type UpuszczenieWDrzewie = {
+  /** Węzeł docelowy wyliczony przez rc-tree — nie zawsze ten pod kursorem. */
+  node: { key: Key; pos: string; expanded: boolean };
+  dragNode: { key: Key };
+  dropToGap: boolean;
+  /** Indeks celu wśród rodzeństwa plus przesunięcie -1 / 0 / 1. */
+  dropPosition: number;
+};
+
+/**
+ * Zamienia upuszczenie węzła w drzewie na przeniesienie w semantyce
+ * `PUT /tree/nodes/{id}` albo `null`, gdy nie ma czego wysyłać (węzeł wraca
+ * na swoje miejsce, cel nie istnieje na liście).
+ *
+ * `info.dropPosition` z rc-tree to indeks celu wśród rodzeństwa **plus**
+ * przesunięcie (`Tree.js`, `onNodeDrop`), więc przesunięcie odzyskuje się
+ * odjęciem ostatniego członu `node.pos`: -1 — przerwa przed celem, 1 — przerwa
+ * za celem, 0 — na cel. Sam indeks celu brany jest z listy węzłów, nie z
+ * `pos`: to ta sama kolejność (`dzieciPoRodzicu`), ale lista jest źródłem
+ * prawdy o rodzicu.
+ *
+ * - **Przerwa**: rodzic celu, indeks przed albo za celem. API liczy pozycję po
+ *   zdjęciu przenoszonego węzła, więc przy przesunięciu w dół w obrębie tego
+ *   samego rodzica indeks spada o jeden.
+ * - **Na węzeł zwinięty albo liść**: ostatnie dziecko, tak samo jak „Dodaj".
+ * - **Na węzeł rozwinięty z dziećmi**: **pierwsze** dziecko. rc-tree nad
+ *   rozwiniętym rodzicem nie daje przerwy, tylko zawsze „na węzeł"
+ *   (`calcDropPosition` w `util.js`), i do tego samego rodzica sprowadza górną
+ *   połowę jego pierwszego dziecka — wskaźnik rysuje wtedy linię tuż pod
+ *   rodzicem, na wcięciu dzieci. Gdyby to było ostatnie dziecko, pozycja 0
+ *   w zagnieżdżonej grupie byłaby nieosiągalna, a węzeł lądowałby gdzie
+ *   indziej, niż pokazał wskaźnik. W to samo miejsce wstawia oficjalny
+ *   przykład przeciągania antd.
+ */
+export function wyliczPrzeniesienie(
+  wezly: readonly WezelDrzewa[],
+  upuszczenie: UpuszczenieWDrzewie,
+): Przeniesienie | null {
+  const nodeId = Number(upuszczenie.dragNode.key);
+  const celId = Number(upuszczenie.node.key);
+  const przenoszony = wezly.find((wezel) => wezel.id === nodeId);
+  const cel = wezly.find((wezel) => wezel.id === celId);
+
+  if (przenoszony === undefined || cel === undefined || cel.id === przenoszony.id) {
+    return null;
+  }
+
+  const dzieci = dzieciPoRodzicu(wezly);
+  const obecnyIndeks = (dzieci.get(przenoszony.parentId) ?? []).indexOf(przenoszony);
+
+  let parentId: number | null;
+  let position: number;
+
+  if (!upuszczenie.dropToGap) {
+    const dzieciCelu = (dzieci.get(cel.id) ?? []).filter(
+      (wezel) => wezel.id !== przenoszony.id,
+    );
+
+    parentId = cel.id;
+    position =
+      upuszczenie.node.expanded && dzieciCelu.length > 0 ? 0 : dzieciCelu.length;
+  } else {
+    const rodzenstwo = dzieci.get(cel.parentId) ?? [];
+    const indeksCelu = rodzenstwo.indexOf(cel);
+    const pozycjaCelu = Number(upuszczenie.node.pos.split("-").at(-1));
+    const przed = upuszczenie.dropPosition - pozycjaCelu < 0;
+
+    parentId = cel.parentId;
+    position = przed ? indeksCelu : indeksCelu + 1;
+
+    if (przenoszony.parentId === parentId && obecnyIndeks < position) {
+      position -= 1;
+    }
+  }
+
+  if (przenoszony.parentId === parentId && obecnyIndeks === position) {
+    return null;
+  }
+
+  return { nodeId: przenoszony.id, parentId, position };
 }
 
 /** Węzły pogrupowane po rodzicu (`null` — najwyższy poziom), w kolejności `position`. */

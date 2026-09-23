@@ -17,31 +17,38 @@ import { apiError, parseEntityId } from "~/lib/api.server";
 // Wartości z modułów `.server` czytają wyłącznie `loader` i `action` — znikają
 // z bundla klienckiego razem z nimi (`routes/powloka.tsx`).
 import { kontekstUzytkownika, requireSameOrigin } from "~/lib/auth.server";
-import { liczbaWezlowPodrzednych, maPodobiekty } from "~/lib/drzewo";
+import {
+  type Przeniesienie,
+  liczbaWezlowPodrzednych,
+  maPodobiekty,
+} from "~/lib/drzewo";
 import type { CatalogObject } from "~/lib/objects.server";
 import { listObjects } from "~/lib/objects.server";
 import type { TreeNode } from "~/lib/tree.server";
-import { addNode, deleteNode, getTree } from "~/lib/tree.server";
+import { addNode, deleteNode, getTree, moveNode } from "~/lib/tree.server";
 
 import type { Route } from "./+types/drzewo";
 
-/**
- * Wartości pola `intent` — po nich `action` rozróżnia operacje. Od fazy 3
- * planu `budowa-drzewa` dochodzi `przenies`.
- */
+/** Wartości pola `intent` — po nich `action` rozróżnia operacje. */
 const DODAJ = "dodaj";
 const USUN = "usun";
+const PRZENIES = "przenies";
 
 /**
- * Nazwy pól formularza operacji. Pola dodania są celowo tymi samymi nazwami
- * co `TreeRequestFields` (`src/Api/Tree/TreeEndpoints.cs`), żeby naruszenia
- * zgłoszone przez tę trasę i przez API trafiały pod te same klucze
- * `context.fields`.
+ * Nazwy pól formularza operacji. Pola dodania i przeniesienia są celowo tymi
+ * samymi nazwami co `TreeRequestFields` (`src/Api/Tree/TreeEndpoints.cs`),
+ * żeby naruszenia zgłoszone przez tę trasę i przez API trafiały pod te same
+ * klucze `context.fields`. `nodeId` do nich nie należy — w API węzeł idzie
+ * w adresie.
  */
 const POLE_OBIEKTU = "objectId";
 const POLE_RODZICA = "parentId";
 const POLE_GALEZI = "includeBranch";
+const POLE_POZYCJI = "position";
 const POLE_WEZLA = "nodeId";
+
+/** Największa pozycja, jaką przyjmie API — `int` w C#, jak identyfikatory. */
+const MAX_POZYCJI = 2_147_483_647;
 
 /** Komunikat błędu walidacji — ten sam tekst co w API. */
 const KOMUNIKAT_WALIDACJI = "Przesłane dane są nieprawidłowe.";
@@ -164,6 +171,37 @@ export async function action({ request, context }: Route.ActionArgs) {
     return wynik.ok ? null : data(wynik.error, { status: wynik.status });
   }
 
+  if (intent === PRZENIES) {
+    const nodeId = parseEntityId(pole(formData, POLE_WEZLA));
+    // Puste pole rodzica to najwyższy poziom, nie błąd — jak przy dodaniu.
+    const rodzic = pole(formData, POLE_RODZICA);
+    const parentId = rodzic === "" ? null : parseEntityId(rodzic);
+    const position = parsujPozycje(pole(formData, POLE_POZYCJI));
+    const naruszenia: Record<string, string> = {};
+
+    if (nodeId === null) {
+      naruszenia[POLE_WEZLA] = "Nieprawidłowy identyfikator węzła.";
+    }
+
+    if (rodzic !== "" && parentId === null) {
+      naruszenia[POLE_RODZICA] = "Nieprawidłowy identyfikator węzła nadrzędnego.";
+    }
+
+    // Tylko kształt liczby; czy pozycja mieści się w grupie rodzeństwa,
+    // rozstrzyga API, bo tylko ono zna bieżące drzewo.
+    if (position === null) {
+      naruszenia[POLE_POZYCJI] = "Nieprawidłowa pozycja węzła.";
+    }
+
+    if (nodeId === null || position === null || Object.keys(naruszenia).length > 0) {
+      return bladWalidacji(naruszenia);
+    }
+
+    const wynik = await moveNode(userId, nodeId, { parentId, position });
+
+    return wynik.ok ? null : data(wynik.error, { status: wynik.status });
+  }
+
   // `validation_error`, a nie kod warstwy tras — powód przy tej samej gałęzi
   // w `routes/obiekty.tsx`.
   return data(
@@ -218,15 +256,21 @@ export default function Drzewo({ loaderData }: Route.ComponentProps) {
   );
 }
 
-/** Dodanie czekające na zakończenie operacji — do rozwinięcia rodzica. */
-type OczekujaceDodanie = {
-  /** Rodzic, pod który dodano, albo `null` — najwyższy poziom. */
+/**
+ * Dodanie albo przeniesienie czekające na zakończenie operacji — do
+ * rozwinięcia rodzica, pod który trafił węzeł.
+ */
+type OczekujaceRozwiniecie = {
+  /** Rodzic, pod który dodano albo przeniesiono, albo `null` — najwyższy poziom. */
   rodzic: number | null;
-  /** Czy fetcher wyszedł już ze stanu `idle` dla tego dodania. */
+  /** Czy fetcher wyszedł już ze stanu `idle` dla tej operacji. */
   wToku: boolean;
 };
 
-/** Obiekt i cel zapamiętane w chwili kliknięcia „Dodaj" — na czas dialogu gałęzi. */
+/**
+ * Obiekt i cel zapamiętane w chwili kliknięcia „Dodaj" albo upuszczenia
+ * z listy — na czas dialogu gałęzi.
+ */
 type Dodanie = { obiekt: CatalogObject; parentId: number | null };
 
 function BudowaDrzewa({
@@ -249,7 +293,7 @@ function BudowaDrzewa({
   const [dodanie, ustawDodanie] = useState<Dodanie | null>(null);
   const [dialogOtwarty, ustawDialogOtwarty] = useState(false);
 
-  const oczekujace = useRef<OczekujaceDodanie | null>(null);
+  const oczekujace = useRef<OczekujaceRozwiniecie | null>(null);
 
   const obiektyPoId = useMemo(
     () => new Map(obiekty.map((obiekt) => [obiekt.id, obiekt])),
@@ -276,8 +320,9 @@ function BudowaDrzewa({
   // i baner znika.
   const odmowa: ApiErrorBody | null = fetcher.data ?? null;
 
-  // Rodzic, pod który dodano węzeł, rozwija się dopiero po udanej operacji
-  // i rewalidacji — czyli gdy fetcher wróci do `idle` z `null`. Flaga `wToku`
+  // Rodzic, pod który dodano albo przeniesiono węzeł, rozwija się dopiero po
+  // udanej operacji i rewalidacji — czyli gdy fetcher wróci do `idle`
+  // z `null`. Flaga `wToku`
   // pilnuje, żeby render sprzed startu wysyłki nie wziął za wynik danych
   // z poprzedniej operacji.
   useEffect(() => {
@@ -325,21 +370,57 @@ function BudowaDrzewa({
     );
   }
 
-  function dodaj() {
-    if (wybranyObiekt === null) {
+  /**
+   * Jedyna ścieżka dodania obiektu pod węzeł (`parentId`) albo na najwyższy
+   * poziom (`null`) — wspólna dla „Dodaj" i upuszczenia z listy, żeby dialog
+   * gałęzi i rozwinięcie rodzica działały w obu tak samo.
+   */
+  function dodajObiekt(obiekt: CatalogObject, parentId: number | null) {
+    if (zajete) {
       return;
     }
 
-    const parentId = wybranyWezel?.id ?? null;
-
     // FR-005: o zakres pyta się wyłącznie przy obiekcie z podobiektami;
     // bez nich „cała gałąź" i „tylko obiekt" to ta sama operacja.
-    if (maPodobiekty(wybranyObiekt)) {
-      ustawDodanie({ obiekt: wybranyObiekt, parentId });
+    if (maPodobiekty(obiekt)) {
+      ustawDodanie({ obiekt, parentId });
       ustawDialogOtwarty(true);
     } else {
-      wyslijDodanie(wybranyObiekt, parentId, false);
+      wyslijDodanie(obiekt, parentId, false);
     }
+  }
+
+  function dodaj() {
+    if (wybranyObiekt !== null) {
+      dodajObiekt(wybranyObiekt, wybranyWezel?.id ?? null);
+    }
+  }
+
+  function upuscObiekt(objectId: number, parentId: number | null) {
+    // Obiekt usunięty ze słownika od ostatniej rewalidacji — nie ma czego dodać.
+    const obiekt = obiektyPoId.get(objectId);
+
+    if (obiekt !== undefined) {
+      dodajObiekt(obiekt, parentId);
+    }
+  }
+
+  function przenies({ nodeId, parentId, position }: Przeniesienie) {
+    if (zajete) {
+      return;
+    }
+
+    oczekujace.current = { rodzic: parentId, wToku: false };
+
+    fetcher.submit(
+      {
+        intent: PRZENIES,
+        [POLE_WEZLA]: String(nodeId),
+        [POLE_RODZICA]: parentId === null ? "" : String(parentId),
+        [POLE_POZYCJI]: String(position),
+      },
+      { method: "post" },
+    );
   }
 
   function wybierzZakres(includeBranch: boolean) {
@@ -429,6 +510,8 @@ function BudowaDrzewa({
               onWybierzWezel={ustawWybranyWezelId}
               rozwiniete={rozwiniete}
               onRozwin={ustawRozwiniete}
+              onUpuscObiekt={upuscObiekt}
+              onPrzenies={przenies}
               zajete={zajete}
             />
           </div>
@@ -462,6 +545,22 @@ function pole(formData: FormData, nazwa: string): string {
   const wartosc = formData.get(nazwa);
 
   return typeof wartosc === "string" ? wartosc : "";
+}
+
+/**
+ * Pozycja wśród rodzeństwa albo `null`, gdy nie jest nieujemną liczbą
+ * całkowitą w zakresie `int` z API. Wzorzec, a nie samo `Number(...)` — powód
+ * przy `parseEntityId`; osobna funkcja, bo pozycja, w odróżnieniu od
+ * identyfikatora, może być zerem.
+ */
+function parsujPozycje(wartosc: string): number | null {
+  if (!/^(0|[1-9]\d*)$/.test(wartosc)) {
+    return null;
+  }
+
+  const pozycja = Number(wartosc);
+
+  return pozycja <= MAX_POZYCJI ? pozycja : null;
 }
 
 function bladWalidacji(naruszenia: Record<string, string>) {

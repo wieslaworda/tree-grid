@@ -1,7 +1,7 @@
 import { Input, Table, type TableColumnsType } from "antd";
 import { useEffect, useMemo, useRef, useState } from "react";
 
-import type { ObiektSlownika } from "~/lib/drzewo";
+import { type ObiektSlownika, TYP_PRZECIAGANEGO_OBIEKTU } from "~/lib/drzewo";
 import { METRYKI } from "~/theme/tokeny";
 
 type Wlasciwosci = {
@@ -47,10 +47,16 @@ function pasuje(wiersz: Wiersz, fraza: string): boolean {
  *
  * Osobny, prosty komponent, a nie `TabelaSlownika`: tamta nawiguje po
  * kliknięciu w wiersz i jej wiersz filtrów wyklucza `scroll.y`, a ta lista ma
- * stać obok drzewa z własnym przewijaniem (w fazie 3 — jako źródło
- * przeciągania). Kliknięcie w wiersz tylko zaznacza obiekt; wiersz jest też
- * osiągalny z klawiatury (Tab, potem Enter albo spacja), bo dodawanie ma
- * działać bez myszy.
+ * stać obok drzewa z własnym przewijaniem jako źródło przeciągania. Kliknięcie
+ * w wiersz tylko zaznacza obiekt; wiersz jest też osiągalny z klawiatury (Tab,
+ * potem Enter albo spacja), bo dodawanie ma działać bez myszy.
+ *
+ * Wiersz da się chwycić i upuścić w drzewie: niesie identyfikator obiektu pod
+ * własnym typem MIME ({@link TYP_PRZECIAGANEGO_OBIEKTU}), po którym drzewo
+ * rozpoznaje przeciąganie z listy. `effectAllowed = "copy"`, bo obiekt nie
+ * znika z listy — w drzewie powstaje jego kolejne wystąpienie. Przeciąganie
+ * nie zmienia zaznaczenia; kliknięcie bez ruchu nie startuje przeciągania,
+ * więc zaznacza jak dotąd.
  *
  * `size="small"` to wariant, dla którego motyw liczy wiersz 24 px
  * (`app/theme/antd.ts`). Bez stronicowania: słownik jest rzędu setek pozycji,
@@ -118,6 +124,14 @@ export function ListaObiektowZrodlowych({
           onRow={(wiersz) => ({
             tabIndex: 0,
             "aria-selected": wiersz.id === wybranyId,
+            draggable: true,
+            onDragStart: (zdarzenie: React.DragEvent<HTMLElement>) => {
+              zdarzenie.dataTransfer.setData(
+                TYP_PRZECIAGANEGO_OBIEKTU,
+                String(wiersz.id),
+              );
+              zdarzenie.dataTransfer.effectAllowed = "copy";
+            },
             onClick: () => onWybierz(wiersz.id),
             onKeyDown: (zdarzenie: React.KeyboardEvent<HTMLElement>) => {
               if (zdarzenie.key === "Enter" || zdarzenie.key === " ") {
