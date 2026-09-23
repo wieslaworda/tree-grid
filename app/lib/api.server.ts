@@ -134,10 +134,11 @@ export type ApiFailure = { ok: false; status: number; error: ApiErrorBody };
 export type ApiResult = { ok: true; status: number; body: unknown } | ApiFailure;
 
 /**
- * Nagłówek z identyfikatorem zalogowanego konta dla endpointów `/tree`.
- * Literał musi być identyczny z `TreeIdentity.UserHeader`
- * (`src/Api/Tree/TreeIdentity.cs`, przypięty tam testem); rozjazd nie daje
- * błędu kompilacji, tylko 401 `unauthorized` na każdym żądaniu drzewa.
+ * Nagłówek z identyfikatorem zalogowanego konta dla endpointów `/trees`
+ * (lista drzew i węzły w obrębie drzewa). Literał musi być identyczny
+ * z `TreeIdentity.UserHeader` (`src/Api/Tree/TreeIdentity.cs`, przypięty tam
+ * testem); rozjazd nie daje błędu kompilacji, tylko 401 `unauthorized` na
+ * każdym żądaniu drzew.
  *
  * Wartość pochodzi **wyłącznie** z sesji odczytanej przez bramę
  * (`kontekstUzytkownika`), nigdy z żądania przeglądarki — model zaufania
@@ -154,7 +155,7 @@ export type ApiRequestOptions = { userId?: string };
 
 /**
  * Żądanie do API — jedna ścieżka dla klientów słowników (`objects.server.ts`,
- * `categories.server.ts`) i klienta drzewa (`tree.server.ts`), który jako
+ * `categories.server.ts`) i klienta drzew (`tree.server.ts`), który jako
  * jedyny podaje `options.userId`.
  *
  * Semantyka porażek jest ta sama co w `requestAccount` z `auth.server.ts`:

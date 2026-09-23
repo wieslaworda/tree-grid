@@ -1394,11 +1394,11 @@ usunięte adresy `/tree`), więc obie fazy wdraża się przez tunel razem.
 
 #### Automated
 
-- [x] 4.1 Build rozwiązania przechodzi: `dotnet build TreeGrid.sln`
-- [x] 4.2 Testy przechodzą, w tym testy reguł nazwy drzewa: `dotnet test TreeGrid.sln`
-- [x] 4.3 Model nie ma zmian bez migracji: `dotnet ef migrations has-pending-model-changes --project src/Api`
-- [x] 4.4 W skrypcie migracji `INSERT` drzew i `UPDATE` węzłów stoją przed przebudową tabeli `TreeNodes`: `dotnet ef migrations script TreeNodes NamedTrees --project src/Api`
-- [x] 4.5 W skrypcie cofnięcia `PRAGMA foreign_keys = 0` stoi przed `DROP TABLE "Trees"`, a `UPDATE` węzłów przed obydwoma: `dotnet ef migrations script NamedTrees TreeNodes --project src/Api`
+- [x] 4.1 Build rozwiązania przechodzi: `dotnet build TreeGrid.sln` — c4a4db7
+- [x] 4.2 Testy przechodzą, w tym testy reguł nazwy drzewa: `dotnet test TreeGrid.sln` — c4a4db7
+- [x] 4.3 Model nie ma zmian bez migracji: `dotnet ef migrations has-pending-model-changes --project src/Api` — c4a4db7
+- [x] 4.4 W skrypcie migracji `INSERT` drzew i `UPDATE` węzłów stoją przed przebudową tabeli `TreeNodes`: `dotnet ef migrations script TreeNodes NamedTrees --project src/Api` — c4a4db7
+- [x] 4.5 W skrypcie cofnięcia `PRAGMA foreign_keys = 0` stoi przed `DROP TABLE "Trees"`, a `UPDATE` węzłów przed obydwoma: `dotnet ef migrations script NamedTrees TreeNodes --project src/Api` — c4a4db7
 
 #### Manual
 
@@ -1420,12 +1420,17 @@ usunięte adresy `/tree`), więc obie fazy wdraża się przez tunel razem.
 
 #### Automated
 
-- [ ] 5.1 Typy przechodzą: `npm run typecheck`
-- [ ] 5.2 Build produkcyjny przechodzi: `npm run build`
-- [ ] 5.3 Nowe i zmienione widoki nie zawierają literałów koloru ani palety Tailwinda
-- [ ] 5.4 Adres API nie trafia do bundla klienckiego: `grep -r "127.0.0.1:5180" build/client` nic nie zwraca
+- [x] 5.1 Typy przechodzą: `npm run typecheck`
+- [x] 5.2 Build produkcyjny przechodzi: `npm run build`
+- [x] 5.3 Nowe i zmienione widoki nie zawierają literałów koloru ani palety Tailwinda
+- [x] 5.4 Adres API nie trafia do bundla klienckiego: `grep -r "127.0.0.1:5180" build/client` nic nie zwraca
 
 #### Manual
+
+> Weryfikacja ręczna fazy 5 odłożona decyzją użytkownika (2026-09-23): panel
+> drzew ma dostać wygląd i nawigację Kategorii, a struktura — zapis szkicu
+> razem z nazwą. Te zmiany wejdą osobną fazą dopisaną przez `/10x-plan`.
+> Kroki 5.5–5.14 sprawdza się po niej.
 
 - [ ] 5.5 Po migracji dotychczasowe drzewo konta widać na liście jako „Drzewo robocze” z nietkniętą strukturą
 - [ ] 5.6 Wejście z menu na `/drzewo` otwiera pierwsze drzewo po nazwie (adres z `?drzewo=`); konto bez drzew widzi pustą listę z zachętą i nieaktywną budowę

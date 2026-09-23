@@ -13,7 +13,7 @@ import {
 } from "react";
 import { Link, useNavigate } from "react-router";
 
-/** Liczba wierszy na jednej stronie tabeli. */
+/** Domyślna liczba wierszy na jednej stronie tabeli. */
 const NA_STRONE = 10;
 
 /**
@@ -82,6 +82,12 @@ type Wlasciwosci<W extends { id: number }> = {
   tekstPustegoSlownika: string;
   /** Tekst tabeli, gdy pozycje są, ale żadna nie pasuje do filtrów. */
   tekstBrakuTrafien: string;
+  /**
+   * Liczba wierszy na stronie — domyślnie {@link NA_STRONE}. Krótsza strona
+   * tam, gdzie tabela dzieli ekran z czymś większym (lista drzew nad budową).
+   * Stała widoku, a nie wartość zmieniana w trakcie.
+   */
+  naStronie?: number;
 };
 
 /** Wartości filtrów po kluczu kolumny — brak albo pusty tekst znaczy „bez filtra". */
@@ -138,11 +144,12 @@ function posortuj<W>(wiersze: W[], sortowanie: Sortowanie): W[] {
 function stronaWiersza(
   wiersze: { id: number }[],
   id: number | undefined,
+  naStronie: number,
 ): number | null {
   const indeks =
     id === undefined ? -1 : wiersze.findIndex((wiersz) => wiersz.id === id);
 
-  return indeks < 0 ? null : Math.floor(indeks / NA_STRONE) + 1;
+  return indeks < 0 ? null : Math.floor(indeks / naStronie) + 1;
 }
 
 /** Opis kolumny tak, jak widzi go wiersz filtrów — bez typu wiersza. */
@@ -242,12 +249,14 @@ const KOMPONENTY_TABELI = {
 
 /**
  * Tabela słownika — wspólna dla wszystkich słowników z panelem pod listą
- * (obiekty, kategorie).
+ * (obiekty, kategorie) i dla listy drzew nad budową drzewa (`routes/drzewo.tsx`,
+ * z krótszą stroną `naStronie`).
  *
  * `size="small"` jest rozmiarem motywu, nie wyjątkiem od niego: to właśnie
  * wariant `SM` tabeli ma w `app/theme/antd.ts` policzony wiersz 24 px. Tabela
  * ma wiersz filtrów pod nagłówkami, sortowanie po każdej kolumnie
- * i stronicowanie po {@link NA_STRONE}. Stan wszystkich trzech żyje w tym
+ * i stronicowanie po `naStronie` wierszy (domyślnie {@link NA_STRONE}). Stan
+ * wszystkich trzech żyje w tym
  * komponencie, więc przeżywa zapis i przekierowanie na tę samą trasę, ale nie
  * pełne odświeżenie strony.
  *
@@ -263,6 +272,7 @@ export function TabelaSlownika<W extends { id: number }>({
   adresWyboru,
   tekstPustegoSlownika,
   tekstBrakuTrafien,
+  naStronie = NA_STRONE,
 }: Wlasciwosci<W>) {
   const nawiguj = useNavigate();
 
@@ -280,7 +290,7 @@ export function TabelaSlownika<W extends { id: number }>({
   // Start na stronie wybranego wiersza — adres `?id=` otwarty wprost albo po
   // odświeżeniu ma pokazać jego wiersz, a nie pierwszą stronę.
   const [strona, ustawStrone] = useState(
-    () => stronaWiersza(widoczne, wybranyId) ?? 1,
+    () => stronaWiersza(widoczne, wybranyId, naStronie) ?? 1,
   );
 
   // Po każdym przebiegu loadera tabela staje na stronie wybranego wiersza —
@@ -295,14 +305,14 @@ export function TabelaSlownika<W extends { id: number }>({
   // przyciętą do liczby stron — inaczej stan zostałby ponad nią i przeskoczył
   // przy późniejszym dopływie wierszy.
   useEffect(() => {
-    const docelowa = stronaWiersza(widoczne, wybranyId);
-    const ostatnia = Math.max(1, Math.ceil(widoczne.length / NA_STRONE));
+    const docelowa = stronaWiersza(widoczne, wybranyId, naStronie);
+    const ostatnia = Math.max(1, Math.ceil(widoczne.length / naStronie));
 
     ustawStrone((poprzednia) => docelowa ?? Math.min(poprzednia, ostatnia));
-  }, [wybranyId, wiersze]);
+  }, [wybranyId, wiersze, naStronie]);
 
   // Po usunięciu albo zawężeniu filtrów zapamiętana strona może nie istnieć.
-  const liczbaStron = Math.max(1, Math.ceil(widoczne.length / NA_STRONE));
+  const liczbaStron = Math.max(1, Math.ceil(widoczne.length / naStronie));
   const biezacaStrona = Math.min(strona, liczbaStron);
 
   const kontekstFiltrow = useMemo(
@@ -356,7 +366,7 @@ export function TabelaSlownika<W extends { id: number }>({
         components={KOMPONENTY_TABELI}
         pagination={{
           current: biezacaStrona,
-          pageSize: NA_STRONE,
+          pageSize: naStronie,
           showSizeChanger: false,
           showTotal: (razem, [od, doWiersza]) => `${od}–${doWiersza} z ${razem}`,
         }}

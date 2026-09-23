@@ -46,9 +46,12 @@ export default [
       // w parametrze `?id=`.
       route("kategorie", "routes/kategorie.tsx"),
 
-      // Budowa drzewa — jedna trasa: drzewo użytkownika po lewej, lista
-      // obiektów słownika po prawej. Zaznaczenia żyją w stanie widoku, a nie
-      // w adresie; tożsamość do API bierze `loader` i `action` z bramy.
+      // Budowa drzewa — jedna trasa: lista drzew użytkownika z panelem na
+      // górze, pod nią budowa wybranego drzewa (drzewo i lista obiektów
+      // słownika). Wybór drzewa niesie parametr `?drzewo=`, nie segment
+      // ścieżki; bez niego widok otwiera pierwsze drzewo. Zaznaczenia węzła
+      // i obiektu żyją w stanie widoku, a nie w adresie; tożsamość do API
+      // bierze `loader` i `action` z bramy.
       route("drzewo", "routes/drzewo.tsx"),
     ]),
   ]),

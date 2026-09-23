@@ -1,6 +1,6 @@
 /**
- * Klient drzewa roboczego — jedyne miejsce, z którego trasy rozmawiają
- * z `/tree` (`src/Api/Tree/TreeEndpoints.cs`).
+ * Klient nazwanych drzew — jedyne miejsce, z którego trasy rozmawiają
+ * z `/trees` i `/trees/{treeId}/nodes` (`src/Api/Tree/TreeEndpoints.cs`).
  *
  * Żądania idą przez wspólny {@link requestApi} z `api.server.ts`, więc
  * semantyka porażek jest ta sama co w klientach słowników: każda ścieżka,
@@ -9,12 +9,17 @@
  * `tree_duplicate_sibling`, `tree_too_large`, `validation_error`,
  * `not_found`, `unauthorized`) leci dalej w oryginale.
  *
- * W odróżnieniu od słowników drzewo ma właściciela, więc **każda** funkcja
+ * W odróżnieniu od słowników drzewa mają właściciela, więc **każda** funkcja
  * wymaga `userId` i wysyła go nagłówkiem `USER_HEADER`. Wariantu bez
  * tożsamości nie ma celowo: API odpowiedziałoby na niego 401, a funkcja
  * z opcjonalnym `userId` zachęcałaby do wywołania, które nigdy nie zadziała.
- * Identyfikator bierze się wyłącznie z `kontekstUzytkownika` odłożonego przez
- * bramę — nigdy z formularza ani adresu (model zaufania: `TreeIdentity`).
+ * Identyfikator konta bierze się wyłącznie z `kontekstUzytkownika` odłożonego
+ * przez bramę — nigdy z formularza ani adresu (model zaufania: `TreeIdentity`).
+ *
+ * Identyfikator **drzewa** (`treeId`) przychodzi natomiast z adresu widoku
+ * (`?drzewo=`) i to jest w porządku: API szuka drzewa po identyfikatorze
+ * **i** właścicielu z nagłówka, więc cudze drzewo daje 404, a nie dane.
+ * Funkcje węzłów dostają `treeId` zaraz po `userId`.
  *
  * Sufiks `.server.ts` jest nośny — patrz `api.server.ts`. Z tego samego powodu
  * {@link TREE_ROUTE} jest czytane wyłącznie po stronie serwera (nagłówek
@@ -28,19 +33,49 @@ import {
   requestApi,
 } from "~/lib/api.server";
 
-/** Adres widoku budowy drzewa — wyłącznie dla `redirect` po stronie serwera. */
+/**
+ * Adres widoku budowy drzewa bez wybranego drzewa — wyłącznie dla `redirect`
+ * po stronie serwera. Loader widoku sam wybiera z niego pierwsze drzewo.
+ */
 export const TREE_ROUTE = "/drzewo";
 
-/** Endpoint odczytu drzewa w API. */
-const TREE_PATH = "/tree";
+/** Endpoint listy drzew w API. */
+const TREES_PATH = "/trees";
 
-/** Endpoint poleceń na węzłach w API. */
-const NODES_PATH = "/tree/nodes";
+/** Endpoint jednego drzewa (zmiana nazwy, usunięcie). */
+function treePath(id: number): string {
+  return `${TREES_PATH}/${id}`;
+}
+
+/** Endpoint węzłów w obrębie drzewa. */
+function nodesPath(treeId: number): string {
+  return `${TREES_PATH}/${treeId}/nodes`;
+}
 
 /**
- * Węzeł drzewa — dokładnie kształt elementu `nodes` z `GET /tree`.
- * `parentId` `null` — najwyższy poziom; `position` — indeks od 0 wśród
- * rodzeństwa.
+ * Nazwane drzewo — dokładnie kształt elementu `items` z `GET /trees`.
+ * Nagłówek niesie wyłącznie identyfikator i nazwę (`src/Api/Data/UserTree.cs`).
+ */
+export type UserTree = {
+  id: number;
+  name: string;
+};
+
+/**
+ * Treść dodania drzewa i zmiany jego nazwy. Nazwa pola musi być identyczna
+ * z `TreeRequestFields.Name` (`src/Api/Tree/TreeEndpoints.cs`) — pod nią API
+ * adresuje naruszenie w `context.fields`, a formularz
+ * (`app/components/FormularzDrzewa.tsx`) je czyta. Zgodności nie sprawdza ani
+ * kompilator, ani `npm run typecheck`.
+ */
+export type TreePayload = {
+  name: string;
+};
+
+/**
+ * Węzeł drzewa — dokładnie kształt elementu `nodes` z
+ * `GET /trees/{treeId}/nodes`. `parentId` `null` — najwyższy poziom;
+ * `position` — indeks od 0 wśród rodzeństwa.
  */
 export type TreeNode = {
   id: number;
@@ -63,23 +98,89 @@ export type AddNodePayload = {
 
 /**
  * Treść przeniesienia. `position` — indeks w docelowej grupie rodzeństwa
- * liczony **po** zdjęciu przenoszonego węzła (kontrakt `PUT /tree/nodes/{id}`).
+ * liczony **po** zdjęciu przenoszonego węzła (kontrakt
+ * `PUT /trees/{treeId}/nodes/{id}`).
  */
 export type MoveNodePayload = {
   parentId: number | null;
   position: number;
 };
 
-export type TreeResult = { ok: true; nodes: TreeNode[] } | ApiFailure;
+export type TreeListResult = { ok: true; trees: UserTree[] } | ApiFailure;
 
-/** Wynik dodania i przeniesienia: identyfikator węzła z odpowiedzi API. */
-export type TreeNodeIdResult = { ok: true; id: number } | ApiFailure;
+export type TreeNodesResult = { ok: true; nodes: TreeNode[] } | ApiFailure;
+
+/**
+ * Wynik dodania i zmiany nazwy drzewa oraz dodania i przeniesienia węzła:
+ * identyfikator z odpowiedzi API.
+ */
+export type TreeIdResult = { ok: true; id: number } | ApiFailure;
 
 export type TreeDeleteResult = { ok: true } | ApiFailure;
 
-/** Całe drzewo użytkownika jako płaska lista, posortowana przez API po rodzicu i pozycji. */
-export async function getTree(userId: string): Promise<TreeResult> {
-  const result = await requestApi("GET", TREE_PATH, undefined, { userId });
+/**
+ * Drzewa użytkownika, posortowane przez API po nazwie znormalizowanej,
+ * a przy równej — po identyfikatorze. Pierwszy element to drzewo, które widok
+ * otwiera bez wyboru. Konto bez drzew dostaje pustą listę.
+ */
+export async function listTrees(userId: string): Promise<TreeListResult> {
+  const result = await requestApi("GET", TREES_PATH, undefined, { userId });
+
+  if (!result.ok) {
+    return result;
+  }
+
+  const items = (result.body as { items?: unknown } | undefined)?.items;
+
+  return Array.isArray(items) && items.every(isUserTree)
+    ? { ok: true, trees: items }
+    : invalidResponse(TREES_PATH, result.status);
+}
+
+/** Zakłada puste drzewo. Zwraca jego identyfikator. */
+export async function createTree(
+  userId: string,
+  payload: TreePayload,
+): Promise<TreeIdResult> {
+  return toIdResult(
+    TREES_PATH,
+    await requestApi("POST", TREES_PATH, payload, { userId }),
+  );
+}
+
+/** Zmienia nazwę własnego drzewa. */
+export async function renameTree(
+  userId: string,
+  id: number,
+  payload: TreePayload,
+): Promise<TreeIdResult> {
+  const path = treePath(id);
+
+  return toIdResult(path, await requestApi("PUT", path, payload, { userId }));
+}
+
+/** Usuwa drzewo razem ze wszystkimi jego węzłami. */
+export async function deleteTree(
+  userId: string,
+  id: number,
+): Promise<TreeDeleteResult> {
+  const result = await requestApi("DELETE", treePath(id), undefined, {
+    userId,
+  });
+
+  return result.ok ? { ok: true } : result;
+}
+
+/**
+ * Całe drzewo `treeId` jako płaska lista węzłów, posortowana przez API po
+ * rodzicu i pozycji.
+ */
+export async function getTreeNodes(
+  userId: string,
+  treeId: number,
+): Promise<TreeNodesResult> {
+  const path = nodesPath(treeId);
+  const result = await requestApi("GET", path, undefined, { userId });
 
   if (!result.ok) {
     return result;
@@ -89,48 +190,53 @@ export async function getTree(userId: string): Promise<TreeResult> {
 
   return Array.isArray(nodes) && nodes.every(isTreeNode)
     ? { ok: true, nodes }
-    : invalidResponse(TREE_PATH, result.status);
+    : invalidResponse(path, result.status);
 }
 
 /**
  * Dodaje obiekt — sam albo z całą gałęzią ze słownika — na koniec dzieci
- * `parentId` (`null` — najwyższy poziom). Zwraca identyfikator węzła-korzenia
- * wstawionej gałęzi.
+ * `parentId` (`null` — najwyższy poziom) w drzewie `treeId`. Zwraca
+ * identyfikator węzła-korzenia wstawionej gałęzi.
  */
 export async function addNode(
   userId: string,
+  treeId: number,
   payload: AddNodePayload,
-): Promise<TreeNodeIdResult> {
-  return toNodeIdResult(
-    NODES_PATH,
-    await requestApi("POST", NODES_PATH, payload, { userId }),
-  );
+): Promise<TreeIdResult> {
+  const path = nodesPath(treeId);
+
+  return toIdResult(path, await requestApi("POST", path, payload, { userId }));
 }
 
 /** Przenosi węzeł z całym poddrzewem pod `parentId` na pozycję `position`. */
 export async function moveNode(
   userId: string,
+  treeId: number,
   id: number,
   payload: MoveNodePayload,
-): Promise<TreeNodeIdResult> {
-  const path = `${NODES_PATH}/${id}`;
+): Promise<TreeIdResult> {
+  const path = `${nodesPath(treeId)}/${id}`;
 
-  return toNodeIdResult(path, await requestApi("PUT", path, payload, { userId }));
+  return toIdResult(path, await requestApi("PUT", path, payload, { userId }));
 }
 
 /** Usuwa węzeł razem z poddrzewem. */
 export async function deleteNode(
   userId: string,
+  treeId: number,
   id: number,
 ): Promise<TreeDeleteResult> {
-  const result = await requestApi("DELETE", `${NODES_PATH}/${id}`, undefined, {
-    userId,
-  });
+  const result = await requestApi(
+    "DELETE",
+    `${nodesPath(treeId)}/${id}`,
+    undefined,
+    { userId },
+  );
 
   return result.ok ? { ok: true } : result;
 }
 
-function toNodeIdResult(path: string, result: ApiResult): TreeNodeIdResult {
+function toIdResult(path: string, result: ApiResult): TreeIdResult {
   if (!result.ok) {
     return result;
   }
@@ -140,6 +246,21 @@ function toNodeIdResult(path: string, result: ApiResult): TreeNodeIdResult {
   return typeof id === "number" && Number.isInteger(id)
     ? { ok: true, id }
     : invalidResponse(path, result.status);
+}
+
+/**
+ * Sprawdza kształt drzewa z listy. Widok buduje z niej tabelę i wybiera po
+ * `id` — element w innym kształcie wywróciłby render zamiast skończyć się
+ * kopertą błędu.
+ */
+function isUserTree(value: unknown): value is UserTree {
+  if (typeof value !== "object" || value === null) {
+    return false;
+  }
+
+  const candidate = value as Partial<Record<keyof UserTree, unknown>>;
+
+  return Number.isInteger(candidate.id) && typeof candidate.name === "string";
 }
 
 /**
