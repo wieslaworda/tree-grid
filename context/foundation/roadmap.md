@@ -3,7 +3,7 @@ project: TreeGrid
 version: 1
 status: draft
 created: 2026-09-21
-updated: 2026-09-21
+updated: 2026-09-23
 prd_version: 1
 main_goal: speed
 top_blocker: time
@@ -25,7 +25,7 @@ milestone_status: open
 - **Intent:** Dyspozytor przechodzi pełną ścieżkę w jednej sesji — od założenia konta, przez zbudowanie własnej struktury drzewa i gridu z punktami czasowymi, po zapisany ekran, który odtwarza się bez zmian po ponownym zalogowaniu.
 - **Source materials:** `context/foundation/prd.md` (v1)
 - **Done when:** każdy `F-NN` i `S-NN` poniżej ma status `done`.
-- **Scope anchors:** FR-001–FR-010, US-01, sekcje `Business Logic` i `Access Control`, oraz wymagania niefunkcjonalne (288 kolumn, izolacja kont, informacja zwrotna powyżej 2 s).
+- **Scope anchors:** FR-001–FR-010, US-01, sekcje `Business Logic` i `Access Control`, oraz wymagania niefunkcjonalne (288 kolumn, izolacja kont, informacja zwrotna powyżej 2 s, gęstość odczytu liczb, dwa warianty motywu, kontrast i rola koloru).
 
 ## Vision recap
 
@@ -48,8 +48,9 @@ Przy celu sekwencjonowania `speed` to również fragment, który najtaniej odpow
 
 | ID   | Change ID             | Outcome (użytkownik może …)                                                              | Prerequisites | PRD refs                                               | Status   |
 | ---- | --------------------- | ---------------------------------------------------------------------------------------- | ------------- | ------------------------------------------------------ | -------- |
-| F-01 | `szkielet-api-sqlite` | (foundation) działa proces API .NET obok aplikacji, z plikiem SQLite i kontraktem błędów   | —             | FR-001, FR-009, FR-010, NFR (izolacja kont)            | ready    |
-| S-01 | `konto-i-logowanie`   | założyć konto, zalogować się i wylogować; żaden widok nie jest dostępny bez logowania      | F-01          | FR-001, Access Control, NFR (izolacja kont)            | proposed |
+| F-01 | `szkielet-api-sqlite` | (foundation) działa proces API .NET obok aplikacji, z plikiem SQLite i kontraktem błędów   | —             | FR-001, FR-009, FR-010, NFR (izolacja kont)            | in-progress |
+| F-02 | `motyw-terminalowy`   | (foundation) aplikacja ma jeden motyw o gęstości roboczej, z przełącznikiem jasny/ciemny   | —             | NFR (gęstość odczytu liczb), NFR (dwa warianty motywu), NFR (kontrast i rola koloru) | in-progress |
+| S-01 | `konto-i-logowanie`   | założyć konto, zalogować się i wylogować; żaden widok nie jest dostępny bez logowania      | F-01          | FR-001, Access Control, NFR (izolacja kont)            | in-progress |
 | S-02 | `lista-obiektow`      | przeglądać, dodawać i edytować obiekty dostępne do budowy drzewa                           | F-01          | FR-002                                                 | proposed |
 | S-03 | `budowa-drzewa`       | złożyć własną strukturę drzewa; zapętlenie jest odrzucane, a gałąź podrzędna rozstrzygana  | S-02          | FR-003, FR-004, FR-005, US-01, Business Logic          | blocked  |
 | S-04 | `kategorie-danych`    | przypisać obiektowi w drzewie kategorie danych z ograniczonej listy                        | S-03          | FR-006                                                 | proposed |
@@ -64,6 +65,7 @@ Navigation aid — groups items that share a Prerequisites chain. Canonical orde
 | ------ | ----------------------- | --------------------------------------------------- | ------------------------------------------------------------------------------------------------------ |
 | A      | Kontrolka drzewo + grid | `F-01` → `S-02` → `S-03` → `S-04` → `S-05` → `S-06` | Główna ścieżka rzeczy koniecznych; przy celu `speed` nic z niej nie schodzi do "Parked".                |
 | B      | Konto i izolacja danych | `S-01`                                              | Zależy tylko od `F-01`, więc może iść równolegle do `S-02`/`S-03`; dołącza do strumienia A przy `S-06`. |
+| C      | Język wizualny          | `F-02`                                              | Nie zależy od niczego, więc może iść równolegle do A i B; musi być gotowy przed `S-05`, bo grid dziedziczy po nim gęstość i krój cyfr. |
 
 ## Baseline
 
@@ -91,7 +93,20 @@ Foundations below assume these are present and do NOT re-scaffold them.
 - **Unknowns:**
   - Jak uruchamiane są dwa procesy (React Router na :3000 i API .NET) w trybie deweloperskim i produkcyjnym przez tunel — jeden skrypt czy dwa? — Owner: użytkownik. Block: no.
 - **Risk:** To jedyna praca w całej roadmapie, która nie daje nic widocznego dla użytkownika, a przy celu `speed` i głównym ryzyku `time` jest też najłatwiejsza do rozdęcia. Musi zostać minimalna: jeden endpoint, jeden schemat, zero tabel i endpointów budowanych na zapas — resztę dokładają plastry, które faktycznie ich używają. Jeśli urośnie w kompletną warstwę API, zje budżet przed pierwszym widocznym efektem.
-- **Status:** ready
+- **Status:** in-progress
+
+### F-02: Motyw „Terminal dyspozytorski" — tokeny, gęstość i przełącznik jasny/ciemny
+
+- **Outcome:** (foundation) aplikacja ma jeden język wizualny zapisany w tokenach, a nie w plikach tras: ciemny wariant domyślny i jasny wariant przełączany przez użytkownika, obie palety o tej samej gęstości roboczej (wiersz 24 px, `fontSize` 12, cyfry o stałej szerokości). Wybór wariantu przeżywa odświeżenie i nie daje przeskoku wyglądu po załadowaniu. Każdy istniejący ekran — logowanie, rejestracja, strona główna i widok błędu — mówi tym samym językiem.
+- **Change ID:** `motyw-terminalowy`
+- **PRD refs:** NFR (gęstość odczytu liczb), NFR (dwa warianty motywu przełączane przez użytkownika), NFR (kontrast WCAG AA i kolor wyłącznie na danych)
+- **Unlocks:** `S-05` — grid czasowy dziedziczy gęstość wiersza, krój cyfr i paletę sygnałów; ustawianie ich po napisaniu wirtualizowanej tabeli oznacza jej przepisanie, a to najdroższa technicznie część projektu. Domyka też wizualnie `S-01`, którego ekrany są dziś jedynym miejscem ze świadomym designem — zamkniętym w jednym pliku trasy.
+- **Prerequisites:** —
+- **Parallel with:** S-02
+- **Blockers:** —
+- **Unknowns:** —
+- **Risk:** Praca poprzeczna: dotyka każdego istniejącego ekranu naraz, a jedyną automatyczną weryfikacją w repo jest `npm run typecheck`, który o wyglądzie nie powie nic — regresja wychodzi wyłącznie okiem. Drugie ryzyko siedzi w kontraktach renderowania z `CLAUDE.md`: motyw wchodzi dokładnie w ścieżkę `StyleProvider` / `extractStyle`, więc błąd tutaj nie wywala buildu, tylko po cichu wypycha style antd poza `<head>`. Trzecie: `konto-i-logowanie` ma otwarte ręczne kroki 4.4–4.8 dotyczące tych samych plików formularzy, więc kolejność obu prac trzeba rozstrzygnąć świadomie, żeby nie unieważnić cudzej weryfikacji.
+- **Status:** in-progress
 
 ## Slices
 
@@ -105,7 +120,7 @@ Foundations below assume these are present and do NOT re-scaffold them.
 - **Blockers:** —
 - **Unknowns:** —
 - **Risk:** Model jest płaski i bez ról, więc przy celu `speed` to najmniejsza możliwa wersja: rejestracja, logowanie, wylogowanie, brama na widokach. Ryzykiem jest wciągnięcie tu rzeczy, których PRD nie wymaga (reset hasła, potwierdzanie adresu e-mail, role) — nic z tego nie jest wymaganiem koniecznym. Właściwa izolacja danych między kontami egzekwowana jest po stronie serwera dopiero w `S-06`; tutaj powstaje tożsamość, na której ta izolacja się oprze.
-- **Status:** proposed
+- **Status:** in-progress
 
 ### S-02: Lista obiektów do budowy drzewa
 
@@ -174,6 +189,7 @@ Foundations below assume these are present and do NOT re-scaffold them.
 | Roadmap ID | Change ID             | Suggested issue title                                                | Ready for `/10x-plan` | Notes                                                        |
 | ---------- | --------------------- | -------------------------------------------------------------------- | --------------------- | ------------------------------------------------------------ |
 | F-01       | `szkielet-api-sqlite` | Szkielet API .NET + SQLite + kontrakt odpowiedzi błędów              | yes                   | Uruchom `/10x-plan szkielet-api-sqlite`                      |
+| F-02       | `motyw-terminalowy`   | Motyw „Terminal dyspozytorski" z przełącznikiem jasny/ciemny         | yes                   | Nie zależy od niczego; musi być gotowy przed `S-05`          |
 | S-01       | `konto-i-logowanie`   | Konto i logowanie (e-mail + hasło) z bramą na wszystkich widokach    | no                    | Czeka na `F-01`                                              |
 | S-02       | `lista-obiektow`      | Lista obiektów do budowy drzewa (przegląd, dodawanie, edycja)        | no                    | Czeka na `F-01`; może iść równolegle do `S-01`               |
 | S-03       | `budowa-drzewa`       | Budowa struktury drzewa z blokadą zapętlenia                         | no                    | Zablokowany otwartym pytaniem o przeciąganie; czeka na `S-02` |

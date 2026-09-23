@@ -445,21 +445,21 @@ Tabela techniczna z Fazy 2 jest jawnie tymczasowa i znika w `S-01` razem z migra
 
 #### Automated
 
-- [x] 4.1 Kontrola typów przechodzi: `npm run typecheck`
-- [x] 4.2 Build produkcyjny przechodzi: `npm run build`
-- [x] 4.3 Adres API nie występuje w `build/client/`
+- [x] 4.1 Kontrola typów przechodzi: `npm run typecheck` — ea23af2
+- [x] 4.2 Build produkcyjny przechodzi: `npm run build` — ea23af2
+- [x] 4.3 Adres API nie występuje w `build/client/` — ea23af2
 
 #### Manual
 
-- [x] 4.4 Trasa zasobowa zwraca kontrakt błędu przy zgaszonym API
-- [x] 4.5 Strona główna renderuje się, a `app/welcome/` nie istnieje
+- [x] 4.4 Trasa zasobowa zwraca kontrakt błędu przy zgaszonym API — ea23af2
+- [x] 4.5 Strona główna renderuje się, a `app/welcome/` nie istnieje — ea23af2
 
 ### Phase 5: Dwa procesy i weryfikacja przez tunel
 
 #### Automated
 
-- [ ] 5.1 `start-api.ps1` startuje API i `-Stop` zwalnia port
-- [ ] 5.2 Kontrakty renderowania przeżywają tunel: `@layer antd` obecne, style przed `</head>`
+- [x] 5.1 `start-api.ps1` startuje API i `-Stop` zwalnia port
+- [x] 5.2 Kontrakty renderowania przeżywają tunel: `@layer antd` obecne, style przed `</head>`
 
 #### Manual
 

@@ -86,6 +86,9 @@ Każdy dyspozytor ma inne potrzeby operacyjne, więc jeden uniwersalny, sztywny 
 - Ekran należący do jednego użytkownika jest niedostępny z innego konta — bez wyjątków.
 - Każda operacja trwająca dłużej niż 2 sekundy daje użytkownikowi widoczną informację zwrotną o postępie.
 - Produkt jest używalny na przeglądarkach desktopowych; nie obowiązuje żadna gwarancja dla ekranów mobilnych.
+- Widok danych liczbowych pozostaje czytelny przy gęstości roboczej: wartości w kolumnach czasowych wyrównują się do wspólnej siatki cyfr, a wiersz obiektu zajmuje nie więcej niż 24 punkty wysokości — tak, by w wariancie 288-kolumnowym co najmniej 25 obiektów było widocznych naraz bez przewijania w pionie.
+- Interfejs występuje w wariancie ciemnym i jasnym, przełączanym przez użytkownika. Wybór przeżywa odświeżenie strony i nie powoduje przeskoku wyglądu po załadowaniu. Przełączenie zmienia wyłącznie kolory — nigdy rozmiarów ani rozmieszczenia elementów.
+- Kolor niesie znaczenie wyłącznie na wartościach danych; rama interfejsu pozostaje achromatyczna. Tekst i elementy interaktywne spełniają kontrast WCAG AA — 4,5:1 dla tekstu i 3:1 dla elementów interfejsu — w obu wariantach.
 
 ## Business Logic
 

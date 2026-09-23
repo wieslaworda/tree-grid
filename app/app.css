@@ -9,16 +9,77 @@
 
 @import "tailwindcss";
 
+/* Od tej linii wariant `dark:` reaguje wyłącznie na atrybut `data-motyw`
+   ustawiany w `app/root.tsx` — i **przestaje** reagować na ustawienie motywu
+   w systemie operacyjnym, które Tailwind czyta tu domyślnie zapytaniem
+   medialnym. To jest cel, nie efekt uboczny: wariant ma jedno źródło prawdy
+   (ciasteczko `tg-motyw`), a system operacyjny nie ma prawa go nadpisać.
+   Gdyby oba działały naraz, użytkownik w trybie jasnym z ciemnym OS-em
+   dostawałby widok złożony z dwóch motywów. */
+@custom-variant dark (&:where([data-motyw="ciemny"], [data-motyw="ciemny"] *));
+
 @theme {
   --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif,
     "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji";
+
+  /* Fallback jest dobrany metrycznie, a nie alfabetycznie: cyfry w tabeli mają
+     zajmować tę samą szerokość także wtedy, gdy arkusz Google Fonts nie
+     dojedzie — inaczej kolumny gridu przeskakują w trakcie ładowania. */
+  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, "SF Mono", Menlo,
+    Consolas, "Liberation Mono", monospace;
 }
 
-html,
-body {
-  @apply bg-white dark:bg-gray-950;
+/* Jedyne miejsce w repo, w którym nazwa zmiennej motywu jest **przepisana
+   ręcznie**: po lewej nazwa, z której Tailwind generuje klasę
+   (`--color-tg-tlo` → `bg-tg-tlo`), po prawej zmienna emitowana przez
+   `app/theme/zmienne.ts`. Literówka po żadnej ze stron nie daje błędu — daje
+   po cichu brakującą klasę albo klasę rozwiązującą się do niczego. Dopisując
+   rolę do palety, dopisz ją też tutaj.
 
-  @media (prefers-color-scheme: dark) {
-    color-scheme: dark;
+   `inline` jest istotne: bez niego Tailwind opakowałby wartość jeszcze raz
+   i klasa przestałaby śledzić zmianę `data-motyw`. */
+@theme inline {
+  --color-tg-tlo: var(--tg-tlo);
+  --color-tg-panel: var(--tg-panel);
+  --color-tg-zebra: var(--tg-zebra);
+  --color-tg-linia: var(--tg-linia);
+  --color-tg-obramowanie-kontrolki: var(--tg-obramowanieKontrolki);
+  --color-tg-tekst: var(--tg-tekst);
+  --color-tg-tekst-drugorzedny: var(--tg-tekstDrugorzedny);
+  --color-tg-tekst-wygaszony: var(--tg-tekstWygaszony);
+  --color-tg-akcent: var(--tg-akcent);
+  --color-tg-wzrost: var(--tg-wzrost);
+  --color-tg-spadek: var(--tg-spadek);
+  --color-tg-ostrzezenie: var(--tg-ostrzezenie);
+  --color-tg-ostrzezenie-na-powierzchni: var(--tg-ostrzezenieNaPowierzchni);
+  --color-tg-hover-wiersza: var(--tg-hoverWiersza);
+  --color-tg-zaznaczenie-wiersza: var(--tg-zaznaczenieWiersza);
+}
+
+/* Tło i kolor tekstu dokumentu biorą się ze zmiennych, a nie z klas wariantu:
+   zmienna jest już ustawiona na `<html>` przez atrybut `data-motyw`, więc
+   pierwsza pomalowana klatka jest poprawna bez skryptu blokującego. */
+html {
+  background: var(--tg-tlo);
+  color: var(--tg-tekst);
+}
+
+@layer utilities {
+  /* Klasa dla komórek liczbowych gridu — wchodzi w `column.className`
+     w `S-05`.
+
+     Działa na komórce antd bez `!important`, bo warstwa `utilities` stoi nad
+     warstwą `antd` w deklaracji na górze tego pliku. Dlatego nie ma tu
+     celowania w wewnętrzne selektory antd ani w jego hashowane klasy — te
+     zmieniają się wraz z tokenem i działałyby w jednym wariancie, a milczały
+     w drugim.
+
+     Sam token `fontFamilyCode` tego nie załatwia: antd konsumuje go wyłącznie
+     w `Typography`, dla `<code>`, `<kbd>` i `<pre>`, a nie dla komórek
+     `Table`. */
+  .tg-liczba {
+    font-family: var(--font-mono);
+    font-variant-numeric: tabular-nums;
+    text-align: right;
   }
 }

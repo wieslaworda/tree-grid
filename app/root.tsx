@@ -1,3 +1,4 @@
+import { createContext, useContext, useMemo, useState } from "react";
 import {
   isRouteErrorResponse,
   Links,
@@ -5,6 +6,7 @@ import {
   Outlet,
   Scripts,
   ScrollRestoration,
+  useRouteLoaderData,
 } from "react-router";
 
 import { StyleProvider } from "@ant-design/cssinjs";
@@ -12,8 +14,43 @@ import { ConfigProvider } from "antd";
 import plPL from "antd/locale/pl_PL";
 import "dayjs/locale/pl";
 
+import { MOTYWY } from "~/theme/antd";
+import { odczytajWariant } from "~/theme/ciasteczko";
+import { WARIANT_DOMYSLNY, type Wariant } from "~/theme/tokeny";
+import { ZMIENNE_CSS } from "~/theme/zmienne";
+
 import type { Route } from "./+types/root";
 import "./app.css";
+
+/**
+ * Wariant motywu dla całego dokumentu, razem z setterem dla przełącznika.
+ *
+ * Kontekst obejmuje `{children}` z `Layout`, a więc zarówno `App`, jak
+ * i `ErrorBoundary` — ekran błędu też ma być w wybranym wariancie.
+ */
+export const KontekstMotywu = createContext<{
+  wariant: Wariant;
+  ustawWariant: (wariant: Wariant) => void;
+}>({
+  wariant: WARIANT_DOMYSLNY,
+  ustawWariant: () => {},
+});
+
+/**
+ * Loader korzenia czyta **wyłącznie** nagłówek `Cookie` i **nie ma prawa
+ * rzucić**.
+ *
+ * To nie jest preferencja stylu, tylko twarda reguła. Dopisanie tutaj
+ * `getUser()` albo czegokolwiek sięgającego API .NET zamieniłoby chwilową
+ * niedostępność API w ekran błędu na **każdej** trasie aplikacji. Co gorsza,
+ * `start-prod-tunnel.ps1:210` odpytuje `http://127.0.0.1:$Port/` i podąża za
+ * przekierowaniem, więc rzucający loader korzenia psuje wykrywanie gotowości
+ * **bezpośrednio na `/`** — nie dopiero przez `/logowanie`. Reguła dostępu
+ * mieszka w `routes/chronione.tsx` i ma tam zostać.
+ */
+export function loader({ request }: Route.LoaderArgs) {
+  return { wariant: odczytajWariant(request) };
+}
 
 export const links: Route.LinksFunction = () => [
   { rel: "preconnect", href: "https://fonts.googleapis.com" },
@@ -23,22 +60,68 @@ export const links: Route.LinksFunction = () => [
     crossOrigin: "anonymous",
   },
   {
+    // Obie rodziny w jednym arkuszu: druga `family=` dokleja się do
+    // istniejącego URL-a, więc nie dokłada round-tripu. Rozdzielenie ich na
+    // dwa `<link>` kosztowałoby drugie żądanie na ścieżce krytycznej, a przez
+    // tunel to jest odczuwalne.
+    //
+    // Nie ma `preload` dla pliku `.woff2` i jest to celowe: Google Fonts
+    // wystawia niestabilne URL-e plików, więc wpisany na sztywno preload
+    // zdezaktualizowałby się po cichu — pobierałby nieużywany plik, a
+    // prawdziwy i tak czekałby na arkusz.
     rel: "stylesheet",
-    href: "https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,100..900;1,14..32,100..900&display=swap",
+    href: "https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,100..900;1,14..32,100..900&family=JetBrains+Mono:wght@400..700&display=swap",
   },
 ];
 
 export function Layout({ children }: { children: React.ReactNode }) {
+  /**
+   * `useRouteLoaderData` zamiast `useLoaderData`, bo `Layout` opakowuje także
+   * `errorElement` (`react-router/dist/development/lib/dom/ssr/routes.js:35-39`),
+   * gdzie danych loadera może nie być wcale. Trzy przypadki, wszystkie
+   * zamierzone:
+   *
+   * 1. `undefined`, gdy loader korzenia rzucił albo **żadna trasa nie
+   *    pasowała** — przy 404 loader korzenia w ogóle nie startuje
+   *    (`react-router/dist/development/lib/router/router.js:1494-1503`), więc
+   *    ciasteczko jest tam świadomie ignorowane. SSR i klient widzą wtedy to
+   *    samo `undefined`, więc hydracja jest zgodna i nie ma ostrzeżenia.
+   * 2. Wartość zdefiniowana, gdy rzucił loader trasy **podrzędnej** — ekran
+   *    błędu zachowuje wtedy wybrany wariant.
+   * 3. Domyślny `ciemny`, gdy nie ma czego przeczytać.
+   */
+  const dane = useRouteLoaderData<typeof loader>("root");
+
+  // Stan, nie sama wartość z loadera: przełącznik ma dać efekt wizualny
+  // natychmiast, bez rundy sieciowej i bez rewalidacji. Ciasteczko jest
+  // wyłącznie trwałością tego stanu, a nie jego źródłem po hydracji.
+  const [wariant, ustawWariant] = useState<Wariant>(
+    dane?.wariant ?? WARIANT_DOMYSLNY,
+  );
+
+  const motyw = useMemo(() => ({ wariant, ustawWariant }), [wariant]);
+
   return (
-    <html lang="en">
+    <html lang="pl" data-motyw={wariant}>
       <head>
         <meta charSet="utf-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
         <Meta />
+        {/*
+          Przed `<Links />` świadomie: to są wartości, a nie reguły
+          konkurujące o specyficzność — arkusz Tailwinda ma je czytać już
+          ustawione. Wstrzyknięcie przez `dangerouslySetInnerHTML` jest tu
+          bezpieczne, bo `ZMIENNE_CSS` powstaje wyłącznie ze stałych
+          modułowych; warunek jest opisany w `app/theme/zmienne.ts` i przestaje
+          obowiązywać w chwili, gdy cokolwiek z żądania trafi do tego tekstu.
+        */}
+        <style dangerouslySetInnerHTML={{ __html: ZMIENNE_CSS }} />
         <Links />
       </head>
       <body>
-        {children}
+        <KontekstMotywu.Provider value={motyw}>
+          {children}
+        </KontekstMotywu.Provider>
         <ScrollRestoration />
         <Scripts />
       </body>
@@ -49,10 +132,18 @@ export function Layout({ children }: { children: React.ReactNode }) {
 export default function App() {
   // `layer` must match the server-side StyleProvider so client-rendered styles
   // land in the same `antd` layer the ordering in app.css expects. The cache is
-  // inherited from the provider in entry.server.tsx during SSR.
+  // inherited from the provider in entry.server.tsx during SSR. Podanie `theme`
+  // nie ma na to żadnego wpływu — motyw decyduje o *wartościach* tokenów,
+  // warstwa o tym, *gdzie* wyląduje wygenerowany CSS. Zdjęcie `layer` psuje
+  // kolejność warstw po cichu niezależnie od motywu.
+  //
+  // To jedyny `ConfigProvider` w aplikacji: lokalizacja i motyw są ustawiane
+  // dokładnie raz, więc nie ma czego dziedziczyć zagnieżdżeniem.
+  const { wariant } = useContext(KontekstMotywu);
+
   return (
     <StyleProvider layer>
-      <ConfigProvider locale={plPL}>
+      <ConfigProvider locale={plPL} theme={MOTYWY[wariant]}>
         <Outlet />
       </ConfigProvider>
     </StyleProvider>
@@ -60,27 +151,31 @@ export default function App() {
 }
 
 export function ErrorBoundary({ error }: Route.ErrorBoundaryProps) {
-  let message = "Oops!";
-  let details = "An unexpected error occurred.";
+  let message = "Coś poszło nie tak";
+  let details = "Wystąpił nieoczekiwany błąd.";
   let stack: string | undefined;
 
   if (isRouteErrorResponse(error)) {
-    message = error.status === 404 ? "404" : "Error";
+    message = error.status === 404 ? "404" : "Błąd";
     details =
       error.status === 404
-        ? "The requested page could not be found."
+        ? "Nie znaleziono żądanej strony."
         : error.statusText || details;
   } else if (import.meta.env.DEV && error && error instanceof Error) {
     details = error.message;
     stack = error.stack;
   }
 
+  // Zero antd i tak ma zostać: ten komponent zastępuje poddrzewo `App`, więc
+  // stoi **poza** `ConfigProvider` i żaden komponent antd nie miałby tu skąd
+  // wziąć tokenów. Kolory mimo to są poprawne, bo pochodzą ze zmiennych CSS
+  // ustawionych na `<html>`, a nie z motywu antd.
   return (
-    <main className="pt-16 p-4 container mx-auto">
-      <h1>{message}</h1>
-      <p>{details}</p>
+    <main className="container mx-auto min-h-screen bg-tg-tlo p-4 pt-16 text-tg-tekst">
+      <h1 className="text-2xl font-semibold">{message}</h1>
+      <p className="mt-2 text-tg-tekst-drugorzedny">{details}</p>
       {stack && (
-        <pre className="w-full p-4 overflow-x-auto">
+        <pre className="mt-6 w-full overflow-x-auto border border-tg-linia bg-tg-panel p-4">
           <code>{stack}</code>
         </pre>
       )}

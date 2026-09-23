@@ -760,27 +760,27 @@ klucza podpisu sesji, inaczej API odmówi startu w Production.
 
 #### Automated
 
-- [x] 3.1 Kontrola typów przechodzi: `npm run typecheck`
-- [x] 3.2 Build produkcyjny przechodzi: `npm run build`
-- [x] 3.3 Adres API nie wyciekł do przeglądarki: przeszukanie `build/client/` nie znajduje `127.0.0.1:5180`
-- [x] 3.4 Klucz podpisu sesji nie występuje nigdzie w `build/`
+- [x] 3.1 Kontrola typów przechodzi: `npm run typecheck` — f10bc4a
+- [x] 3.2 Build produkcyjny przechodzi: `npm run build` — f10bc4a
+- [x] 3.3 Adres API nie wyciekł do przeglądarki: przeszukanie `build/client/` nie znajduje `127.0.0.1:5180` — f10bc4a
+- [x] 3.4 Klucz podpisu sesji nie występuje nigdzie w `build/` — f10bc4a
 
 #### Manual
 
-- [x] 3.5 Wejście na `/` bez sesji przekierowuje na ekran logowania
-- [x] 3.6 Rejestracja, logowanie i wylogowanie działają w przeglądarce od początku do końca
-- [x] 3.7 Ciasteczko sesji ma `HttpOnly`, `Secure`, `SameSite=Lax`, nie ma `Domain` i nie ma daty wygaśnięcia
-- [x] 3.8 Zamknięcie i ponowne otwarcie przeglądarki wymaga ponownego zalogowania
-- [x] 3.9 Żądanie zmieniające stan z obcym nagłówkiem `Origin` jest odrzucane
-- [x] 3.10 Przy zgaszonym API ekran logowania zwraca kontrakt błędu, a nie ślad stosu
+- [x] 3.5 Wejście na `/` bez sesji przekierowuje na ekran logowania — f10bc4a
+- [x] 3.6 Rejestracja, logowanie i wylogowanie działają w przeglądarce od początku do końca — f10bc4a
+- [x] 3.7 Ciasteczko sesji ma `HttpOnly`, `Secure`, `SameSite=Lax`, nie ma `Domain` i nie ma daty wygaśnięcia — f10bc4a
+- [x] 3.8 Zamknięcie i ponowne otwarcie przeglądarki wymaga ponownego zalogowania — f10bc4a
+- [x] 3.9 Żądanie zmieniające stan z obcym nagłówkiem `Origin` jest odrzucane — f10bc4a
+- [x] 3.10 Przy zgaszonym API ekran logowania zwraca kontrakt błędu, a nie ślad stosu — f10bc4a
 
 ### Phase 4: Formularze antd i weryfikacja przez tunel
 
 #### Automated
 
-- [x] 4.1 Kontrola typów przechodzi: `npm run typecheck`
-- [x] 4.2 Build produkcyjny przechodzi: `npm run build`
-- [x] 4.3 Kontrakty renderowania przeżywają tunel: `@layer antd` obecne, ostatni `data-css-hash` przed `</head>`
+- [x] 4.1 Kontrola typów przechodzi: `npm run typecheck` — f10bc4a
+- [x] 4.2 Build produkcyjny przechodzi: `npm run build` — f10bc4a
+- [x] 4.3 Kontrakty renderowania przeżywają tunel: `@layer antd` obecne, ostatni `data-css-hash` przed `</head>` — f10bc4a
 
 #### Manual
 
