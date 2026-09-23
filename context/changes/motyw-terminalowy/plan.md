@@ -381,30 +381,30 @@ Hashe klas antd (`css-dev-only-do-not-override-*`) zmieniają się wraz z tokene
 
 #### Automated
 
-- [x] 2.1 Kontrola typów przechodzi: `npm run typecheck`
-- [x] 2.2 Build produkcyjny przechodzi: `npm run build`
-- [x] 2.3 Kontrolka jest zamontowana dokładnie raz
-- [x] 2.4 `chronione.tsx` pozostaje samym `<Outlet/>`
-- [x] 2.5 Tablica tras pozostaje nietknięta
-- [x] 2.6 Kontrolki nie ma w statycznym HTML-u ekranu błędu
-- [x] 2.7 Lokalny motyw zniknął
-- [x] 2.8 Liczba `ConfigProvider` w repo zgadza się z decyzją z kroku 2.22
-- [x] 2.9 Zero surowych `<button>` w widokach
-- [x] 2.10 Kolory spoza palety zniknęły
-- [x] 2.11 Argumentacja została przeniesiona, a nie zgubiona
-- [x] 2.12 Kod nie celuje w hashowane klasy antd
-- [x] 2.13 Kontrakty SSR trzymają na przerobionych ekranach
+- [x] 2.1 Kontrola typów przechodzi: `npm run typecheck` — 2b15795
+- [x] 2.2 Build produkcyjny przechodzi: `npm run build` — 2b15795
+- [x] 2.3 Kontrolka jest zamontowana dokładnie raz — 2b15795
+- [x] 2.4 `chronione.tsx` pozostaje samym `<Outlet/>` — 2b15795
+- [x] 2.5 Tablica tras pozostaje nietknięta — 2b15795
+- [x] 2.6 Kontrolki nie ma w statycznym HTML-u ekranu błędu — 2b15795
+- [x] 2.7 Lokalny motyw zniknął — 2b15795
+- [x] 2.8 Liczba `ConfigProvider` w repo zgadza się z decyzją z kroku 2.22 — 2b15795
+- [x] 2.9 Zero surowych `<button>` w widokach — 2b15795
+- [x] 2.10 Kolory spoza palety zniknęły — 2b15795
+- [x] 2.11 Argumentacja została przeniesiona, a nie zgubiona — 2b15795
+- [x] 2.12 Kod nie celuje w hashowane klasy antd — 2b15795
+- [x] 2.13 Kontrakty SSR trzymają na przerobionych ekranach — 2b15795
 
 #### Manual
 
-- [x] 2.14 Kliknięcie przełącznika zmienia całość w jednej klatce
-- [x] 2.15 Odświeżenie po wybraniu trybu jasnego nie daje żadnego przeskoku
-- [x] 2.16 Zamknięcie i ponowne otwarcie przeglądarki zachowuje wybór
-- [x] 2.17 Przy wyłączonym JS strona renderuje się w wariancie z ciasteczka, a przełącznik jest bezczynny
-- [x] 2.18 Długość zadania przy kliknięciu odnotowana jako punkt odniesienia dla `S-05`
-- [x] 2.19 Logowanie i rejestracja wyglądają jak dwa ekrany jednego produktu, w obu wariantach
-- [x] 2.20 Placeholder, ikona podglądu hasła i obramowanie `:focus` są czytelne w obu wariantach
-- [x] 2.21 Nieudane logowanie: baner błędu i komunikat pod polem są czytelne w obu wariantach
-- [x] 2.22 Wysokość pola logowania oceniona wzrokiem i decyzja o wyjątku podjęta
-- [x] 2.23 Treść kontrolek nie osiada nierówno mimo `fontHeight` pozostałego na 20
-- [x] 2.24 Wylogowanie z `/` nadal działa i odsyła na `/logowanie`
+- [x] 2.14 Kliknięcie przełącznika zmienia całość w jednej klatce — 2b15795
+- [x] 2.15 Odświeżenie po wybraniu trybu jasnego nie daje żadnego przeskoku — 2b15795
+- [x] 2.16 Zamknięcie i ponowne otwarcie przeglądarki zachowuje wybór — 2b15795
+- [x] 2.17 Przy wyłączonym JS strona renderuje się w wariancie z ciasteczka, a przełącznik jest bezczynny — 2b15795
+- [x] 2.18 Długość zadania przy kliknięciu odnotowana jako punkt odniesienia dla `S-05` — 2b15795
+- [x] 2.19 Logowanie i rejestracja wyglądają jak dwa ekrany jednego produktu, w obu wariantach — 2b15795
+- [x] 2.20 Placeholder, ikona podglądu hasła i obramowanie `:focus` są czytelne w obu wariantach — 2b15795
+- [x] 2.21 Nieudane logowanie: baner błędu i komunikat pod polem są czytelne w obu wariantach — 2b15795
+- [x] 2.22 Wysokość pola logowania oceniona wzrokiem i decyzja o wyjątku podjęta — 2b15795
+- [x] 2.23 Treść kontrolek nie osiada nierówno mimo `fontHeight` pozostałego na 20 — 2b15795
+- [x] 2.24 Wylogowanie z `/` nadal działa i odsyła na `/logowanie` — 2b15795
