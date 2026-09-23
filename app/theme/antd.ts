@@ -72,8 +72,8 @@ function zbudujMotyw(wariant: Wariant): ThemeConfig {
       // Te przechodzą dosłownie: alias nie jest wejściem algorytmu, więc heks
       // podany tutaj jest heksem, który zobaczysz w inspektorze.
       //
-      // Tokeny, a nie klasy narzędziowe — argumentacja przeniesiona z ekranu
-      // logowania, gdzie mieszkała jako `MOTYW_SZKLA`: pole formularza ma
+      // Tokeny, a nie klasy narzędziowe — argumentacja przeniesiona z lokalnego
+      // motywu, który mieszkał w `app/routes/logowanie.tsx`: pole formularza ma
       // części, do których `className` nie sięga. Wpisywany tekst
       // (`colorText`), placeholder (`colorTextPlaceholder`), ikona podglądu
       // hasła (`colorIcon`, `colorIconHover`) i obramowanie w stanie `:focus`

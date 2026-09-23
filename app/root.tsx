@@ -14,6 +14,7 @@ import { ConfigProvider } from "antd";
 import plPL from "antd/locale/pl_PL";
 import "dayjs/locale/pl";
 
+import { PrzelacznikMotywu } from "~/components/PrzelacznikMotywu";
 import { MOTYWY } from "~/theme/antd";
 import { odczytajWariant } from "~/theme/ciasteczko";
 import { WARIANT_DOMYSLNY, type Wariant } from "~/theme/tokeny";
@@ -145,6 +146,19 @@ export default function App() {
     <StyleProvider layer>
       <ConfigProvider locale={plPL} theme={MOTYWY[wariant]}>
         <Outlet />
+        {/*
+          Przełącznik montuje się tutaj dokładnie raz, dla **każdej** trasy,
+          i to jest jedyne jego wystąpienie w repo. Jako rodzeństwo `<Outlet />`
+          stoi wewnątrz `ConfigProvider`, więc wolno mu być komponentem antd;
+          wyżej, w `Layout`, byłby poza motywem i lokalizacją. Wklejanie go do
+          poszczególnych widoków odpada z tego samego powodu co wklejanie
+          `requireUser` do poszczególnych tras: pierwsza trasa, przy której
+          ktoś zapomni, po prostu nie ma przełącznika i nic tego nie zgłasza.
+          `app/routes.ts` nie jest tu potrzebny — kontrolka nie robi rundy
+          sieciowej, więc nie ma trasy zasobowej do zarejestrowania.
+          Pozycjonowanie i pełne uzasadnienie: `app/components/PrzelacznikMotywu.tsx`.
+        */}
+        <PrzelacznikMotywu />
       </ConfigProvider>
     </StyleProvider>
   );

@@ -1,4 +1,4 @@
-import { Typography } from "antd";
+import { Button, Typography } from "antd";
 import { Form } from "react-router";
 
 import type { Route } from "./+types/home";
@@ -29,11 +29,18 @@ export default function Home() {
       {/*
         Jedyne wyjście z sesji w interfejsie. Formularz, a nie link: trasa
         `/wylogowanie` przyjmuje wyłącznie `POST`, bo wylogowanie wywoływalne
-        `GET`-em da się wyzwolić obcym obrazkiem. Przycisk jest surowy — antd
-        dokłada faza 4.
+        `GET`-em da się wyzwolić obcym obrazkiem.
+
+        `htmlType="submit"`, nie `onClick`: `Button` domyślnie renderuje
+        `type="button"`, więc bez tego propu przycisk przestałby wysyłać
+        formularz — i byłaby to cicha awaria, bo kliknięcie nadal wyglądałoby
+        na obsłużone. To jedyna rzecz, którą trzeba tu pamiętać po zamianie
+        surowego elementu `button` na komponent antd.
       */}
       <Form method="post" action="/wylogowanie">
-        <button type="submit">Wyloguj się</button>
+        <Button htmlType="submit" size="small">
+          Wyloguj się
+        </Button>
       </Form>
     </main>
   );

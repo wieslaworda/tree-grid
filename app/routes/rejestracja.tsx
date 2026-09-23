@@ -86,75 +86,113 @@ export default function Rejestracja() {
   const wysylanie = nawigacja.state !== "idle";
 
   return (
-    <main className="mx-auto max-w-md p-8">
-      <Typography.Title level={1}>Rejestracja</Typography.Title>
+    <main className="flex min-h-screen items-center justify-center bg-tg-tlo p-6">
+      {/*
+        Ten sam panel co w `logowanie.tsx`, klasa w klasę. Wcześniej te dwa
+        ekrany nie miały ze sobą nic wspólnego — jeden stał na gradiencie ze
+        szkłem, drugi na gołym `max-w-md p-8` — i użytkownik przechodzący
+        z jednego na drugi widział dwa różne produkty. Jeśli zmieniasz panel
+        tutaj, zmień go tam; jeśli robisz to po raz trzeci, to jest sygnał, żeby
+        wyciągnąć go do wspólnego komponentu w `app/components/`.
+      */}
+      <div className="w-full max-w-md rounded-xs border border-tg-linia bg-tg-panel p-8">
+        {/* `Typography.Title`, a nie `<h1>` jak w logowaniu, i to zostaje:
+            dzięki temu ścieżka SSR przez antd (CLAUDE.md, kontrakty 1 i 2)
+            jest ćwiczona także na tym ekranie. */}
+        <Typography.Title level={1} className="text-center">
+          Rejestracja
+        </Typography.Title>
 
-      {ogolny === undefined ? null : (
-        <Alert className="mb-6" type="error" showIcon message={ogolny} />
-      )}
+        {ogolny === undefined ? null : (
+          <Alert className="mb-6" type="error" showIcon message={ogolny} />
+        )}
 
-      <RouterForm method="post">
-        <AntForm component={false} layout="vertical">
-          <AntForm.Item
-            label="Adres e-mail"
-            name="email"
-            rules={[
-              { required: true },
-              { type: "email", message: "Podaj poprawny adres e-mail." },
-            ]}
-            validateStatus={pola.email === undefined ? undefined : "error"}
-            help={pola.email}
-          >
-            <Input name="email" type="email" autoComplete="username" required />
-          </AntForm.Item>
-
-          <AntForm.Item
-            label="Hasło"
-            name="password"
-            // Żadnej reguły długości ani złożoności: te ustawia Identity po
-            // stronie API i stamtąd przychodzą ich komunikaty. Powtórzenie ich
-            // tutaj dawałoby dwa źródła prawdy, z których jedno cicho starzeje
-            // się przy każdej zmianie konfiguracji hasła.
-            rules={[{ required: true }]}
-            validateStatus={pola.password === undefined ? undefined : "error"}
-            help={pola.password}
-          >
-            <Input.Password
-              name="password"
-              autoComplete="new-password"
-              required
-            />
-          </AntForm.Item>
-
-          <AntForm.Item
-            label="Kod rejestracyjny"
-            name="registrationCode"
-            rules={[{ required: true }]}
-            validateStatus={
-              pola.registrationCode === undefined ? undefined : "error"
-            }
-            help={pola.registrationCode}
-          >
-            <Input name="registrationCode" autoComplete="off" required />
-          </AntForm.Item>
-
-          <AntForm.Item>
-            <Button
-              type="primary"
-              htmlType="submit"
-              block
-              loading={wysylanie}
-              disabled={wysylanie}
+        <RouterForm method="post">
+          <AntForm component={false} layout="vertical">
+            {/* `size="large"` na polach i na CTA jest tym samym wyborem co
+                w logowaniu i z tego samego powodu — przy `controlHeight: 24`
+                daje 30 px. Rozjazd wysokości między tymi dwoma ekranami jest
+                dokładnie tą niespójnością, którą ta faza usuwa. */}
+            <AntForm.Item
+              label="Adres e-mail"
+              name="email"
+              rules={[
+                { required: true },
+                { type: "email", message: "Podaj poprawny adres e-mail." },
+              ]}
+              validateStatus={pola.email === undefined ? undefined : "error"}
+              help={pola.email}
             >
-              Załóż konto
-            </Button>
-          </AntForm.Item>
-        </AntForm>
-      </RouterForm>
+              <Input
+                name="email"
+                type="email"
+                autoComplete="username"
+                size="large"
+                required
+              />
+            </AntForm.Item>
 
-      <Typography.Paragraph>
-        Masz już konto? <Link to="/logowanie">Zaloguj się</Link>
-      </Typography.Paragraph>
+            <AntForm.Item
+              label="Hasło"
+              name="password"
+              // Żadnej reguły długości ani złożoności: te ustawia Identity po
+              // stronie API i stamtąd przychodzą ich komunikaty. Powtórzenie ich
+              // tutaj dawałoby dwa źródła prawdy, z których jedno cicho starzeje
+              // się przy każdej zmianie konfiguracji hasła.
+              rules={[{ required: true }]}
+              validateStatus={pola.password === undefined ? undefined : "error"}
+              help={pola.password}
+            >
+              <Input.Password
+                name="password"
+                autoComplete="new-password"
+                size="large"
+                required
+              />
+            </AntForm.Item>
+
+            <AntForm.Item
+              label="Kod rejestracyjny"
+              name="registrationCode"
+              rules={[{ required: true }]}
+              validateStatus={
+                pola.registrationCode === undefined ? undefined : "error"
+              }
+              help={pola.registrationCode}
+            >
+              <Input
+                name="registrationCode"
+                autoComplete="off"
+                size="large"
+                required
+              />
+            </AntForm.Item>
+
+            <AntForm.Item className="mt-8 mb-0">
+              <Button
+                type="primary"
+                htmlType="submit"
+                block
+                size="large"
+                loading={wysylanie}
+                disabled={wysylanie}
+              >
+                Załóż konto
+              </Button>
+            </AntForm.Item>
+          </AntForm>
+        </RouterForm>
+
+        <Typography.Paragraph className="mt-8 mb-0 text-center text-tg-tekst-drugorzedny">
+          Masz już konto?{" "}
+          <Link
+            to="/logowanie"
+            className="font-semibold text-tg-akcent underline-offset-4 hover:underline"
+          >
+            Zaloguj się
+          </Link>
+        </Typography.Paragraph>
+      </div>
     </main>
   );
 }

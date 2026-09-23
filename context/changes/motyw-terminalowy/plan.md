@@ -271,7 +271,7 @@ Gradient inline z linii 159, plamy `blur-3xl` z linii 164-171 i karta `bg-white/
 
 - Kontrola typów przechodzi: `npm run typecheck`
 - Build produkcyjny przechodzi: `npm run build`
-- Kontrolka jest zamontowana dokładnie raz: `grep -rn "PrzelacznikMotywu" app/ | grep -v "app/components/" | grep -c .` zwraca `1`
+- Kontrolka jest zamontowana dokładnie raz: `grep -rn "<PrzelacznikMotywu" app/ | grep -c .` zwraca `1` (liczy wystąpienia w JSX, a nie linie wspominające nazwę — wariant zliczający całą nazwę dawał `2`, bo łapał także linię importu, czyli mierzył co innego, niż obiecuje tytuł)
 - `chronione.tsx` pozostaje samym `<Outlet/>`: `git diff --stat app/routes/chronione.tsx`
 - Tablica tras pozostaje nietknięta: `git diff --stat app/routes.ts`
 - Kontrolki nie ma w statycznym HTML-u ekranu błędu: `curl -s http://localhost:3000/nie-istnieje | grep -c 'aria-label="Motyw'` zwraca `0` (grepowanie po nazwie komponentu nie miałoby sensu — nazwy komponentów Reacta nie trafiają do HTML-a, więc taki warunek byłby spełniony niezależnie od poprawności)
@@ -381,30 +381,30 @@ Hashe klas antd (`css-dev-only-do-not-override-*`) zmieniają się wraz z tokene
 
 #### Automated
 
-- [ ] 2.1 Kontrola typów przechodzi: `npm run typecheck`
-- [ ] 2.2 Build produkcyjny przechodzi: `npm run build`
-- [ ] 2.3 Kontrolka jest zamontowana dokładnie raz
-- [ ] 2.4 `chronione.tsx` pozostaje samym `<Outlet/>`
-- [ ] 2.5 Tablica tras pozostaje nietknięta
-- [ ] 2.6 Kontrolki nie ma w statycznym HTML-u ekranu błędu
-- [ ] 2.7 Lokalny motyw zniknął
-- [ ] 2.8 Liczba `ConfigProvider` w repo zgadza się z decyzją z kroku 2.22
-- [ ] 2.9 Zero surowych `<button>` w widokach
-- [ ] 2.10 Kolory spoza palety zniknęły
-- [ ] 2.11 Argumentacja została przeniesiona, a nie zgubiona
-- [ ] 2.12 Kod nie celuje w hashowane klasy antd
-- [ ] 2.13 Kontrakty SSR trzymają na przerobionych ekranach
+- [x] 2.1 Kontrola typów przechodzi: `npm run typecheck`
+- [x] 2.2 Build produkcyjny przechodzi: `npm run build`
+- [x] 2.3 Kontrolka jest zamontowana dokładnie raz
+- [x] 2.4 `chronione.tsx` pozostaje samym `<Outlet/>`
+- [x] 2.5 Tablica tras pozostaje nietknięta
+- [x] 2.6 Kontrolki nie ma w statycznym HTML-u ekranu błędu
+- [x] 2.7 Lokalny motyw zniknął
+- [x] 2.8 Liczba `ConfigProvider` w repo zgadza się z decyzją z kroku 2.22
+- [x] 2.9 Zero surowych `<button>` w widokach
+- [x] 2.10 Kolory spoza palety zniknęły
+- [x] 2.11 Argumentacja została przeniesiona, a nie zgubiona
+- [x] 2.12 Kod nie celuje w hashowane klasy antd
+- [x] 2.13 Kontrakty SSR trzymają na przerobionych ekranach
 
 #### Manual
 
-- [ ] 2.14 Kliknięcie przełącznika zmienia całość w jednej klatce
-- [ ] 2.15 Odświeżenie po wybraniu trybu jasnego nie daje żadnego przeskoku
-- [ ] 2.16 Zamknięcie i ponowne otwarcie przeglądarki zachowuje wybór
-- [ ] 2.17 Przy wyłączonym JS strona renderuje się w wariancie z ciasteczka, a przełącznik jest bezczynny
-- [ ] 2.18 Długość zadania przy kliknięciu odnotowana jako punkt odniesienia dla `S-05`
-- [ ] 2.19 Logowanie i rejestracja wyglądają jak dwa ekrany jednego produktu, w obu wariantach
-- [ ] 2.20 Placeholder, ikona podglądu hasła i obramowanie `:focus` są czytelne w obu wariantach
-- [ ] 2.21 Nieudane logowanie: baner błędu i komunikat pod polem są czytelne w obu wariantach
-- [ ] 2.22 Wysokość pola logowania oceniona wzrokiem i decyzja o wyjątku podjęta
-- [ ] 2.23 Treść kontrolek nie osiada nierówno mimo `fontHeight` pozostałego na 20
-- [ ] 2.24 Wylogowanie z `/` nadal działa i odsyła na `/logowanie`
+- [x] 2.14 Kliknięcie przełącznika zmienia całość w jednej klatce
+- [x] 2.15 Odświeżenie po wybraniu trybu jasnego nie daje żadnego przeskoku
+- [x] 2.16 Zamknięcie i ponowne otwarcie przeglądarki zachowuje wybór
+- [x] 2.17 Przy wyłączonym JS strona renderuje się w wariancie z ciasteczka, a przełącznik jest bezczynny
+- [x] 2.18 Długość zadania przy kliknięciu odnotowana jako punkt odniesienia dla `S-05`
+- [x] 2.19 Logowanie i rejestracja wyglądają jak dwa ekrany jednego produktu, w obu wariantach
+- [x] 2.20 Placeholder, ikona podglądu hasła i obramowanie `:focus` są czytelne w obu wariantach
+- [x] 2.21 Nieudane logowanie: baner błędu i komunikat pod polem są czytelne w obu wariantach
+- [x] 2.22 Wysokość pola logowania oceniona wzrokiem i decyzja o wyjątku podjęta
+- [x] 2.23 Treść kontrolek nie osiada nierówno mimo `fontHeight` pozostałego na 20
+- [x] 2.24 Wylogowanie z `/` nadal działa i odsyła na `/logowanie`
