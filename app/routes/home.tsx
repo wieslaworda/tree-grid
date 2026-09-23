@@ -1,6 +1,3 @@
-import { Button, Typography } from "antd";
-import { Form, Link } from "react-router";
-
 import type { Route } from "./+types/home";
 
 export function meta({}: Route.MetaArgs) {
@@ -14,49 +11,17 @@ export function meta({}: Route.MetaArgs) {
   ];
 }
 
-// Treść zastępcza do czasu pierwszego ekranu produktu. Renderuje się przez
-// antd świadomie: dzięki temu ścieżka SSR z warstwą `antd` (CLAUDE.md,
-// kontrakty 1 i 2) pozostaje realnie ćwiczona na stronie głównej.
+/**
+ * Strona główna jest świadomie pusta: wszystko, co na niej było — tytuł,
+ * treść zastępcza, link „Obiekty" i wylogowanie — daje dziś nagłówek powłoki
+ * (`routes/powloka.tsx`), a powtarzanie tego pod nim tylko zaśmiecało ekran
+ * (decyzja użytkownika przy S-07). Trasa zostaje, bo na `/` trafia się po
+ * zalogowaniu (`HOME_ROUTE`) i tu ma stanąć lista zapisanych ekranów z S-06.
+ *
+ * Ścieżka SSR z warstwą `antd` (CLAUDE.md, kontrakty 1 i 2) jest na tej
+ * trasie nadal realnie ćwiczona — przez menu i przycisk wylogowania
+ * w nagłówku powłoki, a nie przez treść tego widoku.
+ */
 export default function Home() {
-  return (
-    <main className="mx-auto max-w-2xl p-8">
-      <Typography.Title level={1}>TreeGrid</Typography.Title>
-      <Typography.Paragraph>
-        Aplikacja jest w budowie. Szkielet API i kontrakt odpowiedzi błędów są
-        już na miejscu. Gotowy jest słownik obiektów, z których zbudujesz
-        własne drzewo.
-      </Typography.Paragraph>
-
-      {/*
-        Adres dosłowny, a nie `OBJECTS_ROUTE`: stała mieszka w module
-        `.server`, a ten komponent renderuje się także w przeglądarce — import
-        stamtąd wywaliłby build (nagłówek `app/lib/objects.server.ts`).
-      */}
-      <Typography.Paragraph>
-        <Link
-          to="/obiekty"
-          className="font-semibold text-tg-akcent underline-offset-4 hover:underline"
-        >
-          Obiekty
-        </Link>
-      </Typography.Paragraph>
-
-      {/*
-        Jedyne wyjście z sesji w interfejsie. Formularz, a nie link: trasa
-        `/wylogowanie` przyjmuje wyłącznie `POST`, bo wylogowanie wywoływalne
-        `GET`-em da się wyzwolić obcym obrazkiem.
-
-        `htmlType="submit"`, nie `onClick`: `Button` domyślnie renderuje
-        `type="button"`, więc bez tego propu przycisk przestałby wysyłać
-        formularz — i byłaby to cicha awaria, bo kliknięcie nadal wyglądałoby
-        na obsłużone. To jedyna rzecz, którą trzeba tu pamiętać po zamianie
-        surowego elementu `button` na komponent antd.
-      */}
-      <Form method="post" action="/wylogowanie">
-        <Button htmlType="submit" size="small">
-          Wyloguj się
-        </Button>
-      </Form>
-    </main>
-  );
+  return null;
 }

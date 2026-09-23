@@ -307,26 +307,26 @@ segmentu ścieżki.
 
 #### Automated
 
-- [x] 1.1 Typy przechodzą: `npm run typecheck`
-- [x] 1.2 Build przechodzi: `npm run build` (w odizolowanej kopii, jeśli `build/` jest serwowany na :3000)
-- [x] 1.3 Brak literałów kolorów w nowych plikach
-- [x] 1.4 Bez sesji menu nie wycieka, a brama działa
+- [x] 1.1 Typy przechodzą: `npm run typecheck` — 0ef5397
+- [x] 1.2 Build przechodzi: `npm run build` (w odizolowanej kopii, jeśli `build/` jest serwowany na :3000) — 0ef5397
+- [x] 1.3 Brak literałów kolorów w nowych plikach — 0ef5397
+- [x] 1.4 Bez sesji menu nie wycieka, a brama działa — 0ef5397
 
 #### Manual
 
-- [x] 1.5 Po zalogowaniu cztery widoki mają nagłówek; „Obiekty" podświetlone na trasach obiektów, na `/` nic
-- [x] 1.6 „Wyloguj" z nagłówka kończy sesję; logowanie i rejestracja bez nagłówka, z przełącznikiem
-- [x] 1.7 Oba warianty motywu: kolory palety, przełącznik nie nachodzi na nagłówek, wysokość zgodna z gęstością
-- [x] 1.8 Style menu antd w `<head>` na `/obiekty` po zalogowaniu
+- [x] 1.5 Po zalogowaniu cztery widoki mają nagłówek; „Obiekty" podświetlone na trasach obiektów, na `/` nic — 0ef5397
+- [x] 1.6 „Wyloguj" z nagłówka kończy sesję; logowanie i rejestracja bez nagłówka, z przełącznikiem — 0ef5397
+- [x] 1.7 Oba warianty motywu: kolory palety, przełącznik nie nachodzi na nagłówek, wysokość zgodna z gęstością — 0ef5397
+- [x] 1.8 Style menu antd w `<head>` na `/obiekty` po zalogowaniu — 0ef5397
 
 ### Phase 2: Sprzątanie widoków pod nagłówkiem
 
 #### Automated
 
-- [ ] 2.1 Typy przechodzą: `npm run typecheck`
-- [ ] 2.2 Build przechodzi: `npm run build` (w odizolowanej kopii, jeśli `build/` jest serwowany na :3000)
-- [ ] 2.3 Zdublowane akcje zniknęły
+- [x] 2.1 Typy przechodzą: `npm run typecheck`
+- [x] 2.2 Build przechodzi: `npm run build` (w odizolowanej kopii, jeśli `build/` jest serwowany na :3000)
+- [x] 2.3 Zdublowane akcje zniknęły
 
 #### Manual
 
-- [ ] 2.4 Strona główna bez zdublowanych akcji; nawigacja do obiektów z menu, „← Obiekty" działa
+- [x] 2.4 Strona główna bez zdublowanych akcji; nawigacja do obiektów z menu, „← Obiekty" działa

@@ -98,14 +98,11 @@ export default function Obiekty({ loaderData }: Route.ComponentProps) {
 
   return (
     <main className="mx-auto max-w-4xl p-8">
-      <Link
-        to="/"
-        className="font-semibold text-tg-akcent underline-offset-4 hover:underline"
-      >
-        ← Strona główna
-      </Link>
-
-      <div className="mt-4 mb-6 flex items-center justify-between gap-4">
+      {/*
+        Bez linku „← Strona główna": do strony głównej prowadzi nazwa aplikacji
+        w nagłówku powłoki (`routes/powloka.tsx`).
+      */}
+      <div className="mb-6 flex items-center justify-between gap-4">
         <Typography.Title level={1} className="mb-0">
           Obiekty
         </Typography.Title>
