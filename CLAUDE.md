@@ -1,10 +1,11 @@
 # Wytyczne repozytorium
 
-## Trzy kontrakty, które psują się po cichu
+## Cztery kontrakty, które psują się po cichu
 
-Wszystkie trzy zostały ustawione świadomie i żaden nie wywala się głośno, gdy
+Wszystkie cztery zostały ustawione świadomie i żaden nie wywala się głośno, gdy
 zostanie cofnięty. Przeczytaj je, zanim ruszysz `app/root.tsx`,
-`app/entry.server.tsx`, `app/app.css` albo cokolwiek w `app/routes/`.
+`app/entry.server.tsx`, `app/app.css`, `app/theme/` albo cokolwiek
+w `app/routes/`.
 
 **1. antd renderuje się do warstwy CSS.** `app/app.css` zaczyna się od
 `@layer theme, base, antd, components, utilities;`. Ta kolejność sprawia, że
@@ -26,6 +27,28 @@ Komentarz w tym pliku o tym mówi — zostaw go, jeśli przerabiasz tę funkcję
 routing jest konfiguracyjny. Nowy plik w `app/routes/` nie robi zupełnie nic,
 dopóki nie zostanie tam dopisany — bez błędu, bez ostrzeżenia, po prostu trasa,
 która nigdy nie pasuje.
+
+**4. Motyw ma dwie palety, ale jeden zestaw metryk.** `@app/theme/tokeny.ts` jest
+jedynym źródłem prawdy: `PALETY` trzymają kolory obu wariantów, `METRYKI` —
+rozmiary wspólne dla obu. Ten podział jest wymuszony typami (`Paleta` nie ma pól
+liczbowych, `Metryki` nie mają pól kolorowych), bo przełączenie wariantu ma prawo
+zmienić wyłącznie kolory. Metryka rozgałęziona per wariant nie wywali buildu —
+grid po prostu przestanie mieścić liczbę wierszy obiecaną w wymaganiach
+niefunkcjonalnych. Dwie rzeczy, które tu zaskakują:
+
+- **Ziarna nie przypinają kolorów.** `antd/es/theme/util/alias.js:17-19` usuwa
+  z nadpisań każdy klucz będący ziarnem, więc `colorPrimary: "#22D3EE"` karmi
+  algorytm, a na ekranie wychodzi `#20b6cd`. To nie jest literówka do
+  poprawienia. Dokładne heksy trafiają do zmiennych `--tg-*`, nie do antd.
+- **Wiersz 24 px stoi na dwóch wartościach naraz** — `lineHeight: 1.75` (alias,
+  więc nadpisanie działa) i `Table.cellPaddingBlockSM: 1`. `Tree.titleHeight`
+  czyta `METRYKI.wysokoscWiersza`; wpisanie tam liczby rozjeżdża drzewo z gridem
+  po kilku wierszach, a to rdzeń produktu.
+
+Wariant wybiera użytkownik, a nie system operacyjny: niesie go ciasteczko
+`tg-motyw` czytane w loaderze `app/root.tsx`, który **nie ma prawa rzucić** —
+sięgnięcie stamtąd do API zamieniłoby chwilową niedostępność API w ekran błędu
+na każdej trasie i zepsułoby wykrywanie gotowości w `start-prod-tunnel.ps1`.
 
 ## Komendy
 
@@ -117,8 +140,15 @@ dodanie bibliotek andt
 ```
 
 `ConfigProvider` w `@app/root.tsx` ma ustawioną lokalizację `pl_PL` — teksty dla
-użytkownika i formatowanie dat są polskie. Tokeny motywu nie są jeszcze
-skonfigurowane.
+użytkownika i formatowanie dat są polskie. Jest **jeden** na całe repo i niesie
+też motyw z `@app/theme/antd.ts`; zagnieżdżony `ConfigProvider` w pliku trasy to
+rozgałęzienie, które z czasem dryfuje — dokładnie tak skończył `MOTYW_SZKLA`
+w logowaniu, zanim został usunięty.
+
+Kolory w widokach bierz z klas `tg-*` (`bg-tg-panel`, `text-tg-tekst`,
+`border-tg-linia`), a nie z palety Tailwinda ani z literałów — te klasy śledzą
+atrybut `data-motyw`, więc działają w obu wariantach bez `dark:`. Wariant `dark:`
+jest przepięty na ten atrybut i **nie reaguje** na ustawienie motywu w systemie.
 
 ## Wdrożenie
 
