@@ -2,12 +2,12 @@
  * Klient słownika obiektów — jedyne miejsce, z którego trasy rozmawiają
  * z `/objects` (`src/Api/Objects/ObjectEndpoints.cs`).
  *
- * Semantyka porażek jest ta sama co w `requestAccount` z `auth.server.ts`:
- * każda ścieżka, łącznie ze zgaszonym API, kończy się kopertą
- * `{ error: { code, message, context } }` razem ze statusem, a błąd z API
- * leci dalej w oryginale. Helper żądania jest tu świadomie lokalny, a nie
- * wyciągnięty wspólnie z `requestAccount` — kod uwierzytelniania ma otwarte
- * ręczne kroki weryfikacji i ta zmiana go nie rusza.
+ * Żądania idą przez wspólny {@link requestApi} z `api.server.ts`, więc
+ * semantyka porażek jest ta sama co w każdym kliencie słownika: każda ścieżka,
+ * łącznie ze zgaszonym API, kończy się kopertą `{ error: { code, message,
+ * context } }` razem ze statusem, a błąd z API leci dalej w oryginale. Tu
+ * zostaje tylko to, co obiektowe: ścieżka, kształt odpowiedzi i odczyt
+ * formularza.
  *
  * Sufiks `.server.ts` jest nośny — patrz `api.server.ts`. Z tego samego powodu
  * {@link OBJECTS_ROUTE} jest czytane wyłącznie w `loader`ach i `action`ach:
@@ -17,13 +17,12 @@
  */
 
 import {
-  API_BASE_URL,
-  type ApiErrorBody,
-  ROUTE_ERROR_CODES,
+  type ApiFailure,
+  type ApiResult,
   apiError,
-  describeCause,
-  isApiErrorBody,
-  readJson,
+  invalidResponse,
+  parseEntityId,
+  requestApi,
 } from "~/lib/api.server";
 
 /** Adres listy obiektów — cel przekierowania po każdym udanym zapisie. */
@@ -54,27 +53,24 @@ export type ObjectPayload = {
   childIds: number[];
 };
 
+export type ObjectListResult = { ok: true; objects: CatalogObject[] } | ApiFailure;
+
+export type ObjectResult = { ok: true; object: CatalogObject } | ApiFailure;
+
+export type ObjectDeleteResult = { ok: true } | ApiFailure;
+
+export type ObjectFormResult = { ok: true; payload: ObjectPayload } | ApiFailure;
+
 /**
- * Porażka niesie gotową kopertę razem ze statusem, bo trasa nie ma czego do
- * niej dopisać — komunikaty dla użytkownika układa API, które jako jedyne zna
- * reguły słownika (duplikat kodu, zapętlenie, odmowa usunięcia).
+ * Identyfikator obiektu — nazwa, pod którą trasa `/obiekty` zna wspólne
+ * {@link parseEntityId}. Reguła identyfikatora jest jedna dla wszystkich
+ * słowników, bo w API każdy klucz to ten sam `int`.
  */
-type Failure = { ok: false; status: number; error: ApiErrorBody };
-
-export type ObjectListResult = { ok: true; objects: CatalogObject[] } | Failure;
-
-export type ObjectResult = { ok: true; object: CatalogObject } | Failure;
-
-export type ObjectDeleteResult = { ok: true } | Failure;
-
-export type ObjectFormResult = { ok: true; payload: ObjectPayload } | Failure;
-
-/** Największy identyfikator, jaki przyjmie API — `int` w C#. */
-const MAX_OBJECT_ID = 2_147_483_647;
+export const parseObjectId = parseEntityId;
 
 /** Cały słownik, posortowany przez API po kodzie znormalizowanym. */
 export async function listObjects(): Promise<ObjectListResult> {
-  const result = await requestObjects("GET", OBJECTS_PATH);
+  const result = await requestApi("GET", OBJECTS_PATH);
 
   if (!result.ok) {
     return result;
@@ -88,7 +84,7 @@ export async function listObjects(): Promise<ObjectListResult> {
 }
 
 export async function createObject(payload: ObjectPayload): Promise<ObjectResult> {
-  return toObjectResult(OBJECTS_PATH, await requestObjects("POST", OBJECTS_PATH, payload));
+  return toObjectResult(OBJECTS_PATH, await requestApi("POST", OBJECTS_PATH, payload));
 }
 
 export async function updateObject(
@@ -97,11 +93,11 @@ export async function updateObject(
 ): Promise<ObjectResult> {
   const path = `${OBJECTS_PATH}/${id}`;
 
-  return toObjectResult(path, await requestObjects("PUT", path, payload));
+  return toObjectResult(path, await requestApi("PUT", path, payload));
 }
 
 export async function deleteObject(id: number): Promise<ObjectDeleteResult> {
-  const result = await requestObjects("DELETE", `${OBJECTS_PATH}/${id}`);
+  const result = await requestApi("DELETE", `${OBJECTS_PATH}/${id}`);
 
   return result.ok ? { ok: true } : result;
 }
@@ -116,7 +112,7 @@ export async function deleteObject(id: number): Promise<ObjectDeleteResult> {
  *
  * `getAll`, a nie `get`: każdy wybrany podobiekt to osobne ukryte pole
  * `childIds`, bo antd `Select` nie wysyła niczego natywnym formularzem.
- * Wartość, która nie jest identyfikatorem ({@link parseObjectId}), kończy
+ * Wartość, która nie jest identyfikatorem ({@link parseEntityId}), kończy
  * odczyt błędem walidacji pod `childIds` — ani nie znika po cichu z zapisu,
  * ani nie leci do API, gdzie `Number("")` dałoby 0, a `NaN` wywróciłoby
  * wiązanie `int[]` poza kopertą z mapą pól. Z UI nie da się tego osiągnąć;
@@ -126,7 +122,7 @@ export function readObjectForm(formData: FormData): ObjectFormResult {
   const childIds: number[] = [];
 
   for (const value of formData.getAll("childIds")) {
-    const id = typeof value === "string" ? parseObjectId(value) : null;
+    const id = typeof value === "string" ? parseEntityId(value) : null;
 
     if (id === null) {
       return {
@@ -151,72 +147,7 @@ export function readObjectForm(formData: FormData): ObjectFormResult {
   };
 }
 
-/**
- * Identyfikator obiektu albo `null`, gdy nie jest dodatnią liczbą całkowitą
- * w zakresie `int` z API. Wzorzec, a nie samo `Number(...)`: `Number("1e3")`,
- * `Number(" 7 ")`, `Number("0x10")` i `Number("07")` dają liczby, ale żadna
- * z tych wartości nie jest identyfikatorem obiektu. Jedno miejsce dla
- * parametru `?id=` z adresu `/obiekty` i dla pól `childIds`.
- */
-export function parseObjectId(value: string): number | null {
-  if (!/^[1-9]\d*$/.test(value)) {
-    return null;
-  }
-
-  const id = Number(value);
-
-  return id <= MAX_OBJECT_ID ? id : null;
-}
-
-type RawResult = { ok: true; status: number; body: unknown } | Failure;
-
-async function requestObjects(
-  method: "GET" | "POST" | "PUT" | "DELETE",
-  path: string,
-  payload?: ObjectPayload,
-): Promise<RawResult> {
-  let response: Response;
-
-  try {
-    response = await fetch(`${API_BASE_URL}${path}`, {
-      method,
-      headers:
-        payload === undefined ? undefined : { "Content-Type": "application/json" },
-      body: payload === undefined ? undefined : JSON.stringify(payload),
-    });
-  } catch (cause) {
-    return {
-      ok: false,
-      status: 502,
-      error: apiError(
-        ROUTE_ERROR_CODES.ApiUnreachable,
-        "Nie udało się połączyć z API aplikacji.",
-        { path, reason: describeCause(cause) },
-      ),
-    };
-  }
-
-  // 204 z `DELETE` nie ma treści z definicji. Próba odczytu JSON-a nie jest tu
-  // groźna, ale jest bez sensu — pusta treść jest przy tym statusie sukcesem,
-  // a nie „nieoczekiwanym formatem".
-  if (response.status === 204) {
-    return { ok: true, status: response.status, body: undefined };
-  }
-
-  const body = await readJson(response);
-
-  // Błąd API leci dalej w oryginale: to on niesie `code`, po którym rozgałęzia
-  // się widok (`object_has_relations`), i mapę naruszeń pól w `context`.
-  if (!response.ok) {
-    return isApiErrorBody(body)
-      ? { ok: false, status: response.status, error: body }
-      : invalidResponse(path, response.status);
-  }
-
-  return { ok: true, status: response.status, body };
-}
-
-function toObjectResult(path: string, result: RawResult): ObjectResult {
+function toObjectResult(path: string, result: ApiResult): ObjectResult {
   if (!result.ok) {
     return result;
   }
@@ -224,18 +155,6 @@ function toObjectResult(path: string, result: RawResult): ObjectResult {
   return isCatalogObject(result.body)
     ? { ok: true, object: result.body }
     : invalidResponse(path, result.status);
-}
-
-function invalidResponse(path: string, apiStatus: number): Failure {
-  return {
-    ok: false,
-    status: 502,
-    error: apiError(
-      ROUTE_ERROR_CODES.ApiInvalidResponse,
-      "API odpowiedziało w nieoczekiwanym formacie.",
-      { path, status: apiStatus },
-    ),
-  };
 }
 
 /**

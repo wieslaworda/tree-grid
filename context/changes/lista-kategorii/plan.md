@@ -524,36 +524,36 @@ tej zmianie wykonaj `dotnet ef database update --project src/Api`.
 
 #### Automated
 
-- [x] 1.1 Build rozwiązania przechodzi: `dotnet build TreeGrid.sln` (przy działającym API: `-c Release`)
-- [x] 1.2 Testy przechodzą, w tym testy reguł kategorii: `dotnet test TreeGrid.sln`
-- [x] 1.3 Migracja aplikuje się czysto: `dotnet ef database update --project src/Api`
-- [x] 1.4 Model nie ma zmian bez migracji: `dotnet ef migrations has-pending-model-changes --project src/Api`
+- [x] 1.1 Build rozwiązania przechodzi: `dotnet build TreeGrid.sln` (przy działającym API: `-c Release`) — 65819d1
+- [x] 1.2 Testy przechodzą, w tym testy reguł kategorii: `dotnet test TreeGrid.sln` — 65819d1
+- [x] 1.3 Migracja aplikuje się czysto: `dotnet ef database update --project src/Api` — 65819d1
+- [x] 1.4 Model nie ma zmian bez migracji: `dotnet ef migrations has-pending-model-changes --project src/Api` — 65819d1
 
 #### Manual
 
-- [x] 1.5 Dodana kategoria wraca z `GET /categories` z `aggregateFunction` zapisanym kanonicznie (`sum` → `SUM`)
-- [x] 1.6 Kod ` bil ` przy istniejącym `BIL` daje `validation_error` pod `code`
-- [x] 1.7 Brak funkcji i `AVG` dają `validation_error` pod `aggregateFunction`
-- [x] 1.8 `PUT` i `DELETE` nieistniejącej kategorii dają 404 `not_found` w kontrakcie, a `DELETE` istniejącej — 204
+- [x] 1.5 Dodana kategoria wraca z `GET /categories` z `aggregateFunction` zapisanym kanonicznie (`sum` → `SUM`) — 65819d1
+- [x] 1.6 Kod ` bil ` przy istniejącym `BIL` daje `validation_error` pod `code` — 65819d1
+- [x] 1.7 Brak funkcji i `AVG` dają `validation_error` pod `aggregateFunction` — 65819d1
+- [x] 1.8 `PUT` i `DELETE` nieistniejącej kategorii dają 404 `not_found` w kontrakcie, a `DELETE` istniejącej — 204 — 65819d1
 - [ ] 1.9 Ścieżka produkcyjna: po `dotnet ef database update` `start-api.ps1` wstaje z nową migracją
 
 ### Phase 2: Widok kategorii na wspólnej tabeli słownika
 
 #### Automated
 
-- [ ] 2.1 Typy przechodzą: `npm run typecheck`
-- [ ] 2.2 Build produkcyjny przechodzi: `npm run build`
-- [ ] 2.3 Nowe i zmienione widoki nie zawierają literałów koloru ani palety Tailwinda
-- [ ] 2.4 Adres API nie trafia do bundla klienckiego: `grep -r "127.0.0.1:5180" build/client` nic nie zwraca
+- [x] 2.1 Typy przechodzą: `npm run typecheck`
+- [x] 2.2 Build produkcyjny przechodzi: `npm run build`
+- [x] 2.3 Nowe i zmienione widoki nie zawierają literałów koloru ani palety Tailwinda
+- [x] 2.4 Adres API nie trafia do bundla klienckiego: `grep -r "127.0.0.1:5180" build/client` nic nie zwraca
 
 #### Manual
 
-- [ ] 2.5 Bez sesji `/kategorie` i `/kategorie?id=1` przekierowują na `/logowanie` — dokument i `.data` z `_routes`
+- [x] 2.5 Bez sesji `/kategorie` i `/kategorie?id=1` przekierowują na `/logowanie` — dokument i `.data` z `_routes`
 - [ ] 2.6 Menu ma pozycję „Kategorie" po „Obiekty", podświetloną na `/kategorie`
 - [ ] 2.7 Na pustym słowniku tabela pokazuje pusty stan; dodanie z domyślnym SUM wybiera nową kategorię i pokazuje ją w tabeli
 - [ ] 2.8 Duplikat kodu (inna wielkość liter) daje komunikat pod polem kodu w obu wariantach motywu
 - [ ] 2.9 Edycja nazwy i funkcji zapisuje się i formularz pokazuje zapisane wartości; usunięcie po potwierdzeniu wraca do dodawania, a „Anuluj" jest obrysowany
-- [ ] 2.10 Filtry tekstowe i lista funkcji zawężają tabelę (MIN nie pokazuje MAX), sortowanie po każdej kolumnie przechodzi rosnąco → malejąco → bez, stronicowanie po 10 i przeskok na stronę wybranej kategorii działają
+- [x] 2.10 Filtry tekstowe i lista funkcji zawężają tabelę (MIN nie pokazuje MAX), sortowanie po każdej kolumnie przechodzi rosnąco → malejąco → bez, stronicowanie po 10 i przeskok na stronę wybranej kategorii działają
 - [ ] 2.11 Lista obiektów działa bez zmian: filtry, sortowanie, stronicowanie, przeskok, podświetlenie, zapis i usuwanie
 - [ ] 2.12 Źródło strony `/kategorie` zawiera `@layer antd`, a ostatni `data-css-hash` stoi przed `</head>`
 - [ ] 2.13 Przez adres tunelu dodanie, edycja i usunięcie kategorii przechodzą bez 400 i bez `origin_mismatch`

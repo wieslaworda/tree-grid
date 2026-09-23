@@ -119,3 +119,110 @@ export function describeCause(cause: unknown): string {
     ? `${cause.message}: ${inner.message}`
     : cause.message;
 }
+
+/**
+ * Porażka niesie gotową kopertę razem ze statusem, bo trasa nie ma czego do
+ * niej dopisać — komunikaty dla użytkownika układa API, które jako jedyne zna
+ * reguły słownika (duplikat kodu, zapętlenie, odmowa usunięcia).
+ */
+export type ApiFailure = { ok: false; status: number; error: ApiErrorBody };
+
+/**
+ * Surowy wynik żądania do API słownika: treść jeszcze niesprawdzona co do
+ * kształtu — to robi strażnik typu w kliencie danego słownika.
+ */
+export type ApiResult = { ok: true; status: number; body: unknown } | ApiFailure;
+
+/**
+ * Żądanie do API słownika — jedna ścieżka dla klientów `objects.server.ts`
+ * i `categories.server.ts`.
+ *
+ * Semantyka porażek jest ta sama co w `requestAccount` z `auth.server.ts`:
+ * każda ścieżka, łącznie ze zgaszonym API, kończy się kopertą
+ * `{ error: { code, message, context } }` razem ze statusem, a błąd z API
+ * leci dalej w oryginale. `requestAccount` świadomie z tego helpera nie
+ * korzysta — kod uwierzytelniania ma otwarte ręczne kroki weryfikacji i zmiany
+ * słowników go nie ruszają.
+ */
+export async function requestApi(
+  method: "GET" | "POST" | "PUT" | "DELETE",
+  path: string,
+  payload?: object,
+): Promise<ApiResult> {
+  let response: Response;
+
+  try {
+    response = await fetch(`${API_BASE_URL}${path}`, {
+      method,
+      headers:
+        payload === undefined ? undefined : { "Content-Type": "application/json" },
+      body: payload === undefined ? undefined : JSON.stringify(payload),
+    });
+  } catch (cause) {
+    return {
+      ok: false,
+      status: 502,
+      error: apiError(
+        ROUTE_ERROR_CODES.ApiUnreachable,
+        "Nie udało się połączyć z API aplikacji.",
+        { path, reason: describeCause(cause) },
+      ),
+    };
+  }
+
+  // 204 z `DELETE` nie ma treści z definicji. Próba odczytu JSON-a nie jest tu
+  // groźna, ale jest bez sensu — pusta treść jest przy tym statusie sukcesem,
+  // a nie „nieoczekiwanym formatem".
+  if (response.status === 204) {
+    return { ok: true, status: response.status, body: undefined };
+  }
+
+  const body = await readJson(response);
+
+  // Błąd API leci dalej w oryginale: to on niesie `code`, po którym rozgałęzia
+  // się widok (`object_has_relations`), i mapę naruszeń pól w `context`.
+  if (!response.ok) {
+    return isApiErrorBody(body)
+      ? { ok: false, status: response.status, error: body }
+      : invalidResponse(path, response.status);
+  }
+
+  return { ok: true, status: response.status, body };
+}
+
+/**
+ * Porażka dla odpowiedzi, której treść nie jest kontraktem — status 502, bo
+ * zawiodło API, a nie wywołujący. Status z API jedzie w `context`.
+ */
+export function invalidResponse(path: string, apiStatus: number): ApiFailure {
+  return {
+    ok: false,
+    status: 502,
+    error: apiError(
+      ROUTE_ERROR_CODES.ApiInvalidResponse,
+      "API odpowiedziało w nieoczekiwanym formacie.",
+      { path, status: apiStatus },
+    ),
+  };
+}
+
+/** Największy identyfikator, jaki przyjmie API — `int` w C#. */
+const MAX_ENTITY_ID = 2_147_483_647;
+
+/**
+ * Identyfikator pozycji słownika albo `null`, gdy nie jest dodatnią liczbą
+ * całkowitą w zakresie `int` z API. Wzorzec, a nie samo `Number(...)`:
+ * `Number("1e3")`, `Number(" 7 ")`, `Number("0x10")` i `Number("07")` dają
+ * liczby, ale żadna z tych wartości nie jest identyfikatorem. Jedno miejsce
+ * dla parametru `?id=` z adresów słowników i dla pól z identyfikatorami
+ * (`childIds` obiektu).
+ */
+export function parseEntityId(value: string): number | null {
+  if (!/^[1-9]\d*$/.test(value)) {
+    return null;
+  }
+
+  const id = Number(value);
+
+  return id <= MAX_ENTITY_ID ? id : null;
+}

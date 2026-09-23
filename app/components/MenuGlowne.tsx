@@ -15,6 +15,7 @@ import { Link, useLocation } from "react-router";
  */
 export const POZYCJE_MENU: { sciezka: string; etykieta: string }[] = [
   { sciezka: "/obiekty", etykieta: "Obiekty" },
+  { sciezka: "/kategorie", etykieta: "Kategorie" },
 ];
 
 /**

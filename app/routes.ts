@@ -41,6 +41,10 @@ export default [
       // edycji i usuwania. Obiekt wybrany do edycji niesie parametr `?id=`,
       // nie segment ścieżki, więc wybór nie zmienia trasy.
       route("obiekty", "routes/obiekty.tsx"),
+
+      // Słownik kategorii — ten sam układ co obiekty: jedna trasa, wybór
+      // w parametrze `?id=`.
+      route("kategorie", "routes/kategorie.tsx"),
     ]),
   ]),
 ] satisfies RouteConfig;

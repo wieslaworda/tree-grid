@@ -1,33 +1,19 @@
+import { Alert, Button, Card, Popconfirm, Typography } from "antd";
+import { useMemo } from "react";
 import {
-  Alert,
-  Button,
-  Card,
-  Input,
-  Popconfirm,
-  Table,
-  Typography,
-  type TableColumnsType,
-  type TableProps,
-} from "antd";
-import {
-  createContext,
-  useContext,
-  useEffect,
-  useMemo,
-  useState,
-} from "react";
-import {
-  Link,
   type ShouldRevalidateFunctionArgs,
   data,
   redirect,
   useLinkClickHandler,
-  useNavigate,
   useNavigation,
   useSubmit,
 } from "react-router";
 
 import { FormularzObiektu } from "~/components/FormularzObiektu";
+import {
+  type KolumnaSlownika,
+  TabelaSlownika,
+} from "~/components/TabelaSlownika";
 // Typy osobnym `import type`, a nie specyfikatorem `type` w imporcie wartości.
 // Import wartości znika z bundla klienckiego razem z `loader`em i `action`,
 // ale gdyby został w nim sam specyfikator `type`, `verbatimModuleSyntax`
@@ -228,160 +214,34 @@ export function shouldRevalidate({
 /** Wiersz tabeli: obiekt z gotowym tekstem kolumny podobiektów. */
 type Wiersz = CatalogObject & { podobiekty: string };
 
-/** Liczba obiektów na jednej stronie tabeli. */
-const NA_STRONE = 10;
-
 /**
- * Kolumny tabeli w kolejności wyświetlania. Klucz kolumny to pole wiersza —
- * po nim idą filtr, sortowanie i `dataIndex`.
+ * Kolumny tabeli w kolejności wyświetlania. Kolumna podobiektów filtruje po
+ * gotowym tekście kodów.
  */
-const KOLUMNY_TABELI = [
-  { klucz: "code", tytul: "Kod" },
-  { klucz: "name", tytul: "Nazwa" },
-  { klucz: "podobiekty", tytul: "Podobiekty" },
-] as const;
-type KluczKolumny = (typeof KOLUMNY_TABELI)[number]["klucz"];
-
-/** Frazy filtrów, wpisane dosłownie — pusta fraza znaczy „bez filtra". */
-type Filtry = Record<KluczKolumny, string>;
-
-const BEZ_FILTROW: Filtry = { code: "", name: "", podobiekty: "" };
-
-/** Aktywne sortowanie albo `null` — kolejność z API (po kodzie). */
-type Sortowanie = { klucz: KluczKolumny; kierunek: "ascend" | "descend" } | null;
-
-/**
- * Wiersz pasuje, gdy każda niepusta fraza jest fragmentem odpowiedniej
- * kolumny, bez rozróżniania wielkości liter (z polskimi regułami, więc „ł"
- * znajduje „Ł"). Kolumna podobiektów filtruje po gotowym tekście kodów.
- */
-function pasuje(wiersz: Wiersz, filtry: Filtry): boolean {
-  return KOLUMNY_TABELI.every(({ klucz }) => {
-    const fraza = filtry[klucz].trim().toLocaleLowerCase("pl");
-
-    return fraza === "" || wiersz[klucz].toLocaleLowerCase("pl").includes(fraza);
-  });
-}
-
-/**
- * Porównanie po polsku i „naturalnie": `B2` przed `B10`, wielkość liter bez
- * znaczenia. Zwykłe `<` ustawiłoby „Łagisza" za „Żydowo", a `B10` przed `B2`.
- */
-const PORZADEK = new Intl.Collator("pl", { numeric: true, sensitivity: "base" });
-
-function posortuj(wiersze: Wiersz[], sortowanie: Sortowanie): Wiersz[] {
-  if (sortowanie === null) {
-    return wiersze;
-  }
-
-  const { klucz, kierunek } = sortowanie;
-  const znak = kierunek === "ascend" ? 1 : -1;
-
-  return [...wiersze].sort(
-    (a, b) => znak * PORZADEK.compare(a[klucz], b[klucz]),
-  );
-}
-
-/** Numer strony z danym obiektem albo `null`, gdy go w wierszach nie ma. */
-function stronaObiektu(wiersze: Wiersz[], id: number | undefined): number | null {
-  const indeks =
-    id === undefined ? -1 : wiersze.findIndex((wiersz) => wiersz.id === id);
-
-  return indeks < 0 ? null : Math.floor(indeks / NA_STRONE) + 1;
-}
-
-/**
- * Filtry dla wiersza filtrów w nagłówku. Kontekst, a nie propsy, bo antd
- * renderuje `thead` sam i do podmienionego komponentu przekazuje wyłącznie
- * swoje atrybuty.
- */
-const KontekstFiltrow = createContext<{
-  filtry: Filtry;
-  ustawFiltr: (klucz: KluczKolumny, fraza: string) => void;
-} | null>(null);
-
-/**
- * `thead` tabeli z dodatkowym wierszem filtrów pod wierszem tytułów.
- *
- * antd nie ma wiersza filtrów — ma tylko rozwijane filtry przy tytule — więc
- * wiersz dokłada podmieniony `components.header.wrapper`. Komórki to `td`
- * w tym samym `thead`: antd stylizuje `thead > tr > td` tak samo jak `th`
- * (`antd/es/table/style/index.js:84`), więc dostają tło, obramowanie
- * i odstępy nagłówka z motywu bez żadnej klasy stąd, a nie są nagłówkami
- * kolumn — `th` z polem tekstowym czytnik ekranu doklejałby do nazwy każdej
- * komórki danych. Wiersz tytułów zostaje w całości antd: na nim są strzałki
- * i kliknięcia sortowania, więc pola filtrów nie mogą stać w tych samych
- * komórkach.
- *
- * Wiersz ma dokładnie tyle komórek, ile `KOLUMNY_TABELI`. `scroll.y`,
- * `sticky` albo `virtual` na tabeli dokładają w nagłówku kolumnę paska
- * przewijania — przy nich temu wierszowi zabrakłoby komórki.
- *
- * Komponent na poziomie modułu, a nie w renderze: nowa funkcja przy każdym
- * renderze to nowy typ elementu, czyli przemontowanie `thead` i utrata
- * fokusu w polu przy każdej wpisanej literze.
- */
-function NaglowekZFiltrami({
-  children,
-  ...atrybuty
-}: React.HTMLAttributes<HTMLTableSectionElement>) {
-  const kontekst = useContext(KontekstFiltrow);
-
-  return (
-    <thead {...atrybuty}>
-      {children}
-      {kontekst === null ? null : (
-        <tr>
-          {KOLUMNY_TABELI.map(({ klucz, tytul }) => (
-            <td key={klucz} className="ant-table-cell">
-              <Input
-                size="small"
-                allowClear
-                aria-label={`Filtruj kolumnę ${tytul}`}
-                placeholder="Filtruj…"
-                value={kontekst.filtry[klucz]}
-                onChange={(zdarzenie) =>
-                  kontekst.ustawFiltr(klucz, zdarzenie.target.value)
-                }
-              />
-            </td>
-          ))}
-        </tr>
-      )}
-    </thead>
-  );
-}
-
-/** Stała, bo antd porównuje `components` po referencji. */
-const KOMPONENTY_TABELI: TableProps<Wiersz>["components"] = {
-  header: { wrapper: NaglowekZFiltrami },
-};
+const KOLUMNY_TABELI: readonly KolumnaSlownika<Wiersz>[] = [
+  { klucz: "code", tytul: "Kod", filtr: { rodzaj: "tekst" }, link: true },
+  { klucz: "name", tytul: "Nazwa", filtr: { rodzaj: "tekst" } },
+  { klucz: "podobiekty", tytul: "Podobiekty", filtr: { rodzaj: "tekst" } },
+];
 
 /**
  * Słownik obiektów w jednym widoku: lista na górze, pod nią panel, który
  * dodaje, edytuje i usuwa — bez przechodzenia na osobne trasy.
  *
  * Lista to płaska tabela z kolumną podobiektów, a nie drzewo: przy relacji
- * wiele-do-wielu ten sam obiekt stałby w drzewie wielokrotnie. `size="small"`
- * jest rozmiarem motywu, nie wyjątkiem od niego: to właśnie wariant `SM`
- * tabeli ma w `app/theme/antd.ts` policzony wiersz 24 px. Tabela ma wiersz
- * filtrów pod nagłówkami, sortowanie po każdej kolumnie i stronicowanie po
- * {@link NA_STRONE}. Stan wszystkich trzech żyje w tym komponencie, więc
- * przeżywa zapis i przekierowanie na tę samą trasę, ale nie pełne
- * odświeżenie strony.
- *
- * Filtrowanie i sortowanie liczy widok, a nie antd: kolumny mają
- * `sorter: true` (dla antd „sortowanie zdalne", więc tylko strzałki
- * i zdarzenie) i nie mają `onFilter`. Tylko wtedy widok zna kolejność
- * wierszy, a więc stronę, na której stoi wybrany obiekt.
+ * wiele-do-wielu ten sam obiekt stałby w drzewie wielokrotnie. Filtry,
+ * sortowanie, stronicowanie i przeskok na stronę wybranego obiektu daje
+ * wspólna `TabelaSlownika`.
  */
 export default function Obiekty({
   loaderData,
   actionData,
 }: Route.ComponentProps) {
   const { obiekty, wybrany, nieznany, blad } = loaderData;
-  const nawiguj = useNavigate();
 
+  // `useMemo` po `obiekty`, a nie świeża tablica w renderze: tabela przeskakuje
+  // na stronę wybranego obiektu przy każdej zmianie tożsamości `wiersze`,
+  // a ta ma się zmieniać wyłącznie po przebiegu loadera.
   const wiersze = useMemo<Wiersz[]>(() => {
     const kody = new Map(obiekty.map((obiekt) => [obiekt.id, obiekt.code]));
 
@@ -394,85 +254,6 @@ export default function Obiekty({
           .join(", ") || "—",
     }));
   }, [obiekty]);
-
-  const [filtry, ustawFiltry] = useState<Filtry>(BEZ_FILTROW);
-  const [sortowanie, ustawSortowanie] = useState<Sortowanie>(null);
-  const widoczne = useMemo(
-    () =>
-      posortuj(
-        wiersze.filter((wiersz) => pasuje(wiersz, filtry)),
-        sortowanie,
-      ),
-    [wiersze, filtry, sortowanie],
-  );
-
-  // Start na stronie wybranego obiektu — adres `?id=` otwarty wprost albo po
-  // odświeżeniu ma pokazać jego wiersz, a nie pierwszą stronę.
-  const [strona, ustawStrone] = useState(
-    () => stronaObiektu(widoczne, wybrany?.id) ?? 1,
-  );
-
-  // Po każdym przebiegu loadera tabela staje na stronie wybranego obiektu —
-  // po dodaniu (nowy obiekt, inna strona) i po zapisie, który zmienia kod
-  // albo sortowaną kolumnę, więc przesuwa wiersz, choć `id` zostaje to samo.
-  //
-  // Zależności świadomie bez `filtry` i `sortowanie`: zmiana filtra albo
-  // sortowania wraca na pierwszą stronę i ten efekt nie może tego cofać.
-  // `obiekty` ma nową tożsamość wyłącznie po przebiegu loadera (wybór, zapis,
-  // rewalidacja po 409), nigdy po filtrze. Obiekt odsiany filtrem albo brak
-  // wyboru (po usunięciu) zostawia stronę, przyciętą do liczby stron — inaczej
-  // stan zostałby ponad nią i przeskoczył przy późniejszym dopływie wierszy.
-  useEffect(() => {
-    const docelowa = stronaObiektu(widoczne, wybrany?.id);
-    const ostatnia = Math.max(1, Math.ceil(widoczne.length / NA_STRONE));
-
-    ustawStrone((poprzednia) => docelowa ?? Math.min(poprzednia, ostatnia));
-  }, [wybrany?.id, obiekty]);
-
-  // Po usunięciu albo zawężeniu filtrów zapamiętana strona może nie istnieć.
-  const liczbaStron = Math.max(1, Math.ceil(widoczne.length / NA_STRONE));
-  const biezacaStrona = Math.min(strona, liczbaStron);
-
-  const kontekstFiltrow = useMemo(
-    () => ({
-      filtry,
-      ustawFiltr: (klucz: KluczKolumny, fraza: string) => {
-        ustawFiltry((poprzednie) => ({ ...poprzednie, [klucz]: fraza }));
-        ustawStrone(1);
-      },
-    }),
-    [filtry],
-  );
-
-  // Link w kolumnie kodu jest drogą wyboru przed hydracją i z klawiatury; po
-  // hydracji to samo robi kliknięcie w dowolne miejsce wiersza (`onRow`).
-  // `stopPropagation`, żeby kliknięcie w link nie wysłało drugiej, identycznej
-  // nawigacji z wiersza. `preventScrollReset`, bo panel edycji stoi pod listą
-  // — powrót na górę strony po każdym wyborze odsuwałby go z oczu.
-  const kolumny = useMemo<TableColumnsType<Wiersz>>(
-    () =>
-      KOLUMNY_TABELI.map(({ klucz, tytul }) => ({
-        title: tytul,
-        dataIndex: klucz,
-        key: klucz,
-        sorter: true,
-        sortOrder: sortowanie?.klucz === klucz ? sortowanie.kierunek : null,
-        render:
-          klucz === "code"
-            ? (kod: string, wiersz: Wiersz) => (
-                <Link
-                  to={adresWyboru(wiersz.id)}
-                  preventScrollReset
-                  onClick={(zdarzenie) => zdarzenie.stopPropagation()}
-                  className="font-semibold text-tg-akcent underline-offset-4 hover:underline"
-                >
-                  {kod}
-                </Link>
-              )
-            : undefined,
-      })),
-    [sortowanie],
-  );
 
   return (
     <main className="mx-auto max-w-4xl p-8">
@@ -490,60 +271,14 @@ export default function Obiekty({
       */}
       {blad === null ? (
         <>
-          <KontekstFiltrow.Provider value={kontekstFiltrow}>
-            <Table<Wiersz>
-              size="small"
-              rowKey="id"
-              columns={kolumny}
-              dataSource={widoczne}
-              components={KOMPONENTY_TABELI}
-              pagination={{
-                current: biezacaStrona,
-                pageSize: NA_STRONE,
-                showSizeChanger: false,
-                showTotal: (razem, [od, doWiersza]) =>
-                  `${od}–${doWiersza} z ${razem}`,
-              }}
-              onChange={(paginacja, _filtry, sorter, { action }) => {
-                if (action === "sort") {
-                  // Jedna kolumna naraz, więc `sorter` nie jest tablicą —
-                  // strażnik zostaje, bo typ antd dopuszcza oba kształty.
-                  const wybor = Array.isArray(sorter) ? sorter[0] : sorter;
-                  const klucz = KOLUMNY_TABELI.find(
-                    (kolumna) => kolumna.klucz === wybor?.columnKey,
-                  )?.klucz;
-
-                  ustawSortowanie(
-                    klucz === undefined || !wybor?.order
-                      ? null
-                      : { klucz, kierunek: wybor.order },
-                  );
-                  ustawStrone(1);
-                } else if (action === "paginate") {
-                  ustawStrone(paginacja.current ?? 1);
-                }
-              }}
-              // Klasa na komórkach, a nie na wierszu: antd maluje tło `td`,
-              // więc tło `tr` byłoby pod nim niewidoczne przy najechaniu.
-              // Kolor to ten sam `zaznaczenieWiersza`, który motyw daje
-              // `rowSelectedBg`.
-              rowClassName={(wiersz) =>
-                wiersz.id === wybrany?.id
-                  ? "cursor-pointer [&>td]:bg-tg-zaznaczenie-wiersza"
-                  : "cursor-pointer"
-              }
-              onRow={(wiersz) => ({
-                onClick: () =>
-                  nawiguj(adresWyboru(wiersz.id), { preventScrollReset: true }),
-              })}
-              locale={{
-                emptyText:
-                  obiekty.length === 0
-                    ? "Słownik jest pusty. Dodaj pierwszy obiekt w formularzu poniżej — z obiektów słownika zbudujesz potem własne drzewo."
-                    : "Żaden obiekt nie pasuje do filtrów.",
-              }}
-            />
-          </KontekstFiltrow.Provider>
+          <TabelaSlownika<Wiersz>
+            wiersze={wiersze}
+            kolumny={KOLUMNY_TABELI}
+            wybranyId={wybrany?.id}
+            adresWyboru={adresWyboru}
+            tekstPustegoSlownika="Słownik jest pusty. Dodaj pierwszy obiekt w formularzu poniżej — z obiektów słownika zbudujesz potem własne drzewo."
+            tekstBrakuTrafien="Żaden obiekt nie pasuje do filtrów."
+          />
 
           {/*
             `key` z wyboru **i zapisanych wartości**: przejście z jednego
