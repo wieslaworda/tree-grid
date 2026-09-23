@@ -6,97 +6,102 @@
 
 S-03 to north star roadmapy: dyspozytor sam składa drzewo z obiektów słownika,
 a aplikacja nie dopuszcza struktury niespójnej (FR-003–005). Rozszerzenie
-z 2026-09-23 (MS-03–MS-07) daje mu **wiele własnych, nazwanych drzew** zamiast
-jednego roboczego. Dochodzi też filtr obiektów nieużytych w drzewie i usuwanie
-węzła przeciągnięciem na listę. Nazwane drzewo to składnik, który S-06 wskaże
-z zapisanego ekranu.
+z 2026-09-23 (MS-03–MS-07) daje mu **wiele własnych, nazwanych drzew**, filtr
+obiektów nieużytych i usuwanie węzła przeciągnięciem na listę. Druga prośba
+z tego samego dnia: panel drzewa ma wyglądać i nawigować jak Obiekty
+i Kategorie, a „Dodaj drzewo” / „Zapisz zmiany” mają zapisywać **nazwę razem ze
+strukturą** — budowa staje się szkicem zapisywanym jawnie.
 
 ## Starting Point
 
-Fazy 1–3 mają kod (`4b5fdee`, `7788590`, `fdd1591`). Jest jedno drzewo robocze
-na konto (`TreeNode.UserId`) z regułami zapętlenia, duplikatu i limitu,
-endpointy `/tree`, widok `/drzewo` z dodawaniem przyciskiem i przeciąganiem oraz
-przesuwaniem węzłów. Reguły są czystymi funkcjami niezależnymi od właściciela;
-zakres „drzewo konta” siedzi wyłącznie w zapytaniach endpointów.
+Fazy 1–5 mają kod (`4b5fdee`, `7788590`, `fdd1591`, `c4a4db7`, `48dc32e`):
+nazwane drzewa z własnością przez `UserTree`, lista drzew z panelem obok na
+`/drzewo`, budowa z dialogiem gałęzi i przeciąganiem. Każda operacja na węzłach
+idzie od razu do API osobnym endpointem, a reguły API oceniają jedną operację,
+nie całe drzewo.
 
 ## Desired End State
 
-Na górze `/drzewo` jest lista drzew dyspozytora (5 wierszy na stronę, filtr po
-nazwie), a obok panel „Nowe drzewo”, zmiany nazwy i „Usuń drzewo”. Wejście
-z menu otwiera pierwsze drzewo po nazwie, a konto bez drzew widzi zachętę.
-Budowa działa na drzewie wybranym w `?drzewo=`, z tymi samymi odmowami co
-dotąd, ale w obrębie jednego drzewa. Cudze drzewa są nieistniejące. Lista
-obiektów umie pokazać tylko obiekty nieużyte w drzewie, a węzeł upuszczony na
-listę znika z poddrzewem bez pytania.
+Pod listą drzew stoi karta jak w Kategoriach: „Edycja: <nazwa>” z przyciskiem
+„Nowe drzewo”, polem nazwy, „Zapisz zmiany” i sekcją „Usuwanie”, a pod nią
+budowa. Dodawanie, przesuwanie i usuwanie węzłów zmienia szkic, sprawdzany przy
+każdej operacji tymi samymi regułami co dotąd. Zapis wysyła nazwę i całą
+strukturę; API waliduje całość, zachowuje `id` istniejących węzłów i odrzuca
+zapis na nieaktualnej wersji. Wyjście z niezapisanym szkicem pyta o porzucenie.
+Filtr „nieużyte” i usuwanie przeciągnięciem działają na szkicu.
 
 ## Key Decisions Made
 
 | Decision | Choice | Why (1 sentence) | Source |
 | --- | --- | --- | --- |
-| Przeciąganie | Pełne: z listy do drzewa, w drzewie, z drzewa na listę (usuwanie) | Decyzja użytkownika; każdy kierunek w osobnej, późnej fazie. | Plan / Roadmapa |
 | Znaczenie zapętlenia | Obiekt na własnej ścieżce do korzenia | Odpowiada temu, co widać w drzewie. | Plan |
-| Gałąź ze słownika | Kopia struktury w chwili dodania | Cudze zmiany słownika jej nie ruszają. | Plan |
-| Nagłówek drzewa | Tylko nazwa + id; nazwa unikalna w obrębie konta, bez wielkości liter | Duplikatów nie da się odróżnić na liście. | Roadmapa (MS-03) |
-| Własność | Węzeł → drzewo → konto; `UserId` zdjęte z węzła | Jedno źródło właściciela zamiast dwóch, które mogą się rozjechać. | Plan |
-| Istniejące dane | Drzewo robocze każdego konta → drzewo „Drzewo robocze” | Nic nie ginie przy migracji. | Roadmapa |
-| Układ listy drzew | `TabelaSlownika` z 5 wierszami na stronę + panel obok | Analogia do Obiektów bez zabierania budowie połowy ekranu. | Plan |
-| Brak wyboru w adresie | Przekierowanie na pierwsze drzewo po nazwie | Wejście z menu od razu pokazuje budowę. | Plan |
-| Formularz „Nowe drzewo” | Zawsze w panelu, obok edycji wybranego | Brak `?drzewo=` przekierowuje, więc nie może oznaczać trybu dodawania. | Plan |
-| Pusty stan | Pusta lista z zachętą, budowa nieaktywna | Bez automatycznego drzewa i bez reguły „ostatniego nie wolno usunąć”. | Roadmapa |
-| Usuwanie drzewa | `Popconfirm` z liczbą węzłów | Nieodwracalne, jak usuwanie w słownikach. | Plan |
-| Usuwanie przeciągnięciem | Bez potwierdzenia | Decyzja użytkownika (MS-07). | Roadmapa |
-| Filtr „nieużyte” | Pole wyboru po stronie klienta, razem z filtrem tekstowym; nie zmienia zaznaczenia | Zbiór obiektów drzewa jest już w loaderze. | Plan |
-| Kontrakt API | `/trees`, `/trees/{treeId}/nodes/…`; `/tree` usunięte | Drzewo z adresu sprawdzane na własność przed odczytem węzłów. | Plan |
-| Tożsamość w API | Nagłówek `X-TreeGrid-User` na pętli zwrotnej, 401 bez niego | Spójne z modelem zaufania `/internal`. | Plan |
+| Gałąź ze słownika | Kopia struktury w chwili dodania, dzieci w kolejności kodu | Cudze zmiany słownika jej nie ruszają. | Plan |
+| Nagłówek drzewa | Nazwa (unikalna w obrębie konta) + id + wersja | Wersja wykrywa zapis ze starego stanu. | Roadmapa (MS-03) / Plan |
+| Własność | Węzeł → drzewo → konto | Jedno źródło właściciela. | Plan |
+| Istniejące dane | Drzewo robocze → „Drzewo robocze” | Nic nie ginie przy migracji. | Roadmapa |
+| Zapis struktury | Szkic w przeglądarce, zapis z nazwą przez „Dodaj drzewo” / „Zapisz zmiany” | Prośba użytkownika. | Użytkownik |
+| Walidacja szkicu | Od razu w przeglądarce (kopia reguł), API sprawdza całość przy zapisie | Natychmiastowa odmowa, autorytet po stronie API. | Użytkownik |
+| Współbieżność | Licznik wersji na drzewie, 409 `tree_stale`, szkic zostaje | Szkic żyje długo; nadpisanie cudzej pracy nie może przejść po cichu. | Plan |
+| Endpointy węzłów | Usunięte; zostaje `GET` węzłów i zapis całości | Jedna ścieżka zapisu i jeden zestaw reguł API. | Plan |
+| Zachowanie `id` | Diff: wstaw → przepnij → usuń w jednej transakcji | Kaskada na `ParentId` zjadłaby przepięte węzły; S-04 przypnie się do `id`. | Plan |
+| Ochrona szkicu | Dialog przy nawigacji + ostrzeżenie przeglądarki, „Niezapisane zmiany” w karcie | Szkicu nie da się zgubić przypadkiem. | Plan |
+| Układ panelu | Karta pod listą jak w Kategoriach, budowa pod kartą | Decyzja użytkownika, mimo mniejszej wysokości budowy. | Użytkownik |
+| Wejście bez wyboru | Pierwsze drzewo; tryb nowego przez „Nowe drzewo” (`/drzewo?nowe`) | Z menu od razu widać budowę. | Użytkownik |
+| Konto bez drzew | Tryb nowego drzewa z aktywną budową | Jedno zachowanie trybu nowego; odejście od litery MS-04. | Użytkownik |
+| Usuwanie przeciągnięciem | Bez potwierdzenia, na szkicu | MS-07; do zapisu da się porzucić z resztą zmian. | Roadmapa |
+| Tożsamość w API | Nagłówek `X-TreeGrid-User` na pętli zwrotnej | Spójne z modelem zaufania `/internal`. | Plan |
 
 ## Scope
 
 **In scope:**
 
-- Fazy 1–3 (zrobione): API drzewa, widok z dialogiem gałęzi, przeciąganie
-- Encja `UserTree`, migracja `NamedTrees` z przeniesieniem danych, `/trees` z walidacją nazwy
-- Lista drzew z panelem na `/drzewo`, wybór w `?drzewo=`, pusty stan, izolacja kont
-- Filtr „Pokaż obiekty nieużyte w drzewie”, usuwanie węzła przeciągnięciem na listę
+- Fazy 1–5 (zrobione): API i widok drzewa, przeciąganie, nazwane drzewa, lista drzew
+- Faza 6: wersja drzewa (migracja `TreeVersion`), zapis całości z walidacją i diffem, usunięcie endpointów węzłów
+- Faza 7: reguły szkicu w kliencie, karta jak w Kategoriach, tryb nowego drzewa, ochrona szkicu
+- Faza 8: filtr „Pokaż obiekty nieużyte w drzewie” i usuwanie przeciągnięciem — na szkicu
 
 **Out of scope:**
 
-- Ekrany i ich powiązanie z drzewem (S-06), kategorie przy węzłach (S-04), grid (S-05)
-- Limit liczby drzew, kopiowanie i scalanie drzew, przenoszenie węzłów między drzewami
-- Pamięć ostatnio używanego drzewa, „cofnij”, potwierdzenie przy usuwaniu przeciągnięciem
+- Ekrany (S-06), kategorie przy węzłach (S-04), grid (S-05)
+- „Odrzuć zmiany”, autozapis, szkic w `localStorage`, historia i „cofnij”
+- Scalanie przy konflikcie wersji, ochrona samej nazwy, limit liczby drzew, kopiowanie drzew
 
 ## Architecture / Approach
 
-API .NET dostaje encję `UserTree` (właściciel, nazwa, postać znormalizowana
-z unikalnym indeksem w obrębie konta). Węzły wiszą na drzewie z kaskadą. Każdy
-endpoint po tożsamości szuka drzewa z adresu po `Id` i `UserId`, a węzły czyta
-wyłącznie po `TreeId`. Reguły drzewa się nie zmieniają. Po stronie React
-Routera loader czyta listę drzew i węzły wybranego, akcja bierze `treeId`
-z `?drzewo=`, a widok składa `TabelaSlownika` z panelem nad budową. Usuwanie
-przeciągnięciem to własny typ MIME węzła ustawiany w `onDragStart` antd Tree
-i przyjmowany przez listę.
+API dostaje jedną regułę na całą strukturę (przejście w głąb ze ścieżką na
+stosie: zapętlenie, duplikaty, limit) i czysty plan zapisu (wstaw, przepnij,
+usuń), a `POST /trees` i `PUT /trees/{id}` przyjmują nazwę, wersję i
+zagnieżdżone `nodes`. Klient przejmuje reguły jednej operacji (kopia z commitu
+`48dc32e`) i trzyma szkic jako płaską listę z ujemnymi `id` nowych węzłów;
+formularz karty niesie go ukrytym polem. Komponent ze szkicem ma `key`
+`<id>:<wersja>`, więc udany zapis zaczyna od stanu z bazy, a odmowa (bez
+rewalidacji) zostawia szkic.
 
 ## Phases at a Glance
 
 | Phase | What it delivers | Key risk |
 | --- | --- | --- |
-| 1–3. Zrobione | Drzewo robocze, widok, przeciąganie | Ręczne kroki faz 1–2 czekają; po fazie 4 idą na nowych adresach |
-| 4. API nazwanych drzew | `UserTree`, migracja danych, `/trees` | Przebudowa tabeli na SQLite przed wypełnieniem `TreeId` zgubiłaby węzły — kolejność sprawdzana w skrypcie i na kopii bazy |
-| 5. Lista drzew w widoku | Tabela z panelem, `?drzewo=`, pusty stan | Między fazą 4 a 5 widok nie działa; `treeId` musi dotrzeć do akcji fetchera |
-| 6. Filtr i usuwanie przeciągnięciem | Pole wyboru, lista jako cel upuszczenia | Usuwanie bez potwierdzenia i bez „cofnij” — cel musi reagować wyłącznie na typ węzła |
+| 1–5. Zrobione | Drzewa, budowa, przeciąganie, lista drzew | Weryfikacja ręczna faz 1, 2, 4, 5 odłożona |
+| 6. API zapisu całego drzewa | Wersja, zapis całości, diff z zachowaniem `id` | Zła kolejność kroków zapisu kasuje przepięte węzły kaskadą |
+| 7. Szkic i karta jak w Kategoriach | Budowa na szkicu, zapis z nazwą, blokada wyjścia | Reguły klienta bez testów mogą rozjechać się z API; blocker zatrzymałby własny zapis |
+| 8. Filtr i usuwanie przeciągnięciem | Pole wyboru, lista jako cel upuszczenia | Usunięcie ze szkicu przed `dragend` rc-tree |
 
-**Prerequisites:** kopia pliku bazy przed migracją; dwa konta z drzewami do sprawdzenia izolacji; Chromium i Firefox.
-**Estimated effort:** ~2–3 sesje na fazy 4–6.
+**Prerequisites:** kopia pliku bazy przed migracją `TreeVersion`; dwa konta
+i dwie karty przeglądarki do sprawdzenia izolacji i konfliktu wersji; Chromium
+i Firefox.
+**Estimated effort:** ~3 sesje na fazy 6–8.
 
 ## Open Risks & Assumptions
 
-- Izolacja kont stoi na dwóch warunkach infrastruktury (nasłuch tylko na pętli zwrotnej, tunel tylko na :3000) — kandydat na `/10x-lesson`.
-- `Down` migracji scala drzewa konta w jedno — cofnięcie po utworzeniu kolejnych drzew traci ich podział. Wyłącza też klucze obce przed usunięciem tabeli drzew, bo EF stawia przebudowę `TreeNodes` na końcu i kaskada skasowałaby węzły (plan-review F1).
-- W Development API migruje bazę przy starcie — kopia pliku bazy przed pierwszym startem po dodaniu migracji (plan-review F2).
-- Fazy 4 i 5 trzeba wdrożyć przez tunel razem.
-- S-06 musi rozstrzygnąć, co z ekranem, gdy wskazane drzewo zostanie zmienione albo usunięte (niezablokowane pytanie w roadmapie).
+- Reguły jednej operacji istnieją w kliencie bez testów automatycznych (brak runnera frontendu) — rozjazd z API kończy się odmową przy zapisie, nie zepsutym drzewem.
+- Karta pod listą zabiera budowie wysokość; budowa ma minimum w wierszach, a widok się przewija.
+- Fazy 6 i 7 trzeba wdrożyć przez tunel razem (między nimi widok nie zapisuje), tak jak 4 i 5.
+- Kotwica MS-04 w roadmapie mówi o nieaktywnej budowie przy zerze drzew — do poprawienia w roadmapie osobnym commitem.
+- Izolacja kont stoi na dwóch warunkach infrastruktury (nasłuch tylko na pętli zwrotnej, tunel tylko na :3000).
+- `Down` migracji `NamedTrees` scala drzewa konta w jedno.
 
 ## Success Criteria (Summary)
 
-- Dyspozytor prowadzi kilka własnych, nazwanych drzew i buduje strukturę w wybranym — przyciskiem i przeciąganiem.
-- Zapętlenie, duplikat i zbyt duże drzewo są odrzucane w obrębie drzewa, a cudzych drzew nie da się zobaczyć ani zmienić nawet z pominięciem interfejsu.
-- Dotychczasowe drzewo robocze przeżywa migrację bez zmian.
+- Dyspozytor prowadzi własne nazwane drzewa w układzie znanym z Kategorii i buduje strukturę, która trafia do bazy dopiero po „Zapisz zmiany”, razem z nazwą.
+- Zapętlenie, duplikat i zbyt duże drzewo są odrzucane od razu w szkicu i ponownie przez API; zapis ze starego stanu nie nadpisuje cudzych zmian.
+- Istniejące węzły zachowują identyfikatory przez każdy zapis, a niezapisanego szkicu nie da się zgubić bez ostrzeżenia.

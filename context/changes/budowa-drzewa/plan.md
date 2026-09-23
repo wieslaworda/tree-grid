@@ -18,8 +18,8 @@ przyjęciem (sekcja `Business Logic` PRD) i odrzuca ją, gdy:
 - obiekt zdublowałby rodzeństwo w tym samym miejscu drzewa;
 - drzewo przekroczyłoby limit rozmiaru.
 
-**Rozszerzenie (fazy 4–6, kotwice MS-03–MS-07 z roadmapy, 2026-09-23).** Fazy 1–3
-zbudowały jedno drzewo robocze na konto. Fazy 4–6 zamieniają je w listę
+**Rozszerzenie (fazy 4, 5 i 8, kotwice MS-03–MS-07 z roadmapy, 2026-09-23).** Fazy 1–3
+zbudowały jedno drzewo robocze na konto. Fazy 4, 5 i 8 zamieniają je w listę
 **nazwanych drzew** użytkownika: węzły należą do drzewa, drzewo do konta.
 Nagłówek drzewa to wyłącznie nazwa (unikalna w obrębie konta) i identyfikator.
 Na górze `/drzewo` stoi kompaktowa lista drzew z panelem dodawania, zmiany nazwy
@@ -27,6 +27,17 @@ i usuwania, a budowa działa na drzewie wybranym z listy. Lista obiektów dostaj
 filtr „Pokaż obiekty nieużyte w drzewie” i przyjmuje upuszczony węzeł drzewa
 jako polecenie usunięcia go z poddrzewem, bez potwierdzenia. Istniejące drzewo
 robocze każdego konta staje się jego pierwszym nazwanym drzewem.
+
+**Szkic zapisywany z nazwą (fazy 6–7, prośba użytkownika z 2026-09-23; dawna
+faza 6 staje się fazą 8).** Panel drzewa dostaje wygląd i nawigację Obiektów
+i Kategorii: kartę pod listą z tytułem „Nowe drzewo” albo „Edycja: <nazwa>”,
+przyciskiem „Nowe drzewo” w nagłówku i sekcją „Usuwanie”. Struktura przestaje
+być zapisywana operacja po operacji. Budowa zmienia **szkic** w przeglądarce,
+sprawdzając każdą operację od razu tymi samymi regułami co API, a „Dodaj
+drzewo” i „Zapisz zmiany” zapisują nazwę i całą strukturę jednym żądaniem. API
+waliduje całość ponownie, zachowuje identyfikatory istniejących węzłów i odrzuca
+zapis na nieaktualnej wersji drzewa. Niezapisany szkic chroni dialog przy
+wyjściu z widoku i ostrzeżenie przeglądarki przy odświeżeniu.
 
 ## Current State Analysis
 
@@ -128,6 +139,44 @@ planowaniu rozszerzenia:
   w `dragover`). Istniejące handlery drzewa reagują wyłącznie na
   `TYP_PRZECIAGANEGO_OBIEKTU` (`app/components/DrzewoStruktury.tsx:248-250`).
 
+Stan po fazie 5 (commit `48dc32e`), zweryfikowany przy planowaniu faz 6–7:
+
+- **Reguły API oceniają jedną operację, nie całe drzewo.** `FindConflict`
+  (`src/Api/Tree/TreeRules.cs:230-300`) porównuje gałąź ze stałym zbiorem
+  przodków, a pomijanie przeszukanych kluczy (`exhausted`, `:270`, `:291`) jest
+  poprawne tylko przy tym stałym zbiorze. `HasDuplicateSibling` (`:184`) bada
+  jedną grupę rodzeństwa dla jednego obiektu. Kształt ścieżki zapętlenia
+  (przodkowie od pierwszego trafienia, stos, obiekt) i zamiana na kody przez
+  `Codes()` (`src/Api/Tree/TreeEndpoints.cs:725`) nadają się do ponownego użycia.
+- **Zapis węzłów idzie trzema endpointami pojedynczych operacji**
+  (`TreeEndpoints.cs:59-67`), każdy w transakcji otwartej przed pierwszym
+  odczytem (`:284`, `:408`, `:519`). Zmiana nazwy to osobne `PUT /trees/{id}`
+  z `{ name }` (`:149`).
+- **Identyfikatory węzłów są autoinkrementowane i nie wracają**
+  (`src/Api/Data/TreeNode.cs:37-42`), więc zachowanie `id` przy zapisie całości
+  oznacza aktualizację istniejących wierszy w miejscu. `ParentId` ma kaskadę
+  i w EF, i w schemacie (`src/Api/Data/AppDbContext.cs:140-143`); indeks
+  `(TreeId, ParentId, Position)` celowo nie jest unikalny (`:155-157`).
+- **Klient trzyma węzły jako płaską listę z liczbowymi `id` i pozycjami.**
+  `zbudujDaneDrzewa`, `wyliczPrzeniesienie`, `liczbaWezlowPodrzednych`
+  (`app/lib/drzewo.ts:64-218`) oraz stan `rozwiniete` i `wybranyWezelId` operują
+  na liczbach; `DrzewoStruktury` zamienia klucze antd przez `Number(...)`
+  (`app/components/DrzewoStruktury.tsx:229-232`).
+- **`childIds` z `GET /objects` są posortowane po `id`, a nie po kodzie**
+  (`src/Api/Objects/ObjectEndpoints.cs:67-74`), a API rozwija gałąź w kolejności
+  znormalizowanego kodu (`TreeRules.CatalogChildrenInCodeOrder`, `:32-46`).
+- **Panel drzew stoi obok listy i ma dwa formularze naraz** (`PanelDrzew`,
+  `app/routes/drzewo.tsx:512-566`), a błąd kieruje pod formularz ostatniej
+  wysyłki (`useOstatniIntent`, `:646-658`). Obiekty i Kategorie mają jeden
+  formularz w karcie pod listą: `RamkaPanelu` z `title` i `extra`
+  (`app/routes/kategorie.tsx:353-372`), przycisk „Nowa kategoria” jako
+  `Button href` z `useLinkClickHandler` (`:284-295`).
+- **React Router 8.4 ma `useBlocker` i `useBeforeUnload`**
+  (`node_modules/react-router/dist/development/index.d.ts:44`). Blocker obejmuje
+  nawigacje z `navigate()`, także wysyłkę formularza (`lib/router/router.js:446-449`),
+  ale nie przekierowania po `action` (`:1018-1060`) ani fetchery. W `app/` nie
+  ma dziś żadnej blokady nawigacji.
+
 ## Desired End State
 
 Po wykonaniu planu:
@@ -163,7 +212,7 @@ Po wykonaniu planu:
     z CLAUDE.md obowiązują na `/drzewo`, a adres API nie trafia do bundla
     klienckiego.
 
-Po fazach 4–6 (tam, gdzie się różnią, zastępują punkty 2, 3 i 10):
+Po fazach 4, 5 i 8 (tam, gdzie się różnią, zastępują punkty 2, 3 i 10):
 
 13. W bazie jest tabela drzew z właścicielem i unikalną nazwą w obrębie konta,
     utworzona szóstą migracją. Węzły należą do drzewa, nie do konta. Każde konto,
@@ -188,6 +237,33 @@ Po fazach 4–6 (tam, gdzie się różnią, zastępują punkty 2, 3 i 10):
 19. Węzeł przeciągnięty z drzewa na listę obiektów znika z poddrzewem bez
     potwierdzenia; przeciąganie w drzewie i z listy do drzewa działa jak po
     fazie 3.
+
+Po fazach 6–8 (tam, gdzie się różnią, zastępują punkty 14, 16 i 19):
+
+20. Tabela drzew ma siódmą migrację: licznik wersji, 1 dla istniejących drzew.
+    Struktura trafia do bazy wyłącznie zapisem całości — `POST /trees`
+    z `{ name, nodes }` albo `PUT /trees/{id}` z `{ name, version, nodes }`.
+    Endpointy pojedynczych operacji na węzłach nie istnieją, a `GET` węzłów
+    oddaje też wersję.
+21. Zapis całości odrzuca zapętlenie na dowolnej ścieżce, duplikat rodzeństwa
+    i więcej niż 2000 węzłów (409), identyfikator węzła spoza drzewa albo
+    powtórzony oraz obiekt spoza słownika (400 pod `nodes`), a wersję starszą
+    niż zapisana — 409 `tree_stale`. Węzły, które przetrwały zapis, zachowują
+    `id`, także gdy zmieniły rodzica, a ich dawne poddrzewo zostało usunięte.
+22. Pod listą drzew stoi karta jak w Kategoriach: „Edycja: <nazwa>” z przyciskiem
+    „Nowe drzewo” w nagłówku, polem nazwy, „Zapisz zmiany” i sekcją „Usuwanie”;
+    w trybie nowego drzewa (`/drzewo?nowe`, a także konto bez drzew) — „Nowe
+    drzewo” z „Dodaj drzewo”. Pod kartą budowa, aktywna w obu trybach.
+23. Dodawanie (przyciskiem i przeciągnięciem, z dialogiem gałęzi), przesuwanie
+    i usuwanie węzła zmieniają szkic. Każda operacja jest sprawdzana od razu,
+    z tymi samymi komunikatami co przed fazą 6, a odmowa nie zmienia szkicu.
+24. „Dodaj drzewo” i „Zapisz zmiany” zapisują nazwę i strukturę razem. Odmowa
+    zapisu zostawia szkic na ekranie, z banerem albo komunikatem pod polem.
+25. Szkic ze zmianami oznacza karta („Niezapisane zmiany”). Wyjście z widoku
+    albo przejście na inne drzewo pyta o porzucenie zmian; odświeżenie
+    i zamknięcie karty dają ostrzeżenie przeglądarki.
+26. Filtr „nieużyte” i usuwanie przeciągnięciem na listę (faza 8) działają na
+    szkicu; usunięcie przeciągnięciem trafia do bazy dopiero z zapisem.
 
 ### Key Discoveries:
 
@@ -219,6 +295,29 @@ Po fazach 4–6 (tam, gdzie się różnią, zastępują punkty 2, 3 i 10):
   Zdjęcie `UserId` i wymagane `TreeId` na `TreeNodes` EF Core realizuje
   przebudową tabeli; wypełnienie `TreeId` danymi musi się wykonać przed nią,
   w tej samej migracji.
+- **Walidacja całego drzewa to przejście w głąb ze ścieżką na stosie.**
+  Zapętlenie w zapisanej strukturze to węzeł, którego obiekt już jest na jego
+  ścieżce od korzenia; zbiór przodków zmienia się przy każdym zejściu i powrocie,
+  więc `FindConflict` z `exhausted` się tu nie nadaje. Ścieżka w odmowie to
+  obiekty od pierwszego wystąpienia na ścieżce do węzła włącznie — ten sam
+  kształt co dziś (`[GPZ-01, L1, GPZ-01]`).
+- **Struktura w żądaniu jest zagnieżdżona, w odpowiedzi płaska.** Zagnieżdżone
+  `children`, w których kolejność tablicy jest pozycją, nie mają rodzica ani
+  pozycji do rozjechania się, a nowy węzeł nie potrzebuje tymczasowego klucza po
+  stronie API. `GET` węzłów zostaje płaski, bo na płaskiej liście działa cały
+  kod klienta.
+- **Ujemne `id` w szkicu nie ruszają kodu drzewa.** `Number(key)`, sortowanie
+  `a.id - b.id` i stan zaznaczeń w liczbach działają na ujemnych
+  identyfikatorach bez zmian; nowe węzły szkicu dostają `-1, -2, …`, a przy
+  zapisie wysyłane są bez `id`.
+- **Gałąź rozwijana w przeglądarce musi sortować dzieci po kodzie.** `childIds`
+  przychodzą po `id`; bez sortowania po znormalizowanym kodzie (trim + wielkie
+  litery, porównanie po jednostkach kodu jak `StringComparer.Ordinal`) szkic
+  ułożyłby gałąź inaczej niż dotąd API.
+- **Blocker zatrzymałby własny zapis.** Wysyłka formularza pod bieżący adres
+  jest nawigacją, a `BlockerFunction` nie wie o formularzu — dostaje tylko
+  `currentLocation` i `nextLocation`. Blokada musi przepuszczać przejście pod
+  ten sam `pathname + search`.
 
 ## What We're NOT Doing
 
@@ -234,7 +333,20 @@ Po fazach 4–6 (tam, gdzie się różnią, zastępują punkty 2, 3 i 10):
   otwiera pierwsze drzewo po nazwie.
 - **Żadnego potwierdzenia przy usuwaniu przeciągnięciem i żadnego „cofnij”**
   — decyzja użytkownika (MS-07); potwierdzenie mają „Usuń węzeł” i „Usuń
-  drzewo”.
+  drzewo”. Od fazy 7 usunięcie (każde) zmienia tylko szkic, więc do zapisu da
+  się je porzucić razem z resztą zmian — ale nie cofnąć pojedynczo.
+- **Żadnego przycisku „Odrzuć zmiany”, autozapisu ani historii szkicu.** Karta
+  ma tylko „Dodaj drzewo” / „Zapisz zmiany” (prośba użytkownika); szkic porzuca
+  się, wychodząc z widoku po potwierdzeniu. Szkic nie przeżywa odświeżenia
+  ani zamknięcia karty — nie trafia do `localStorage`.
+- **Żadnego scalania przy konflikcie wersji.** Zapis na nieaktualnej wersji
+  jest odrzucany (`tree_stale`); szkic zostaje na ekranie do przejrzenia, ale
+  żeby zapisać, trzeba wczytać zapisaną wersję i powtórzyć zmiany.
+- **Żadnej ochrony samej nazwy.** Blokada wyjścia dotyczy zmian struktury;
+  wpisana, niezapisana nazwa ginie przy wyjściu jak w Kategoriach.
+- **Żadnych endpointów pojedynczych operacji na węzłach od fazy 6.** Jedyną
+  ścieżką zapisu struktury jest zapis całości; reguły jednej operacji żyją
+  wyłącznie w przeglądarce, a API sprawdza wynik.
 - **Filtry listy obiektów nie zmieniają zaznaczenia** — tak jak dziś filtr
   tekstowy; obiekt ukryty filtrem zostaje celem „Dodaj”.
 - **Żadnych zmian w `TabelaSlownika` poza długością strony.**
@@ -259,8 +371,10 @@ Po fazach 4–6 (tam, gdzie się różnią, zastępują punkty 2, 3 i 10):
   z zaufaniem opartym na tych samych warunkach infrastruktury co `/internal`.
 - **Żadnych kategorii przy węzłach ani gridu.** Należą do S-04 i S-05; węzeł ma
   trwałe `id`, na którym S-04 się zaczepi, ale nic więcej.
-- **Żadnego optymistycznego UI.** Drzewo pokazuje stan z loadera; operacja czeka
-  na odpowiedź API.
+- **Żadnego optymistycznego UI** (fazy 1–5). Drzewo pokazuje stan z loadera;
+  operacja czeka na odpowiedź API. **Zastąpione od fazy 7** szkicem
+  zapisywanym jawnie: to nie jest UI optymistyczne, bo nic nie udaje zapisu —
+  karta mówi „Niezapisane zmiany”, dopóki API nie przyjmie całości.
 - **Żadnych testów integracyjnych przez `WebApplicationFactory`** — powód jak
   w S-01/S-02 (`Program.cs` zwraca `int`, brak `public partial class Program`).
 - **Żadnej zmiany w `TabelaSlownika`.** Lista źródłowa na `/drzewo` to osobny,
@@ -287,12 +401,23 @@ zapisany w komentarzu klasy endpointów razem z warunkami, od których zależy.
 
 Rozszerzenie idzie tym samym torem: faza 4 zmienia model i kontrakt API
 (sprawdzalne `curl`-em, z migracją na kopii bazy), faza 5 spina widok z nowym
-kontraktem i dokłada listę drzew, faza 6 dokłada filtr i usuwanie
-przeciągnięciem. Między fazą 4 a 5 widok `/drzewo` nie działa, bo woła
+kontraktem i dokłada listę drzew, faza 8 (do 2026-09-23 numerowana jako 6)
+dokłada filtr i usuwanie przeciągnięciem. Między fazą 4 a 5 widok `/drzewo` nie działa, bo woła
 usunięte adresy `/tree` — to świadomy koszt kolejności. Tożsamość dalej
 przychodzi nagłówkiem, a każdy endpoint drzewa najpierw rozstrzyga, czy drzewo
 z adresu należy do konta z nagłówka; dopiero potem czyta węzły, i to wyłącznie
 po `TreeId`.
+
+Szkic (fazy 6–8) odwraca podział pracy: reguły jednej operacji przechodzą do
+przeglądarki (`app/lib/drzewo.ts`), żeby odmowa była natychmiastowa, a API
+dostaje jedną regułę na całość — zapętlenie na dowolnej ścieżce, duplikaty
+rodzeństwa, limit — i diff, który zachowuje identyfikatory. Autorytetem zostaje
+API: reguły klienta są jego kopią dla wygody, bez testów automatycznych (repo
+nie ma runnera testów frontendu), a każda niezgodność kończy się odmową przy
+zapisie, nie zepsutym drzewem. Faza 6 zmienia kontrakt (sprawdzalny `curl`-em),
+faza 7 przepina widok, faza 8 przenosi na szkic filtr i usuwanie
+przeciągnięciem. Między fazą 6 a 7 widok `/drzewo` nie zapisuje — ten sam
+świadomy koszt co między fazami 4 i 5.
 
 ## Critical Implementation Details
 
@@ -338,13 +463,42 @@ którym wolno polegać. `BudowaDrzewa` dostaje `key` z identyfikatora drzewa:
 zaznaczenia, rozwinięcia i otwarty dialog gałęzi z poprzedniego drzewa nie
 mogą przejść na następne.
 
-**State sequencing (przeciąganie na listę, faza 6).** Własny typ MIME węzła
+**State sequencing (przeciąganie na listę, faza 8).** Własny typ MIME węzła
 ustawia `onDragStart` antd Tree. Lista przyjmuje upuszczenie wyłącznie dla tego
 typu, więc wiersz listy upuszczony na listę i plik z pulpitu nie robią nic.
 Handlery listy nie mogą dotykać typu obiektu, a handlery drzewa nie dotykają
-typu węzła. Węzeł znika dopiero po odpowiedzi API i rewalidacji, czyli po
-`dragend` — rc-tree nie zostaje ze stanem przeciągania węzła, którego już nie
-ma w DOM-ie.
+typu węzła. **Od fazy 8** węzeł znika ze szkicu synchronicznie w `drop`, czyli
+przed `dragend` rc-tree — usunięcie ze szkicu trzeba odłożyć do następnego
+zadania (np. `setTimeout(…, 0)`), żeby rc-tree dokończył `cleanDragState` na
+węźle, który jeszcze jest w DOM-ie.
+
+**State sequencing (zapis całości, faza 6).** Zapis idzie w jednej transakcji,
+ale w trzech krokach `SaveChanges` w stałej kolejności: **wstaw nowe węzły →
+przepnij i przenumeruj zachowane (plus nazwa i wersja) → usuń nieobecne**.
+Nowy węzeł może wisieć pod zachowanym, a zachowany pod nowym, więc wstawienie
+musi być pierwsze. Usunięcie musi być ostatnie, bo `ParentId` ma kaskadę w EF
+i w SQLite: zachowany węzeł, który w chwili usuwania wciąż wskazywałby na
+usuwanego rodzica, zniknąłby razem z nim — po cichu i z utratą `id`, do którego
+S-04 przypnie kategorie. Po kroku drugim żaden zachowany węzeł nie wskazuje już
+na usuwany, więc kaskada dotyka wyłącznie węzłów nieobecnych w zapisie.
+Wersja jest porównywana w kodzie, w tej samej transakcji otwartej przed
+pierwszym odczytem (`BEGIN IMMEDIATE` szereguje zapisy) — bez tokenu
+współbieżności EF.
+
+**State sequencing (szkic, faza 7).** Szkic i znacznik zmian żyją w komponencie
+z `key` = `nowe` albo `<id>:<wersja>`. Udany zapis przekierowuje, loader
+przychodzi z nową wersją i komponent startuje od zapisanego stanu. Odmowa (4xx)
+**nie** rewaliduje (domyślne zachowanie React Routera po 4xx — własne
+`shouldRevalidate` z fazy 2 znika), więc szkic zostaje, także po `tree_stale`.
+Rewalidacja po odmowie wczytałaby nową wersję i przez zmianę `key` wyrzuciła
+szkic.
+
+**Timing & lifecycle (blokada wyjścia, faza 7).** `useBlocker` blokuje, gdy
+szkic ma zmiany i `nextLocation` różni się od bieżącej `pathname + search` —
+wysyłka „Dodaj drzewo” / „Zapisz zmiany” / „Usuń drzewo” idzie pod bieżący
+adres i przechodzi, a przekierowanie po `action` blockera nie odpala.
+React Router obsługuje jeden blocker naraz — nie stawiaj drugiego.
+`useBeforeUnload` działa tylko przy zmianach w szkicu.
 
 ## Faza 1: API drzewa roboczego
 
@@ -1096,13 +1250,339 @@ czy portu 3000 nie trzyma stary proces.
 
 ---
 
-## Faza 6: Filtr nieużytych obiektów i usuwanie przeciągnięciem
+## Faza 6: API zapisu całego drzewa
+
+### Overview
+
+Licznik wersji drzewa, reguły i diff całego drzewa jako czyste funkcje
+z testami, zapis nazwy i struktury jednym żądaniem (`POST /trees`,
+`PUT /trees/{id}`) oraz usunięcie endpointów pojedynczych operacji na węzłach.
+
+### Changes Required:
+
+#### 1. Wersja drzewa
+
+**File**: `src/Api/Data/UserTree.cs`, `src/Api/Data/AppDbContext.cs`
+
+**Intent**: Wykryć zapis szkicu powstałego na starszym stanie drzewa (druga
+karta, drugie okno) zamiast po cichu nadpisać cudze zmiany.
+
+**Contract**: `int Version` — 1 dla nowego drzewa, +1 przy każdym udanym
+zapisie (`PUT`). Wymagane, bez tokenu współbieżności EF (porównanie w kodzie,
+patrz Critical Implementation Details). Komentarz klasy: nagłówek to nazwa,
+identyfikator i wersja — wersja nie jest daną dla użytkownika.
+
+#### 2. Migracja
+
+**File**: `src/Api/Migrations/` (generowana)
+
+**Intent**: Siódma migracja dodaje kolumnę bez przekształcania danych.
+
+**Contract**: `dotnet ef migrations add TreeVersion --project src/Api`;
+`"Version" INTEGER NOT NULL DEFAULT 1` na `Trees`, istniejące drzewa dostają 1.
+Na SQLite to zwykłe `ALTER TABLE … ADD`, bez przebudowy tabeli — jeśli
+wygenerowany skrypt przebudowuje `Trees`, migracja jest źle ułożona. Historia
+liniowa.
+
+#### 3. Reguły całego drzewa
+
+**File**: `src/Api/Tree/TreeRules.cs`
+
+**Intent**: Werdykt dla zapisywanej struktury i plan zmian w bazie — czyste
+funkcje na danych w pamięci, sprawdzalne testem, bez rekurencji (konwencja
+pliku, `:15-17`: jawny stos).
+
+**Contract**:
+
+- Model wejścia po walidacji kształtu: węzeł `{ int? Id; int ObjectId;
+  IReadOnlyList<…> Children }`, lista korzeni; kolejność w tablicy to pozycja.
+- Liczba węzłów z przerwaniem po przekroczeniu `TreeNode.MaxNodesPerTree`.
+- Duplikat rodzeństwa: pierwszy w pre-order obiekt powtórzony w jednej grupie
+  (najwyższy poziom albo dzieci jednego węzła) — zwraca obiekt i rodzica
+  (`null` = najwyższy poziom).
+- Zapętlenie: pierwszy w pre-order węzeł, którego obiekt jest już na jego
+  ścieżce od korzenia — zwraca ścieżkę obiektów od pierwszego wystąpienia do
+  tego węzła włącznie (`GPZ-01 → L1 → GPZ-01` daje `[GPZ-01, L1, GPZ-01]`).
+  Ten sam obiekt w dwóch gałęziach nie jest zapętleniem.
+- Plan zapisu z węzłów zapisanych w bazie i przesłanej struktury: węzły do
+  wstawienia (z rodzicem — zachowanym `id` albo innym nowym węzłem), węzły
+  zachowane z nowym rodzicem i pozycją (ciągłe od 0 w każdej grupie), `id` do
+  usunięcia; odmowa dla `id` spoza drzewa i dla `id` powtórzonego w strukturze.
+- Reguły jednej operacji (`ExpandBranch`, `FindConflictOnAdd`,
+  `FindConflictOnMove`, `HasDuplicateSibling`, `InsertAt`, `Without`,
+  `CatalogChildrenInCodeOrder`) i ich testy znikają — ich odpowiednik żyje od
+  fazy 7 w `app/lib/drzewo.ts`. Zostaje to, czego używa zapis całości
+  (`AssignPositions`, rekordy wpisów). Komentarz klasy mówi, gdzie jest kopia
+  reguł jednej operacji i że rozstrzyga API.
+
+#### 4. Kody błędów
+
+**File**: `src/Api/Errors/ApiError.cs`
+
+**Intent**: Konflikt wersji jest odmową ze stanu zasobu, jak pozostałe 409
+drzewa — własny kod.
+
+**Contract**: `TreeStale = "tree_stale"` (409, context `{}`), emitowany przez
+`PUT /trees/{id}`. Dokumentacja `tree_cycle`, `tree_duplicate_sibling`
+i `tree_too_large` wskazuje nowych emitentów (`POST /trees`,
+`PUT /trees/{id}`). `tree_too_large` dostaje context `{ limit, count }` (liczba
+węzłów w zapisie) zamiast `{ limit, current, adding }` — dawni emitenci znikają
+(lekcja „Kontrakt API nie wyprzedza emitenta”).
+
+#### 5. Endpointy zapisu
+
+**File**: `src/Api/Tree/TreeEndpoints.cs`, `src/Api/Program.cs`
+
+**Intent**: Nazwa i struktura w jednym żądaniu i jednej transakcji; jedna
+ścieżka zapisu struktury.
+
+**Contract**:
+
+- `POST /trees` z `{ name, nodes }` → 201 `{ id }`, bez `Location`; nowe
+  drzewo ma wersję 1 i przesłaną strukturę.
+- `PUT /trees/{id}` z `{ name, version, nodes }` → 200 `{ id }`; zapisuje
+  nazwę, strukturę i podbija wersję. Zastępuje zmianę samej nazwy.
+- `GET /trees/{treeId}/nodes` → 200 `{ version, nodes: [...] }` (węzły płaskie,
+  jak dotąd).
+- `nodes`: tablica węzłów `{ id?, objectId, children? }`; brak `children` = liść,
+  brak `id` = nowy węzeł, pusta tablica = puste drzewo. Brak `nodes` → 400 pod
+  `nodes` („Prześlij strukturę drzewa.”), brak `version` w `PUT` → 400 pod
+  `version` („Podaj wersję drzewa.”).
+- 400 `validation_error` pod `nodes` (pierwszy znaleziony problem): węzeł bez
+  `objectId` („Każdy węzeł musi wskazywać obiekt.”), obiekt spoza słownika
+  („Obiekt o identyfikatorze N nie istnieje w słowniku.”), `id` spoza drzewa
+  („Węzeł o identyfikatorze N nie istnieje w drzewie.”), `id` powtórzone
+  („Węzeł o identyfikatorze N występuje w strukturze więcej niż raz.”). Nazwa
+  jak dotąd pod `name`.
+- 409: `tree_stale` („Drzewo zmieniono w innym oknie po otwarciu tego widoku.
+  Wczytaj zapisaną wersję — niezapisane zmiany przepadną.”), `tree_duplicate_sibling`
+  („Obiekt L1 występuje więcej niż raz pod GPZ-01.” / „Obiekt L1 występuje
+  więcej niż raz na najwyższym poziomie drzewa.”), `tree_cycle` („Struktura
+  drzewa zawiera zapętlenie: GPZ-01 → L1 → GPZ-01.”, context `{ path }`),
+  `tree_too_large` („Drzewo przekroczyłoby limit 2000 węzłów.”).
+- Kolejność kontroli: tożsamość → drzewo → wersja → wejście (nazwa, kształt
+  `nodes`, identyfikatory, obiekty) → duplikat → zapętlenie → rozmiar.
+- `POST`, `PUT` i `DELETE /trees/{treeId}/nodes…` znikają razem z ich DTO.
+  `TreeRequestFields`: `Name`, `Version = "version"`, `Nodes = "nodes"`; stałe
+  pól pojedynczych operacji znikają.
+- Transakcja przed pierwszym odczytem; zapis w trzech krokach (Critical
+  Implementation Details). Komentarz klasy i wpis w `Program.cs` mówią o zapisie
+  całości.
+
+#### 6. Testy jednostkowe
+
+**File**: `tests/Api.Tests/TreeRulesTests.cs`
+
+**Intent**: Przypiąć reguły całego drzewa, plan zapisu, nowe koperty i stałe
+pól.
+
+**Contract**: przypadki z Testing Strategy (sekcja fazy 6). Testy reguł jednej
+operacji znikają razem z nimi; testy nazwy (`TreeNameRulesTests.cs`) bez zmian.
+
+### Success Criteria:
+
+#### Automated Verification:
+
+- Build rozwiązania przechodzi: `dotnet build TreeGrid.sln`
+- Testy przechodzą, w tym testy reguł całego drzewa i planu zapisu: `dotnet test TreeGrid.sln`
+- Model nie ma zmian bez migracji: `dotnet ef migrations has-pending-model-changes --project src/Api`
+- Migracja dodaje kolumnę bez przebudowy tabeli `Trees`: `dotnet ef migrations script NamedTrees TreeVersion --project src/Api`
+
+#### Manual Verification:
+
+- `GET /trees/{id}/nodes` oddaje wersję; `PUT /trees/{id}` z tą wersją zapisuje nazwę i strukturę, a kolejny `GET` pokazuje wersję większą o 1
+- Drugi `PUT` z poprzednią wersją daje 409 `tree_stale` i niczego nie zmienia
+- Węzeł przeniesiony z poddrzewa, które w tym samym zapisie znika, zachowuje `id`; węzły nieobecne w zapisie znikają, a pozycje w każdej grupie są ciągłe od 0
+- Zapętlenie (także głębokie), duplikat rodzeństwa (pod rodzicem i na najwyższym poziomie) i 2001 węzłów dają 409 z komunikatem, a ten sam obiekt w dwóch gałęziach przechodzi
+- `id` spoza drzewa, `id` powtórzone i obiekt spoza słownika dają 400 pod `nodes`; drzewo drugiego konta daje 404
+- `POST /trees` z `nodes` tworzy drzewo z tą strukturą; dawne `POST`, `PUT`, `DELETE /trees/{treeId}/nodes…` nie przyjmują już żądań
+- Obiekt usunięty ze struktury zapisem całości daje się potem usunąć ze słownika
+- Ścieżka produkcyjna: po `dotnet ef database update` `start-api.ps1` wstaje z nową migracją
+
+**Implementation Note**: Po zakończeniu fazy i przejściu weryfikacji
+automatycznej zatrzymaj się i poczekaj na ręczne potwierdzenie. Migrację
+sprawdza się na kopii pliku bazy (z `*.db-wal` i `*.db-shm`), zrobionej przed
+pierwszym startem API w Development. Sprawdzenia `curl`-em jak w fazie 4 —
+identyfikatora konta ani hasła nie przekazuje się agentowi.
+
+---
+
+## Faza 7: Szkic drzewa i panel jak w Kategoriach
+
+### Overview
+
+Reguły operacji w przeglądarce, budowa na szkicu bez fetchera, karta drzewa pod
+listą w układzie Kategorii z trybem nowego drzewa, zapis nazwy i struktury
+jednym formularzem oraz ochrona niezapisanego szkicu.
+
+### Changes Required:
+
+#### 1. Klient API zapisu
+
+**File**: `app/lib/tree.server.ts`
+
+**Intent**: Nowy kontrakt faz 6 w jedynym miejscu rozmowy z `/trees`.
+
+**Contract**: `createTree(userId, { name, nodes })`, `saveTree(userId, id,
+{ name, version, nodes })` (zastępuje `renameTree`), `getTreeNodes` zwraca
+`{ version, nodes }`; `addNode`, `moveNode`, `deleteNode` znikają. Typ
+zapisywanego węzła (`{ id?: number; objectId: number; children: … }`)
+importowany z `app/lib/drzewo.ts` — moduł `.server` może importować moduł
+przeglądarkowy, odwrotnie nie. Nazwy pól `name`, `version`, `nodes`
+identyczne z `TreeRequestFields`.
+
+#### 2. Reguły szkicu
+
+**File**: `app/lib/drzewo.ts`
+
+**Intent**: Operacje na szkicu z natychmiastowym werdyktem — kopia reguł jednej
+operacji z API sprzed fazy 6 (`git show 48dc32e:src/Api/Tree/TreeRules.cs`,
+`…/TreeEndpoints.cs`), bo od fazy 6 API ich nie ma.
+
+**Contract**:
+
+- Rozwinięcie gałęzi ze słownika: dzieci w kolejności znormalizowanego kodu
+  (trim + wielkie litery, porównanie po jednostkach kodu), potem `id`;
+  pre-order; przerwanie po przekroczeniu budżetu (limit minus rozmiar szkicu).
+- Zapętlenie przy dodaniu (ścieżka przodków celu kontra graf słownika —
+  działa także, gdy gałąź jest za duża do rozwinięcia) i przy przeniesieniu
+  (przodkowie celu kontra obiekty przenoszonego poddrzewa); ścieżka obiektów
+  jak w API.
+- Duplikat rodzeństwa z pominięciem przenoszonego węzła.
+- Dodanie (na koniec dzieci), przeniesienie (pozycja z `wyliczPrzeniesienie`)
+  i usunięcie z poddrzewem zwracają nową listę węzłów z ciągłymi pozycjami;
+  nowe węzły dostają kolejne ujemne `id`.
+- Kolejność kontroli jak dotąd w API: duplikat → zapętlenie → rozmiar.
+  Odmowa to komunikat identyczny z dawnym tekstem API: „Dodanie obiektu L2
+  utworzyłoby zapętlenie: GPZ-01 → L1 → L2 → T5 → GPZ-01.”, „Przeniesienie
+  węzła … utworzyłoby zapętlenie: …”, „Obiekt L1 jest już podobiektem GPZ-01
+  w tym miejscu drzewa.”, „Obiekt L1 jest już na najwyższym poziomie
+  drzewa.”, „Drzewo przekroczyłoby limit 2000 węzłów.”. Stała limitu
+  z komentarzem wskazującym `TreeNode.MaxNodesPerTree`.
+- Zamiana szkicu na strukturę do zapisu: zagnieżdżone `children` w kolejności
+  pozycji, `id` tylko dla węzłów dodatnich.
+- Moduł bez importów z `.server` (jak dotąd).
+
+#### 3. Formularz nazwy z niesioną strukturą
+
+**File**: `app/components/FormularzDrzewa.tsx`
+
+**Intent**: „Dodaj drzewo” i „Zapisz zmiany” wysyłają nazwę i strukturę jedną
+wysyłką.
+
+**Contract**: właściwości `struktura` (JSON szkicu do zapisu) i `wersja?`
+(tylko przy edycji), wysyłane ukrytymi polami `nodes` i `version` — wzorzec
+ukrytych pól `childIds` w `FormularzObiektu`. Błędy pól `nodes` i `version`
+oraz odmowy 409 trafiają do banera nad polem, nazwa — pod pole, jak dotąd.
+
+#### 4. Ochrona niezapisanego szkicu
+
+**File**: `app/components/OchronaSzkicu.tsx`
+
+**Intent**: Szkicu nie da się zgubić przypadkiem — ani nawigacją w aplikacji,
+ani odświeżeniem.
+
+**Contract**: właściwość `aktywna`. `useBlocker` wg Critical Implementation
+Details; sterowany antd `Modal` (nie statyczne `Modal.confirm` — powód jak
+w `DialogGalezi`) „Porzucić niezapisane zmiany?” z przyciskami „Porzuć zmiany”
+(`proceed`) i „Wróć do edycji” (`reset`); `useBeforeUnload` z natywnym
+ostrzeżeniem przy `aktywna`. Zero literałów koloru i rozmiaru.
+
+#### 5. Widok: karta pod listą, tryb nowego drzewa, budowa na szkicu
+
+**File**: `app/routes/drzewo.tsx`, `app/routes.ts`
+
+**Intent**: Wygląd i nawigacja Kategorii (decyzja użytkownika), budowa
+aktywna także przed pierwszym zapisem.
+
+**Contract**:
+
+- Parametr `PARAMETR_NOWEGO = "nowe"`, adres `/drzewo?nowe` dosłowny.
+- `loader`: `?nowe` albo brak parametru przy pustej liście drzew → tryb
+  nowego drzewa (bez przekierowania, pusty szkic). Brak parametru przy
+  niepustej liście → przekierowanie na pierwsze drzewo, jak dotąd.
+  `?drzewo=` spoza listy → ostrzeżenie w karcie trybu nowego („Nie znaleziono
+  drzewa „X”. Możesz dodać nowe.” — wzorzec Kategorii), bez żadnych danych.
+  Własne drzewo → węzły i wersja z `getTreeNodes`.
+- Układ jak w `routes/kategorie.tsx`: tytuł, `TabelaSlownika<UserTree>` na
+  całą szerokość (`naStronie={5}`, pusta lista: „Nie masz jeszcze żadnego
+  drzewa. Dodaj pierwsze w panelu poniżej.”), pod nią karta `Card
+  size="small"` w ramce `obramowanieKontrolki` (własna kopia `RamkaPanelu`,
+  jak w Kategoriach), pod kartą budowa. Budowa ma minimalną wysokość
+  wyliczoną z `METRYKI.wysokoscWiersza` razy liczba wierszy (stała w widoku
+  z komentarzem, bez literału w pikselach), a widok przewija się pionowo, gdy
+  okno jest niższe.
+- Karta w trybie nowego: tytuł „Nowe drzewo”, bez przycisku w nagłówku,
+  `FormularzDrzewa` z „Dodaj drzewo”. Karta wybranego drzewa: tytuł „Edycja:
+  <nazwa>”, w nagłówku znacznik „Niezapisane zmiany” (tylko przy zmianach,
+  tekst drugorzędny z motywu) i `Button href="/drzewo?nowe"`
+  z `useLinkClickHandler` „Nowe drzewo”, `FormularzDrzewa` z „Zapisz
+  zmiany”, nagłówek poziomu 5 „Usuwanie” i „Usuń drzewo” w `Popconfirm` bez
+  `danger`, z liczbą węzłów zapisanych w bazie. Jeden formularz naraz, więc
+  `useOstatniIntent` znika.
+- Szkic, znacznik zmian i `OchronaSzkicu` w komponencie z `key` =
+  `nowe` / `<id>:<wersja>` obejmującym kartę i budowę. `BudowaDrzewa`
+  dostaje szkic i funkcję jego zmiany zamiast fetchera; odmowa operacji to
+  lokalny baner nad drzewem, czyszczony przez kolejną udaną operację;
+  rozwinięcie rodzica po dodaniu lub przeniesieniu — od razu, bez
+  `OczekujaceRozwiniecie`. Zaznaczenia, dialog gałęzi, „Dodaj pod: …” i „Usuń
+  węzeł” z potwierdzeniem zostają. `DrzewoStruktury` i
+  `ListaObiektowZrodlowych` bez zmian właściwości; `zajete` = trwa zapis.
+- `action`: `requireSameOrigin` pierwszy; `dodaj-drzewo` (nazwa + `nodes`
+  → `createTree` → przekierowanie na nowe drzewo), `zapisz-drzewo`
+  (`?drzewo=`, nazwa, `version`, `nodes` → `saveTree` → przekierowanie na to
+  samo drzewo), `usun-drzewo` jak dotąd. `nodes` parsowane z JSON; zły JSON
+  albo nie-tablica → 400 `validation_error` pod `nodes` („Nieprawidłowa
+  struktura drzewa.”), zła wersja → 400 pod `version`. Intenty `dodaj`,
+  `usun`, `przenies` i własne `shouldRevalidate` znikają.
+- `meta` bez zmian; w trybie nowego „Nowe drzewo — Drzewo — TreeGrid”.
+- Komentarz trasy w `app/routes.ts`: `?drzewo=` / `?nowe`, szkic w stanie
+  widoku, zapis formularzem karty.
+
+### Success Criteria:
+
+#### Automated Verification:
+
+- Typy przechodzą: `npm run typecheck`
+- Build produkcyjny przechodzi: `npm run build`
+- Nowe i zmienione widoki nie zawierają literałów koloru ani palety Tailwinda
+- Adres API nie trafia do bundla klienckiego: `grep -r "127.0.0.1:5180" build/client` nic nie zwraca
+
+#### Manual Verification:
+
+- Karta pod listą wygląda jak w Kategoriach: „Edycja: <nazwa>”, „Nowe drzewo” w nagłówku, „Zapisz zmiany”, sekcja „Usuwanie”; `/drzewo?nowe` i konto bez drzew pokazują „Nowe drzewo” z aktywną budową
+- Dodawanie (przyciskiem i przeciągnięciem, z dialogiem gałęzi), przesuwanie i usuwanie węzła zmieniają tylko szkic — po porzuceniu zmian drzewo wraca do stanu zapisanego
+- Zapętlenie (także głęboko w dołączanej gałęzi), duplikat rodzeństwa i przekroczenie limitu są odrzucane od razu, z komunikatem jak przed fazą 6, a szkic się nie zmienia; A pod B tu i B pod A tam przechodzi
+- „Zapisz zmiany” zapisuje nazwę i strukturę razem; po odświeżeniu widać zapisany stan, a węzeł przeniesiony z usuniętego poddrzewa ma to samo `id` w `GET /trees/{id}/nodes`
+- „Dodaj drzewo” tworzy i wybiera drzewo z nazwą i zbudowaną strukturą; odmowa nazwy zostawia szkic nietknięty
+- „Niezapisane zmiany” pojawia się po pierwszej zmianie szkicu i znika po zapisie
+- Wybór innego drzewa, „Nowe drzewo”, pozycja menu i „wstecz” przy niezapisanych zmianach pytają o porzucenie; „Wróć do edycji” zostawia szkic, „Porzuć zmiany” przechodzi; odświeżenie i zamknięcie karty dają ostrzeżenie przeglądarki; bez zmian nic nie pyta, a „Zapisz zmiany” i „Usuń drzewo” nie pytają nigdy
+- Zapis w drugiej karcie na nieaktualnej wersji pokazuje baner „Drzewo zmieniono w innym oknie…”, a szkic zostaje na ekranie
+- Przy niskim oknie budowa zachowuje minimalną wysokość, a widok się przewija; wiersze listy drzew, drzewa i listy obiektów mają 24 px w obu wariantach motywu
+- Źródło strony `/drzewo` zawiera `@layer antd`, a ostatni `data-css-hash` stoi przed `</head>`
+- Przez adres tunelu dodanie drzewa ze strukturą, „Zapisz zmiany” i „Usuń drzewo” przechodzą bez 400 i bez `origin_mismatch`
+
+**Implementation Note**: Po zakończeniu fazy i przejściu weryfikacji
+automatycznej zatrzymaj się i poczekaj na ręczne potwierdzenie. Polecenie
+`grep` na literały koloru obejmuje `app/routes/drzewo.tsx`,
+`app/components/DrzewoStruktury.tsx`, `app/components/ListaObiektowZrodlowych.tsx`,
+`app/components/DialogGalezi.tsx`, `app/components/FormularzDrzewa.tsx`
+i `app/components/OchronaSzkicu.tsx`. Przed weryfikacją przez tunel sprawdź,
+czy portu 3000 nie trzyma stary proces. Weryfikacja ręczna fazy 5 (5.5–5.14)
+idzie razem z tą — tam, gdzie mówi o panelu obok listy albo „Zapisz nazwę”,
+sprawdza się kartę pod listą i „Zapisz zmiany”.
+
+---
+
+## Faza 8: Filtr nieużytych obiektów i usuwanie przeciągnięciem
 
 ### Overview
 
 Pole wyboru „Pokaż obiekty nieużyte w drzewie” na liście obiektów (MS-06) oraz
 lista jako cel upuszczenia węzła, które usuwa go z poddrzewem bez
-potwierdzenia (MS-07).
+potwierdzenia (MS-07). Od fazy 7 oba działają na **szkicu**: filtr liczy
+obiekty ze szkicu, a usunięcie przeciągnięciem trafia do bazy z „Zapisz
+zmiany”.
 
 ### Changes Required:
 
@@ -1148,19 +1628,22 @@ upuszczonego węzła.
   i `dropEffect = "move"` (nie przy `zajete`), wyróżnienie klasami `tg-*`,
   `dragleave` z kontrolą `relatedTarget` jak strefa najwyższego poziomu
   w `DrzewoStruktury`, `drop` → `onUpuscWezel(id)`. Właściwości
-  `onUpuscWezel`, `zajete`. Wiersze jako źródło przeciągania bez zmian.
+  `onUpuscWezel`, `zajete` (trwa zapis karty). Wiersze jako źródło
+  przeciągania bez zmian.
 
 #### 4. Usunięcie upuszczonego węzła
 
 **File**: `app/routes/drzewo.tsx`
 
-**Intent**: Upuszczenie na listę to ta sama operacja co „Usuń węzeł”, tylko
-bez potwierdzenia.
+**Intent**: Upuszczenie na listę to ta sama operacja na szkicu co „Usuń węzeł”,
+tylko bez potwierdzenia.
 
-**Contract**: `usun` przyjmuje identyfikator węzła; „Usuń węzeł” podaje
-zaznaczony, `onUpuscWezel` — upuszczony (węzeł spoza bieżącego drzewa jest
-ignorowany). `uzyteObiekty` liczone raz w widoku z `wezly`. Usunięty węzeł,
-który był zaznaczony, przestaje nim być na tej samej zasadzie co dziś.
+**Contract**: usunięcie ze szkicu przyjmuje identyfikator węzła; „Usuń węzeł”
+podaje zaznaczony, `onUpuscWezel` — upuszczony (węzeł spoza bieżącego szkicu
+jest ignorowany), odłożony do następnego zadania (Critical Implementation
+Details). Usunięcie ustawia znacznik „Niezapisane zmiany”. `uzyteObiekty`
+liczone raz w widoku ze szkicu. Usunięty węzeł, który był zaznaczony,
+przestaje nim być na tej samej zasadzie co dziś.
 
 ### Success Criteria:
 
@@ -1172,18 +1655,18 @@ który był zaznaczony, przestaje nim być na tej samej zasadzie co dziś.
 
 #### Manual Verification:
 
-- Zaznaczone „Pokaż obiekty nieużyte w drzewie” pokazuje tylko obiekty, których nie ma w wybranym drzewie na żadnej głębokości; obiekt dodany znika z listy, usunięty wraca, a zmiana drzewa przelicza listę
+- Zaznaczone „Pokaż obiekty nieużyte w drzewie” pokazuje tylko obiekty, których nie ma w szkicu wybranego drzewa na żadnej głębokości; obiekt dodany znika z listy, usunięty wraca, a zmiana drzewa przelicza listę
 - Pole wyboru działa razem z filtrem tekstowym, a przy braku trafień lista pokazuje właściwy tekst
-- Przeciągnięcie węzła na listę usuwa go z poddrzewem bez pytania, a lista jest wyróżniona tylko wtedy, gdy kursor z węzłem jest nad nią
+- Przeciągnięcie węzła na listę usuwa go ze szkicu z poddrzewem bez pytania i zapala „Niezapisane zmiany”; lista jest wyróżniona tylko wtedy, gdy kursor z węzłem jest nad nią
 - Upuszczenie węzła poza drzewem i poza listą niczego nie zmienia; upuszczenie wiersza listy na listę niczego nie zmienia
-- Przesuwanie i zmiana kolejności w drzewie oraz przeciąganie z listy do drzewa działają jak po fazie 3
-- W trakcie operacji lista nie przyjmuje upuszczenia węzła
+- Przesuwanie i zmiana kolejności w drzewie oraz przeciąganie z listy do drzewa działają jak po fazie 7
+- W trakcie zapisu lista nie przyjmuje upuszczenia węzła
 - Przeciąganie w obu kierunkach działa w Chromium i w Firefoksie
-- Przez adres tunelu usunięcie przeciągnięciem przechodzi bez 400 i bez `origin_mismatch`
+- Przez adres tunelu usunięcie przeciągnięciem i „Zapisz zmiany” przechodzą bez 400 i bez `origin_mismatch`
 
 **Implementation Note**: Po zakończeniu fazy i przejściu weryfikacji
 automatycznej zatrzymaj się i poczekaj na ręczne potwierdzenie. Kryterium
-o literałach koloru sprawdza to samo polecenie `grep` co w fazie 5.
+o literałach koloru sprawdza to samo polecenie `grep` co w fazie 7.
 
 ---
 
@@ -1216,6 +1699,22 @@ o literałach koloru sprawdza to samo polecenie `grep` co w fazie 5.
   przycięciu); spacje na brzegach są przycinane; normalizacja zrównuje wielkość
   liter, także polskich („Łódź” i „ŁÓDŹ”), i nie zależy od kultury maszyny.
   `TreeRequestFields.Name` przypięte do `name`.
+- Faza 6 — zapis całości (testy reguł jednej operacji wyżej znikają razem
+  z regułami):
+  - Zapętlenie: korzeń powtórzony głęboko → `[GPZ-01, L1, GPZ-01]`; obiekt pod
+    samym sobą → `[X, X]`; ten sam obiekt w dwóch gałęziach (A pod B tu, B pod
+    A tam) — brak; przy dwóch zapętleniach wygrywa pierwsze w pre-order;
+    głęboka struktura (łańcuch 2000 węzłów) bez przepełnienia stosu.
+  - Duplikat: na najwyższym poziomie i pod rodzicem — odmowa z obiektem
+    i rodzicem; ten sam obiekt pod różnymi rodzicami — dozwolony.
+  - Rozmiar: 2000 węzłów przechodzi, 2001 — odmowa.
+  - Plan zapisu: zachowane `id` dostają nowego rodzica i ciągłe pozycje; nowy
+    węzeł pod zachowanym i pod nowym; nieobecne `id` do usunięcia; węzeł
+    przeniesiony z usuwanego poddrzewa jest aktualizowany, nie usuwany; `id`
+    spoza drzewa i `id` powtórzone — odmowa; pusta struktura usuwa wszystko.
+  - Koperty: `tree_stale` z `context` `{}`, `tree_too_large` z kluczami
+    `["limit","count"]`, nowe komunikaty zapętlenia i duplikatu co do słowa.
+  - `TreeRequestFields` przypięte do `name`, `version`, `nodes`.
 
 ### Integration Tests:
 
@@ -1254,9 +1753,23 @@ o literałach koloru sprawdza to samo polecenie `grep` co w fazie 5.
     najwyższym poziomie obu drzew przechodzi. Zmienić nazwę, odświeżyć. Usunąć
     drzewo — pytanie z liczbą węzłów, potem widok na pierwszym pozostałym.
     Usunąć wszystkie drzewa — pusty stan.
-11. (Faza 6) Zaznaczyć „Pokaż obiekty nieużyte w drzewie”, dodać obiekt —
-    znika z listy; przeciągnąć jego węzeł na listę — węzeł znika z drzewa bez
-    pytania, obiekt wraca na listę. Powtórzyć w Firefoksie i przez tunel.
+11. (Faza 6) Na kopii bazy: `GET /trees/{id}/nodes` → wersja i węzły; `PUT`
+    z tą wersją, w którym `L1` przechodzi spod `GPZ-01` na najwyższy poziom,
+    a `GPZ-01` znika → `L1` ma to samo `id`, `GPZ-01` nie ma. Powtórzyć `PUT`
+    ze starą wersją → 409 `tree_stale`. `PUT` z `GPZ-01 → L1 → GPZ-01` → 409
+    `tree_cycle`; z dwoma `L1` pod jednym rodzicem → 409
+    `tree_duplicate_sibling`; z `id` węzła drugiego drzewa → 400 pod `nodes`.
+12. (Faza 7) W przeglądarce: zbudować w szkicu `GPZ-01 → L1`, spróbować
+    zapętlenia i duplikatu (baner od razu), „Zapisz zmiany”, odświeżyć — stan
+    zapisany. Zmienić szkic, kliknąć inne drzewo → dialog; „Wróć do edycji”,
+    potem „Porzuć zmiany”. Odświeżyć ze zmianami → ostrzeżenie przeglądarki.
+    Zapisać w drugiej karcie, potem w pierwszej → baner `tree_stale`, szkic
+    zostaje. `/drzewo?nowe`: zbudować strukturę, „Dodaj drzewo” — drzewo ze
+    strukturą. Usunąć wszystkie drzewa — karta „Nowe drzewo” z aktywną budową.
+13. (Faza 8) Zaznaczyć „Pokaż obiekty nieużyte w drzewie”, dodać obiekt —
+    znika z listy; przeciągnąć jego węzeł na listę — węzeł znika ze szkicu bez
+    pytania, obiekt wraca na listę, karta mówi „Niezapisane zmiany”; „Zapisz
+    zmiany” i odświeżyć. Powtórzyć w Firefoksie i przez tunel.
 
 ## Performance Considerations
 
@@ -1289,6 +1802,13 @@ kaskada skasowałaby wszystkie węzły. Między
 wdrożeniem fazy 4 a fazy 5 widok `/drzewo` nie działa (stary klient woła
 usunięte adresy `/tree`), więc obie fazy wdraża się przez tunel razem.
 
+Migracja fazy 6 (`TreeVersion`) dodaje kolumnę z wartością domyślną 1 i nie
+przekształca danych. W Production API odmawia startu na niezmigrowanej bazie,
+więc przed pierwszym startem trzeba wykonać `dotnet ef database update` (po
+kopii pliku bazy). Między wdrożeniem fazy 6 a fazy 7 widok `/drzewo` nie
+zapisuje (stary klient woła usunięte endpointy węzłów i `PUT /trees/{id}` bez
+`version`) — obie fazy wdraża się przez tunel razem.
+
 ## References
 
 - Roadmapa: `context/foundation/roadmap.md` — S-03 i kotwice MS-03–MS-07
@@ -1308,6 +1828,12 @@ usunięte adresy `/tree`), więc obie fazy wdraża się przez tunel razem.
 - Model zaufania pętli zwrotnej: `src/Api/Auth/AuthEndpoints.cs:187-198`
 - rc-tree i przeciąganie: `node_modules/@rc-component/tree/es/Tree.js:278-507`,
   `node_modules/@rc-component/tree/es/TreeNode.js:105-142`, `:365-375`
+- Reguły jednej operacji sprzed fazy 6 (wzorzec kopii w kliencie):
+  `git show 48dc32e:src/Api/Tree/TreeRules.cs`, `…:src/Api/Tree/TreeEndpoints.cs`
+- Wzorzec karty pod listą i przycisku „Nowa …”: `app/routes/kategorie.tsx:232-372`,
+  `app/routes/obiekty.tsx:354-516`; ukryte pola stanu: `app/components/FormularzObiektu.tsx:176-179`
+- Blokada nawigacji: `node_modules/react-router/dist/development/lib/hooks.d.ts:880`
+  (`useBlocker`), `lib/router/router.js:446-449`, `:1018-1060`
 - Reguły: `context/foundation/lessons.md` (WAL i `busy_timeout`, sekrety i trzy
   zakazy pętli zwrotnej, origin za tunelem, kolory w trasach, kontrakt nie
   wyprzedza emitenta, zmiany narzędziowe poza commitem fazy)
@@ -1333,6 +1859,11 @@ usunięte adresy `/tree`), więc obie fazy wdraża się przez tunel razem.
 > Po fazie 4 adresy `/tree` i `/tree/nodes` zastępuje `/trees/{treeId}/nodes`.
 > Kroki 1.5–1.12 wykonuje się wtedy na nowych adresach, w obrębie jednego
 > drzewa — ich treść zostaje, zmienia się tylko adres.
+>
+> Od fazy 6 endpointów pojedynczych operacji nie ma: dodanie, przeniesienie
+> i usunięcie w krokach 1.6–1.12 wykonuje się zapisem całości
+> (`PUT /trees/{id}` ze zmienioną strukturą), a odmowy mają teksty zapisu
+> całości z fazy 6.
 
 - [ ] 1.5 `GET /tree` bez nagłówka i z nieistniejącym identyfikatorem daje 401 `unauthorized` w kontrakcie
 - [ ] 1.6 Dodanie obiektu na najwyższy poziom i pod węzeł, z `includeBranch: true`, kopiuje gałąź ze słownika — widać to w `GET /tree`
@@ -1406,6 +1937,10 @@ usunięte adresy `/tree`), więc obie fazy wdraża się przez tunel razem.
 > implementacji całego planu. API w Development zostało zatrzymane po fazie 4
 > — przed jego ponownym startem trzeba skopiować plik bazy (z `*.db-wal`
 > i `*.db-shm`), bo start migruje bazę.
+>
+> 2026-09-23: kopia `treegrid-kopia-przed-NamedTrees-*.db` zrobiona, API
+> wystartowało w Development i zastosowało `NamedTrees`. Kroki z dodaniem
+> i usunięciem węzła (4.10–4.12) po fazie 6 wykonuje się zapisem całości.
 
 - [ ] 4.6 Na kopii bazy z drzewami dwóch kont `dotnet ef database update` daje każdemu z nich jedno drzewo „Drzewo robocze”, liczba węzłów jest ta sama, a `GET /trees/{id}/nodes` oddaje ten sam układ co wcześniej `GET /tree`
 - [ ] 4.7 `GET /trees` bez nagłówka daje 401; konto bez drzew dostaje pustą listę
@@ -1420,17 +1955,19 @@ usunięte adresy `/tree`), więc obie fazy wdraża się przez tunel razem.
 
 #### Automated
 
-- [x] 5.1 Typy przechodzą: `npm run typecheck`
-- [x] 5.2 Build produkcyjny przechodzi: `npm run build`
-- [x] 5.3 Nowe i zmienione widoki nie zawierają literałów koloru ani palety Tailwinda
-- [x] 5.4 Adres API nie trafia do bundla klienckiego: `grep -r "127.0.0.1:5180" build/client` nic nie zwraca
+- [x] 5.1 Typy przechodzą: `npm run typecheck` — 48dc32e
+- [x] 5.2 Build produkcyjny przechodzi: `npm run build` — 48dc32e
+- [x] 5.3 Nowe i zmienione widoki nie zawierają literałów koloru ani palety Tailwinda — 48dc32e
+- [x] 5.4 Adres API nie trafia do bundla klienckiego: `grep -r "127.0.0.1:5180" build/client` nic nie zwraca — 48dc32e
 
 #### Manual
 
 > Weryfikacja ręczna fazy 5 odłożona decyzją użytkownika (2026-09-23): panel
 > drzew ma dostać wygląd i nawigację Kategorii, a struktura — zapis szkicu
-> razem z nazwą. Te zmiany wejdą osobną fazą dopisaną przez `/10x-plan`.
-> Kroki 5.5–5.14 sprawdza się po niej.
+> razem z nazwą. Te zmiany wchodzą fazami 6–7. Kroki 5.5–5.14 sprawdza się
+> po fazie 7, na karcie pod listą („Zapisz nazwę” = „Zapisz zmiany”). W 5.6
+> konto bez drzew ma od fazy 7 **aktywną** budowę w trybie nowego drzewa
+> (decyzja użytkownika z 2026-09-23, odejście od MS-04).
 
 - [ ] 5.5 Po migracji dotychczasowe drzewo konta widać na liście jako „Drzewo robocze” z nietkniętą strukturą
 - [ ] 5.6 Wejście z menu na `/drzewo` otwiera pierwsze drzewo po nazwie (adres z `?drzewo=`); konto bez drzew widzi pustą listę z zachętą i nieaktywną budowę
@@ -1443,21 +1980,64 @@ usunięte adresy `/tree`), więc obie fazy wdraża się przez tunel razem.
 - [ ] 5.13 Źródło strony `/drzewo` zawiera `@layer antd`, a ostatni `data-css-hash` stoi przed `</head>`
 - [ ] 5.14 Przez adres tunelu dodanie, zmiana nazwy i usunięcie drzewa oraz dodanie węzła przechodzą bez 400 i bez `origin_mismatch`
 
-### Phase 6: Filtr nieużytych obiektów i usuwanie przeciągnięciem
+### Phase 6: API zapisu całego drzewa
 
 #### Automated
 
-- [ ] 6.1 Typy przechodzą: `npm run typecheck`
-- [ ] 6.2 Build produkcyjny przechodzi: `npm run build`
-- [ ] 6.3 Nowe i zmienione widoki nie zawierają literałów koloru ani palety Tailwinda
+- [ ] 6.1 Build rozwiązania przechodzi: `dotnet build TreeGrid.sln`
+- [ ] 6.2 Testy przechodzą, w tym testy reguł całego drzewa i planu zapisu: `dotnet test TreeGrid.sln`
+- [ ] 6.3 Model nie ma zmian bez migracji: `dotnet ef migrations has-pending-model-changes --project src/Api`
+- [ ] 6.4 Migracja dodaje kolumnę bez przebudowy tabeli `Trees`: `dotnet ef migrations script NamedTrees TreeVersion --project src/Api`
 
 #### Manual
 
-- [ ] 6.4 Zaznaczone „Pokaż obiekty nieużyte w drzewie” pokazuje tylko obiekty, których nie ma w wybranym drzewie na żadnej głębokości; obiekt dodany znika z listy, usunięty wraca, a zmiana drzewa przelicza listę
-- [ ] 6.5 Pole wyboru działa razem z filtrem tekstowym, a przy braku trafień lista pokazuje właściwy tekst
-- [ ] 6.6 Przeciągnięcie węzła na listę usuwa go z poddrzewem bez pytania, a lista jest wyróżniona tylko wtedy, gdy kursor z węzłem jest nad nią
-- [ ] 6.7 Upuszczenie węzła poza drzewem i poza listą niczego nie zmienia; upuszczenie wiersza listy na listę niczego nie zmienia
-- [ ] 6.8 Przesuwanie i zmiana kolejności w drzewie oraz przeciąganie z listy do drzewa działają jak po fazie 3
-- [ ] 6.9 W trakcie operacji lista nie przyjmuje upuszczenia węzła
-- [ ] 6.10 Przeciąganie w obu kierunkach działa w Chromium i w Firefoksie
-- [ ] 6.11 Przez adres tunelu usunięcie przeciągnięciem przechodzi bez 400 i bez `origin_mismatch`
+- [ ] 6.5 `GET /trees/{id}/nodes` oddaje wersję; `PUT /trees/{id}` z tą wersją zapisuje nazwę i strukturę, a kolejny `GET` pokazuje wersję większą o 1
+- [ ] 6.6 Drugi `PUT` z poprzednią wersją daje 409 `tree_stale` i niczego nie zmienia
+- [ ] 6.7 Węzeł przeniesiony z poddrzewa, które w tym samym zapisie znika, zachowuje `id`; węzły nieobecne w zapisie znikają, a pozycje w każdej grupie są ciągłe od 0
+- [ ] 6.8 Zapętlenie (także głębokie), duplikat rodzeństwa (pod rodzicem i na najwyższym poziomie) i 2001 węzłów dają 409 z komunikatem, a ten sam obiekt w dwóch gałęziach przechodzi
+- [ ] 6.9 `id` spoza drzewa, `id` powtórzone i obiekt spoza słownika dają 400 pod `nodes`; drzewo drugiego konta daje 404
+- [ ] 6.10 `POST /trees` z `nodes` tworzy drzewo z tą strukturą; dawne `POST`, `PUT`, `DELETE /trees/{treeId}/nodes…` nie przyjmują już żądań
+- [ ] 6.11 Obiekt usunięty ze struktury zapisem całości daje się potem usunąć ze słownika
+- [ ] 6.12 Ścieżka produkcyjna: po `dotnet ef database update` `start-api.ps1` wstaje z nową migracją
+
+### Phase 7: Szkic drzewa i panel jak w Kategoriach
+
+#### Automated
+
+- [ ] 7.1 Typy przechodzą: `npm run typecheck`
+- [ ] 7.2 Build produkcyjny przechodzi: `npm run build`
+- [ ] 7.3 Nowe i zmienione widoki nie zawierają literałów koloru ani palety Tailwinda
+- [ ] 7.4 Adres API nie trafia do bundla klienckiego: `grep -r "127.0.0.1:5180" build/client` nic nie zwraca
+
+#### Manual
+
+- [ ] 7.5 Karta pod listą wygląda jak w Kategoriach: „Edycja: <nazwa>”, „Nowe drzewo” w nagłówku, „Zapisz zmiany”, sekcja „Usuwanie”; `/drzewo?nowe` i konto bez drzew pokazują „Nowe drzewo” z aktywną budową
+- [ ] 7.6 Dodawanie (przyciskiem i przeciągnięciem, z dialogiem gałęzi), przesuwanie i usuwanie węzła zmieniają tylko szkic — po porzuceniu zmian drzewo wraca do stanu zapisanego
+- [ ] 7.7 Zapętlenie (także głęboko w dołączanej gałęzi), duplikat rodzeństwa i przekroczenie limitu są odrzucane od razu, z komunikatem jak przed fazą 6, a szkic się nie zmienia; A pod B tu i B pod A tam przechodzi
+- [ ] 7.8 „Zapisz zmiany” zapisuje nazwę i strukturę razem; po odświeżeniu widać zapisany stan, a węzeł przeniesiony z usuniętego poddrzewa ma to samo `id` w `GET /trees/{id}/nodes`
+- [ ] 7.9 „Dodaj drzewo” tworzy i wybiera drzewo z nazwą i zbudowaną strukturą; odmowa nazwy zostawia szkic nietknięty
+- [ ] 7.10 „Niezapisane zmiany” pojawia się po pierwszej zmianie szkicu i znika po zapisie
+- [ ] 7.11 Wybór innego drzewa, „Nowe drzewo”, pozycja menu i „wstecz” przy niezapisanych zmianach pytają o porzucenie; „Wróć do edycji” zostawia szkic, „Porzuć zmiany” przechodzi; odświeżenie i zamknięcie karty dają ostrzeżenie przeglądarki; bez zmian nic nie pyta, a „Zapisz zmiany” i „Usuń drzewo” nie pytają nigdy
+- [ ] 7.12 Zapis w drugiej karcie na nieaktualnej wersji pokazuje baner „Drzewo zmieniono w innym oknie…”, a szkic zostaje na ekranie
+- [ ] 7.13 Przy niskim oknie budowa zachowuje minimalną wysokość, a widok się przewija; wiersze listy drzew, drzewa i listy obiektów mają 24 px w obu wariantach motywu
+- [ ] 7.14 Źródło strony `/drzewo` zawiera `@layer antd`, a ostatni `data-css-hash` stoi przed `</head>`
+- [ ] 7.15 Przez adres tunelu dodanie drzewa ze strukturą, „Zapisz zmiany” i „Usuń drzewo” przechodzą bez 400 i bez `origin_mismatch`
+
+### Phase 8: Filtr nieużytych obiektów i usuwanie przeciągnięciem
+
+#### Automated
+
+- [ ] 8.1 Typy przechodzą: `npm run typecheck`
+- [ ] 8.2 Build produkcyjny przechodzi: `npm run build`
+- [ ] 8.3 Nowe i zmienione widoki nie zawierają literałów koloru ani palety Tailwinda
+
+#### Manual
+
+- [ ] 8.4 Zaznaczone „Pokaż obiekty nieużyte w drzewie” pokazuje tylko obiekty, których nie ma w szkicu wybranego drzewa na żadnej głębokości; obiekt dodany znika z listy, usunięty wraca, a zmiana drzewa przelicza listę
+- [ ] 8.5 Pole wyboru działa razem z filtrem tekstowym, a przy braku trafień lista pokazuje właściwy tekst
+- [ ] 8.6 Przeciągnięcie węzła na listę usuwa go ze szkicu z poddrzewem bez pytania i zapala „Niezapisane zmiany”; lista jest wyróżniona tylko wtedy, gdy kursor z węzłem jest nad nią
+- [ ] 8.7 Upuszczenie węzła poza drzewem i poza listą niczego nie zmienia; upuszczenie wiersza listy na listę niczego nie zmienia
+- [ ] 8.8 Przesuwanie i zmiana kolejności w drzewie oraz przeciąganie z listy do drzewa działają jak po fazie 7
+- [ ] 8.9 W trakcie zapisu lista nie przyjmuje upuszczenia węzła
+- [ ] 8.10 Przeciąganie w obu kierunkach działa w Chromium i w Firefoksie
+- [ ] 8.11 Przez adres tunelu usunięcie przeciągnięciem i „Zapisz zmiany” przechodzą bez 400 i bez `origin_mismatch`
