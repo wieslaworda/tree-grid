@@ -115,7 +115,10 @@ Po wykonaniu planu:
   podobiektów.
 - **Żadnego filtrowania opcji podobiektów pod kątem cyklu po stronie klienta.**
   Formularz wyklucza tylko sam obiekt; regułą wiążącą jest odpowiedź API.
-- **Żadnej paginacji ani wyszukiwania na liście.** `data_volume: small` w PRD.
+- ~~**Żadnej paginacji ani wyszukiwania na liście.** `data_volume: small` w PRD.~~
+  Uchylone po imporcie 202 obiektów — patrz „Addendum (tabela: stronicowanie,
+  filtry, sortowanie)". Nadal bez stronicowania i filtrowania po stronie API:
+  całość liczy widok na liście z jednego `GET /objects`.
 - **Żadnego `GET /objects/{id}`.** Panel edycji i tak potrzebuje całej listy do
   wyboru podobiektów; endpoint dołoży plaster, który go użyje.
 - **Żadnej kontroli równoległej edycji tego samego obiektu.** Ostatni zapis
@@ -381,13 +384,17 @@ edycja i usuwanie obiektu, bez przechodzenia na osobną trasę.
   identyfikatorem albo nie istnieje w słowniku, też **nie** rzuca 404 —
   wywróciłoby całą listę — tylko wraca jako `nieznany` i daje ostrzeżenie nad
   formularzem dodawania.
-- Lista: antd `Table size="small"`, `pagination={false}`, `scroll.y`, żeby przy
-  setkach pozycji panel pod listą został w zasięgu wzroku. Kolumny: Kod (link
-  do `/obiekty?id=<id>` — wybór przed hydracją i z klawiatury), Nazwa,
-  Podobiekty (kody po przecinku albo „—"). Kliknięcie w wiersz wybiera obiekt,
-  wybrany wiersz ma tło `zaznaczenieWiersza` (klasa `tg-*`). Pusty stan
-  odsyła do formularza poniżej. Bez linku powrotu — od S-07 prowadzi tam
-  nagłówek powłoki.
+- Lista: antd `Table size="small"` ze stronicowaniem po 10 (licznik
+  „od–do z N", bez zmiany rozmiaru strony), wierszem filtrów tekstowych pod
+  nagłówkami i sortowaniem po każdej kolumnie (rosnąco → malejąco → bez;
+  porządek `Intl.Collator("pl", { numeric: true })`). Filtrowanie i sortowanie
+  liczy widok (kolumny z `sorter: true`, bez `onFilter`), żeby znać stronę
+  wybranego obiektu: wejście z `?id=` i wybór po dodaniu otwierają jego
+  stronę. Kolumny: Kod (link do `/obiekty?id=<id>` — wybór przed hydracją
+  i z klawiatury), Nazwa, Podobiekty (kody po przecinku albo „—"). Kliknięcie
+  w wiersz wybiera obiekt, wybrany wiersz ma tło `zaznaczenieWiersza` (klasa
+  `tg-*`). Pusty stan odsyła do formularza poniżej, a brak trafień filtra ma
+  własny komunikat. Bez linku powrotu — od S-07 prowadzi tam nagłówek powłoki.
 - Panel pod listą, z `key` po wybranym `id`, żeby zmiana wyboru montowała
   formularz od nowa: bez wyboru — „Nowy obiekt" (`FormularzObiektu`
   z `intent=dodaj`); z wyborem — kod obiektu jako nagłówek, przycisk „Nowy
@@ -457,6 +464,25 @@ bez osobnego pola. Konsekwencje:
 - `app/routes.ts` rejestruje jedną trasę; komentarze w `MenuGlowne.tsx`
   i `objects.server.ts` przestały wymieniać usunięte adresy.
 
+**Addendum (wygląd panelu i motyw w trybie dev, 2026-09-23)**: panel pod
+listą stoi w ramce (`Card size="small"`, obramowanie `obramowanieKontrolki`),
+a wszystkie przyciski dostają domyślnie wypełnienie akcentem przez
+`ConfigProvider button` (`PRZYCISKI` w `app/theme/antd.ts`) — decyzje
+użytkownika po obejrzeniu ekranu. Przy tej okazji wyszły dwie ciche awarie
+trybu dev spoza tego plastra, naprawione w `app/root.tsx`: kolejność warstw
+`@layer` przegrywała z miejscem, w które Vite wstrzykuje `app.css`, a cykl
+importów `root.tsx` ↔ `PrzelacznikMotywu.tsx` rozszczepiał kontekst motywu
+(przeniesiony do `app/theme/kontekst.ts`).
+
+**Addendum (tabela: stronicowanie, filtry, sortowanie, 2026-09-23)**: po
+imporcie 202 obiektów z pliku użytkownika lista bez stronicowania przestała
+się mieścić, więc tabela dostała stronicowanie po 10, wiersz filtrów pod
+nagłówkami i sortowanie po kolumnach (kontrakt w #4). Wiersz filtrów to
+podmieniony `components.header.wrapper` — antd ma tylko filtry rozwijane przy
+tytule; pierwsza wersja z takimi filtrami została na prośbę użytkownika
+zastąpiona wierszem. Stan filtrów, sortowania i strony żyje w komponencie:
+przeżywa zapis i przekierowanie, nie przeżywa pełnego odświeżenia.
+
 ### Success Criteria:
 
 #### Automated Verification:
@@ -475,6 +501,7 @@ bez osobnego pola. Konsekwencje:
 - Przycisk usuwania jest nieaktywny przy powiązaniach, a obiekt bez powiązań znika z listy po potwierdzeniu
 - Przy zgaszonym API lista pokazuje baner z komunikatem, a nieistniejący `/obiekty?id=999` zostawia listę i pokazuje ostrzeżenie nad formularzem dodawania
 - Kliknięcie w wiersz otwiera edycję pod listą i podświetla wiersz; po dodaniu nowy obiekt jest wybrany, po usunięciu panel wraca do dodawania; strona nie przewija się na górę przy żadnym z tych przejść
+- Tabela pokazuje 10 obiektów na stronę; wiersz filtrów zawęża listę przy pisaniu, sortowanie po każdej kolumnie przechodzi rosnąco → malejąco → bez; wejście z `?id=` otwiera stronę wybranego obiektu
 - Źródło strony `/obiekty` zawiera `@layer antd`, a ostatni `data-css-hash` stoi przed `</head>`
 - Przez adres tunelu dodanie, edycja i usunięcie obiektu przechodzą bez 400 i bez `origin_mismatch`
 
@@ -580,14 +607,14 @@ więc przed pierwszym startem po tej zmianie trzeba wykonać
 
 #### Automated
 
-> Po zmianie układu (Addendum z 2026-09-23) kroki 2.2 i 2.4 wróciły do `[ ]` —
-> build nie był ponownie uruchomiony na nowym układzie. 2.1 i 2.3 sprawdzone
-> ponownie po zmianie.
+> Po zmianie układu (Addendum z 2026-09-23) kroki 2.2 i 2.4 wróciły do `[ ]`,
+> a po stronicowaniu, filtrach i sortowaniu wszystkie cztery kroki
+> automatyczne zostały sprawdzone ponownie na tym stanie kodu.
 
 - [x] 2.1 Typy przechodzą: `npm run typecheck`
-- [ ] 2.2 Build produkcyjny przechodzi: `npm run build`
+- [x] 2.2 Build produkcyjny przechodzi: `npm run build`
 - [x] 2.3 Nowe widoki nie zawierają literałów koloru ani palety Tailwinda
-- [ ] 2.4 Adres API nie trafia do bundla klienckiego: `grep -r "127.0.0.1:5180" build/client` nic nie zwraca
+- [x] 2.4 Adres API nie trafia do bundla klienckiego: `grep -r "127.0.0.1:5180" build/client` nic nie zwraca
 
 #### Manual
 
@@ -600,3 +627,4 @@ więc przed pierwszym startem po tej zmianie trzeba wykonać
 - [ ] 2.11 Źródło strony `/obiekty` zawiera `@layer antd`, a ostatni `data-css-hash` stoi przed `</head>`
 - [ ] 2.12 Przez adres tunelu dodanie, edycja i usunięcie obiektu przechodzą bez 400 i bez `origin_mismatch`
 - [ ] 2.13 Kliknięcie w wiersz otwiera edycję pod listą i podświetla wiersz; po dodaniu nowy obiekt jest wybrany, po usunięciu panel wraca do dodawania; strona nie przewija się na górę przy żadnym z tych przejść
+- [ ] 2.14 Tabela pokazuje 10 obiektów na stronę; wiersz filtrów zawęża listę przy pisaniu, sortowanie po każdej kolumnie przechodzi rosnąco → malejąco → bez; wejście z `?id=` otwiera stronę wybranego obiektu
