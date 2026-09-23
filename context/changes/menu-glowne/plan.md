@@ -323,10 +323,10 @@ segmentu ścieżki.
 
 #### Automated
 
-- [x] 2.1 Typy przechodzą: `npm run typecheck`
-- [x] 2.2 Build przechodzi: `npm run build` (w odizolowanej kopii, jeśli `build/` jest serwowany na :3000)
-- [x] 2.3 Zdublowane akcje zniknęły
+- [x] 2.1 Typy przechodzą: `npm run typecheck` — ff9a44b
+- [x] 2.2 Build przechodzi: `npm run build` (w odizolowanej kopii, jeśli `build/` jest serwowany na :3000) — ff9a44b
+- [x] 2.3 Zdublowane akcje zniknęły — ff9a44b
 
 #### Manual
 
-- [x] 2.4 Strona główna bez zdublowanych akcji; nawigacja do obiektów z menu, „← Obiekty" działa
+- [x] 2.4 Strona główna bez zdublowanych akcji; nawigacja do obiektów z menu, „← Obiekty" działa — ff9a44b
