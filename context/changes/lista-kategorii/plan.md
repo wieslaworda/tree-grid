@@ -541,19 +541,19 @@ tej zmianie wykonaj `dotnet ef database update --project src/Api`.
 
 #### Automated
 
-- [x] 2.1 Typy przechodzą: `npm run typecheck`
-- [x] 2.2 Build produkcyjny przechodzi: `npm run build`
-- [x] 2.3 Nowe i zmienione widoki nie zawierają literałów koloru ani palety Tailwinda
-- [x] 2.4 Adres API nie trafia do bundla klienckiego: `grep -r "127.0.0.1:5180" build/client` nic nie zwraca
+- [x] 2.1 Typy przechodzą: `npm run typecheck` — 78ed006
+- [x] 2.2 Build produkcyjny przechodzi: `npm run build` — 78ed006
+- [x] 2.3 Nowe i zmienione widoki nie zawierają literałów koloru ani palety Tailwinda — 78ed006
+- [x] 2.4 Adres API nie trafia do bundla klienckiego: `grep -r "127.0.0.1:5180" build/client` nic nie zwraca — 78ed006
 
 #### Manual
 
-- [x] 2.5 Bez sesji `/kategorie` i `/kategorie?id=1` przekierowują na `/logowanie` — dokument i `.data` z `_routes`
+- [x] 2.5 Bez sesji `/kategorie` i `/kategorie?id=1` przekierowują na `/logowanie` — dokument i `.data` z `_routes` — 78ed006
 - [ ] 2.6 Menu ma pozycję „Kategorie" po „Obiekty", podświetloną na `/kategorie`
 - [ ] 2.7 Na pustym słowniku tabela pokazuje pusty stan; dodanie z domyślnym SUM wybiera nową kategorię i pokazuje ją w tabeli
 - [ ] 2.8 Duplikat kodu (inna wielkość liter) daje komunikat pod polem kodu w obu wariantach motywu
 - [ ] 2.9 Edycja nazwy i funkcji zapisuje się i formularz pokazuje zapisane wartości; usunięcie po potwierdzeniu wraca do dodawania, a „Anuluj" jest obrysowany
-- [x] 2.10 Filtry tekstowe i lista funkcji zawężają tabelę (MIN nie pokazuje MAX), sortowanie po każdej kolumnie przechodzi rosnąco → malejąco → bez, stronicowanie po 10 i przeskok na stronę wybranej kategorii działają
+- [x] 2.10 Filtry tekstowe i lista funkcji zawężają tabelę (MIN nie pokazuje MAX), sortowanie po każdej kolumnie przechodzi rosnąco → malejąco → bez, stronicowanie po 10 i przeskok na stronę wybranej kategorii działają — 78ed006
 - [ ] 2.11 Lista obiektów działa bez zmian: filtry, sortowanie, stronicowanie, przeskok, podświetlenie, zapis i usuwanie
 - [ ] 2.12 Źródło strony `/kategorie` zawiera `@layer antd`, a ostatni `data-css-hash` stoi przed `</head>`
 - [ ] 2.13 Przez adres tunelu dodanie, edycja i usunięcie kategorii przechodzą bez 400 i bez `origin_mismatch`
