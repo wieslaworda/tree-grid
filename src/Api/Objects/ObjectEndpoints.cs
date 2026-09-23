@@ -215,8 +215,10 @@ internal static class ObjectEndpoints
     }
 
     /// <summary>
-    /// Usuwa obiekt bez powiązań. Odmowa dotyczy także żądania wysłanego
-    /// z pominięciem interfejsu, który przycisk usuwania i tak wyłącza.
+    /// Usuwa obiekt bez powiązań w słowniku i bez wystąpień w drzewach.
+    /// Odmowa relacji dotyczy także żądania wysłanego z pominięciem interfejsu,
+    /// który przycisk usuwania i tak wyłącza; o drzewach interfejs nie wie
+    /// (są prywatne), więc tę odmowę widzi dopiero po odpowiedzi API.
     /// </summary>
     private static async Task<IResult> DeleteAsync(int id, AppDbContext db, CancellationToken cancellationToken)
     {
@@ -245,6 +247,18 @@ internal static class ObjectEndpoints
         if (ObjectResponses.DescribeDeletionRefusal(entity.Code, parentCodes, childCodes) is { } refusal)
         {
             return Results.Json(refusal, statusCode: StatusCodes.Status409Conflict);
+        }
+
+        // Wystąpienia w drzewach — w tej samej transakcji, z tego samego powodu
+        // co kontrola relacji: węzeł dodany równolegle między kontrolą
+        // a usunięciem zamieniłby odmowę w błąd klucza obcego (`Restrict`
+        // w `AppDbContext`). Zapytanie celowo nie filtruje po właścicielu —
+        // liczy się każde drzewo — i celowo nie oddaje nic poza faktem użycia.
+        if (await db.TreeNodes.AnyAsync(node => node.ObjectId == id, cancellationToken))
+        {
+            return Results.Json(
+                ObjectResponses.DescribeTreeUsageRefusal(entity.Code),
+                statusCode: StatusCodes.Status409Conflict);
         }
 
         db.CatalogObjects.Remove(entity);
@@ -495,6 +509,21 @@ internal static class ObjectResponses
                 [ChildrenContextKey] = childCodes,
             });
     }
+
+    /// <summary>
+    /// Odmowa usunięcia obiektu <paramref name="code"/>, który stoi
+    /// w czyimkolwiek drzewie roboczym — 409 z
+    /// <see cref="ApiErrorCodes.ObjectInTree"/>.
+    /// </summary>
+    /// <remarks>
+    /// <c>context</c> jest pusty, a komunikat nie mówi, czyje to drzewo ani
+    /// ile w nim wystąpień: słownik jest wspólny, drzewa prywatne, więc odmowa
+    /// nie może zdradzać cudzej struktury.
+    /// </remarks>
+    public static ApiError DescribeTreeUsageRefusal(string code)
+        => ApiError.Create(
+            ApiErrorCodes.ObjectInTree,
+            $"Obiekt „{code}\" jest użyty w strukturze drzewa i nie można go usunąć.");
 }
 
 /// <summary>

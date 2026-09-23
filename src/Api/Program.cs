@@ -4,6 +4,7 @@ using Api.Categories;
 using Api.Data;
 using Api.Errors;
 using Api.Objects;
+using Api.Tree;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
@@ -181,6 +182,12 @@ app.MapObjectEndpoints();
 // Słownik kategorii (S-09), ten sam podział — reguły funkcji agregującej
 // w `Api.Categories`.
 app.MapCategoryEndpoints();
+
+// Drzewo robocze użytkownika (S-03), ten sam podział — reguły drzewa
+// (zapętlenie po ścieżce przodków, duplikat rodzeństwa, limit węzłów)
+// w `Api.Tree`, a tam też model zaufania nagłówka tożsamości, na którym stoją
+// te endpointy: `TreeIdentity` mówi, które warunki infrastruktury go niosą.
+app.MapTreeEndpoints();
 
 app.Run();
 return 0;

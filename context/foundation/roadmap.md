@@ -54,7 +54,7 @@ Przy celu sekwencjonowania `speed` to również fragment, który najtaniej odpow
 | F-02 | `motyw-terminalowy`   | (foundation) aplikacja ma jeden motyw o gęstości roboczej, z przełącznikiem jasny/ciemny   | —             | NFR (gęstość odczytu liczb), NFR (dwa warianty motywu), NFR (kontrast i rola koloru) | in-progress |
 | S-01 | `konto-i-logowanie`   | założyć konto, zalogować się i wylogować; żaden widok nie jest dostępny bez logowania      | F-01          | FR-001, Access Control, NFR (izolacja kont)            | in-progress |
 | S-02 | `lista-obiektow`      | przeglądać, dodawać i edytować obiekty dostępne do budowy drzewa                           | F-01          | FR-002                                                 | in-progress |
-| S-03 | `budowa-drzewa`       | złożyć własną strukturę drzewa; zapętlenie jest odrzucane, a gałąź podrzędna rozstrzygana  | S-02          | FR-003, FR-004, FR-005, US-01, Business Logic          | blocked  |
+| S-03 | `budowa-drzewa`       | złożyć własną strukturę drzewa; zapętlenie jest odrzucane, a gałąź podrzędna rozstrzygana  | S-02          | FR-003, FR-004, FR-005, US-01, Business Logic          | in-progress |
 | S-04 | `kategorie-danych`    | przypisać obiektowi w drzewie kategorie danych z ograniczonej listy                        | S-03, S-09    | FR-006                                                 | proposed |
 | S-05 | `grid-czasowy`        | wybrać ziarno czasowe i dobę oraz zobaczyć grid z punktami czasowymi                       | S-04          | FR-007, FR-008, US-01, NFR (288 kolumn, feedback >2 s) | proposed |
 | S-06 | `zapisane-ekrany`     | zapisać ekran pod nazwą, wybrać go z listy własnych i odtworzyć bez zmian                  | S-01, S-05    | FR-009, FR-010, US-01, NFR (izolacja kont)             | proposed |
@@ -149,7 +149,7 @@ Foundations below assume these are present and do NOT re-scaffold them.
 - **Unknowns:**
   - Czy budowa drzewa przez przeciąganie (drag&drop) wchodzi w zakres MVP? — Owner: użytkownik. Block: yes.
 - **Risk:** To główny dowód działania produktu, a jednocześnie jedyny plaster zablokowany otwartym pytaniem — i PRD wprost każe rozstrzygnąć je przed rozpoczęciem prac nad tym interfejsem, bo przeciąganie jest najdroższym elementem interfejsu w projekcie. Przy twardym terminie 2026-11-04 rozstrzygnięcie tego pytania jest najtańszym możliwym ruchem: odblokowuje sekwencję i ustala, ile budżetu zostaje na `S-05`. Drugie ryzyko: reguła walidacji musi działać po stronie serwera, bo PRD wymaga, żeby ekranu o niespójnej strukturze nie dało się zapisać — walidacja wyłącznie w przeglądarce tego warunku nie spełnia.
-- **Status:** blocked
+- **Status:** in-progress
 
 ### S-07: Menu główne aplikacji po zalogowaniu
 

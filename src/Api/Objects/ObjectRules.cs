@@ -6,8 +6,14 @@ namespace Api.Objects;
 /// Reguły słownika obiektów jako czyste funkcje: bez bazy, bez hosta i bez
 /// encji EF. Endpointy (<see cref="ObjectEndpoints"/>) czytają stan i
 /// odwzorowują wynik na odpowiedź, a same decyzje zapadają tutaj — dzięki temu
-/// sprawdza je test jednostkowy, a S-03 użyje wykrywania cyklu dla struktury
-/// ekranu bez żadnej zależności od modelu słownika.
+/// sprawdza je test jednostkowy.
+///
+/// <see cref="FindCycle"/> nie jest regułą drzewa użytkownika (S-03), choć
+/// oba mówią o „zapętleniu". Tu cyklem jest pętla w grafie obiektów słownika;
+/// w drzewie — obiekt na ścieżce do korzenia <b>jednego wystąpienia</b>, a ten
+/// sam obiekt wolno postawić w różnych gałęziach (A pod B tu, B pod A tam).
+/// Grafowa kontrola odrzucałaby takie poprawne drzewa, więc drzewo ma własną
+/// regułę po ścieżce przodków w <c>Api.Tree.TreeRules</c>.
 /// </summary>
 internal static class ObjectRules
 {

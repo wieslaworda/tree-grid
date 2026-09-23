@@ -10,8 +10,10 @@ namespace Api.Data;
 /// (<see cref="CatalogObject"/> i relację rodzic–podobiekt
 /// <see cref="CatalogObjectLink"/>), wspólny dla wszystkich kont. Od S-09 —
 /// słownik kategorii danych (<see cref="Category"/>), również wspólny i na razie
-/// bez relacji z czymkolwiek. Model domenowy ekranów i gridu dochodzi
-/// w kolejnych plastrach.
+/// bez relacji z czymkolwiek. Od S-03 — drzewo robocze użytkownika
+/// (<see cref="TreeNode"/>): pierwsza tabela z właścicielem, jedno drzewo na
+/// konto, złożone z wystąpień obiektów słownika. Nazwane ekrany (S-06) i grid
+/// dochodzą w kolejnych plastrach.
 /// </summary>
 public sealed class AppDbContext(DbContextOptions<AppDbContext> options)
     : IdentityDbContext<AppUser>(options)
@@ -21,6 +23,8 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options)
     public DbSet<CatalogObjectLink> CatalogObjectLinks => Set<CatalogObjectLink>();
 
     public DbSet<Category> Categories => Set<Category>();
+
+    public DbSet<TreeNode> TreeNodes => Set<TreeNode>();
 
     protected override void OnModelCreating(ModelBuilder builder)
     {
@@ -91,6 +95,47 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options)
                 .HasConversion(
                     function => CategoryRules.FormatAggregateFunction(function),
                     text => ReadStoredAggregateFunction(text));
+        });
+
+        builder.Entity<TreeNode>(node =>
+        {
+            // Kaskada od konta: kont nie da się dziś usuwać, ale węzeł bez
+            // właściciela nie ma sensu, więc gdy usuwanie konta się pojawi,
+            // drzewo ma zniknąć razem z nim, a nie blokować je kluczem obcym.
+            node.HasOne(n => n.User)
+                .WithMany()
+                .HasForeignKey(n => n.UserId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            // Kaskada od rodzica: usunięcie węzła usuwa jego poddrzewo także na
+            // poziomie bazy. Endpoint i tak wczytuje całe drzewo użytkownika,
+            // więc EF usuwa śledzonych potomków sam — schemat jest drugim
+            // bezpiecznikiem, żeby żaden węzeł nie został z rodzicem, którego
+            // nie ma.
+            node.HasOne(n => n.Parent)
+                .WithMany(n => n.Children)
+                .HasForeignKey(n => n.ParentId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            // `Restrict` od obiektu: obiektu słownika użytego w czyimkolwiek
+            // drzewie nie wolno usunąć. Odmowę `object_in_tree` wydaje
+            // `ObjectEndpoints.DeleteAsync`; klucz obcy jest drugim
+            // bezpiecznikiem, gdyby ta kontrola zawiodła — kaskada w tym
+            // miejscu po cichu wycięłaby węzły z cudzych drzew.
+            node.HasOne(n => n.Object)
+                .WithMany()
+                .HasForeignKey(n => n.ObjectId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            // Indeks pod odczyt grupy rodzeństwa w kolejności. Celowo nie
+            // unikalny: przenumerowanie przesuwa pozycje w miejscu, więc
+            // unikalność łamałaby się chwilowo w środku `SaveChanges`.
+            //
+            // Unikalnego indeksu na duplikat rodzeństwa `(UserId, ParentId,
+            // ObjectId)` też nie ma: SQLite traktuje `NULL` w unikalnym indeksie
+            // jako różne wartości, więc nie złapałby duplikatu na najwyższym
+            // poziomie. Ta reguła żyje w `TreeRules` i w transakcji endpointu.
+            node.HasIndex(n => new { n.UserId, n.ParentId, n.Position });
         });
     }
 

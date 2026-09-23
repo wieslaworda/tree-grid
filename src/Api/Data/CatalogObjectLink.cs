@@ -2,8 +2,11 @@ namespace Api.Data;
 
 /// <summary>
 /// Relacja rodzic–podobiekt w słowniku obiektów: krawędź grafu, na którym
-/// działa wykrywanie cyklu, i gałąź, którą S-03 dołącza do drzewa w całości
-/// (FR-005).
+/// działa wykrywanie cyklu, i źródło gałęzi, którą S-03 kopiuje do drzewa
+/// użytkownika przy dodaniu obiektu z wyborem „cała gałąź" (FR-005). Kopiowana
+/// jest struktura z chwili dodania, rozpisana na osobne węzły
+/// (<see cref="TreeNode"/>) — późniejsza zmiana relacji w słowniku nie rusza
+/// drzew, w których gałąź już stoi.
 /// </summary>
 /// <remarks>
 /// Osobna encja, a nie nawigacja „przeskakująca" EF Core, bo relacja niesie

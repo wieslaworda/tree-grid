@@ -8,6 +8,10 @@ namespace Api.Data;
 /// Relacja rodzic–podobiekt jest wiele-do-wielu (ten sam obiekt bywa
 /// podobiektem kilku rodziców), dlatego nie jest kluczem obcym w tej tabeli,
 /// tylko osobną encją <see cref="CatalogObjectLink"/>.
+///
+/// Wystąpienia obiektu w drzewach użytkowników (<see cref="TreeNode"/>)
+/// wskazują go kluczem obcym bez kaskady: obiektu użytego w czyimkolwiek
+/// drzewie nie da się usunąć, a drzewo nie traci węzłów po cichu.
 /// </summary>
 /// <remarks>
 /// Kod występuje dwa razy i to jest celowe. <see cref="Code"/> jest trzymany
