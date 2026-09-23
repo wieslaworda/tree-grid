@@ -5,88 +5,98 @@
 ## What & Why
 
 S-03 to north star roadmapy: dyspozytor sam składa drzewo z obiektów słownika,
-a aplikacja nie dopuszcza struktury niespójnej. To najmniejszy fragment, który
-dowodzi głównej tezy produktu, zanim budżet pochłoną kategorie, grid i zapis
-ekranów. Zapętlenie jest realne, bo ten sam obiekt może stać w wielu miejscach
-drzewa (FR-004).
+a aplikacja nie dopuszcza struktury niespójnej (FR-003–005). Rozszerzenie
+z 2026-09-23 (MS-03–MS-07) daje mu **wiele własnych, nazwanych drzew** zamiast
+jednego roboczego. Dochodzi też filtr obiektów nieużytych w drzewie i usuwanie
+węzła przeciągnięciem na listę. Nazwane drzewo to składnik, który S-06 wskaże
+z zapisanego ekranu.
 
 ## Starting Point
 
-Słownik obiektów ma relacje rodzic–dziecko z gwarancją braku cykli, więc gałąź
-ze słownika jest zawsze skończona. API nie zna jednak tożsamości użytkownika
-i nie ma żadnego zasobu prywatnego. W aplikacji nie ma też antd Tree ani
-przeciągania — rc-tree nie przyjmuje upuszczenia spoza drzewa.
+Fazy 1–3 mają kod (`4b5fdee`, `7788590`, `fdd1591`). Jest jedno drzewo robocze
+na konto (`TreeNode.UserId`) z regułami zapętlenia, duplikatu i limitu,
+endpointy `/tree`, widok `/drzewo` z dodawaniem przyciskiem i przeciąganiem oraz
+przesuwaniem węzłów. Reguły są czystymi funkcjami niezależnymi od właściciela;
+zakres „drzewo konta” siedzi wyłącznie w zapytaniach endpointów.
 
 ## Desired End State
 
-Dyspozytor wybiera „Drzewo" w menu. Po lewej ma swoje trwałe drzewo, po prawej
-listę obiektów. Obiekt dodaje przyciskiem albo przeciągając go na węzeł, a przy
-obiekcie z podobiektami wybiera „cała gałąź / tylko obiekt / anuluj". Węzły
-przesuwa i zmienia ich kolejność przeciąganiem, usuwa z poddrzewem. Operację,
-która postawiłaby obiekt na jego własnej ścieżce do korzenia, API odrzuca
-z komunikatem, np. `GPZ-01 → L1 → L2 → T5 → GPZ-01`.
+Na górze `/drzewo` jest lista drzew dyspozytora (5 wierszy na stronę, filtr po
+nazwie), a obok panel „Nowe drzewo”, zmiany nazwy i „Usuń drzewo”. Wejście
+z menu otwiera pierwsze drzewo po nazwie, a konto bez drzew widzi zachętę.
+Budowa działa na drzewie wybranym w `?drzewo=`, z tymi samymi odmowami co
+dotąd, ale w obrębie jednego drzewa. Cudze drzewa są nieistniejące. Lista
+obiektów umie pokazać tylko obiekty nieużyte w drzewie, a węzeł upuszczony na
+listę znika z poddrzewem bez pytania.
 
 ## Key Decisions Made
 
 | Decision | Choice | Why (1 sentence) | Source |
 | --- | --- | --- | --- |
-| Przeciąganie (otwarte pytanie roadmapy) | Pełne: z listy do drzewa oraz przesuwanie i kolejność w drzewie | Decyzja użytkownika; odizolowane w osobnej, ostatniej fazie. | Plan |
-| Znaczenie zapętlenia | Obiekt na własnej ścieżce do korzenia; A pod B tu i B pod A tam jest poprawne | Odpowiada temu, co widać w drzewie, i nie ogranicza własnego układu. | Plan |
-| Trwałość | Jedno drzewo robocze na użytkownika w API | Reguła naprawdę po stronie serwera; trwałe `id` węzłów dla S-04. | Plan |
-| Gałąź ze słownika | Kopia struktury w chwili dodania | Spełnia „ekran odtwarza się bez zmian"; cudze zmiany słownika jej nie ruszają. | Plan |
-| Konflikt głęboko w gałęzi | Odrzucenie całej operacji ze ścieżką | Tylko „przyjęte/odrzucone", nic po cichu; można ponowić z „tylko obiekt". | Plan |
-| Duplikat rodzeństwa | Odrzucany (pod rodzicem i na najwyższym poziomie) | Dwa identyczne wiersze obok siebie nie niosą informacji. | Plan |
-| Ścieżka bez myszy | Przycisk „Dodaj" + „Usuń węzeł"; przesuwanie tylko przeciąganiem | Dostępność z klawiatury i łatwa weryfikacja reguł. | Plan |
-| Tożsamość w API | Nagłówek `X-TreeGrid-User` na pętli zwrotnej, 401 bez niego | Spójne z modelem zaufania `/internal`; id nigdy z przeglądarki. | Plan |
-| Usunięcie obiektu użytego w drzewie | 409 `object_in_tree` bez wskazania właściciela | Drzewo nie traci węzłów po cichu; słownik wspólny, drzewa prywatne. | Plan |
-| Układ widoku | Drzewo po lewej, lista po prawej | Zapowiada układ docelowy gridu z drzewem w pierwszej kolumnie. | Plan |
-| Upuszczenie z listy | Zawsze na koniec dzieci; pozycję ustawia przeciąganie w drzewie | Proste, własne handlery HTML5 bez liczenia przerw. | Plan |
-| Limit rozmiaru | 2000 węzłów na drzewo, `tree_too_large` | Romby w słowniku rozwijają się wykładniczo. | Plan |
+| Przeciąganie | Pełne: z listy do drzewa, w drzewie, z drzewa na listę (usuwanie) | Decyzja użytkownika; każdy kierunek w osobnej, późnej fazie. | Plan / Roadmapa |
+| Znaczenie zapętlenia | Obiekt na własnej ścieżce do korzenia | Odpowiada temu, co widać w drzewie. | Plan |
+| Gałąź ze słownika | Kopia struktury w chwili dodania | Cudze zmiany słownika jej nie ruszają. | Plan |
+| Nagłówek drzewa | Tylko nazwa + id; nazwa unikalna w obrębie konta, bez wielkości liter | Duplikatów nie da się odróżnić na liście. | Roadmapa (MS-03) |
+| Własność | Węzeł → drzewo → konto; `UserId` zdjęte z węzła | Jedno źródło właściciela zamiast dwóch, które mogą się rozjechać. | Plan |
+| Istniejące dane | Drzewo robocze każdego konta → drzewo „Drzewo robocze” | Nic nie ginie przy migracji. | Roadmapa |
+| Układ listy drzew | `TabelaSlownika` z 5 wierszami na stronę + panel obok | Analogia do Obiektów bez zabierania budowie połowy ekranu. | Plan |
+| Brak wyboru w adresie | Przekierowanie na pierwsze drzewo po nazwie | Wejście z menu od razu pokazuje budowę. | Plan |
+| Formularz „Nowe drzewo” | Zawsze w panelu, obok edycji wybranego | Brak `?drzewo=` przekierowuje, więc nie może oznaczać trybu dodawania. | Plan |
+| Pusty stan | Pusta lista z zachętą, budowa nieaktywna | Bez automatycznego drzewa i bez reguły „ostatniego nie wolno usunąć”. | Roadmapa |
+| Usuwanie drzewa | `Popconfirm` z liczbą węzłów | Nieodwracalne, jak usuwanie w słownikach. | Plan |
+| Usuwanie przeciągnięciem | Bez potwierdzenia | Decyzja użytkownika (MS-07). | Roadmapa |
+| Filtr „nieużyte” | Pole wyboru po stronie klienta, razem z filtrem tekstowym; nie zmienia zaznaczenia | Zbiór obiektów drzewa jest już w loaderze. | Plan |
+| Kontrakt API | `/trees`, `/trees/{treeId}/nodes/…`; `/tree` usunięte | Drzewo z adresu sprawdzane na własność przed odczytem węzłów. | Plan |
+| Tożsamość w API | Nagłówek `X-TreeGrid-User` na pętli zwrotnej, 401 bez niego | Spójne z modelem zaufania `/internal`. | Plan |
 
 ## Scope
 
 **In scope:**
 
-- Encja węzła z właścicielem, migracja, nagłówek tożsamości, reguły drzewa z testami xUnit
-- `GET /tree`, `POST/PUT/DELETE /tree/nodes`, odmowa `object_in_tree` w `DELETE /objects/{id}`
-- Trasa `/drzewo` z pozycją w menu, dialog gałęzi, usuwanie węzła, banery odmów
-- Przeciąganie z listy i przesuwanie/kolejność węzłów w drzewie
+- Fazy 1–3 (zrobione): API drzewa, widok z dialogiem gałęzi, przeciąganie
+- Encja `UserTree`, migracja `NamedTrees` z przeniesieniem danych, `/trees` z walidacją nazwy
+- Lista drzew z panelem na `/drzewo`, wybór w `?drzewo=`, pusty stan, izolacja kont
+- Filtr „Pokaż obiekty nieużyte w drzewie”, usuwanie węzła przeciągnięciem na listę
 
 **Out of scope:**
 
-- Nazwane ekrany, wiele drzew na konto, kategorie przy węzłach, grid (S-04–S-06)
-- Żywe powiązanie ze słownikiem, przycinanie gałęzi, wstawianie z listy między węzły
-- Przesuwanie z klawiatury, kryptografia tożsamości, testy przez `WebApplicationFactory`
+- Ekrany i ich powiązanie z drzewem (S-06), kategorie przy węzłach (S-04), grid (S-05)
+- Limit liczby drzew, kopiowanie i scalanie drzew, przenoszenie węzłów między drzewami
+- Pamięć ostatnio używanego drzewa, „cofnij”, potwierdzenie przy usuwaniu przeciągnięciem
 
 ## Architecture / Approach
 
-API .NET dostaje moduł `Tree`: każda operacja (dodaj, przesuń, usuń) otwiera
-transakcję, wczytuje całe drzewo użytkownika z nagłówka, pyta czyste reguły
-(rozwinięcie gałęzi, konflikt przodków, duplikat, przenumerowanie) i zapisuje
-albo zwraca 409 z kopertą. React Router bierze `id` z sesji i dokłada nagłówek
-w `requestApi`. Trasa `/drzewo` składa widok z antd Tree, osobnej listy
-źródłowej i dialogu. Przeciąganie z listy obsługują natywne handlery w
-`titleRender`, a przesuwanie — `draggable` antd Tree.
+API .NET dostaje encję `UserTree` (właściciel, nazwa, postać znormalizowana
+z unikalnym indeksem w obrębie konta). Węzły wiszą na drzewie z kaskadą. Każdy
+endpoint po tożsamości szuka drzewa z adresu po `Id` i `UserId`, a węzły czyta
+wyłącznie po `TreeId`. Reguły drzewa się nie zmieniają. Po stronie React
+Routera loader czyta listę drzew i węzły wybranego, akcja bierze `treeId`
+z `?drzewo=`, a widok składa `TabelaSlownika` z panelem nad budową. Usuwanie
+przeciągnięciem to własny typ MIME węzła ustawiany w `onDragStart` antd Tree
+i przyjmowany przez listę.
 
 ## Phases at a Glance
 
 | Phase | What it delivers | Key risk |
 | --- | --- | --- |
-| 1. API drzewa roboczego | Tabela węzłów, tożsamość, reguły, `/tree`, `object_in_tree` | Pierwszy zasób per użytkownik — model zaufania nagłówka musi być opisany i ręcznie sprawdzony dwoma kontami |
-| 2. Widok bez przeciągania | `/drzewo`, „Dodaj" z dialogiem gałęzi, usuwanie, menu | Regresja banera usuwania na `/obiekty` |
-| 3. Przeciąganie | Upuszczanie z listy, przesuwanie i kolejność w drzewie | Konflikt handlerów rc-tree z upuszczaniem z listy; przeliczenie pozycji przy przesunięciu w dół |
+| 1–3. Zrobione | Drzewo robocze, widok, przeciąganie | Ręczne kroki faz 1–2 czekają; po fazie 4 idą na nowych adresach |
+| 4. API nazwanych drzew | `UserTree`, migracja danych, `/trees` | Przebudowa tabeli na SQLite przed wypełnieniem `TreeId` zgubiłaby węzły — kolejność sprawdzana w skrypcie i na kopii bazy |
+| 5. Lista drzew w widoku | Tabela z panelem, `?drzewo=`, pusty stan | Między fazą 4 a 5 widok nie działa; `treeId` musi dotrzeć do akcji fetchera |
+| 6. Filtr i usuwanie przeciągnięciem | Pole wyboru, lista jako cel upuszczenia | Usuwanie bez potwierdzenia i bez „cofnij” — cel musi reagować wyłącznie na typ węzła |
 
-**Prerequisites:** S-02 i S-07 z działającym kodem; kopia pliku bazy przed migracją; dwa konta do sprawdzenia izolacji.
-**Estimated effort:** ~3–4 sesje w trzech fazach.
+**Prerequisites:** kopia pliku bazy przed migracją; dwa konta z drzewami do sprawdzenia izolacji; Chromium i Firefox.
+**Estimated effort:** ~2–3 sesje na fazy 4–6.
 
 ## Open Risks & Assumptions
 
-- Izolacja kont stoi na dwóch warunkach infrastruktury (nasłuch tylko na pętli zwrotnej, tunel tylko na :3000) — kandydat na `/10x-lesson` po implementacji.
-- antd Tree bez wirtualizacji przy 2000 węzłach — zakładamy, że wystarcza; S-05 zdecyduje o wirtualizacji razem z gridem.
-- Roadmapa nadal wymienia pytanie o przeciąganie jako otwarte — ten plan je rozstrzyga; tekst roadmapy uaktualni `/10x-roadmap` albo commit domykający plaster.
+- Izolacja kont stoi na dwóch warunkach infrastruktury (nasłuch tylko na pętli zwrotnej, tunel tylko na :3000) — kandydat na `/10x-lesson`.
+- `Down` migracji scala drzewa konta w jedno — cofnięcie po utworzeniu kolejnych drzew traci ich podział. Wyłącza też klucze obce przed usunięciem tabeli drzew, bo EF stawia przebudowę `TreeNodes` na końcu i kaskada skasowałaby węzły (plan-review F1).
+- W Development API migruje bazę przy starcie — kopia pliku bazy przed pierwszym startem po dodaniu migracji (plan-review F2).
+- Fazy 4 i 5 trzeba wdrożyć przez tunel razem.
+- S-06 musi rozstrzygnąć, co z ekranem, gdy wskazane drzewo zostanie zmienione albo usunięte (niezablokowane pytanie w roadmapie).
 
 ## Success Criteria (Summary)
 
-- Dyspozytor buduje własne, trwałe drzewo z listy obiektów przyciskiem i przeciąganiem.
-- Zapętlenie i duplikat rodzeństwa są odrzucane z czytelnym komunikatem, a niespójnej struktury nie da się zapisać nawet z pominięciem interfejsu.
-- Każde konto widzi wyłącznie własne drzewo.
+- Dyspozytor prowadzi kilka własnych, nazwanych drzew i buduje strukturę w wybranym — przyciskiem i przeciąganiem.
+- Zapętlenie, duplikat i zbyt duże drzewo są odrzucane w obrębie drzewa, a cudzych drzew nie da się zobaczyć ani zmienić nawet z pominięciem interfejsu.
+- Dotychczasowe drzewo robocze przeżywa migrację bez zmian.

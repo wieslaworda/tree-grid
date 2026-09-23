@@ -10,10 +10,11 @@ namespace Api.Data;
 /// (<see cref="CatalogObject"/> i relację rodzic–podobiekt
 /// <see cref="CatalogObjectLink"/>), wspólny dla wszystkich kont. Od S-09 —
 /// słownik kategorii danych (<see cref="Category"/>), również wspólny i na razie
-/// bez relacji z czymkolwiek. Od S-03 — drzewo robocze użytkownika
-/// (<see cref="TreeNode"/>): pierwsza tabela z właścicielem, jedno drzewo na
-/// konto, złożone z wystąpień obiektów słownika. Nazwane ekrany (S-06) i grid
-/// dochodzą w kolejnych plastrach.
+/// bez relacji z czymkolwiek. Od S-03 — nazwane drzewa użytkownika
+/// (<see cref="UserTree"/>): jedyna tabela z właścicielem, dowolnie wiele drzew
+/// na konto, każde złożone z węzłów (<see cref="TreeNode"/>) — wystąpień obiektów
+/// słownika. Węzeł należy do drzewa, drzewo do konta. Nazwane ekrany (S-06)
+/// i grid dochodzą w kolejnych plastrach.
 /// </summary>
 public sealed class AppDbContext(DbContextOptions<AppDbContext> options)
     : IdentityDbContext<AppUser>(options)
@@ -23,6 +24,8 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options)
     public DbSet<CatalogObjectLink> CatalogObjectLinks => Set<CatalogObjectLink>();
 
     public DbSet<Category> Categories => Set<Category>();
+
+    public DbSet<UserTree> Trees => Set<UserTree>();
 
     public DbSet<TreeNode> TreeNodes => Set<TreeNode>();
 
@@ -97,18 +100,40 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options)
                     text => ReadStoredAggregateFunction(text));
         });
 
+        builder.Entity<UserTree>(tree =>
+        {
+            // Kaskada od konta: kont nie da się dziś usuwać, ale drzewo bez
+            // właściciela nie ma sensu, więc gdy usuwanie konta się pojawi,
+            // drzewa mają zniknąć razem z nim (a z nimi — kaskadą niżej — ich
+            // węzły), a nie blokować je kluczem obcym.
+            tree.HasOne(t => t.User)
+                .WithMany()
+                .HasForeignKey(t => t.UserId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            // Długości jako metadane, wiążący limit w `TreeNameRules` — ten sam
+            // układ co w blokach słowników wyżej.
+            tree.Property(t => t.Name).HasMaxLength(UserTree.NameMaxLength);
+            tree.Property(t => t.NormalizedName).HasMaxLength(UserTree.NameMaxLength);
+
+            // Unikalność nazwy w obrębie konta, po postaci znormalizowanej.
+            // `UserId` jest wymagane, więc pułapka `NULL` z indeksu rodzeństwa
+            // (niżej) tu nie występuje: dwa drzewa jednego konta o tej samej
+            // nazwie zderzą się na indeksie zawsze.
+            tree.HasIndex(t => new { t.UserId, t.NormalizedName }).IsUnique();
+        });
+
         builder.Entity<TreeNode>(node =>
         {
-            // Kaskada od konta: kont nie da się dziś usuwać, ale węzeł bez
-            // właściciela nie ma sensu, więc gdy usuwanie konta się pojawi,
-            // drzewo ma zniknąć razem z nim, a nie blokować je kluczem obcym.
-            node.HasOne(n => n.User)
-                .WithMany()
-                .HasForeignKey(n => n.UserId)
+            // Kaskada od drzewa: usunięcie drzewa usuwa jego węzły także na
+            // poziomie bazy. Właściciela węzeł nie ma — ma go drzewo.
+            node.HasOne(n => n.Tree)
+                .WithMany(t => t.Nodes)
+                .HasForeignKey(n => n.TreeId)
                 .OnDelete(DeleteBehavior.Cascade);
 
             // Kaskada od rodzica: usunięcie węzła usuwa jego poddrzewo także na
-            // poziomie bazy. Endpoint i tak wczytuje całe drzewo użytkownika,
+            // poziomie bazy. Endpoint i tak wczytuje całe drzewo z adresu,
             // więc EF usuwa śledzonych potomków sam — schemat jest drugim
             // bezpiecznikiem, żeby żaden węzeł nie został z rodzicem, którego
             // nie ma.
@@ -131,11 +156,11 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options)
             // unikalny: przenumerowanie przesuwa pozycje w miejscu, więc
             // unikalność łamałaby się chwilowo w środku `SaveChanges`.
             //
-            // Unikalnego indeksu na duplikat rodzeństwa `(UserId, ParentId,
+            // Unikalnego indeksu na duplikat rodzeństwa `(TreeId, ParentId,
             // ObjectId)` też nie ma: SQLite traktuje `NULL` w unikalnym indeksie
             // jako różne wartości, więc nie złapałby duplikatu na najwyższym
             // poziomie. Ta reguła żyje w `TreeRules` i w transakcji endpointu.
-            node.HasIndex(n => new { n.UserId, n.ParentId, n.Position });
+            node.HasIndex(n => new { n.TreeId, n.ParentId, n.Position });
         });
     }
 

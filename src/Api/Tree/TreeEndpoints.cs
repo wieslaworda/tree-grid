@@ -5,42 +5,50 @@ using Microsoft.EntityFrameworkCore;
 namespace Api.Tree;
 
 /// <summary>
-/// Endpointy drzewa roboczego (S-03): odczyt drzewa i trzy polecenia na
-/// węzłach — dodanie, przeniesienie, usunięcie. Wzorem <c>Api.Objects</c>
-/// endpoint wiąże żądanie, czyta i zapisuje w jednej transakcji oraz
-/// odwzorowuje werdykt reguły (<see cref="TreeRules"/>) na kopertę błędu.
+/// Endpointy nazwanych drzew użytkownika (S-03, MS-03–MS-05): lista drzew
+/// z dodaniem, zmianą nazwy i usunięciem oraz — w obrębie drzewa z adresu —
+/// odczyt węzłów i trzy polecenia na nich: dodanie, przeniesienie, usunięcie.
+/// Wzorem <c>Api.Objects</c> endpoint wiąże żądanie, czyta i zapisuje w jednej
+/// transakcji oraz odwzorowuje werdykt reguły (<see cref="TreeRules"/>,
+/// <see cref="TreeNameRules"/>) na kopertę błędu.
 ///
-/// W odróżnieniu od słowników drzewo ma właściciela. Każdy endpoint najpierw
-/// rozstrzyga tożsamość z nagłówka (<see cref="TreeIdentity"/> — tam też model
-/// zaufania), a każde zapytanie o węzły filtruje po <c>UserId</c>: węzeł
-/// cudzego drzewa jest dla API nieistniejący i daje 404, nie 403 — odpowiedź
-/// nie potwierdza, że taki węzeł w ogóle jest.
+/// W odróżnieniu od słowników drzewo ma właściciela, a węzeł należy do drzewa,
+/// nie wprost do konta. Każdy endpoint najpierw rozstrzyga tożsamość z nagłówka
+/// (<see cref="TreeIdentity"/> — tam też model zaufania), potem szuka drzewa
+/// z adresu po identyfikatorze <b>i</b> właścicielu, a dopiero potem czyta
+/// węzły — wyłącznie po <c>TreeId</c> drzewa, które przeszło ten filtr. Cudze
+/// drzewo jest dla API nieistniejące i daje 404, nie 403 — odpowiedź nie
+/// potwierdza, że takie drzewo w ogóle jest. Węzeł innego drzewa, także
+/// drzewa tego samego konta, jest w adresie drzewa tak samo nieistniejący.
 /// </summary>
 /// <remarks>
-/// Każde polecenie otwiera transakcję <b>przed</b> pierwszym odczytem —
-/// także przed odczytem tożsamości — i zatwierdza ją dopiero po
-/// <c>SaveChanges</c>. Na SQLite <c>BeginTransaction</c> startuje od razu jako
-/// transakcja zapisowa (<c>BEGIN IMMEDIATE</c>), więc drugie równoległe
-/// polecenie tego samego użytkownika (np. z drugiej karty) czeka na pierwsze
-/// (<c>busy_timeout</c> z <c>Program.cs</c>), zamiast czytać ten sam stan
-/// drzewa. Bez tego dwa dodania przeszłyby kontrolę duplikatu albo zapętlenia
-/// osobno i razem zapisały dokładnie stan, którego reguły zabraniają. Wyjście
-/// bez <c>Commit</c> (odmowa, wyjątek) wycofuje transakcję przy jej zwolnieniu.
+/// Każdy zapis — na drzewie i na węzłach — otwiera transakcję <b>przed</b>
+/// pierwszym odczytem, także przed odczytem tożsamości, i zatwierdza ją
+/// dopiero po <c>SaveChanges</c>. Na SQLite <c>BeginTransaction</c> startuje
+/// od razu jako transakcja zapisowa (<c>BEGIN IMMEDIATE</c>), więc drugie
+/// równoległe polecenie tego samego użytkownika (np. z drugiej karty) czeka na
+/// pierwsze (<c>busy_timeout</c> z <c>Program.cs</c>), zamiast czytać ten sam
+/// stan. Bez tego dwa dodania przeszłyby kontrolę duplikatu albo zapętlenia
+/// osobno i razem zapisały dokładnie stan, którego reguły zabraniają — a dwa
+/// nowe drzewa o tej samej nazwie skończyłyby się wyjątkiem z unikalnego
+/// indeksu zamiast odpowiedzią w kontrakcie. Wyjście bez <c>Commit</c> (odmowa,
+/// wyjątek) wycofuje transakcję przy jej zwolnieniu.
 ///
-/// Każde polecenie wczytuje całe drzewo użytkownika: limit
+/// Każde polecenie na węzłach wczytuje całe drzewo z adresu: limit
 /// <see cref="TreeNode.MaxNodesPerTree"/> trzyma je w rozmiarze, przy którym
 /// reguły w pamięci kosztują pojedyncze milisekundy, a pozycje rodzeństwa da
-/// się przenumerować bez osobnych zapytań.
+/// się przenumerować bez osobnych zapytań. Duplikat na najwyższym poziomie
+/// i limit liczą się w obrębie jednego drzewa.
 ///
-/// Kolejność kontroli jest częścią kontraktu: tożsamość → wejście → duplikat
-/// rodzeństwa → zapętlenie → rozmiar. Klient pokazuje jeden komunikat, więc
-/// przy kilku naruszeniach wygrywa pierwsze w tej kolejności.
+/// Kolejność kontroli jest częścią kontraktu: tożsamość → drzewo → wejście →
+/// duplikat → zapętlenie → rozmiar. Klient pokazuje jeden komunikat, więc przy
+/// kilku naruszeniach wygrywa pierwsze w tej kolejności.
 /// </remarks>
 internal static class TreeEndpoints
 {
-    private const string TreePath = "/tree";
+    private const string TreesPath = "/trees";
 
-    private const string NodesPath = "/tree/nodes";
+    private const string NodesPath = "/trees/{treeId:int}/nodes";
 
     private const string ValidationMessage = "Przesłane dane są nieprawidłowe.";
 
@@ -48,7 +56,12 @@ internal static class TreeEndpoints
     {
         // Ograniczenie `int` w szablonie: identyfikator, który nie jest liczbą,
         // kończy się 404 z routingu, a nie błędem wiązania w cudzym kształcie.
-        app.MapGet(TreePath, GetTreeAsync);
+        app.MapGet(TreesPath, ListTreesAsync);
+        app.MapPost(TreesPath, CreateTreeAsync);
+        app.MapPut($"{TreesPath}/{{id:int}}", RenameTreeAsync);
+        app.MapDelete($"{TreesPath}/{{id:int}}", DeleteTreeAsync);
+
+        app.MapGet(NodesPath, GetNodesAsync);
         app.MapPost(NodesPath, AddNodeAsync);
         app.MapPut($"{NodesPath}/{{id:int}}", MoveNodeAsync);
         app.MapDelete($"{NodesPath}/{{id:int}}", DeleteNodeAsync);
@@ -57,15 +70,16 @@ internal static class TreeEndpoints
     }
 
     /// <summary>
-    /// Całe drzewo użytkownika jako płaska lista, posortowana po rodzicu
-    /// (najpierw najwyższy poziom) i pozycji. Świeże konto dostaje pustą listę.
+    /// Drzewa użytkownika posortowane po nazwie znormalizowanej porządkiem
+    /// porządkowym (tym samym, którym porównuje ją unikalny indeks), a przy
+    /// równej — po identyfikatorze. Pierwszy element to drzewo, które widok
+    /// otwiera bez wyboru. Konto bez drzew dostaje pustą listę.
     /// </summary>
     /// <remarks>
-    /// Bez transakcji — jak <c>GET /objects</c>: węzły to jedno zapytanie,
-    /// a transakcja zapisowa ustawiałaby każdy odczyt w kolejce za zapisami.
+    /// Bez transakcji — jak <c>GET /objects</c>: drzewa to jedno zapytanie.
     /// Tożsamość czytana osobno jest bezpieczna, bo kont się nie usuwa.
     /// </remarks>
-    private static async Task<IResult> GetTreeAsync(
+    private static async Task<IResult> ListTreesAsync(
         HttpRequest httpRequest,
         AppDbContext db,
         CancellationToken cancellationToken)
@@ -77,7 +91,165 @@ internal static class TreeEndpoints
             return TreeIdentity.Refusal();
         }
 
-        var entries = await LoadEntriesAsync(db.TreeNodes.AsNoTracking(), userId, cancellationToken);
+        var items = (await LoadTreeNamesAsync(db, userId, cancellationToken))
+            .OrderBy(tree => tree.NormalizedName, StringComparer.Ordinal)
+            .ThenBy(tree => tree.Id)
+            .Select(tree => new { id = tree.Id, name = tree.Name })
+            .ToList();
+
+        return Results.Ok(new { items });
+    }
+
+    /// <summary>Zakłada puste drzewo o podanej nazwie.</summary>
+    private static async Task<IResult> CreateTreeAsync(
+        TreeRequest? request,
+        HttpRequest httpRequest,
+        AppDbContext db,
+        CancellationToken cancellationToken)
+    {
+        // Przed pierwszym odczytem — patrz komentarz klasy.
+        await using var transaction = await db.Database.BeginTransactionAsync(cancellationToken);
+
+        var userId = await TreeIdentity.ResolveUserIdAsync(httpRequest, db, cancellationToken);
+
+        if (userId is null)
+        {
+            return TreeIdentity.Refusal();
+        }
+
+        var name = await ValidateNameAsync(db, userId, request?.Name, editedId: null, cancellationToken);
+
+        if (name.Refusal is { } refusal)
+        {
+            return refusal;
+        }
+
+        var tree = new UserTree
+        {
+            UserId = userId,
+            Name = name.Value,
+            NormalizedName = TreeNameRules.Normalize(name.Value),
+        };
+
+        db.Trees.Add(tree);
+
+        await db.SaveChangesAsync(cancellationToken);
+        await transaction.CommitAsync(cancellationToken);
+
+        // 201 bez nagłówka `Location`: pod `/trees/{id}` są tylko `PUT`
+        // i `DELETE`, więc `GET` dałby 405 (`context/foundation/lessons.md`,
+        // „Kontrakt API nie wyprzedza emitenta").
+        return Results.Json(new { id = tree.Id }, statusCode: StatusCodes.Status201Created);
+    }
+
+    /// <summary>
+    /// Zmienia nazwę własnego drzewa. Ta sama nazwa — także w innej wielkości
+    /// liter — nie jest duplikatem: drzewo nie koliduje samo ze sobą.
+    /// </summary>
+    private static async Task<IResult> RenameTreeAsync(
+        int id,
+        TreeRequest? request,
+        HttpRequest httpRequest,
+        AppDbContext db,
+        CancellationToken cancellationToken)
+    {
+        // Przed pierwszym odczytem — patrz komentarz klasy.
+        await using var transaction = await db.Database.BeginTransactionAsync(cancellationToken);
+
+        var userId = await TreeIdentity.ResolveUserIdAsync(httpRequest, db, cancellationToken);
+
+        if (userId is null)
+        {
+            return TreeIdentity.Refusal();
+        }
+
+        // Śledzone, bo zmienia się nazwa. Nieistniejące drzewo wygrywa z błędem
+        // pola — jak w `ObjectEndpoints`.
+        if (await FindOwnedTreeAsync(db.Trees, id, userId, cancellationToken) is not { } tree)
+        {
+            return TreeNotFound(id);
+        }
+
+        var name = await ValidateNameAsync(db, userId, request?.Name, editedId: id, cancellationToken);
+
+        if (name.Refusal is { } refusal)
+        {
+            return refusal;
+        }
+
+        tree.Name = name.Value;
+        tree.NormalizedName = TreeNameRules.Normalize(name.Value);
+
+        await db.SaveChangesAsync(cancellationToken);
+        await transaction.CommitAsync(cancellationToken);
+
+        return Results.Ok(new { id });
+    }
+
+    /// <summary>
+    /// Usuwa drzewo razem ze wszystkimi jego węzłami. Węzłów endpoint nie
+    /// wczytuje — usuwa je kaskada klucza obcego <c>TreeId</c> w schemacie
+    /// (<see cref="AppDbContext"/>).
+    /// </summary>
+    private static async Task<IResult> DeleteTreeAsync(
+        int id,
+        HttpRequest httpRequest,
+        AppDbContext db,
+        CancellationToken cancellationToken)
+    {
+        // Przed pierwszym odczytem — patrz komentarz klasy.
+        await using var transaction = await db.Database.BeginTransactionAsync(cancellationToken);
+
+        var userId = await TreeIdentity.ResolveUserIdAsync(httpRequest, db, cancellationToken);
+
+        if (userId is null)
+        {
+            return TreeIdentity.Refusal();
+        }
+
+        if (await FindOwnedTreeAsync(db.Trees, id, userId, cancellationToken) is not { } tree)
+        {
+            return TreeNotFound(id);
+        }
+
+        db.Trees.Remove(tree);
+
+        await db.SaveChangesAsync(cancellationToken);
+        await transaction.CommitAsync(cancellationToken);
+
+        return Results.NoContent();
+    }
+
+    /// <summary>
+    /// Całe drzewo z adresu jako płaska lista węzłów, posortowana po rodzicu
+    /// (najpierw najwyższy poziom) i pozycji. Nowe drzewo daje pustą listę.
+    /// </summary>
+    /// <remarks>
+    /// Bez transakcji — jak <c>GET /objects</c>: transakcja zapisowa
+    /// ustawiałaby każdy odczyt w kolejce za zapisami. Drzewo usunięte między
+    /// sprawdzeniem właściciela a odczytem węzłów daje co najwyżej pustą listę
+    /// — węzły znikają razem z nim, więc cudzych węzłów to okno nie odsłania.
+    /// </remarks>
+    private static async Task<IResult> GetNodesAsync(
+        int treeId,
+        HttpRequest httpRequest,
+        AppDbContext db,
+        CancellationToken cancellationToken)
+    {
+        var userId = await TreeIdentity.ResolveUserIdAsync(httpRequest, db, cancellationToken);
+
+        if (userId is null)
+        {
+            return TreeIdentity.Refusal();
+        }
+
+        if (await FindOwnedTreeAsync(db.Trees.AsNoTracking(), treeId, userId, cancellationToken) is null)
+        {
+            return TreeNotFound(treeId);
+        }
+
+        var entries = (await LoadNodesAsync(db.TreeNodes.AsNoTracking(), treeId, cancellationToken))
+            .Select(ToEntry);
 
         var nodes = entries
             .OrderBy(node => node.ParentId.HasValue)
@@ -102,6 +274,7 @@ internal static class TreeEndpoints
     /// struktury słownika z tej chwili.
     /// </summary>
     private static async Task<IResult> AddNodeAsync(
+        int treeId,
         AddTreeNodeRequest? request,
         HttpRequest httpRequest,
         AppDbContext db,
@@ -115,6 +288,11 @@ internal static class TreeEndpoints
         if (userId is null)
         {
             return TreeIdentity.Refusal();
+        }
+
+        if (await FindOwnedTreeAsync(db.Trees.AsNoTracking(), treeId, userId, cancellationToken) is null)
+        {
+            return TreeNotFound(treeId);
         }
 
         var fields = new Dictionary<string, string>();
@@ -143,7 +321,7 @@ internal static class TreeEndpoints
         }
 
         var tree = new TreeSnapshot(
-            await LoadEntriesAsync(db.TreeNodes.AsNoTracking(), userId, cancellationToken));
+            (await LoadNodesAsync(db.TreeNodes.AsNoTracking(), treeId, cancellationToken)).Select(ToEntry));
 
         if (parentId is { } requestedParentId && !tree.Contains(requestedParentId))
         {
@@ -199,14 +377,14 @@ internal static class TreeEndpoints
 
         // Nowy węzeł staje na końcu grupy rodzeństwa, której pozycje są ciągłe
         // od 0 — liczba rodzeństwa jest więc jego pozycją.
-        var root = ToEntities(expansion.Branch!, userId, parentId, tree.ChildrenOf(parentId).Count);
+        var root = ToEntities(expansion.Branch!, treeId, parentId, tree.ChildrenOf(parentId).Count);
 
         db.TreeNodes.Add(root);
 
         await db.SaveChangesAsync(cancellationToken);
         await transaction.CommitAsync(cancellationToken);
 
-        // 201 bez nagłówka `Location`: pod `/tree/nodes/{id}` są tylko `PUT`
+        // 201 bez nagłówka `Location`: pod `/trees/{treeId}/nodes/{id}` są tylko `PUT`
         // i `DELETE`, więc `GET` dałby 405 (`context/foundation/lessons.md`,
         // „Kontrakt API nie wyprzedza emitenta").
         return Results.Json(new { id = root.Id }, statusCode: StatusCodes.Status201Created);
@@ -219,6 +397,7 @@ internal static class TreeEndpoints
     /// (0…liczba rodzeństwa). Ten sam rodzic to zmiana kolejności.
     /// </summary>
     private static async Task<IResult> MoveNodeAsync(
+        int treeId,
         int id,
         MoveTreeNodeRequest? request,
         HttpRequest httpRequest,
@@ -235,13 +414,17 @@ internal static class TreeEndpoints
             return TreeIdentity.Refusal();
         }
 
+        if (await FindOwnedTreeAsync(db.Trees.AsNoTracking(), treeId, userId, cancellationToken) is null)
+        {
+            return TreeNotFound(treeId);
+        }
+
         // Śledzone, bo przeniesienie zmienia rodzica i pozycje.
-        var entities = (await db.TreeNodes
-                .Where(node => node.UserId == userId)
-                .ToListAsync(cancellationToken))
+        var entities = (await LoadNodesAsync(db.TreeNodes, treeId, cancellationToken))
             .ToDictionary(node => node.Id);
 
         // Nieistniejący zasób wygrywa z błędami pól — jak w `ObjectEndpoints`.
+        // Węzeł innego drzewa, także tego samego konta, nie jest w `entities`.
         if (!entities.TryGetValue(id, out var moved))
         {
             return NodeNotFound(id);
@@ -326,6 +509,7 @@ internal static class TreeEndpoints
     /// pozycje zostały ciągłe od 0.
     /// </summary>
     private static async Task<IResult> DeleteNodeAsync(
+        int treeId,
         int id,
         HttpRequest httpRequest,
         AppDbContext db,
@@ -341,12 +525,15 @@ internal static class TreeEndpoints
             return TreeIdentity.Refusal();
         }
 
+        if (await FindOwnedTreeAsync(db.Trees.AsNoTracking(), treeId, userId, cancellationToken) is null)
+        {
+            return TreeNotFound(treeId);
+        }
+
         // Całe drzewo śledzone: usunięcie węzła kaskadą EF oznacza do usunięcia
         // także wszystkich śledzonych potomków, a rodzeństwo dostaje nowe
         // pozycje. Kaskada w schemacie jest drugim bezpiecznikiem.
-        var entities = (await db.TreeNodes
-                .Where(node => node.UserId == userId)
-                .ToListAsync(cancellationToken))
+        var entities = (await LoadNodesAsync(db.TreeNodes, treeId, cancellationToken))
             .ToDictionary(node => node.Id);
 
         if (!entities.TryGetValue(id, out var deleted))
@@ -367,17 +554,86 @@ internal static class TreeEndpoints
     }
 
     /// <summary>
-    /// Węzły drzewa jednego użytkownika — jedyne miejsce, w którym zapytanie
-    /// o węzły dostaje filtr po właścicielu, więc żaden odczyt go nie pominie.
+    /// Drzewo <paramref name="treeId"/> konta <paramref name="userId"/> albo
+    /// <c>null</c> — jedyne miejsce, w którym zapytanie o drzewo dostaje filtr
+    /// po właścicielu. Cudze drzewo i drzewo, którego nie ma, dają ten sam
+    /// <c>null</c>. <paramref name="trees"/> śledzone albo nie — decyduje
+    /// wywołujący.
     /// </summary>
-    private static async Task<List<TreeNodeEntry>> LoadEntriesAsync(
-        IQueryable<TreeNode> nodes,
+    private static async Task<UserTree?> FindOwnedTreeAsync(
+        IQueryable<UserTree> trees,
+        int treeId,
         string userId,
         CancellationToken cancellationToken)
+        => await trees.SingleOrDefaultAsync(
+            tree => tree.Id == treeId && tree.UserId == userId,
+            cancellationToken);
+
+    /// <summary>
+    /// Węzły jednego drzewa — jedyne miejsce, w którym zapytanie o węzły dostaje
+    /// filtr, i to wyłącznie po <c>TreeId</c>. Wywołujący przekazuje drzewo,
+    /// które przeszło <see cref="FindOwnedTreeAsync"/>; <paramref name="nodes"/>
+    /// śledzone (przeniesienie, usunięcie) albo nie (odczyt, dodanie).
+    /// </summary>
+    private static async Task<List<TreeNode>> LoadNodesAsync(
+        IQueryable<TreeNode> nodes,
+        int treeId,
+        CancellationToken cancellationToken)
         => await nodes
-            .Where(node => node.UserId == userId)
-            .Select(node => new TreeNodeEntry(node.Id, node.ParentId, node.ObjectId, node.Position))
+            .Where(node => node.TreeId == treeId)
             .ToListAsync(cancellationToken);
+
+    /// <summary>
+    /// Nazwy drzew jednego konta — do listy i do kontroli duplikatu nazwy.
+    /// </summary>
+    private static async Task<List<TreeNameEntry>> LoadTreeNamesAsync(
+        AppDbContext db,
+        string userId,
+        CancellationToken cancellationToken)
+        => await db.Trees
+            .AsNoTracking()
+            .Where(tree => tree.UserId == userId)
+            .Select(tree => new TreeNameEntry(tree.Id, tree.Name, tree.NormalizedName))
+            .ToListAsync(cancellationToken);
+
+    /// <summary>
+    /// Nazwa do zapisu albo odmowa 400 pod <see cref="TreeRequestFields.Name"/>:
+    /// najpierw reguły <see cref="TreeNameRules"/>, potem duplikat w obrębie
+    /// konta. Nazwa, która nie przeszła kontroli formy, nie jest już sprawdzana
+    /// pod kątem duplikatu — formularz pokazuje pod polem jeden komunikat.
+    /// </summary>
+    private static async Task<NameVerdict> ValidateNameAsync(
+        AppDbContext db,
+        string userId,
+        string? requestedName,
+        int? editedId,
+        CancellationToken cancellationToken)
+    {
+        if (!TreeNameRules.TryValidate(requestedName, out var name, out var message))
+        {
+            return new NameVerdict(name, NameFailure(message!));
+        }
+
+        var normalizedName = TreeNameRules.Normalize(name);
+
+        // Porównanie porządkowe, tak jak porównuje unikalny indeks. Drzewo
+        // edytowane nie koliduje samo ze sobą — zmiana samej wielkości liter
+        // własnej nazwy jest dozwolona. Drzewa innych kont nie wchodzą do
+        // porównania wcale: dwa konta mogą mieć drzewa o tej samej nazwie.
+        var holder = (await LoadTreeNamesAsync(db, userId, cancellationToken))
+            .FirstOrDefault(tree => tree.Id != editedId
+                && string.Equals(tree.NormalizedName, normalizedName, StringComparison.Ordinal));
+
+        return holder is null
+            ? new NameVerdict(name, Refusal: null)
+            : new NameVerdict(name, NameFailure($"Drzewo o nazwie „{holder.Name}” już istnieje."));
+    }
+
+    private static IResult NameFailure(string message)
+        => ValidationFailure(new Dictionary<string, string>
+        {
+            [TreeRequestFields.Name] = message,
+        });
 
     private static async Task<Dictionary<int, CatalogEntry>> LoadCatalogAsync(
         AppDbContext db,
@@ -405,11 +661,11 @@ internal static class TreeEndpoints
     /// i pozycję w jego grupie, potomkowie — nawigację i indeks wśród
     /// rodzeństwa; identyfikatory i klucze obce potomków nada zapis.
     /// </summary>
-    private static TreeNode ToEntities(BranchNode branch, string userId, int? parentId, int position)
+    private static TreeNode ToEntities(BranchNode branch, int treeId, int? parentId, int position)
     {
         var root = new TreeNode
         {
-            UserId = userId,
+            TreeId = treeId,
             ParentId = parentId,
             ObjectId = branch.ObjectId,
             Position = position,
@@ -427,7 +683,7 @@ internal static class TreeEndpoints
             {
                 var child = new TreeNode
                 {
-                    UserId = userId,
+                    TreeId = treeId,
                     ObjectId = source.Children[index].ObjectId,
                     Position = index,
                 };
@@ -472,6 +728,11 @@ internal static class TreeEndpoints
     private static string ParentNotInTreeMessage(int parentId)
         => $"Węzeł o identyfikatorze {parentId} nie istnieje w drzewie.";
 
+    private static IResult TreeNotFound(int id)
+        => Results.Json(
+            ApiError.Create(ApiErrorCodes.NotFound, $"Nie znaleziono drzewa o identyfikatorze {id}."),
+            statusCode: StatusCodes.Status404NotFound);
+
     private static IResult NodeNotFound(int id)
         => Results.Json(
             ApiError.Create(ApiErrorCodes.NotFound, $"Nie znaleziono węzła drzewa o identyfikatorze {id}."),
@@ -486,11 +747,19 @@ internal static class TreeEndpoints
         => Results.Json(error, statusCode: StatusCodes.Status409Conflict);
 
     private sealed record CatalogEntry(int Id, string Code, string NormalizedCode);
+
+    private sealed record TreeNameEntry(int Id, string Name, string NormalizedName);
+
+    /// <summary>
+    /// Wynik kontroli nazwy: <see cref="Value"/> po obcięciu spacji do zapisu,
+    /// gdy <see cref="Refusal"/> jest <c>null</c>.
+    /// </summary>
+    private readonly record struct NameVerdict(string Value, IResult? Refusal);
 }
 
 /// <summary>
 /// Nazwy pól w mapie naruszeń (<c>context.fields</c>) — te same co pola ciała
-/// żądań <c>/tree/nodes</c>.
+/// żądań <c>/trees</c> i <c>/trees/{treeId}/nodes</c>.
 /// </summary>
 /// <remarks>
 /// Muszą być identyczne z nazwami, pod którymi klient drzewa po stronie React
@@ -501,13 +770,20 @@ internal static class TreeEndpoints
 internal static class TreeRequestFields
 {
     /// <summary>
+    /// Nazwa drzewa (<c>POST /trees</c>, <c>PUT /trees/{id}</c>): brak, pusta,
+    /// za długa albo zajęta przez inne drzewo tego samego konta.
+    /// </summary>
+    public const string Name = "name";
+
+    /// <summary>
     /// Dodawany obiekt: brak pola albo obiekt, którego nie ma w słowniku.
     /// </summary>
     public const string ObjectId = "objectId";
 
     /// <summary>
-    /// Docelowy rodzic: węzeł, którego nie ma w drzewie użytkownika (także
-    /// węzeł cudzego drzewa). Brak pola to najwyższy poziom, nie błąd.
+    /// Docelowy rodzic: węzeł, którego nie ma w drzewie z adresu (także węzeł
+    /// innego drzewa, własnego albo cudzego). Brak pola to najwyższy poziom,
+    /// nie błąd.
     /// </summary>
     public const string ParentId = "parentId";
 
@@ -610,6 +886,13 @@ internal static class TreeResponses
                 [AddingContextKey] = adding,
             });
 }
+
+/// <summary>
+/// Treść żądania utworzenia drzewa i zmiany jego nazwy. Pole nullowalne, żeby
+/// jego brak dawał błąd walidacji w kontrakcie, a nie błąd wiązania w kształcie
+/// frameworka.
+/// </summary>
+internal sealed record TreeRequest(string? Name);
 
 /// <summary>
 /// Treść żądania dodania obiektu do drzewa. Pola są nullowalne, żeby ich brak

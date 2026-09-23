@@ -87,9 +87,10 @@ public static class ApiErrorCodes
     /// Brak zasobu pod wskazanym adresem (404). Oddaje go routing dla adresu,
     /// którego nic nie obsługuje, ale też endpoint, który pod poprawnym adresem
     /// nie znalazł wskazanego zasobu — na przykład nieistniejącego obiektu
-    /// słownika w <c>PUT</c> albo <c>DELETE /objects/{id}</c>, albo węzła
-    /// w <c>PUT</c> i <c>DELETE /tree/nodes/{id}</c>, gdzie węzeł cudzego drzewa
-    /// jest dla API tak samo nieistniejący. Klient nie rozróżnia tych
+    /// słownika w <c>PUT</c> albo <c>DELETE /objects/{id}</c>, drzewa pod
+    /// <c>/trees/{id}</c> i <c>/trees/{treeId}/nodes</c> albo węzła w <c>PUT</c>
+    /// i <c>DELETE /trees/{treeId}/nodes/{id}</c> — cudze drzewo i węzeł innego
+    /// drzewa są dla API tak samo nieistniejące. Klient nie rozróżnia tych
     /// przypadków i nie ma powodu tego robić.
     /// </summary>
     public const string NotFound = "not_found";
@@ -101,7 +102,7 @@ public static class ApiErrorCodes
     /// Żądanie nie zostało uwierzytelnione albo poświadczenia są nieprawidłowe
     /// (401). Kod jest wspólny dla nieistniejącego konta i złego hasła —
     /// rozróżnienie ich w odpowiedzi pozwoliłoby wyliczyć listę adresów e-mail.
-    /// Oddają go też endpointy <c>/tree</c> dla żądania bez nagłówka tożsamości
+    /// Oddają go też endpointy <c>/trees</c> dla żądania bez nagłówka tożsamości
     /// albo z identyfikatorem konta, którego nie ma (<c>Api.Tree.TreeIdentity</c>).
     /// </summary>
     public const string Unauthorized = "unauthorized";
@@ -148,7 +149,8 @@ public static class ApiErrorCodes
 
     /// <summary>
     /// Odmowa operacji na drzewie, po której obiekt stanąłby na własnej ścieżce
-    /// do korzenia (409, <c>POST /tree/nodes</c> i <c>PUT /tree/nodes/{id}</c>).
+    /// do korzenia (409, <c>POST /trees/{treeId}/nodes</c>
+    /// i <c>PUT /trees/{treeId}/nodes/{id}</c>).
     /// <c>context.path</c> niesie kody obiektów od wystąpienia konfliktowego
     /// wśród przodków do wystąpienia w dołączanej gałęzi.
     /// </summary>
@@ -156,15 +158,16 @@ public static class ApiErrorCodes
 
     /// <summary>
     /// Odmowa operacji na drzewie, po której ten sam obiekt stałby dwa razy
-    /// pod jednym rodzicem albo dwa razy na najwyższym poziomie (409,
-    /// <c>POST /tree/nodes</c> i <c>PUT /tree/nodes/{id}</c>).
+    /// pod jednym rodzicem albo dwa razy na najwyższym poziomie jednego drzewa
+    /// (409, <c>POST /trees/{treeId}/nodes</c>
+    /// i <c>PUT /trees/{treeId}/nodes/{id}</c>).
     /// <c>context.objectCode</c> — kod dublowanego obiektu.
     /// </summary>
     public const string TreeDuplicateSibling = "tree_duplicate_sibling";
 
     /// <summary>
     /// Odmowa dodania, po którym drzewo przekroczyłoby limit węzłów (409,
-    /// <c>POST /tree/nodes</c>). <c>context</c>: <c>limit</c>, <c>current</c>
+    /// <c>POST /trees/{treeId}/nodes</c>). <c>context</c>: <c>limit</c>, <c>current</c>
     /// (bieżący rozmiar drzewa) i <c>adding</c> (węzły policzone w dołączanej
     /// gałęzi do chwili przerwania rozwijania).
     /// </summary>

@@ -5,7 +5,7 @@ using Microsoft.EntityFrameworkCore;
 namespace Api.Tree;
 
 /// <summary>
-/// Tożsamość użytkownika dla endpointów <c>/tree</c>: jedyne miejsce, które
+/// Tożsamość użytkownika dla endpointów <c>/trees</c>: jedyne miejsce, które
 /// zamienia nagłówek żądania na identyfikator istniejącego konta albo na
 /// odpowiedź 401 w kontrakcie — i jedyne miejsce, w którym zapisany jest model
 /// zaufania, na którym ta zamiana stoi.

@@ -496,6 +496,7 @@ public class TreeRulesTests
     [Fact]
     public void Request_field_names_match_the_react_router_client()
     {
+        Assert.Equal("name", TreeRequestFields.Name);
         Assert.Equal("objectId", TreeRequestFields.ObjectId);
         Assert.Equal("parentId", TreeRequestFields.ParentId);
         Assert.Equal("includeBranch", TreeRequestFields.IncludeBranch);
