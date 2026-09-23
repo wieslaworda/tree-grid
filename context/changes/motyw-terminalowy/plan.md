@@ -353,29 +353,29 @@ Hashe klas antd (`css-dev-only-do-not-override-*`) zmieniają się wraz z tokene
 
 #### Automated
 
-- [x] 1.1 Kontrola typów przechodzi: `npm run typecheck`
-- [x] 1.2 Build produkcyjny przechodzi: `npm run build`
-- [x] 1.3 Wyliczone tokeny dają wiersz dokładnie 24 px
-- [x] 1.4 Każda para kolor/tło przechodzi WCAG AA
-- [x] 1.5 Pliki motywu nie importują niczego serwerowego
-- [x] 1.6 Kontrakt 1 — CSS antd nadal w warstwie
-- [x] 1.7 Kontrakt 2 — ostatni `data-css-hash` przed `</head>`
-- [x] 1.8 Wariant jest w HTML-u z serwera, nie dostawiany skryptem
-- [x] 1.9 Ciasteczko steruje SSR-em
-- [x] 1.10 Wartość spoza enuma daje 200 i wariant domyślny
-- [x] 1.11 Stare tło zniknęło
-- [x] 1.12 Wariant `dark:` jest skonfigurowany
-- [x] 1.13 Obie rodziny czcionek idą w jednym żądaniu
-- [x] 1.14 `entry.server.tsx` pozostaje nietknięty
+- [x] 1.1 Kontrola typów przechodzi: `npm run typecheck` — 575ff66
+- [x] 1.2 Build produkcyjny przechodzi: `npm run build` — 575ff66
+- [x] 1.3 Wyliczone tokeny dają wiersz dokładnie 24 px — 575ff66
+- [x] 1.4 Każda para kolor/tło przechodzi WCAG AA — 575ff66
+- [x] 1.5 Pliki motywu nie importują niczego serwerowego — 575ff66
+- [x] 1.6 Kontrakt 1 — CSS antd nadal w warstwie — 575ff66
+- [x] 1.7 Kontrakt 2 — ostatni `data-css-hash` przed `</head>` — 575ff66
+- [x] 1.8 Wariant jest w HTML-u z serwera, nie dostawiany skryptem — 575ff66
+- [x] 1.9 Ciasteczko steruje SSR-em — 575ff66
+- [x] 1.10 Wartość spoza enuma daje 200 i wariant domyślny — 575ff66
+- [x] 1.11 Stare tło zniknęło — 575ff66
+- [x] 1.12 Wariant `dark:` jest skonfigurowany — 575ff66
+- [x] 1.13 Obie rodziny czcionek idą w jednym żądaniu — 575ff66
+- [x] 1.14 `entry.server.tsx` pozostaje nietknięty — 575ff66
 
 #### Manual
 
-- [x] 1.15 Pierwsza pomalowana klatka jest ciemna
-- [x] 1.16 Po ustawieniu ciasteczka na `jasny` i odświeżeniu strona jest jasna od pierwszej klatki, bez przeskoku
-- [x] 1.17 Paski przewijania są ciemne w wariancie ciemnym i jasne w jasnym
-- [x] 1.18 Wejście na `/nie-istnieje` daje polski ekran błędu w kolorach wariantu domyślnego
-- [x] 1.19 Błąd w loaderze trasy podrzędnej daje ekran błędu w wybranym wariancie
-- [x] 1.20 Ustawienie systemu na tryb jasny nie zmienia niczego, gdy ciasteczko mówi `ciemny`
+- [x] 1.15 Pierwsza pomalowana klatka jest ciemna — 575ff66
+- [x] 1.16 Po ustawieniu ciasteczka na `jasny` i odświeżeniu strona jest jasna od pierwszej klatki, bez przeskoku — 575ff66
+- [x] 1.17 Paski przewijania są ciemne w wariancie ciemnym i jasne w jasnym — 575ff66
+- [x] 1.18 Wejście na `/nie-istnieje` daje polski ekran błędu w kolorach wariantu domyślnego — 575ff66
+- [x] 1.19 Błąd w loaderze trasy podrzędnej daje ekran błędu w wybranym wariancie — 575ff66
+- [x] 1.20 Ustawienie systemu na tryb jasny nie zmienia niczego, gdy ciasteczko mówi `ciemny` — 575ff66
 
 ### Phase 2: Przełącznik i ujednolicenie istniejących widoków
 
