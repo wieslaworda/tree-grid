@@ -83,7 +83,13 @@ public static class ApiErrorCodes
     /// <summary>Nieobsłużony wyjątek po stronie serwera.</summary>
     public const string InternalError = "internal_error";
 
-    /// <summary>Brak zasobu pod wskazanym adresem (404 z routingu).</summary>
+    /// <summary>
+    /// Brak zasobu pod wskazanym adresem (404). Oddaje go routing dla adresu,
+    /// którego nic nie obsługuje, ale też endpoint, który pod poprawnym adresem
+    /// nie znalazł wskazanego zasobu — na przykład nieistniejącego obiektu
+    /// słownika w <c>PUT</c> albo <c>DELETE /objects/{id}</c>. Klient nie
+    /// rozróżnia tych dwóch przypadków i nie ma powodu tego robić.
+    /// </summary>
     public const string NotFound = "not_found";
 
     /// <summary>Metoda HTTP nieobsługiwana przez zasób (405 z routingu).</summary>
@@ -117,6 +123,15 @@ public static class ApiErrorCodes
     /// <see cref="ApiErrorContextKeys.Fields"/>.
     /// </summary>
     public const string ValidationError = "validation_error";
+
+    /// <summary>
+    /// Odmowa usunięcia obiektu słownika, który ma obiekt nadrzędny albo
+    /// podobiekt (409). Osobny kod względem <see cref="ValidationError"/> jest
+    /// świadomy: żądanie nie niesie żadnego błędnego pola, tylko zderza się ze
+    /// stanem zasobu, a klient pokazuje taki komunikat nad przyciskiem, a nie
+    /// pod polem formularza.
+    /// </summary>
+    public const string ObjectHasRelations = "object_has_relations";
 
     /// <summary>Pozostałe statusy błędne wygenerowane przez framework.</summary>
     public const string HttpError = "http_error";

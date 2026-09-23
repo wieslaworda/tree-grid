@@ -2,6 +2,7 @@ using System.Data.Common;
 using Api.Auth;
 using Api.Data;
 using Api.Errors;
+using Api.Objects;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
@@ -170,6 +171,11 @@ app.MapGet("/health", async (AppDbContext dbContext, bool? fail, CancellationTok
 // aplikacji — i ta odległość jest celowa: reguły mają się czytać w jednym
 // miejscu, razem z powodami, dla których są takie, a nie inne.
 app.MapAuthEndpoints();
+
+// Słownik obiektów (S-02). Ten sam podział co wyżej: reguły słownika —
+// normalizacja kodu, wykrywanie cyklu, warunek usunięcia — i powody, dla
+// których zapis idzie w transakcji, czyta się w `Api.Objects`.
+app.MapObjectEndpoints();
 
 app.Run();
 return 0;
