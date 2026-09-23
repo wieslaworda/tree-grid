@@ -1,3 +1,4 @@
+using Api.Categories;
 using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
 
@@ -7,8 +8,10 @@ namespace Api.Data;
 /// Kontekst EF Core aplikacji. Od S-01 jest kontekstem Identity — daje
 /// <c>UserManager</c> miejsce na konta. Od S-02 niesie też słownik obiektów
 /// (<see cref="CatalogObject"/> i relację rodzic–podobiekt
-/// <see cref="CatalogObjectLink"/>), wspólny dla wszystkich kont. Model
-/// domenowy ekranów i gridu dochodzi w kolejnych plastrach.
+/// <see cref="CatalogObjectLink"/>), wspólny dla wszystkich kont. Od S-09 —
+/// słownik kategorii danych (<see cref="Category"/>), również wspólny i na razie
+/// bez relacji z czymkolwiek. Model domenowy ekranów i gridu dochodzi
+/// w kolejnych plastrach.
 /// </summary>
 public sealed class AppDbContext(DbContextOptions<AppDbContext> options)
     : IdentityDbContext<AppUser>(options)
@@ -16,6 +19,8 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options)
     public DbSet<CatalogObject> CatalogObjects => Set<CatalogObject>();
 
     public DbSet<CatalogObjectLink> CatalogObjectLinks => Set<CatalogObjectLink>();
+
+    public DbSet<Category> Categories => Set<Category>();
 
     protected override void OnModelCreating(ModelBuilder builder)
     {
@@ -66,5 +71,37 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options)
                 "CK_CatalogObjectLinks_ParentIsNotChild",
                 "\"ParentId\" <> \"ChildId\""));
         });
+
+        builder.Entity<Category>(entity =>
+        {
+            // Długości jako metadane, wiążący limit w walidacji
+            // `CategoryEndpoints` — ten sam układ co w bloku obiektów wyżej.
+            entity.Property(c => c.Code).HasMaxLength(Category.CodeMaxLength);
+            entity.Property(c => c.NormalizedCode).HasMaxLength(Category.CodeMaxLength);
+            entity.Property(c => c.Name).HasMaxLength(Category.NameMaxLength);
+
+            entity.HasIndex(c => c.NormalizedCode).IsUnique();
+
+            // Tekst kanoniczny, a nie domyślna liczba: plik bazy ma być czytelny
+            // bez kodu, a kolejność składowych enuma nie może po cichu zmienić
+            // znaczenia zapisanych wierszy. Obie strony konwersji idą przez
+            // `CategoryRules`, czyli przez ten sam zapis, który widzi klient API.
+            entity.Property(c => c.AggregateFunction)
+                .IsRequired()
+                .HasConversion(
+                    function => CategoryRules.FormatAggregateFunction(function),
+                    text => ReadStoredAggregateFunction(text));
+        });
     }
+
+    /// <summary>
+    /// Odczyt funkcji agregującej z kolumny. Wartość spoza listy oznacza plik
+    /// bazy zmieniony z pominięciem API i kończy się wyjątkiem, a nie
+    /// podstawieniem domyślnej funkcji, które po cichu przekłamałoby kategorię.
+    /// </summary>
+    private static AggregateFunction ReadStoredAggregateFunction(string text)
+        => CategoryRules.TryParseAggregateFunction(text, out var function)
+            ? function
+            : throw new InvalidOperationException(
+                $"Kolumna AggregateFunction zawiera wartość spoza listy: „{text}\".");
 }

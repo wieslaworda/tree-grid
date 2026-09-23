@@ -1,5 +1,6 @@
 using System.Data.Common;
 using Api.Auth;
+using Api.Categories;
 using Api.Data;
 using Api.Errors;
 using Api.Objects;
@@ -176,6 +177,10 @@ app.MapAuthEndpoints();
 // normalizacja kodu, wykrywanie cyklu, warunek usunięcia — i powody, dla
 // których zapis idzie w transakcji, czyta się w `Api.Objects`.
 app.MapObjectEndpoints();
+
+// Słownik kategorii (S-09), ten sam podział — reguły funkcji agregującej
+// w `Api.Categories`.
+app.MapCategoryEndpoints();
 
 app.Run();
 return 0;

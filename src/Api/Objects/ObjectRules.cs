@@ -1,3 +1,5 @@
+using Api.Data;
+
 namespace Api.Objects;
 
 /// <summary>
@@ -10,17 +12,12 @@ namespace Api.Objects;
 internal static class ObjectRules
 {
     /// <summary>
-    /// Postać kodu, po której obiekty są porównywane: bez spacji na brzegach
-    /// i wielkimi literami. Jedno źródło dla kontroli duplikatu w endpoincie
-    /// i dla kolumny z unikalnym indeksem — gdyby liczyły ją dwa miejsca,
-    /// kontrola mogłaby przepuścić kod, na którym indeks rzuci wyjątkiem.
+    /// Postać kodu, po której obiekty są porównywane. Sama reguła jest wspólna
+    /// dla wszystkich słowników i mieszka w <see cref="DictionaryCode"/>; ta
+    /// metoda zostaje jako jej delegacja, żeby wywołania w module obiektów
+    /// czytały się tak jak dotąd.
     /// </summary>
-    /// <remarks>
-    /// Nigdy kolacja bazy: <c>NOCASE</c> w SQLite składa wyłącznie litery
-    /// ASCII. <c>ToUpperInvariant</c>, a nie <c>ToUpper</c>, bo tożsamość kodu
-    /// nie może zależeć od ustawień regionalnych maszyny, na której działa API.
-    /// </remarks>
-    internal static string NormalizeCode(string code) => code.Trim().ToUpperInvariant();
+    internal static string NormalizeCode(string code) => DictionaryCode.Normalize(code);
 
     /// <summary>
     /// Sprawdza, czy nadanie obiektowi <paramref name="objectId"/> zestawu

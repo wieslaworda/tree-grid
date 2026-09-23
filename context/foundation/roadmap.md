@@ -23,10 +23,11 @@ milestone_status: open
 **M-1: Pierwszy własny ekran dyspozytora** — Status: open
 
 - **Intent:** Dyspozytor przechodzi pełną ścieżkę w jednej sesji — od założenia konta, przez zbudowanie własnej struktury drzewa i gridu z punktami czasowymi, po zapisany ekran, który odtwarza się bez zmian po ponownym zalogowaniu.
-- **Source materials:** `context/foundation/prd.md` (v1) + opis użytkownika z 2026-09-23 (kotwica `MS-01` poniżej)
+- **Source materials:** `context/foundation/prd.md` (v1) + opisy użytkownika z 2026-09-23 (kotwice `MS-01` i `MS-02` poniżej)
 - **Done when:** każdy `F-NN` i `S-NN` poniżej ma status `done`.
 - **Scope anchors:** FR-001–FR-010, US-01, sekcje `Business Logic` i `Access Control`, oraz wymagania niefunkcjonalne (288 kolumn, izolacja kont, informacja zwrotna powyżej 2 s, gęstość odczytu liczb, dwa warianty motywu, kontrast i rola koloru). Spoza PRD:
   - MS-01: Po zalogowaniu aplikacja ma menu główne, w którym pojawiają się kolejne funkcjonalności; pierwsza pozycja to „Obiekty", a kolejne pozycje są dopisywane sukcesywnie przez następne plastry.
+  - MS-02: Dyspozytor przegląda, dodaje, edytuje i usuwa kategorie danych w słowniku kategorii; kategoria składa się z kodu, nazwy i funkcji agregującej wybieranej z listy (SUM, MIN, MAX). Widok działa jak lista obiektów (tabela i formularz w jednym widoku), a „Kategorie" to kolejna pozycja menu głównego.
 
 ## Vision recap
 
@@ -54,10 +55,11 @@ Przy celu sekwencjonowania `speed` to również fragment, który najtaniej odpow
 | S-01 | `konto-i-logowanie`   | założyć konto, zalogować się i wylogować; żaden widok nie jest dostępny bez logowania      | F-01          | FR-001, Access Control, NFR (izolacja kont)            | in-progress |
 | S-02 | `lista-obiektow`      | przeglądać, dodawać i edytować obiekty dostępne do budowy drzewa                           | F-01          | FR-002                                                 | in-progress |
 | S-03 | `budowa-drzewa`       | złożyć własną strukturę drzewa; zapętlenie jest odrzucane, a gałąź podrzędna rozstrzygana  | S-02          | FR-003, FR-004, FR-005, US-01, Business Logic          | blocked  |
-| S-04 | `kategorie-danych`    | przypisać obiektowi w drzewie kategorie danych z ograniczonej listy                        | S-03          | FR-006                                                 | proposed |
+| S-04 | `kategorie-danych`    | przypisać obiektowi w drzewie kategorie danych z ograniczonej listy                        | S-03, S-09    | FR-006                                                 | proposed |
 | S-05 | `grid-czasowy`        | wybrać ziarno czasowe i dobę oraz zobaczyć grid z punktami czasowymi                       | S-04          | FR-007, FR-008, US-01, NFR (288 kolumn, feedback >2 s) | proposed |
 | S-06 | `zapisane-ekrany`     | zapisać ekran pod nazwą, wybrać go z listy własnych i odtworzyć bez zmian                  | S-01, S-05    | FR-009, FR-010, US-01, NFR (izolacja kont)             | proposed |
 | S-07 | `menu-glowne`         | po zalogowaniu przechodzić między funkcjami z menu głównego; pierwsza pozycja to „Obiekty" | S-01, S-02    | MS-01, FR-002, Access Control                          | in-progress |
+| S-09 | `lista-kategorii`     | przeglądać, dodawać, edytować i usuwać kategorie danych (kod, nazwa, funkcja agregująca)  | F-01, S-07    | MS-02, MS-01, FR-006                                   | in-progress |
 
 ## Streams
 
@@ -66,7 +68,7 @@ Navigation aid — groups items that share a Prerequisites chain. Canonical orde
 | Stream | Theme                   | Chain                                               | Note                                                                                                   |
 | ------ | ----------------------- | --------------------------------------------------- | ------------------------------------------------------------------------------------------------------ |
 | A      | Kontrolka drzewo + grid | `F-01` → `S-02` → `S-03` → `S-04` → `S-05` → `S-06` | Główna ścieżka rzeczy koniecznych; przy celu `speed` nic z niej nie schodzi do "Parked".                |
-| B      | Konto i izolacja danych | `S-01` → `S-07`                                     | Zależy tylko od `F-01`, więc może iść równolegle do `S-02`/`S-03`; `S-07` łączy się ze strumieniem A przy `S-02`, a całość dołącza do A przy `S-06`. |
+| B      | Konto, menu i słowniki  | `S-01` → `S-07` → `S-09`                            | Zależy tylko od `F-01`, więc może iść równolegle do `S-02`/`S-03`; `S-07` łączy się ze strumieniem A przy `S-02`, `S-09` dołącza do A przy `S-04` (słownik kategorii to jego „ograniczona lista"), a całość — przy `S-06`. |
 | C      | Język wizualny          | `F-02`                                              | Nie zależy od niczego, więc może iść równolegle do A i B; musi być gotowy przed `S-05`, bo grid dziedziczy po nim gęstość i krój cyfr. |
 
 ## Baseline
@@ -149,16 +151,41 @@ Foundations below assume these are present and do NOT re-scaffold them.
 - **Risk:** To główny dowód działania produktu, a jednocześnie jedyny plaster zablokowany otwartym pytaniem — i PRD wprost każe rozstrzygnąć je przed rozpoczęciem prac nad tym interfejsem, bo przeciąganie jest najdroższym elementem interfejsu w projekcie. Przy twardym terminie 2026-11-04 rozstrzygnięcie tego pytania jest najtańszym możliwym ruchem: odblokowuje sekwencję i ustala, ile budżetu zostaje na `S-05`. Drugie ryzyko: reguła walidacji musi działać po stronie serwera, bo PRD wymaga, żeby ekranu o niespójnej strukturze nie dało się zapisać — walidacja wyłącznie w przeglądarce tego warunku nie spełnia.
 - **Status:** blocked
 
+### S-07: Menu główne aplikacji po zalogowaniu
+
+- **Outcome:** Zalogowany dyspozytor widzi na każdym widoku aplikacji menu główne i przechodzi z niego do dostępnych funkcji; pierwszą pozycją jest „Obiekty", a każdy kolejny plaster, który doda widok produktu, dopisuje do menu swoją pozycję. Niezalogowany użytkownik menu nie widzi.
+- **Change ID:** `menu-glowne`
+- **PRD refs:** MS-01, FR-002, sekcja `Access Control`
+- **Prerequisites:** S-01, S-02
+- **Parallel with:** S-03
+- **Blockers:** —
+- **Unknowns:** —
+- **Risk:** Menu staje się jedynym miejscem, do którego dopisuje się każdy kolejny widok, więc jego kształt musi przyjmować nowe pozycje bez przerabiania — a przy tym nie wolno dopisywać pozycji na zapas, zanim funkcja istnieje (`S-03`–`S-06` dodają swoje pozycje same). Drugie ryzyko: menu żyje obok bramy logowania z `S-01`, a nie w niej — zmieszanie powłoki wizualnej z regułą dostępu sprawiłoby, że każda zmiana menu wymagałaby ponownego czytania kodu bramy jako reguły bezpieczeństwa.
+- **Status:** in-progress
+
+### S-09: Słownik kategorii danych
+
+- **Outcome:** Dyspozytor przegląda słownik kategorii danych, dodaje nowe, edytuje i usuwa istniejące — każda kategoria ma unikalny kod, nazwę i funkcję agregującą wybraną z listy (SUM, MIN, MAX); słownik jest dostępny z pozycji „Kategorie" w menu głównym, w tym samym układzie co lista obiektów.
+- **Change ID:** `lista-kategorii`
+- **PRD refs:** MS-02, MS-01, FR-006
+- **Prerequisites:** F-01, S-07
+- **Parallel with:** S-03
+- **Blockers:** —
+- **Unknowns:**
+  - Gdzie i kiedy funkcja agregująca kategorii zaczyna działać na danych (np. przy przejściu między ziarnami czasowymi w `S-05`), skoro PRD odkłada agregacje danych poza zakres? — Owner: użytkownik. Block: no.
+- **Risk:** Plaster kusi skopiowaniem widoku listy obiektów w całości — tabela, filtry, stronicowanie i panel w drugim egzemplarzu zaczną dryfować przy pierwszej poprawce; czy wydzielić część wspólną, rozstrzyga plan. Drugie ryzyko: słownik nie może wyprzedzić `S-04` — przypisywanie kategorii do obiektów w drzewie należy do tamtego plastra, a funkcja agregująca jest tu wyłącznie atrybutem kategorii, nie liczeniem czegokolwiek.
+- **Status:** in-progress
+
 ### S-04: Kategorie danych przypisane do obiektów
 
 - **Outcome:** Dyspozytor przypisuje obiektowi w drzewie kategorie/atrybuty danych z ograniczonej listy i widzi je przy tym obiekcie.
 - **Change ID:** `kategorie-danych`
 - **PRD refs:** FR-006
-- **Prerequisites:** S-03
+- **Prerequisites:** S-03, S-09
 - **Parallel with:** —
 - **Blockers:** —
 - **Unknowns:** —
-- **Risk:** Sekwencjonowane tutaj, bo kategorie przypisuje się do obiektu stojącego już w drzewie — bez `S-03` nie ma do czego ich przypiąć. Ryzykiem jest to, że ten sam obiekt może występować w wielu miejscach struktury: przypisanie musi dotyczyć wystąpienia w drzewie, a nie obiektu w słowniku, inaczej dwa miejsca struktury zaczną się nawzajem nadpisywać.
+- **Risk:** Sekwencjonowane tutaj, bo kategorie przypisuje się do obiektu stojącego już w drzewie — bez `S-03` nie ma do czego ich przypiąć, a bez słownika z `S-09` nie ma z czego wybierać. Ryzykiem jest to, że ten sam obiekt może występować w wielu miejscach struktury: przypisanie musi dotyczyć wystąpienia w drzewie, a nie obiektu w słowniku, inaczej dwa miejsca struktury zaczną się nawzajem nadpisywać.
 - **Status:** proposed
 
 ### S-05: Grid z punktami czasowymi dla wybranego ziarna i doby
@@ -186,18 +213,6 @@ Foundations below assume these are present and do NOT re-scaffold them.
 - **Risk:** Domyka główne kryterium sukcesu z PRD — całą ścieżkę w jednej sesji — więc siedzi na końcu łańcucha z założenia, nie przez przeoczenie. Dwa ryzyka: izolacja kont musi być egzekwowana po stronie serwera przy każdym odczycie ekranu (wymaganie mówi "bez wyjątków", więc ukrycie cudzych ekranów w interfejsie nie wystarczy), oraz zakres cyklu życia ekranu, którego PRD nie rozstrzyga — przy twardym terminie trzyma się tu minimum: zapis, lista, otwarcie.
 - **Status:** proposed
 
-### S-07: Menu główne aplikacji po zalogowaniu
-
-- **Outcome:** Zalogowany dyspozytor widzi na każdym widoku aplikacji menu główne i przechodzi z niego do dostępnych funkcji; pierwszą pozycją jest „Obiekty", a każdy kolejny plaster, który doda widok produktu, dopisuje do menu swoją pozycję. Niezalogowany użytkownik menu nie widzi.
-- **Change ID:** `menu-glowne`
-- **PRD refs:** MS-01, FR-002, sekcja `Access Control`
-- **Prerequisites:** S-01, S-02
-- **Parallel with:** S-03
-- **Blockers:** —
-- **Unknowns:** —
-- **Risk:** Menu staje się jedynym miejscem, do którego dopisuje się każdy kolejny widok, więc jego kształt musi przyjmować nowe pozycje bez przerabiania — a przy tym nie wolno dopisywać pozycji na zapas, zanim funkcja istnieje (`S-03`–`S-06` dodają swoje pozycje same). Drugie ryzyko: menu żyje obok bramy logowania z `S-01`, a nie w niej — zmieszanie powłoki wizualnej z regułą dostępu sprawiłoby, że każda zmiana menu wymagałaby ponownego czytania kodu bramy jako reguły bezpieczeństwa.
-- **Status:** in-progress
-
 ## Backlog Handoff
 
 | Roadmap ID | Change ID             | Suggested issue title                                                | Ready for `/10x-plan` | Notes                                                        |
@@ -207,10 +222,11 @@ Foundations below assume these are present and do NOT re-scaffold them.
 | S-01       | `konto-i-logowanie`   | Konto i logowanie (e-mail + hasło) z bramą na wszystkich widokach    | no                    | Czeka na `F-01`                                              |
 | S-02       | `lista-obiektow`      | Lista obiektów do budowy drzewa (przegląd, dodawanie, edycja)        | no                    | Czeka na `F-01`; może iść równolegle do `S-01`               |
 | S-03       | `budowa-drzewa`       | Budowa struktury drzewa z blokadą zapętlenia                         | no                    | Zablokowany otwartym pytaniem o przeciąganie; czeka na `S-02` |
-| S-04       | `kategorie-danych`    | Przypisywanie kategorii danych do obiektów w drzewie                 | no                    | Czeka na `S-03`                                              |
+| S-04       | `kategorie-danych`    | Przypisywanie kategorii danych do obiektów w drzewie                 | no                    | Czeka na `S-03` i `S-09`                                     |
 | S-05       | `grid-czasowy`        | Grid z punktami czasowymi dla wybranego ziarna i doby                | no                    | Czeka na `S-04`                                              |
 | S-06       | `zapisane-ekrany`     | Zapisane ekrany — zapis, lista własnych ekranów, odtworzenie         | no                    | Czeka na `S-01` i `S-05`                                     |
 | S-07       | `menu-glowne`         | Menu główne aplikacji po zalogowaniu (pierwsza pozycja: Obiekty)     | yes                   | `S-01` i `S-02` mają działający kod; uruchom `/10x-plan menu-glowne` |
+| S-09       | `lista-kategorii`     | Słownik kategorii danych (kod, nazwa, funkcja agregująca) z pozycją w menu | yes             | `F-01` i `S-07` mają działający kod; uruchom `/10x-plan lista-kategorii` |
 
 This table is the clean handoff to Jira/Linear or any MCP-backed backlog. It carries one row for every `F-NN` and `S-NN` and deliberately does not duplicate the detailed roadmap body.
 
