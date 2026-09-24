@@ -565,10 +565,10 @@ Trasa `/ekrany` w układzie widoku drzew: lista własnych ekranów, panel nowego
 
 #### Automated
 
-- [x] 1.1 Migracja `Screens` generuje się i nie zawiera operacji na `Trees.Version`: `dotnet ef migrations add Screens --project src/Api`
-- [x] 1.2 Rozwiązanie buduje się (API zatrzymane): `dotnet build TreeGrid.sln`
-- [x] 1.3 Testy przechodzą, w tym nowe `ScreenRulesTests`: `dotnet test tests/Api.Tests`
-- [x] 1.4 Migracja stosuje się do bazy deweloperskiej przy starcie API w Development bez błędu
+- [x] 1.1 Migracja `Screens` generuje się i nie zawiera operacji na `Trees.Version`: `dotnet ef migrations add Screens --project src/Api` — 8efe453
+- [x] 1.2 Rozwiązanie buduje się (API zatrzymane): `dotnet build TreeGrid.sln` — 8efe453
+- [x] 1.3 Testy przechodzą, w tym nowe `ScreenRulesTests`: `dotnet test tests/Api.Tests` — 8efe453
+- [x] 1.4 Migracja stosuje się do bazy deweloperskiej przy starcie API w Development bez błędu — 8efe453
 
 #### Manual
 
@@ -581,8 +581,8 @@ Trasa `/ekrany` w układzie widoku drzew: lista własnych ekranów, panel nowego
 
 #### Automated
 
-- [ ] 2.1 Rozwiązanie buduje się (API zatrzymane): `dotnet build TreeGrid.sln`
-- [ ] 2.2 Testy przechodzą, w tym kontrakt `tree_in_screen` i `category_sole_screen_default`: `dotnet test tests/Api.Tests`
+- [x] 2.1 Rozwiązanie buduje się (API zatrzymane): `dotnet build TreeGrid.sln`
+- [x] 2.2 Testy przechodzą, w tym kontrakt `tree_in_screen` i `category_sole_screen_default`: `dotnet test tests/Api.Tests`
 
 #### Manual
 

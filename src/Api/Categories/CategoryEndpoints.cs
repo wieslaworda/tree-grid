@@ -24,8 +24,12 @@ namespace Api.Categories;
 /// polem. Wyjście z metody bez <c>Commit</c> wycofuje transakcję przy jej
 /// zwolnieniu.
 ///
-/// Usunięcie jest zawsze dozwolone: do czasu S-04 nic nie odwołuje się do
-/// kategorii. Odmowę i jej kod błędu doda plaster, który wprowadzi odwołania.
+/// Do kategorii odwołują się ekrany (S-06): listą domyślną i przypisaniami
+/// węzłów. Usunięcie kategorii zdejmuje ją z obu kaskadą kluczy obcych w bazie,
+/// a węzeł, który straci ostatnią kategorię, zostaje węzłem bez kategorii.
+/// Wyjątek: kategorii, która jest jedyną domyślną jakiegokolwiek ekranu, nie da
+/// się usunąć — ekran nie może zostać z pustą listą domyślną, więc API
+/// odpowiada 409 <see cref="ApiErrorCodes.CategorySoleScreenDefault"/>.
 /// </remarks>
 internal static class CategoryEndpoints
 {
@@ -147,11 +151,18 @@ internal static class CategoryEndpoints
         return Results.Ok(CategoryResponse(entity));
     }
 
+    /// <summary>
+    /// Usuwa kategorię razem z jej pozycjami na listach domyślnych
+    /// i przypisaniami węzłów wszystkich ekranów — tych endpoint nie wczytuje,
+    /// zdejmuje je kaskada w bazie (<see cref="AppDbContext"/>). Odmawia, jeśli
+    /// kategoria jest jedyną domyślną któregokolwiek ekranu.
+    /// </summary>
     private static async Task<IResult> DeleteAsync(int id, AppDbContext db, CancellationToken cancellationToken)
     {
-        // Przed pierwszym odczytem — patrz komentarz klasy. Dziś nic nie
-        // odwołuje się do kategorii, ale kontrola odwołań z S-04 ma trafić do
-        // transakcji, która już tu stoi, zamiast ją dopiero wprowadzać.
+        // Przed pierwszym odczytem — patrz komentarz klasy. Kontrola ekranów
+        // niżej musi zapaść w tej samej transakcji: ekran utworzony równolegle
+        // z tą jedną kategorią nie może się wcisnąć między sprawdzenie
+        // a usunięcie.
         await using var transaction = await db.Database.BeginTransactionAsync(cancellationToken);
 
         var entity = await db.Categories.SingleOrDefaultAsync(c => c.Id == id, cancellationToken);
@@ -159,6 +170,21 @@ internal static class CategoryEndpoints
         if (entity is null)
         {
             return CategoryNotFound(id);
+        }
+
+        // Ekran, którego lista domyślna składa się wyłącznie z tej kategorii.
+        // Zapytanie celowo nie filtruje po właścicielu — liczy się każdy ekran,
+        // jak w `ObjectEndpoints` — i celowo nie oddaje nic poza faktem.
+        var isSoleScreenDefault = await db.Screens.AnyAsync(
+            screen => screen.DefaultCategories.Count == 1
+                && screen.DefaultCategories.Any(entry => entry.CategoryId == id),
+            cancellationToken);
+
+        if (isSoleScreenDefault)
+        {
+            return Results.Json(
+                CategoryResponses.SoleScreenDefault(entity.Code),
+                statusCode: StatusCodes.Status409Conflict);
         }
 
         db.Categories.Remove(entity);
@@ -321,6 +347,29 @@ internal static class CategoryFormFields
     public const string Name = "name";
 
     public const string AggregateFunction = "aggregateFunction";
+}
+
+/// <summary>
+/// Odpowiedzi błędne słownika kategorii, które niosą regułę, a nie tylko tekst.
+/// Wydzielone z <see cref="CategoryEndpoints"/> wzorem <c>ObjectResponses</c>:
+/// kształt odmowy ma być sprawdzalny bez potoku HTTP.
+/// </summary>
+internal static class CategoryResponses
+{
+    /// <summary>
+    /// Odmowa usunięcia kategorii <paramref name="code"/>, która jest jedyną
+    /// kategorią domyślną co najmniej jednego ekranu — 409 z
+    /// <see cref="ApiErrorCodes.CategorySoleScreenDefault"/>.
+    /// </summary>
+    /// <remarks>
+    /// <c>context</c> jest pusty, a komunikat nie mówi, czyj to ekran ani ile
+    /// ich jest: słownik jest wspólny, ekrany prywatne, więc odmowa nie może
+    /// zdradzać cudzych ekranów.
+    /// </remarks>
+    public static ApiError SoleScreenDefault(string code)
+        => ApiError.Create(
+            ApiErrorCodes.CategorySoleScreenDefault,
+            $"Kategoria „{code}” jest jedyną kategorią domyślną co najmniej jednego ekranu i nie można jej usunąć.");
 }
 
 /// <summary>

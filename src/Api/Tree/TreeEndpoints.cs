@@ -1,5 +1,6 @@
 using Api.Data;
 using Api.Errors;
+using Api.Screens;
 using Microsoft.EntityFrameworkCore;
 
 namespace Api.Tree;
@@ -20,6 +21,11 @@ namespace Api.Tree;
 /// drzewo jest dla API nieistniejące i daje 404, nie 403 — odpowiedź nie
 /// potwierdza, że takie drzewo w ogóle jest. Węzeł innego drzewa, także
 /// drzewa tego samego konta, jest w adresie drzewa tak samo nieistniejący.
+///
+/// Drzewo może wskazywać ekran (<c>Api.Screens</c>, S-06). <c>DELETE /trees/{id}</c>
+/// takiego drzewa odmawia 409 <see cref="ApiErrorCodes.TreeInScreen"/> z nazwami
+/// ekranów, dopóki ekrany istnieją. Węzeł dodany do drzewa dostaje w tej samej
+/// transakcji kategorie domyślne każdego ekranu na tym drzewie (FR-012).
 /// </summary>
 /// <remarks>
 /// Każdy zapis — na drzewie i na węzłach — otwiera transakcję <b>przed</b>
@@ -189,7 +195,9 @@ internal static class TreeEndpoints
     /// <summary>
     /// Usuwa drzewo razem ze wszystkimi jego węzłami. Węzłów endpoint nie
     /// wczytuje — usuwa je kaskada klucza obcego <c>TreeId</c> w schemacie
-    /// (<see cref="AppDbContext"/>).
+    /// (<see cref="AppDbContext"/>). Drzewa wskazywanego przez ekran nie usuwa:
+    /// odpowiada 409 <see cref="ApiErrorCodes.TreeInScreen"/>, dopóki
+    /// użytkownik nie usunie tych ekranów.
     /// </summary>
     private static async Task<IResult> DeleteTreeAsync(
         int id,
@@ -210,6 +218,23 @@ internal static class TreeEndpoints
         if (await FindOwnedTreeAsync(db.Trees, id, userId, cancellationToken) is not { } tree)
         {
             return TreeNotFound(id);
+        }
+
+        // Ekrany na tym drzewie — w tej samej transakcji: ekran utworzony
+        // równolegle między kontrolą a usunięciem zamieniłby odmowę w błąd
+        // klucza obcego (`Restrict` na `Screens.TreeId`). Filtr po samym
+        // drzewie wystarcza, bo ekran wskazuje wyłącznie drzewo własnego konta
+        // (pilnuje tego `POST /screens`), a drzewo przeszło kontrolę
+        // właściciela wyżej — nazwy nie należą więc do nikogo innego.
+        var screenNames = await db.Screens
+            .AsNoTracking()
+            .Where(screen => screen.TreeId == id)
+            .Select(screen => screen.Name)
+            .ToListAsync(cancellationToken);
+
+        if (screenNames.Count > 0)
+        {
+            return Conflict(TreeResponses.InScreen(tree.Name, screenNames));
         }
 
         db.Trees.Remove(tree);
@@ -271,7 +296,9 @@ internal static class TreeEndpoints
     /// <summary>
     /// Dodaje jeden obiekt na koniec dzieci <c>parentId</c> (<c>null</c> —
     /// najwyższy poziom). Słownik nie zna relacji między obiektami, więc
-    /// dodanie nigdy nie przynosi ze sobą struktury podrzędnej.
+    /// dodanie nigdy nie przynosi ze sobą struktury podrzędnej. Nowy węzeł
+    /// dostaje kategorie domyślne każdego ekranu na tym drzewie (FR-012) —
+    /// po wszystkich kontrolach, w tym samym <c>SaveChanges</c>.
     /// </summary>
     private static async Task<IResult> AddNodeAsync(
         int treeId,
@@ -360,6 +387,8 @@ internal static class TreeEndpoints
 
         db.TreeNodes.Add(node);
 
+        await AssignScreenDefaultsAsync(db, treeId, node, cancellationToken);
+
         await db.SaveChangesAsync(cancellationToken);
         await transaction.CommitAsync(cancellationToken);
 
@@ -374,6 +403,8 @@ internal static class TreeEndpoints
     /// najwyższy poziom), na indeks <c>position</c> w docelowej grupie
     /// rodzeństwa liczony <b>po</b> zdjęciu przenoszonego węzła
     /// (0…liczba rodzeństwa). Ten sam rodzic to zmiana kolejności.
+    /// Przypisań kategorii ekranów przeniesienie nie dotyka: wiszą na
+    /// identyfikatorze węzła, a ten się nie zmienia.
     /// </summary>
     private static async Task<IResult> MoveNodeAsync(
         int treeId,
@@ -485,7 +516,9 @@ internal static class TreeEndpoints
 
     /// <summary>
     /// Usuwa węzeł z całym poddrzewem i przenumerowuje rodzeństwo, żeby
-    /// pozycje zostały ciągłe od 0.
+    /// pozycje zostały ciągłe od 0. Przypisań kategorii ekranów endpoint nie
+    /// wczytuje: zdejmuje je z usuniętymi węzłami kaskada klucza obcego
+    /// <c>TreeNodeId</c> w bazie (<see cref="AppDbContext"/>).
     /// </summary>
     private static async Task<IResult> DeleteNodeAsync(
         int treeId,
@@ -561,6 +594,63 @@ internal static class TreeEndpoints
         => await nodes
             .Where(node => node.TreeId == treeId)
             .ToListAsync(cancellationToken);
+
+    /// <summary>
+    /// Dopisuje nowemu, jeszcze niezapisanemu węzłowi <paramref name="node"/>
+    /// przypisania z listy domyślnej każdego ekranu na drzewie
+    /// <paramref name="treeId"/> (<see cref="ScreenRules.Materialize"/>), w
+    /// kolejności tej listy. Przypisania wiążą się z węzłem nawigacją, bo jego
+    /// identyfikator powstaje dopiero w <c>SaveChanges</c> — ten sam zapis
+    /// rozwiązuje oba. Ekran bez listy domyślnej (tworzenie na to nie pozwala)
+    /// nie dostaje nic.
+    /// </summary>
+    /// <remarks>
+    /// Wywołujący przekazuje drzewo, które przeszło <see cref="FindOwnedTreeAsync"/>;
+    /// ekrany na nim są ekranami tego samego konta. Odczyt idzie w transakcji
+    /// dodania, a <c>POST /screens</c> czyta węzły w swojej, więc przy ekranie
+    /// tworzonym równolegle węzeł dostaje przypisania dokładnie raz: od
+    /// tworzenia ekranu, jeśli zostało zatwierdzone po dodaniu, albo stąd.
+    /// <see cref="ScreenAssignment.NodeId"/> z <see cref="ScreenRules.Materialize"/>
+    /// jest tu pomijany — przed zapisem to jeszcze nie identyfikator węzła.
+    /// </remarks>
+    private static async Task AssignScreenDefaultsAsync(
+        AppDbContext db,
+        int treeId,
+        TreeNode node,
+        CancellationToken cancellationToken)
+    {
+        var defaults = await db.ScreenDefaultCategories
+            .AsNoTracking()
+            .Where(entry => entry.Screen.TreeId == treeId)
+            .Select(entry => new { entry.ScreenId, entry.CategoryId, entry.Position })
+            .ToListAsync(cancellationToken);
+
+        // `Position` jest kluczem porządku, nie indeksem — luki po kaskadowym
+        // zdjęciu kategorii nie przeszkadzają, a nowy węzeł dostaje pozycje
+        // ciągłe od 0 w tej samej kolejności. Identyfikator rozstrzyga remis
+        // tak jak w `GET /screens/{id}`.
+        foreach (var screen in defaults.GroupBy(entry => entry.ScreenId))
+        {
+            IReadOnlyList<int> categoryIds =
+            [
+                .. screen
+                    .OrderBy(entry => entry.Position)
+                    .ThenBy(entry => entry.CategoryId)
+                    .Select(entry => entry.CategoryId),
+            ];
+
+            foreach (var assignment in ScreenRules.Materialize([node.Id], categoryIds))
+            {
+                db.ScreenNodeCategories.Add(new ScreenNodeCategory
+                {
+                    ScreenId = screen.Key,
+                    Node = node,
+                    CategoryId = assignment.CategoryId,
+                    Position = assignment.Position,
+                });
+            }
+        }
+    }
 
     /// <summary>
     /// Nazwy drzew jednego konta — do listy i do kontroli duplikatu nazwy.
@@ -812,6 +902,30 @@ internal static class TreeResponses
                 [CurrentContextKey] = current,
                 [AddingContextKey] = adding,
             });
+
+    /// <summary>
+    /// Odmowa <see cref="ApiErrorCodes.TreeInScreen"/>: drzewa
+    /// <paramref name="treeName"/> nie da się usunąć, dopóki wskazują je ekrany
+    /// <paramref name="screenNames"/>. <c>context</c> jest pusty.
+    /// </summary>
+    /// <remarks>
+    /// Drzewo i jego ekrany należą do tego samego konta, więc komunikat może je
+    /// wymienić. Nazwy sortuje ta metoda, nie wywołujący — tym samym porządkiem
+    /// co <c>GET /screens</c>: po nazwie znormalizowanej
+    /// (<see cref="ScreenRules.Normalize"/>) porządkiem porządkowym, a przy
+    /// równej — po nazwie w postaci wpisanej.
+    /// </remarks>
+    public static ApiError InScreen(string treeName, IEnumerable<string> screenNames)
+    {
+        var ordered = screenNames
+            .OrderBy(ScreenRules.Normalize, StringComparer.Ordinal)
+            .ThenBy(name => name, StringComparer.Ordinal);
+
+        return ApiError.Create(
+            ApiErrorCodes.TreeInScreen,
+            $"Drzewo „{treeName}” jest wskazywane przez ekrany: {string.Join(", ", ordered)}. "
+                + "Usuń najpierw te ekrany.");
+    }
 }
 
 /// <summary>

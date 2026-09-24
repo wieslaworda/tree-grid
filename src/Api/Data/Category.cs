@@ -1,10 +1,13 @@
 namespace Api.Data;
 
 /// <summary>
-/// Kategoria danych — pozycja „ograniczonej listy", z której S-04 przypisze
-/// kategorie obiektom w drzewie (FR-006). Słownik jest wspólny dla wszystkich
-/// kont, więc kategoria nie ma właściciela ani autora, a do czasu S-04 nie ma
-/// też relacji z niczym.
+/// Kategoria danych — pozycja „ograniczonej listy", z której ekran (S-06)
+/// przypisuje kategorie węzłom swojego drzewa (FR-006): listą domyślną
+/// (<see cref="ScreenDefaultCategory"/>) i przypisaniami per węzeł
+/// (<see cref="ScreenNodeCategory"/>). Słownik jest wspólny dla wszystkich
+/// kont, więc kategoria nie ma właściciela ani autora. Usunięcie kategorii
+/// zdejmuje ją z ekranów kaskadą, chyba że jest jedyną domyślną
+/// któregokolwiek ekranu — wtedy <c>DELETE /categories/{id}</c> odmawia.
 /// </summary>
 /// <remarks>
 /// Kod występuje dwa razy z tego samego powodu co w <see cref="CatalogObject"/>:

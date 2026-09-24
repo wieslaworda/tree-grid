@@ -167,6 +167,25 @@ public static class ApiErrorCodes
     /// </summary>
     public const string TreeTooLarge = "tree_too_large";
 
+    /// <summary>
+    /// Odmowa usunięcia drzewa, które wskazuje co najmniej jeden ekran (409,
+    /// <c>DELETE /trees/{id}</c>). Drzewo i jego ekrany należą do tego samego
+    /// konta, więc komunikat wymienia nazwy ekranów alfabetycznie, a
+    /// <c>context</c> jest pusty. Klucz obcy <c>Screens.TreeId</c> z
+    /// <c>Restrict</c> jest drugą linią obrony za tą odmową.
+    /// </summary>
+    public const string TreeInScreen = "tree_in_screen";
+
+    /// <summary>
+    /// Odmowa usunięcia kategorii, która jest jedyną kategorią domyślną
+    /// co najmniej jednego ekranu (409, <c>DELETE /categories/{id}</c>) — ekran
+    /// z pustą listą domyślną nie jest dozwolony. Kategorię użytą obok innych
+    /// usunięcie zdejmuje z ekranów kaskadą, bez odmowy. <c>context</c> jest
+    /// pusty celowo: słownik jest wspólny, a ekrany prywatne, więc odmowa nie
+    /// mówi, czyj to ekran ani ile ich jest.
+    /// </summary>
+    public const string CategorySoleScreenDefault = "category_sole_screen_default";
+
     /// <summary>Pozostałe statusy błędne wygenerowane przez framework.</summary>
     public const string HttpError = "http_error";
 }
