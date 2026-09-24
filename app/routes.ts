@@ -29,6 +29,24 @@ export default [
   // i nie ujawnia ona niczego poza stanem samego procesu.
   route("api/health", "routes/api.health.ts"),
 
+  // Wzornik stanów widoku `/drzewo` — wyłącznie w trybie deweloperskim.
+  //
+  // Publiczny, bo zrzut robi przeglądarka bez interfejsu i bez sesji, a poza
+  // powłoką, bo loader powłoki czyta tożsamość odłożoną przez bramę i bez niej
+  // rzuca. Nie woła API, nie czyta sesji i nie ma `action`, więc poza bramą
+  // nie ujawnia niczego poza danymi przykładowymi ze swojego modułu.
+  //
+  // Warunek jest `=== "development"`, a nie `!== "production"`, żeby zawieść
+  // w bezpieczną stronę: `react-router build` i `typegen` ładują ten plik przy
+  // `NODE_ENV=production` (Vite ustawia go, gdy jest pusty), więc trasa i jej
+  // moduł w buildzie nie powstają wcale. Drugie zabezpieczenie stoi w loaderze
+  // wzornika: 404 przy każdym innym `NODE_ENV`. Z tego samego powodu moduł
+  // wzornika nie importuje swoich typów z `./+types/` — typegen ich nie
+  // wygeneruje.
+  ...(process.env.NODE_ENV === "development"
+    ? [route("wzornik", "routes/wzornik.tsx")]
+    : []),
+
   // Za bramą. Tu trafiają wszystkie widoki produktu — dzisiejszy i te, które
   // dołożą kolejne plastry.
   layout("routes/chronione.tsx", [

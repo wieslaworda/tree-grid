@@ -105,6 +105,26 @@ export function odczytajWariant(request: Request): Wariant {
 }
 
 /**
+ * Treść zapisu wariantu: `tg-motyw=<wariant>; <atrybuty>`. Jedyne miejsce,
+ * które ją składa — przeglądarka wkłada ją do `document.cookie`
+ * ({@link zapiszWariant}), a serwer do nagłówka `Set-Cookie` (deweloperska
+ * strona stanów widoku ustawia tak wariant dla zrzutu z przeglądarki bez
+ * interfejsu, która nie kliknie przełącznika). Obie drogi dają więc to samo
+ * ciasteczko, z tą samą nazwą i tymi samymi atrybutami.
+ *
+ * Nazwy tamtej trasy świadomie tu nie ma: ten moduł trafia do bundla
+ * klienckiego i serwerowego produkcji, a build ma być wolny od jej śladu
+ * (sprawdzany `grep`-iem po `build/`, plan zmiany `ui-drzewo`).
+ *
+ * Wartość wchodzi dosłownie, bez kodowania — wolno, bo typ `Wariant` domyka ją
+ * do dwóch słów bez znaków specjalnych (nagłówek tego modułu). Wartość
+ * z żądania ma przejść przez `jestWariantem`, zanim tu trafi.
+ */
+export function naglowekZapisu(wariant: Wariant): string {
+  return `${NAZWA_CIASTECZKA}=${wariant}; ${ATRYBUTY}`;
+}
+
+/**
  * Zapisuje wariant w przeglądarce. Poza przeglądarką nie robi nic — brak
  * `document` przy renderze serwerowym nie jest błędem, tylko normalnym stanem.
  */
@@ -113,5 +133,5 @@ export function zapiszWariant(wariant: Wariant): void {
     return;
   }
 
-  document.cookie = `${NAZWA_CIASTECZKA}=${wariant}; ${ATRYBUTY}`;
+  document.cookie = naglowekZapisu(wariant);
 }

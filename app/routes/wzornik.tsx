@@ -1,0 +1,739 @@
+import { Alert, Button, Card, Popconfirm, Typography } from "antd";
+import { useEffect, useId, useRef, useState } from "react";
+import { type LoaderFunctionArgs, data, redirect } from "react-router";
+
+import { DrzewoStruktury } from "~/components/DrzewoStruktury";
+import { FormularzDrzewa } from "~/components/FormularzDrzewa";
+import { ListaObiektowZrodlowych } from "~/components/ListaObiektowZrodlowych";
+import {
+  type KolumnaSlownika,
+  TabelaSlownika,
+} from "~/components/TabelaSlownika";
+// Wyłącznie typy i wyłącznie osobnym `import type` — powód w nagłówku importów
+// `routes/drzewo.tsx`. Wartości z modułów `.server` wzornik nie czyta wcale:
+// nie woła API i nie czyta sesji (`app/routes.ts`, wpis wzornika).
+import type { ApiErrorBody } from "~/lib/api.server";
+import type { CatalogObject } from "~/lib/objects.server";
+import type { TreeNode, UserTree } from "~/lib/tree.server";
+import {
+  liczbaWezlowPodrzednych,
+  obiektyUzyteWDrzewie,
+  wezlyZDziecmi,
+} from "~/lib/drzewo";
+import { naglowekZapisu } from "~/theme/ciasteczko";
+import { jestWariantem } from "~/theme/tokeny";
+
+/**
+ * Wzornik stanów widoku `/drzewo` — strona tylko w trybie deweloperskim, na
+ * której każdy stan komponentów widoku jest widoczny naraz, podpisany nazwą,
+ * i daje się zrzucić przeglądarką bez interfejsu i bez logowania (bramka
+ * wizualna zmiany `ui-drzewo`).
+ *
+ * Komponenty są te same, których używa widok, z danymi przykładowymi z tego
+ * modułu. Kartę panelu i przyciski usuwania wzornik składa tak, jak robią to
+ * dziś trasy (`Card size="small"` z ramką `obramowanieKontrolki`,
+ * `Popconfirm` z wyjątkiem „Anuluj"), bo wspólnych komponentów jeszcze nie
+ * ma — fazy 3–4 planu przepinają go na nie.
+ *
+ * Typy loadera z `react-router`, a nie z `./+types/wzornik`: trasa jest
+ * rejestrowana tylko w trybie deweloperskim, a `react-router typegen` ładuje
+ * konfigurację tras przy `NODE_ENV=production`, więc tamtego pliku nie
+ * wygeneruje (`app/routes.ts`).
+ *
+ * ## Wyjątek od zakazu rozmiarów w pliku trasy
+ *
+ * Odstępy między sekcjami i wysokości ramek demonstracyjnych są tu klasami
+ * Tailwinda (`gap-*`, `p-*`, `h-72`). Wolno, bo wzornik nie jest widokiem
+ * produktu, tylko stołem, na którym widok się ogląda — te klasy nie sterują
+ * gęstością żadnego ekranu użytkownika. Kolorów to nie dotyczy: wyłącznie
+ * klasy `tg-*` i tokeny motywu, zero literałów
+ * (`context/foundation/lessons.md`, „Kolory i metryki nie mieszkają w plikach
+ * tras").
+ */
+
+/** Parametr adresu z wariantem motywu, który wzornik zapisuje w ciasteczku. */
+const PARAMETR_MOTYWU = "motyw";
+
+export function meta() {
+  return [{ title: "Wzornik — TreeGrid" }];
+}
+
+/**
+ * Dwie rzeczy i nic więcej.
+ *
+ * 1. **404 poza trybem deweloperskim.** Drugie zabezpieczenie obok warunku
+ *    w `app/routes.ts`: gdyby trasa jednak trafiła do buildu, serwer
+ *    produkcyjny (`react-router-serve` ustawia `NODE_ENV=production`) i tak
+ *    jej nie pokaże. Warunek `!== "development"`, a nie `=== "production"` —
+ *    ten sam kierunek bezpiecznej porażki co tam.
+ * 2. **`?motyw=<wariant>` → ciasteczko i przekierowanie na czysty adres.**
+ *    Przeglądarka bez interfejsu nie kliknie przełącznika, więc wariant
+ *    ustawia `Set-Cookie` z tej samej treści, którą zapisuje przełącznik
+ *    (`naglowekZapisu`). Wartość spoza enuma nie przekierowuje — strona
+ *    renderuje się w wariancie, który już jest w ciasteczku.
+ */
+export function loader({ request }: LoaderFunctionArgs) {
+  if (process.env.NODE_ENV !== "development") {
+    throw data(null, { status: 404 });
+  }
+
+  const adres = new URL(request.url);
+  const motyw = adres.searchParams.get(PARAMETR_MOTYWU);
+
+  if (jestWariantem(motyw)) {
+    throw redirect(adres.pathname, {
+      headers: { "Set-Cookie": naglowekZapisu(motyw) },
+    });
+  }
+
+  return null;
+}
+
+// ─── Dane przykładowe ────────────────────────────────────────────────────────
+
+/** Słownik obiektów w kolejności API (po kodzie). */
+const OBIEKTY: CatalogObject[] = [
+  { id: 1, code: "EL-01", name: "Elektrownia Północ" },
+  { id: 2, code: "EL-02", name: "Elektrownia Południe" },
+  { id: 3, code: "FW-01", name: "Farma wiatrowa Zatoka" },
+  { id: 4, code: "FW-02", name: "Farma wiatrowa Wzgórza" },
+  { id: 5, code: "LN-01", name: "Linia Centrum–Wschód" },
+  { id: 6, code: "LN-02", name: "Linia Centrum–Zachód" },
+  { id: 7, code: "OD-01", name: "Odbiór przemysłowy" },
+  { id: 8, code: "OD-02", name: "Odbiór komunalny" },
+  { id: 9, code: "PV-01", name: "Farma fotowoltaiczna Równina" },
+  { id: 10, code: "ST-01", name: "Stacja Centrum" },
+  { id: 11, code: "ST-02", name: "Stacja Wschód" },
+  { id: 12, code: "ST-03", name: "Stacja Zachód" },
+];
+
+/**
+ * Drzewo o trzech poziomach (ST-01 → LN-01 → ST-02), w którym obiekt ST-01
+ * stoi w dwóch miejscach: na najwyższym poziomie i pod EL-01.
+ */
+const WEZLY: TreeNode[] = [
+  { id: 1, parentId: null, objectId: 10, position: 0 },
+  { id: 2, parentId: 1, objectId: 5, position: 0 },
+  { id: 3, parentId: 2, objectId: 11, position: 0 },
+  { id: 4, parentId: 1, objectId: 6, position: 1 },
+  { id: 5, parentId: 4, objectId: 12, position: 0 },
+  { id: 6, parentId: null, objectId: 1, position: 1 },
+  { id: 7, parentId: 6, objectId: 10, position: 0 },
+  { id: 8, parentId: 6, objectId: 3, position: 1 },
+];
+
+/** Drzewa użytkownika w kolejności API (po nazwie). */
+const DRZEWA: UserTree[] = [
+  { id: 1, name: "Bilans regionu" },
+  { id: 2, name: "Rozdzielnia północ" },
+  { id: 3, name: "Sieć przesyłowa" },
+];
+
+/** Wybrane drzewo — to, którego węzły są w {@link WEZLY}. */
+const WYBRANE_DRZEWO = DRZEWA[0];
+
+/** Zaznaczony węzeł: ST-01 na najwyższym poziomie, z poddrzewem. */
+const WYBRANY_WEZEL = 1;
+
+/** Obiekt zaznaczony na liście obiektów: FW-02, którego nie ma w drzewie. */
+const WYBRANY_OBIEKT = 4;
+
+// Puste kolekcje jako stałe modułu: tabele i listy porównują wejście po
+// referencji (`TabelaSlownika`, właściwość `wiersze`).
+const BRAK_DRZEW: UserTree[] = [];
+const BRAK_WEZLOW: TreeNode[] = [];
+const BRAK_OBIEKTOW: CatalogObject[] = [];
+
+const UZYTE_OBIEKTY = obiektyUzyteWDrzewie(WEZLY);
+const BRAK_UZYTYCH = obiektyUzyteWDrzewie(BRAK_WEZLOW);
+
+/**
+ * Kolumny listy drzew — kopia `KOLUMNY_DRZEW` z `routes/drzewo.tsx`. Kopia,
+ * bo modułu trasy nie wolno tu zaimportować: ciągnie za sobą moduły
+ * `.server` z wartościami.
+ */
+const KOLUMNY_DRZEW: readonly KolumnaSlownika<UserTree>[] = [
+  { klucz: "name", tytul: "Nazwa", filtr: { rodzaj: "tekst" }, link: true },
+];
+
+/**
+ * Pytania potwierdzeń w brzmieniu `pytanieOUsuniecie`
+ * i `pytanieOUsuniecieDrzewa` z `routes/drzewo.tsx` (tam prywatne), dla liczby
+ * węzłów większej niż jeden.
+ */
+const PYTANIE_O_WEZEL = `Usunąć węzeł ST-01 razem z ${liczbaWezlowPodrzednych(
+  WEZLY,
+  WYBRANY_WEZEL,
+)} węzłami podrzędnymi?`;
+const PYTANIE_O_DRZEWO = `Usunąć drzewo „${WYBRANE_DRZEWO.name}” razem z ${WEZLY.length} węzłami?`;
+
+/**
+ * Wyjątek „Anuluj" od wypełnionych przycisków — ten sam, który trasy wpisują
+ * dziś w każdym `Popconfirm` usuwania (`routes/obiekty.tsx`, tam uzasadnienie).
+ * Stała modułu, bo antd porównuje propsy przycisków po referencji.
+ */
+const ANULUJ_OBRYSOWANE = { color: "default", variant: "outlined" } as const;
+
+/** Koperty błędów w kształcie, w jakim emituje je API. */
+const BLAD_POLA_NAZWY: ApiErrorBody = {
+  error: {
+    code: "validation_error",
+    message: "Przesłane dane są nieprawidłowe.",
+    context: { fields: { name: "Drzewo o nazwie „Bilans regionu” już istnieje." } },
+  },
+};
+
+const BLAD_OGOLNY: ApiErrorBody = {
+  error: {
+    code: "not_found",
+    message: "Nie znaleziono drzewa o identyfikatorze 1.",
+    context: {},
+  },
+};
+
+const ODMOWA_ZAPETLENIA: ApiErrorBody = {
+  error: {
+    code: "tree_cycle",
+    message:
+      "Dodanie obiektu ST-01 utworzyłoby zapętlenie: ST-01 → LN-01 → ST-02 → ST-01.",
+    context: { path: ["ST-01", "LN-01", "ST-02", "ST-01"] },
+  },
+};
+
+const ODMOWA_WALIDACJI: ApiErrorBody = {
+  error: {
+    code: "validation_error",
+    message: "Przesłane dane są nieprawidłowe.",
+    context: { fields: { nodeId: "Nieprawidłowy identyfikator węzła." } },
+  },
+};
+
+/** Wywołania zwrotne, których wzornik nie obsługuje — nie ma czego zapisać. */
+function nic() {}
+
+/**
+ * Adres wyboru drzewa na liście — względny, więc wybór zostaje we wzorniku
+ * (loader parametr `?drzewo=` ignoruje).
+ */
+function adresWyboru(id: number) {
+  return `?drzewo=${id}`;
+}
+
+// ─── Strona ──────────────────────────────────────────────────────────────────
+
+export default function Wzornik() {
+  return (
+    // `pt-16`: przełącznik motywu stoi `fixed` w prawym górnym rogu każdej
+    // trasy (`app/components/PrzelacznikMotywu.tsx`) i nie może zasłonić
+    // tytułu przy wąskim oknie.
+    <main className="mx-auto flex max-w-7xl flex-col gap-10 p-8 pt-16">
+      <header>
+        <Typography.Title level={1}>Wzornik widoku „Drzewo”</Typography.Title>
+        <Typography.Paragraph type="secondary">
+          Strona tylko w trybie deweloperskim: komponenty widoku /drzewo
+          z danymi przykładowymi, każdy stan podpisany. Wariant motywu:
+          ?motyw=ciemny albo ?motyw=jasny.
+        </Typography.Paragraph>
+      </header>
+
+      <Grupa tytul="Lista drzew">
+        <Siatka kolumny={2}>
+          <Stan nazwa="z wierszami i wybranym">
+            <TabelaSlownika<UserTree>
+              wiersze={DRZEWA}
+              kolumny={KOLUMNY_DRZEW}
+              wybranyId={WYBRANE_DRZEWO.id}
+              adresWyboru={adresWyboru}
+              naStronie={5}
+              tekstPustegoSlownika="Nie masz jeszcze żadnego drzewa. Dodaj pierwsze w panelu poniżej."
+              tekstBrakuTrafien="Żadne drzewo nie pasuje do filtra."
+            />
+          </Stan>
+
+          <Stan nazwa="pusta">
+            <TabelaSlownika<UserTree>
+              wiersze={BRAK_DRZEW}
+              kolumny={KOLUMNY_DRZEW}
+              wybranyId={undefined}
+              adresWyboru={adresWyboru}
+              naStronie={5}
+              tekstPustegoSlownika="Nie masz jeszcze żadnego drzewa. Dodaj pierwsze w panelu poniżej."
+              tekstBrakuTrafien="Żadne drzewo nie pasuje do filtra."
+            />
+          </Stan>
+        </Siatka>
+      </Grupa>
+
+      {/*
+        `intent` każdej karty jest inny, bo `FormularzDrzewa` bierze z niego
+        przedrostek identyfikatorów pól — dwie karty z tym samym dałyby na
+        jednej stronie dwa pola o tym samym `id`. Wysłanie formularza nie ma
+        tu dokąd trafić: wzornik nie ma `action` i nie ma jej mieć.
+      */}
+      <Grupa tytul="Karta panelu drzew (FormularzDrzewa)">
+        <Siatka kolumny={2}>
+          <Stan nazwa="nowe drzewo">
+            <RamkaPanelu tytul="Nowe drzewo">
+              <FormularzDrzewa
+                blad={undefined}
+                intent="dodaj-drzewo"
+                etykietaZapisu="Dodaj drzewo"
+              />
+            </RamkaPanelu>
+          </Stan>
+
+          <Stan nazwa="edycja">
+            <RamkaPanelu
+              tytul={`Edycja: ${WYBRANE_DRZEWO.name}`}
+              akcja={<Button>Nowe drzewo</Button>}
+            >
+              <FormularzDrzewa
+                drzewo={WYBRANE_DRZEWO}
+                blad={undefined}
+                intent="zapisz-drzewo"
+                etykietaZapisu="Zapisz zmiany"
+                obokZapisu={
+                  <UsunDrzewo pytanie={PYTANIE_O_DRZEWO} otwarteNaStart={false} />
+                }
+              />
+            </RamkaPanelu>
+          </Stan>
+
+          <Stan nazwa="błąd pod polem nazwy">
+            <RamkaPanelu tytul="Nowe drzewo">
+              <FormularzDrzewa
+                blad={BLAD_POLA_NAZWY}
+                intent="dodaj-drzewo-blad-pola"
+                etykietaZapisu="Dodaj drzewo"
+              />
+            </RamkaPanelu>
+          </Stan>
+
+          <Stan nazwa="baner błędu ogólnego">
+            <RamkaPanelu
+              tytul={`Edycja: ${WYBRANE_DRZEWO.name}`}
+              akcja={<Button>Nowe drzewo</Button>}
+            >
+              <FormularzDrzewa
+                drzewo={WYBRANE_DRZEWO}
+                blad={BLAD_OGOLNY}
+                intent="zapisz-drzewo-blad-ogolny"
+                etykietaZapisu="Zapisz zmiany"
+                obokZapisu={
+                  <UsunDrzewo pytanie={PYTANIE_O_DRZEWO} otwarteNaStart={false} />
+                }
+              />
+            </RamkaPanelu>
+          </Stan>
+        </Siatka>
+      </Grupa>
+
+      <Grupa tytul="Baner odmowy operacji">
+        <Siatka kolumny={2}>
+          <Stan nazwa="odmowa reguły (zapętlenie)">
+            <BanerOdmowy odmowa={ODMOWA_ZAPETLENIA} />
+          </Stan>
+
+          <Stan nazwa="odmowa walidacji z naruszeniami pól">
+            <BanerOdmowy odmowa={ODMOWA_WALIDACJI} />
+          </Stan>
+        </Siatka>
+      </Grupa>
+
+      <Grupa tytul="Drzewo struktury (DrzewoStruktury)">
+        <Siatka kolumny={3}>
+          <Stan nazwa="z węzłami i zaznaczonym">
+            <DemoDrzewa wezly={WEZLY} wybranyNaStart={WYBRANY_WEZEL} zajete={false} />
+          </Stan>
+
+          <Stan nazwa="puste">
+            <DemoDrzewa wezly={BRAK_WEZLOW} wybranyNaStart={null} zajete={false} />
+          </Stan>
+
+          <Stan nazwa="zajęte (operacja w toku)">
+            <DemoDrzewa wezly={WEZLY} wybranyNaStart={WYBRANY_WEZEL} zajete />
+          </Stan>
+        </Siatka>
+      </Grupa>
+
+      <Grupa tytul="Lista obiektów słownika (ListaObiektowZrodlowych)">
+        <Siatka kolumny={3}>
+          <Stan nazwa="z zaznaczonym">
+            <DemoListy
+              obiekty={OBIEKTY}
+              uzyte={UZYTE_OBIEKTY}
+              wybranyNaStart={WYBRANY_OBIEKT}
+              zajete={false}
+            />
+          </Stan>
+
+          <Stan nazwa="pusty słownik">
+            <DemoListy
+              obiekty={BRAK_OBIEKTOW}
+              uzyte={BRAK_UZYTYCH}
+              wybranyNaStart={null}
+              zajete={false}
+            />
+          </Stan>
+
+          <Stan nazwa="zajęta (operacja w toku)">
+            <DemoListy
+              obiekty={OBIEKTY}
+              uzyte={UZYTE_OBIEKTY}
+              wybranyNaStart={WYBRANY_OBIEKT}
+              zajete
+            />
+          </Stan>
+        </Siatka>
+      </Grupa>
+
+      <Grupa tytul="Fokus klawiatury">
+        <Siatka kolumny={3}>
+          <Stan nazwa="pierwszy wiersz listy obiektów z fokusem (ustawionym programowo)">
+            <DemoFokusu />
+          </Stan>
+        </Siatka>
+      </Grupa>
+
+      <Grupa tytul="Przyciski usuwania">
+        <Siatka kolumny={2}>
+          <Stan nazwa="zamknięte">
+            <div className="flex flex-wrap items-center gap-3">
+              <UsunDrzewo pytanie={PYTANIE_O_DRZEWO} otwarteNaStart={false} />
+              <UsunWezel pytanie={PYTANIE_O_WEZEL} otwarteNaStart={false} />
+            </div>
+          </Stan>
+
+          <Stan nazwa="potwierdzenie otwarte (programowo)">
+            {/*
+              Dymek otwiera się nad przyciskiem (domyślne `placement`), więc
+              nad przyciskiem musi zostać miejsce na cały dymek — inaczej antd
+              przerzuci go pod spód albo przytnie na krawędzi strony.
+            */}
+            <div className="flex flex-wrap items-center gap-3 pt-36">
+              <UsunWezel pytanie={PYTANIE_O_WEZEL} otwarteNaStart />
+            </div>
+          </Stan>
+        </Siatka>
+      </Grupa>
+    </main>
+  );
+}
+
+// ─── Obudowy wzornika ────────────────────────────────────────────────────────
+
+/** Grupa stanów jednego komponentu, z tytułem. */
+function Grupa({
+  tytul,
+  children,
+}: {
+  tytul: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <section aria-label={tytul} className="flex flex-col gap-4">
+      <Typography.Title level={2}>{tytul}</Typography.Title>
+      {children}
+    </section>
+  );
+}
+
+/**
+ * Siatka stanów: jedna kolumna przy wąskim oknie, `kolumny` przy szerokim.
+ * Pełne nazwy klas, bo Tailwind nie widzi klas składanych z fragmentów.
+ */
+function Siatka({
+  kolumny,
+  children,
+}: {
+  kolumny: 2 | 3;
+  children: React.ReactNode;
+}) {
+  return (
+    <div
+      className={`grid grid-cols-1 gap-6 ${
+        kolumny === 2 ? "lg:grid-cols-2" : "lg:grid-cols-3"
+      }`}
+    >
+      {children}
+    </div>
+  );
+}
+
+/**
+ * Jeden stan, podpisany nazwą. `min-w-0`, bo element siatki nie zwęża się
+ * poniżej szerokości treści, a tabela potrafi być szersza od kolumny.
+ */
+function Stan({
+  nazwa,
+  children,
+}: {
+  nazwa: string;
+  children: React.ReactNode;
+}) {
+  const id = useId();
+
+  return (
+    <section aria-labelledby={id} className="flex min-w-0 flex-col gap-2">
+      <h3 id={id}>
+        <Typography.Text type="secondary">Stan: {nazwa}</Typography.Text>
+      </h3>
+      {children}
+    </section>
+  );
+}
+
+// ─── Kompozycje w kształcie z tras ───────────────────────────────────────────
+
+/**
+ * Ramka panelu pod listą — złożona jak `RamkaPanelu` w `routes/drzewo.tsx`
+ * (tam bez zewnętrznego marginesu; uzasadnienie `Card` i ramki
+ * `obramowanieKontrolki` w `routes/obiekty.tsx`).
+ */
+function RamkaPanelu({
+  tytul,
+  akcja,
+  children,
+}: {
+  tytul: string;
+  akcja?: React.ReactNode;
+  children: React.ReactNode;
+}) {
+  return (
+    <Card
+      size="small"
+      title={tytul}
+      extra={akcja}
+      className="border-tg-obramowanie-kontrolki"
+    >
+      {children}
+    </Card>
+  );
+}
+
+/**
+ * Baner odmowy operacji na węzłach — złożony jak w `BudowaDrzewa`
+ * (`routes/drzewo.tsx`): komunikat w tytule, naruszenia pól w opisie.
+ */
+function BanerOdmowy({ odmowa }: { odmowa: ApiErrorBody }) {
+  const naruszenia = naruszeniaPol(odmowa);
+
+  return (
+    <Alert
+      type="error"
+      showIcon
+      title={odmowa.error.message}
+      description={naruszenia.length > 0 ? naruszenia.join(" ") : undefined}
+    />
+  );
+}
+
+/**
+ * Stan dymku potwierdzenia: zamknięty albo otwierany **po zamontowaniu**,
+ * a nie od pierwszego renderu — render serwerowy zostaje zamknięty, jak
+ * w widoku, a dymek pokazuje się dopiero po hydracji. Sterowany, ale z
+ * `onOpenChange`, więc kliknięcie obok nadal go zamyka.
+ */
+function useOtwarcie(otwarteNaStart: boolean) {
+  const [otwarte, ustawOtwarte] = useState(false);
+
+  useEffect(() => {
+    if (otwarteNaStart) {
+      ustawOtwarte(true);
+    }
+  }, [otwarteNaStart]);
+
+  return [otwarte, ustawOtwarte] as const;
+}
+
+/** „Usuń drzewo" — złożone jak w `EdycjaDrzewa` (`routes/drzewo.tsx`). */
+function UsunDrzewo({
+  pytanie,
+  otwarteNaStart,
+}: {
+  pytanie: string;
+  otwarteNaStart: boolean;
+}) {
+  const [otwarte, ustawOtwarte] = useOtwarcie(otwarteNaStart);
+
+  return (
+    <Popconfirm
+      title={pytanie}
+      description="Tej operacji nie da się cofnąć."
+      okText="Usuń"
+      cancelText="Anuluj"
+      cancelButtonProps={ANULUJ_OBRYSOWANE}
+      open={otwarte}
+      onOpenChange={ustawOtwarte}
+      onConfirm={nic}
+    >
+      <Button>Usuń drzewo</Button>
+    </Popconfirm>
+  );
+}
+
+/** „Usuń węzeł" — złożone jak w `BudowaDrzewa` (`routes/drzewo.tsx`). */
+function UsunWezel({
+  pytanie,
+  otwarteNaStart,
+}: {
+  pytanie: string;
+  otwarteNaStart: boolean;
+}) {
+  const [otwarte, ustawOtwarte] = useOtwarcie(otwarteNaStart);
+
+  return (
+    <Popconfirm
+      title={pytanie}
+      description="Tej operacji nie da się cofnąć."
+      okText="Usuń"
+      cancelText="Anuluj"
+      cancelButtonProps={ANULUJ_OBRYSOWANE}
+      open={otwarte}
+      onOpenChange={ustawOtwarte}
+      onConfirm={nic}
+    >
+      <Button>Usuń węzeł</Button>
+    </Popconfirm>
+  );
+}
+
+/**
+ * `DrzewoStruktury` w ramce przewijania złożonej jak w `BudowaDrzewa`
+ * (`routes/drzewo.tsx`), z własnym stanem zaznaczenia i rozwinięć, żeby dało
+ * się w nim klikać. Drzewo startuje rozwinięte w całości, jak w widoku.
+ */
+function DemoDrzewa({
+  wezly,
+  wybranyNaStart,
+  zajete,
+}: {
+  wezly: TreeNode[];
+  wybranyNaStart: number | null;
+  zajete: boolean;
+}) {
+  const [wybrany, ustawWybrany] = useState(wybranyNaStart);
+  const [rozwiniete, ustawRozwiniete] = useState(() => wezlyZDziecmi(wezly));
+
+  return (
+    // Wysokość ramki daje tu klasa, bo wzornik nie ma układu widoku, z którego
+    // ramka w `/drzewo` bierze resztę wysokości (wyjątek z nagłówka modułu).
+    <div className="flex h-72 flex-col">
+      <div className="min-h-0 flex-1 overflow-auto border border-tg-obramowanie-kontrolki bg-tg-panel">
+        <DrzewoStruktury
+          wezly={wezly}
+          obiekty={OBIEKTY}
+          wybranyWezelId={wybrany}
+          onWybierzWezel={ustawWybrany}
+          rozwiniete={rozwiniete}
+          onRozwin={ustawRozwiniete}
+          onUpuscObiekt={nic}
+          onPrzenies={nic}
+          zajete={zajete}
+        />
+      </div>
+    </div>
+  );
+}
+
+/**
+ * `ListaObiektowZrodlowych` w kolumnie złożonej jak sekcja „Obiekty słownika"
+ * w `BudowaDrzewa` (`routes/drzewo.tsx`), z własnym stanem zaznaczenia.
+ */
+function DemoListy({
+  obiekty,
+  uzyte,
+  wybranyNaStart,
+  zajete,
+}: {
+  obiekty: CatalogObject[];
+  uzyte: ReadonlySet<number>;
+  wybranyNaStart: number | null;
+  zajete: boolean;
+}) {
+  const [wybrany, ustawWybrany] = useState(wybranyNaStart);
+
+  return (
+    // Wysokość z klasy — ten sam wyjątek co w `DemoDrzewa`. Lista mierzy
+    // swój kontener, więc bez wysokości nie miałaby czego zmierzyć.
+    <div className="flex h-72 flex-col">
+      <ListaObiektowZrodlowych
+        obiekty={obiekty}
+        wybranyId={wybrany}
+        onWybierz={ustawWybrany}
+        uzyteObiekty={uzyte}
+        onUpuscWezel={nic}
+        zajete={zajete}
+      />
+    </div>
+  );
+}
+
+/** Jak długo i jak często wzornik ponawia ustawienie fokusu na wierszu. */
+const LICZBA_PROB_FOKUSU = 20;
+const ODSTEP_PROB_FOKUSU_MS = 100;
+
+/**
+ * Lista obiektów, której pierwszy wiersz dostaje fokus programowo po
+ * zamontowaniu — stan fokusu na zrzucie bez klawiatury. Bez zaznaczenia,
+ * żeby obrys fokusu nie mieszał się z tłem wybranego wiersza.
+ *
+ * Fokus jest ponawiany przez krótką chwilę, a nie ustawiany raz: lista po
+ * pierwszym pomiarze kontenera podaje tabeli `scroll.y`, a antd przebudowuje
+ * wtedy tabelę na osobny nagłówek i ciało — wiersz sfokusowany przed pomiarem
+ * wypada z dokumentu razem z fokusem. Selektor trzyma się elementów HTML
+ * i atrybutu z `onRow` listy (`tabIndex: 0`), a nie klas antd; wiersz
+ * pomiarowy antd `tabindex` nie ma, więc nie zostanie złapany.
+ */
+function DemoFokusu() {
+  const obszar = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    let proby = 0;
+
+    const ponow = window.setInterval(() => {
+      const wiersz = obszar.current?.querySelector<HTMLElement>(
+        'tbody tr[tabindex="0"]',
+      );
+
+      if (wiersz != null && document.activeElement !== wiersz) {
+        wiersz.focus({ preventScroll: true });
+      }
+
+      proby += 1;
+
+      if (proby >= LICZBA_PROB_FOKUSU) {
+        window.clearInterval(ponow);
+      }
+    }, ODSTEP_PROB_FOKUSU_MS);
+
+    return () => window.clearInterval(ponow);
+  }, []);
+
+  return (
+    <div ref={obszar}>
+      <DemoListy
+        obiekty={OBIEKTY}
+        uzyte={UZYTE_OBIEKTY}
+        wybranyNaStart={null}
+        zajete={false}
+      />
+    </div>
+  );
+}
+
+/**
+ * Komunikaty pól z odmowy — kopia `naruszeniaPol` z `routes/drzewo.tsx`
+ * (tam prywatna), żeby baner we wzorniku miał ten sam opis co w widoku.
+ */
+function naruszeniaPol(odmowa: ApiErrorBody): string[] {
+  const pola = odmowa.error.context.fields;
+
+  if (typeof pola !== "object" || pola === null) {
+    return [];
+  }
+
+  return Object.values(pola).filter(
+    (komunikat): komunikat is string => typeof komunikat === "string",
+  );
+}
