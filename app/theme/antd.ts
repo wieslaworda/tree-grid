@@ -5,14 +5,29 @@
  * pojedynczym widoku jest dokładnie tym, co ta zmiana likwiduje.
  *
  * Metryki układu (`odstepStrony`, `odstepSekcji`, `odstepElementow`,
- * `wierszeMinimalnejBudowy`, `gruboscFokusu`) i rola `fokus` celowo tu nie
- * trafiają: konsumuje je wyłącznie Tailwind, przez `app/theme/zmienne.ts`
- * i `app/app.css` — fokus komponentów antd zostaje przy jego własnych tokenach.
+ * `wierszeMinimalnejBudowy`, `gruboscFokusu`) celowo tu nie trafiają:
+ * konsumuje je wyłącznie Tailwind, przez `app/theme/zmienne.ts`
+ * i `app/app.css`. Rola `fokus` trafia tu od 2026-09-24 w jednym celu:
+ * pierścień fokusu kontrolek antd w stylu shadcn/ui (`focus-visible:ring-[3px]
+ * ring-ring/50`) — neutralny jak `ring` shadcn, z kryciem 50 %
+ * ({@link zKryciem}). Obrys własnych elementów zostaje w `app/app.css`.
  */
 
 import { theme, type ConfigProviderProps, type ThemeConfig } from "antd";
 
 import { METRYKI, PALETY, type Paleta, type Wariant } from "~/theme/tokeny";
+
+/**
+ * Cień kontrolek — `shadow-xs` shadcn/ui (przycisk `outline`, pole, select),
+ * czyli wartość `--shadow-xs` z Tailwinda v4, na którym stoi shadcn. Czarny
+ * z 5 % krycia w obu wariantach, tak samo jak w shadcn: w ciemnym jest
+ * prawie niewidoczny i to jest zgodne ze wzorem, a nie usterka.
+ *
+ * Stoi **nad** {@link MOTYWY}: te są liczone przy ładowaniu modułu, więc
+ * stała zadeklarowana niżej byłaby jeszcze niezainicjowana i każdy render
+ * kończyłby się błędem 500 — a `tsc` tego nie zgłasza.
+ */
+const CIEN_XS = "0 1px 2px 0 rgb(0 0 0 / 0.05)";
 
 /**
  * Motywy obu wariantów, **wyliczone raz na poziomie modułu**.
@@ -61,6 +76,20 @@ export const PRZYCISKI: ConfigProviderProps["button"] = {
 };
 
 /**
+ * Kolor palety z kryciem — 8-cyfrowy heks, bo antd przyjmuje go wszędzie tam,
+ * gdzie kolor. Tak powstają pierścienie w stylu shadcn (`ring/50`,
+ * `destructive/20`) bez dopisywania do palety ról, które różnią się od
+ * istniejących wyłącznie kryciem.
+ */
+function zKryciem(kolor: Paleta[keyof Paleta], alfa: number): string {
+  const kanal = Math.round(alfa * 255)
+    .toString(16)
+    .padStart(2, "0");
+
+  return `${kolor}${kanal}`;
+}
+
+/**
  * Buduje `ThemeConfig` dla jednego wariantu.
  *
  * Przyjmuje **tylko wariant**. `METRYKI` bierze z modułu, a nie z parametru, i
@@ -74,10 +103,19 @@ function zbudujMotyw(wariant: Wariant): ThemeConfig {
   // Tekst kładziony na samym akcencie. Nie jest to zbieg okoliczności, że to
   // dokładnie `tlo` wariantu: tło i akcent stoją na przeciwnych końcach
   // jasności tej palety, więc tło jest z definicji jej najlepszym kontrastem
-  // dla akcentu. Ciemny: `#0B0F14` na wyprowadzonym `#20b6cd` = 7,9:1.
-  // Jasny: `#FFFFFF`. Antd domyślnie stawia tam `#fff` **zawsze**, co
-  // w wariancie ciemnym daje 2,43:1 — stąd jawne nadpisanie.
+  // dla akcentu. Ciemny: `#0A1120` na wyprowadzonym `#34a4d5` = 6,66:1.
+  // Jasny: `#ECEFF4` na `#456690` (algorytm jasny go nie zmienia) = 5,12:1.
+  // Antd domyślnie stawia tam `#fff` **zawsze**, co w wariancie ciemnym
+  // daje 2,83:1 — stąd jawne nadpisanie.
   const tekstNaAkcencie = paleta.tlo;
+
+  // Pierścień fokusu shadcn: `ring-ring/50` — neutralny kolor fokusu, pół
+  // krycia. Kolor obrysu przy `:focus-visible` przycisku, checkboxa
+  // i `Segmented` antd bierze z `colorPrimaryBorder` (`style/index.js`,
+  // `genFocusOutline`), a pierścień pól i Selecta — z `controlOutline`.
+  const pierscienFokusu = zKryciem(paleta.fokus, 0.5);
+  // `aria-invalid:ring-destructive/20` (jasny) i `/40` (ciemny) z shadcn.
+  const pierscienBledu = zKryciem(paleta.spadek, ciemny ? 0.4 : 0.2);
 
   return {
     algorithm: ciemny ? theme.darkAlgorithm : theme.defaultAlgorithm,
@@ -133,6 +171,11 @@ function zbudujMotyw(wariant: Wariant): ThemeConfig {
       colorBorderSecondary: paleta.linia,
       colorSplit: paleta.linia,
       colorFillAlter: paleta.zebra,
+      // Pierścień fokusu pól (`Input.activeShadow` i `Select.activeOutlineColor`
+      // wyprowadza z nich antd) — 3 px i `ring/50` jak w shadcn.
+      controlOutlineWidth: METRYKI.gruboscPierscieniaFokusu,
+      controlOutline: pierscienFokusu,
+      lineWidthFocus: METRYKI.gruboscPierscieniaFokusu,
       // Alias, więc nadpisanie działa. Zobacz arytmetykę przy `Table` niżej.
       lineHeight: METRYKI.lineHeight,
     },
@@ -204,8 +247,73 @@ function zbudujMotyw(wariant: Wariant): ThemeConfig {
         directoryNodeSelectedColor: tekstNaAkcencie,
       },
 
+      /**
+       * Przycisk w stylu shadcn/ui: `font-medium`, cień `shadow-xs`
+       * i neutralny pierścień fokusu. Wypełnienie domyślne (`PRZYCISKI`)
+       * i obrysowane „Anuluj” to dokładnie warianty `default` i `outline`
+       * shadcn, więc warianty zostają bez zmian. `colorPrimaryBorder` tylko
+       * tutaj: przycisk bierze z niego kolor obrysu fokusu, a poza tym —
+       * wyłącznie wariant `filled`, którego repo nie używa.
+       */
       Button: {
         primaryColor: tekstNaAkcencie,
+        fontWeight: 500,
+        defaultShadow: CIEN_XS,
+        primaryShadow: CIEN_XS,
+        dangerShadow: CIEN_XS,
+        colorPrimaryBorder: pierscienFokusu,
+      },
+
+      /**
+       * Pole jak `Input` shadcn: obramowanie nie zmienia się przy najechaniu,
+       * a przy fokusie przechodzi w kolor pierścienia (`focus-visible:
+       * border-ring`) z pierścieniem 3 px dookoła. Błąd — pierścień
+       * `destructive/20`.
+       */
+      Input: {
+        hoverBorderColor: paleta.obramowanieKontrolki,
+        activeBorderColor: paleta.fokus,
+        errorActiveShadow: `0 0 0 ${METRYKI.gruboscPierscieniaFokusu}px ${pierscienBledu}`,
+      },
+
+      /** Select jak `SelectTrigger` shadcn — te same zasady co pole wyżej. */
+      Select: {
+        hoverBorderColor: paleta.obramowanieKontrolki,
+        activeBorderColor: paleta.fokus,
+      },
+
+      /**
+       * Checkbox shadcn: `rounded-[4px]`, a antd rysuje go promieniem
+       * `borderRadiusSM` (6 z ziarna). Obrys fokusu jak przy przycisku.
+       */
+      Checkbox: {
+        borderRadiusSM: METRYKI.promienPolaWyboru,
+        colorPrimaryBorder: pierscienFokusu,
+      },
+
+      /**
+       * `Segmented` jak `Tabs` shadcn: tor `rounded-lg p-[3px] bg-muted`,
+       * wybrana pozycja `rounded-md` na jaśniejszym tle niż tor. Tła
+       * rozgałęzione per wariant z konieczności porządku jasności palet:
+       * w ciemnym `tlo` jest najciemniejsze, w jasnym — najjaśniejsze, więc
+       * te same role dałyby w jasnym wybraną pozycję ciemniejszą od toru.
+       * Promienie: tor 10 (`rounded-lg` = `borderRadiusLG` ziarna), pozycja 8.
+       */
+      Segmented: {
+        trackPadding: 3,
+        trackBg: ciemny ? paleta.tlo : paleta.linia,
+        itemSelectedBg: ciemny ? paleta.linia : paleta.tlo,
+        borderRadius: METRYKI.borderRadius + 2,
+        borderRadiusSM: METRYKI.borderRadius,
+        colorPrimaryBorder: pierscienFokusu,
+      },
+
+      /**
+       * Karta (`RamkaPanelu`) — `rounded-xl` shadcn. Cień `shadow-sm` stoi
+       * klasą w `RamkaPanelu`, bo `Card` antd nie ma tokenu cienia w spoczynku.
+       */
+      Card: {
+        borderRadiusLG: METRYKI.promienKarty,
       },
 
       /**

@@ -50,6 +50,23 @@ const KLASA_KOMORKI = "tg-komorka-gridu";
 const KLASA_KOLUMNY_Z_GRANICA = `${KLASA_KOMORKI} tg-granica-kolumny`;
 
 /**
+ * Tło i tekst nagłówka kolumn — rola `naglowekGridu`, ciemniejsza od
+ * wierszy, żeby nagłówek nie mylił się z wierszem ani z najechaniem.
+ * Przez `onHeaderCell`, a nie token `Table.headerBg`: token przemalowałby
+ * nagłówki wszystkich tabel, także list słownikowych. Tekst `tekst`, bo
+ * domyślny `tekstDrugorzedny` nagłówka ma na tym tle za mało kontrastu
+ * (uzasadnienie przy `PALETY`). Klasa narzędziowa wygrywa z tłem antd dzięki
+ * kolejności warstw (kontrakt 1 w `CLAUDE.md`), także na przypiętej komórce.
+ */
+const WLASCIWOSCI_NAGLOWKA = {
+  className: "bg-tg-naglowek-gridu text-tg-tekst",
+};
+
+function wlasciwosciNaglowka() {
+  return WLASCIWOSCI_NAGLOWKA;
+}
+
+/**
  * Szerokość treści w poziomie — tabela wirtualna przyjmuje wyłącznie liczbę
  * (`@rc-component/table`, `VirtualTable/index.js`). Suma szerokości kolumn,
  * więc czyta te same metryki co kolumny.
@@ -195,6 +212,7 @@ export function GridEkranu({
     () => [
       {
         title: "Węzeł",
+        onHeaderCell: wlasciwosciNaglowka,
         key: "wezel",
         className: KLASA_KOLUMNY_Z_GRANICA,
         fixed: "left",
@@ -214,6 +232,7 @@ export function GridEkranu({
       },
       {
         title: "Kategoria",
+        onHeaderCell: wlasciwosciNaglowka,
         key: "kategoria",
         className: KLASA_KOMORKI,
         fixed: "left",

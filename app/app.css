@@ -67,6 +67,7 @@
   --color-tg-ostrzezenie-na-powierzchni: var(--tg-ostrzezenieNaPowierzchni);
   --color-tg-hover-wiersza: var(--tg-hoverWiersza);
   --color-tg-zaznaczenie-wiersza: var(--tg-zaznaczenieWiersza);
+  --color-tg-naglowek-gridu: var(--tg-naglowekGridu);
   --color-tg-fokus: var(--tg-fokus);
 
   --spacing-tg-strona: var(--tg-odstepStrony);
@@ -191,6 +192,10 @@ html {
     height: var(--tg-rozmiarPrzelacznika);
     padding: 0;
     border: 1px solid var(--tg-obramowanieKontrolki);
+    /* Ten sam promień co checkbox (`METRYKI.promienPolaWyboru` — proporcja
+       ¼ boku z checkboxa shadcn) — oba kwadraciki stoją w tym samym widoku
+       ekranu. */
+    border-radius: var(--tg-promienPolaWyboru);
     background: transparent;
     color: var(--tg-tekst);
     cursor: pointer;

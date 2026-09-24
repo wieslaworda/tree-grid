@@ -1,26 +1,30 @@
 /**
  * Źródło prawdy o kolorach i metrykach motywu „Terminal dyspozytorski".
+ * Kolory obu wariantów pochodzą od 2026-09-24 z motywów daisyUI — `night`
+ * (ciemny) i `nord` (jasny); szczegóły i źródło przy {@link PALETY}. daisyUI
+ * nie jest zależnością repo: przeniesione są wyłącznie wartości kolorów.
  *
  * Ten moduł jest **wyłącznie danymi**: zero importów z runtime'u antd, zero
  * JSX, zero logiki. Jeśli zmienia się heks albo metryka, zmienia się tutaj i
  * nigdzie indziej — `app/theme/antd.ts` i `app/theme/zmienne.ts` tylko go
  * czytają.
  *
- * ## Ziarna kontra aliasy — czemu `#22D3EE` nie zobaczysz w DevToolsach
+ * ## Ziarna kontra aliasy — czemu `#3ABDF7` nie zobaczysz w DevToolsach
  *
  * antd dzieli tokeny na **ziarna** (seed) i **aliasy**. Ziarna nie są kolorami
  * do przypięcia — są wejściem algorytmu, który wyprowadza z nich całą rampę
  * (hover, active, tło, obramowanie). `antd/es/theme/util/alias.js:17-19` robi
  * `Object.keys(seedToken).forEach(token => { delete overrideTokens[token] })`,
  * więc **każde** nadpisanie klucza będącego ziarnem jest z nadpisań usuwane.
- * Podanie `colorPrimary: "#22D3EE"` nie przypina tego heksa — karmi nim
+ * Podanie `colorPrimary: "#3ABDF7"` nie przypina tego heksa — karmi nim
  * algorytm.
  *
- * Zmierzone na wartościach z zatwierdzonej próbki: `#22D3EE` → `#20b6cd`,
- * `#26A65B` → `#239050`, `#E5484D` → `#c64044`, `#F5A524` → `#d38f22`.
- * To nie jest usterka do „naprawienia" — to działanie algorytmu. Pierwsza
- * osoba, która zobaczy `#20b6cd` w inspektorze i zacznie szukać literówki,
- * ma przeczytać ten akapit.
+ * Przeliczone `theme.getDesignToken` antd na palecie ciemnej
+ * (`darkAlgorithm`): `#3ABDF7` → `#34a4d5`, `#2FD4BF` → `#2bb7a5`,
+ * `#FB7085` → `#d86274`, `#F4BF51` → `#d2a548`. Jasna (`defaultAlgorithm`)
+ * zostawia swoje ziarna bez zmian. To nie jest usterka do „naprawienia" —
+ * to działanie algorytmu. Pierwsza osoba, która zobaczy `#34a4d5`
+ * w inspektorze i zacznie szukać literówki, ma przeczytać ten akapit.
  *
  * Ziarnami są m.in.: `colorPrimary`, `colorSuccess`, `colorError`,
  * `colorWarning`, `colorInfo`, `colorBgBase`, `colorTextBase`, `fontSize`,
@@ -78,6 +82,7 @@ type RolaKoloru =
   | "ostrzezenieNaPowierzchni"
   | "hoverWiersza"
   | "zaznaczenieWiersza"
+  | "naglowekGridu"
   | "fokus";
 
 /**
@@ -100,6 +105,9 @@ type Metryki = {
   fontSize: number;
   controlHeight: number;
   borderRadius: number;
+  promienKarty: number;
+  promienPolaWyboru: number;
+  gruboscPierscieniaFokusu: number;
   lineWidth: number;
   sizeUnit: number;
   sizeStep: number;
@@ -148,7 +156,37 @@ type Metryki = {
 export const METRYKI: Metryki = {
   fontSize: 12,
   controlHeight: 24,
-  borderRadius: 2,
+  // ——— KSZTAŁT KONTROLEK: shadcn/ui ———
+  // Język kształtu kontrolek z shadcn/ui (2026-09-24), bez instalowania
+  // shadcn — repo ma już system komponentów (antd), a drugi zakazuje
+  // `CLAUDE.md`. Źródło: `shadcn-ui/ui`, `apps/v4/app/globals.css`
+  // (`--radius: 0.625rem`) i `apps/v4/registry/new-york-v4/ui/*.tsx`
+  // (gałąź `main`). Gęstość zostaje nasza: przy `controlHeight: 24`
+  // przycisk odpowiada rozmiarowi `xs` shadcn (`h-6 rounded-md`), więc
+  // promienie pasują do tej wysokości 1:1.
+  //
+  // Ziarno antd = `rounded-md` shadcn (`--radius × 0.8` = 8 px): przyciski,
+  // pola i Select. Z niego antd wyprowadza sam (`theme/themes/shared/
+  // genRadius.js`) `borderRadiusLG` = 10 (`rounded-lg` — alert, lista
+  // `Segmented`), `borderRadiusSM` = 6 i `borderRadiusXS` = 2. Nagłówek
+  // gridu ma promień 0 jawnie (`Table.headerBorderRadius` w `antd.ts`).
+  borderRadius: 8,
+  // Karta (`RamkaPanelu`) — `rounded-xl` shadcn (`--radius × 1.4`). Ziarno
+  // dałoby 10, więc osobna metryka, czytana jako `Card.borderRadiusLG`.
+  promienKarty: 14,
+  // Pole wyboru — checkbox shadcn ma `rounded-[4px]` przy `size-4` (16 px),
+  // czyli promień ¼ boku. U nas pole ma 12 px (`controlInteractiveSize`
+  // wyprowadzone z `controlHeight: 24`), więc przeniesiona jest proporcja,
+  // a nie liczba: 4 px na 12 px robiło z pola kółko (sprawdzone na zrzucie
+  // wzornika). antd rysuje checkbox promieniem `borderRadiusSM` (6 z ziarna).
+  // Ten sam promień ma przełącznik +/− gridu (`.tg-przelacznik`
+  // w `app/app.css`, 11 px), żeby oba kwadraciki były jednakowe.
+  promienPolaWyboru: 3,
+  // Pierścień fokusu kontrolek antd — `focus-visible:ring-[3px]` shadcn.
+  // Własnych elementów (`:focus-visible` w `app/app.css`) nie dotyczy: tam
+  // obrys jest wcięty i ma `gruboscFokusu`, bo stoi w kontenerach
+  // przewijania, które pierścień na zewnątrz by przycięły.
+  gruboscPierscieniaFokusu: 3,
   lineWidth: 1,
   sizeUnit: 3,
   sizeStep: 3,
@@ -226,64 +264,124 @@ export const METRYKI: Metryki = {
 };
 
 /**
- * Palety obu wariantów.
+ * Palety obu wariantów — kolory motywów daisyUI `night` (ciemny) i `nord`
+ * (jasny), przeniesione 2026-09-24.
  *
- * Dwie wartości są świadomą korektą zatwierdzonej próbki, a nie przepisaniem
- * jej: `obramowanieKontrolki` to `#55657A` (ciemny) i `#8C959F` (jasny), bo
- * próbkowe `#1F2833`/`#0B0F14` = 1,3:1 i `#D0D7DE`/`#FFFFFF` = 1,45:1 nie
- * przechodzą progu 3:1 dla obramowań kontrolek. Oryginalne heksy zostają —
- * ale wyłącznie jako `linia`, czyli siatka, której WCAG nie dotyczy.
- * Podobnie `ostrzezenieNaPowierzchni` w wariancie jasnym to `#7A5200`, bo
- * sygnałowe `#9A6700` na `#F1F3F5` daje 4,43:1, tuż pod progiem 4,5:1.
+ * Źródło: `saadeghi/daisyui`, `packages/daisyui/src/themes/night.css`
+ * i `nord.css` (gałąź `master`; te same presety co w
+ * daisyui.com/theme-generator). daisyUI zapisuje kolory w OKLCH — tu stoją
+ * przeliczone na sRGB, bo `Kolor` przyjmuje wyłącznie heks. Promienie
+ * i rozmiary z tych motywów świadomie **nie** są przeniesione: `night`
+ * i `nord` mają różne promienie, a metryki są wspólne dla obu wariantów
+ * (kontrakt 4 w `CLAUDE.md`).
+ *
+ * ## Co jest wprost z daisyUI
+ *
+ * | rola          | ciemny ← night             | jasny ← nord               |
+ * | ------------- | -------------------------- | -------------------------- |
+ * | `tlo`         | base-300 `#0A1120`         | base-100 `#ECEFF4`         |
+ * | `zebra`       | base-200 `#0C1425`         | środek base-100/base-200   |
+ * | `panel`       | base-100 `#0F172A`         | base-200 `#E5E9F0`         |
+ * | `linia`       | neutral `#1E293B`          | base-300 `#D8DEE9`         |
+ * | `tekst`       | base-content `#C9CBD0`     | base-content `#2E3440`     |
+ * | `akcent`      | primary `#3ABDF7`          | primary `#5E81AC` ↓        |
+ * | `wzrost`      | success `#2FD4BF`          | success `#A3BE8D` ↓        |
+ * | `spadek`      | error `#FB7085`            | error `#BF616A` ↓          |
+ * | `ostrzezenie` | warning `#F4BF51`          | warning `#EBCB8B` ↓        |
+ *
+ * Porządek jasności teł został ten sam co w poprzedniej palecie: w ciemnym
+ * `tlo` jest najciemniejsze, a `panel` najjaśniejszy, więc karty i ramki
+ * dalej leżą „nad” tłem strony.
+ *
+ * **↓ — ściemnione do progu WCAG AA** (decyzja użytkownika z 2026-09-24).
+ * W daisyUI kolory sygnałowe są tłem przycisku z własnym `*-content`, a tu
+ * malują tekst i dane na jasnych powierzchniach, gdzie surowe wartości
+ * `nord` mają 1,35–3,55:1. Barwa i nasycenie OKLCH zostają z `nord`,
+ * obniżona jest tylko jasność, aż kolor przejdzie 4,5:1 na każdej
+ * powierzchni, na której stoi: `akcent` `#456690` (najsłabszy 4,50:1 na
+ * `hoverWiersza`), `wzrost` `#536B3E` (4,52:1), `spadek` `#A24751`
+ * (4,50:1), `ostrzezenie` `#816424` (4,56:1 na `panel`) i
+ * `ostrzezenieNaPowierzchni` `#7C5F1E` (4,56:1 także na tłach wierszy).
+ * W `night` żaden kolor tego nie wymagał — najsłabszy jest `spadek`,
+ * 4,52:1 na `zaznaczenieWiersza`.
+ *
+ * ## Role pochodne
+ *
+ * daisyUI nie ma odpowiedników dla części ról, więc są wyprowadzone
+ * mieszaniem w OKLab i dobrane tak, żeby żadna para nie wypadła słabiej niż
+ * w poprzedniej palecie:
+ *
+ * - `obramowanieKontrolki` — `panel` z domieszką `tekst`, do 3:1 na
+ *   `tlo`, `panel` i `zebra` (próg WCAG dla obramowań kontrolek). `linia`
+ *   (1,29:1 i 1,17:1) jest siatką, której ten próg nie dotyczy.
+ * - `tekstDrugorzedny` i `tekstWygaszony` — ta sama domieszka, do ≥ 4,5:1
+ *   na `tlo`, `panel`, `zebra` i `hoverWiersza`. Poprzednia paleta miała
+ *   `tekstWygaszony` poniżej progu (4,07:1 na panelu) — teraz go przechodzi.
+ * - `hoverWiersza` — `panel` przesunięty ku `linia`/base-300, a
+ *   `zaznaczenieWiersza` — `panel` z domieszką barwy: w ciemnym primary
+ *   `night`, w jasnym accent `nord` (`#88C0D0`, nie szaroniebieski primary:
+ *   z nim zaznaczenie nie różniło się od najechania barwą). Oba w tej samej
+ *   odległości od `panel` co w poprzedniej palecie.
+ * - `naglowekGridu` — tło nagłówka kolumn gridu ekranu (`GridEkranu`), ciemniejsze
+ *   od wierszy, żeby nagłówek nie mylił się z wierszem (2026-09-24). Ciemny:
+ *   slate-700 `#334155` — kolejny krok skali slate Tailwinda, na której stoi
+ *   `night` (panel = slate-900, `linia` = slate-800). Jasny: base-300 `nord`
+ *   przyciemnione w stronę nord3 `#4C566A` (16 %) = `#C0C7D4`. Odległość od
+ *   wierszy: 1,72:1 / 1,40:1 od `panel` i 1,52:1 / 1,30:1 od `hoverWiersza`,
+ *   bo neutral/base-300 wprost (1,03–1,08:1 od najechania) zlewały się
+ *   z podświetlonym wierszem. Tekst nagłówka na nim to `tekst` (6,38:1
+ *   i 7,35:1) — `tekstDrugorzedny` spadłby poniżej 4,5:1.
  *
  * `fokus` (obrys `:focus-visible` z `app/app.css`) ma dokładnie heks `tekst`
  * wariantu, ale jest osobną rolą: to, że dziś się pokrywają, jest decyzją,
  * a nie zależnością — zmiana koloru tekstu nie ma po cichu przemalowywać
  * fokusu. Nie jest akcentem, bo obrys akcentem znaczy już cel upuszczenia
  * (`DrzewoStruktury.tsx`, `ListaObiektowZrodlowych.tsx`); fokus jest od niego
- * odróżnialny barwą (neutralny wobec cyjanu) i grubością (`gruboscFokusu`
- * 2 px wobec 1 px), a nie jasnością — w ciemnym wariancie `#D6DEE8` i
- * `#22D3EE` dzielą zaledwie 1,33:1. Kontrast obrysu z powierzchniami, na
+ * odróżnialny barwą (neutralny wobec błękitu) i grubością (`gruboscFokusu`
+ * 2 px wobec 1 px), a nie jasnością — w ciemnym wariancie `#C9CBD0` i
+ * `#3ABDF7` dzielą zaledwie 1,32:1. Kontrast obrysu z powierzchniami, na
  * których może stanąć (`tlo`, `panel`, `zebra`, `hoverWiersza`,
- * `zaznaczenieWiersza`), policzony wzorem WCAG: ciemny ≥ 9,03:1
- * (najsłabszy na `zaznaczenieWiersza` `#123A44`), jasny ≥ 13,84:1
- * (najsłabszy na `hoverWiersza` `#E8EBEE`) — daleko ponad próg 3:1.
+ * `zaznaczenieWiersza`), policzony wzorem WCAG: ciemny ≥ 7,54:1
+ * (najsłabszy na `zaznaczenieWiersza` `#1B3752`), jasny ≥ 9,52:1
+ * (najsłabszy na `hoverWiersza` `#DCE1EB`) — daleko ponad próg 3:1.
  */
 export const PALETY: Record<Wariant, Paleta> = {
   ciemny: {
-    tlo: "#0B0F14",
-    panel: "#121820",
-    zebra: "#0E141B",
-    linia: "#1F2833",
-    obramowanieKontrolki: "#55657A",
-    tekst: "#D6DEE8",
-    tekstDrugorzedny: "#8A97A6",
-    tekstWygaszony: "#6B7A8C",
-    akcent: "#22D3EE",
-    wzrost: "#26A65B",
-    spadek: "#E5484D",
-    ostrzezenie: "#F5A524",
-    ostrzezenieNaPowierzchni: "#F5A524",
-    hoverWiersza: "#1B2430",
-    zaznaczenieWiersza: "#123A44",
-    fokus: "#D6DEE8",
+    tlo: "#0A1120",
+    panel: "#0F172A",
+    zebra: "#0C1425",
+    linia: "#1E293B",
+    obramowanieKontrolki: "#5D6472",
+    tekst: "#C9CBD0",
+    tekstDrugorzedny: "#9196A0",
+    tekstWygaszony: "#848A95",
+    akcent: "#3ABDF7",
+    wzrost: "#2FD4BF",
+    spadek: "#FB7085",
+    ostrzezenie: "#F4BF51",
+    ostrzezenieNaPowierzchni: "#F4BF51",
+    hoverWiersza: "#192336",
+    zaznaczenieWiersza: "#1B3752",
+    naglowekGridu: "#334155",
+    fokus: "#C9CBD0",
   },
   jasny: {
-    tlo: "#FFFFFF",
-    panel: "#F1F3F5",
-    zebra: "#F8F9FA",
-    linia: "#D0D7DE",
-    obramowanieKontrolki: "#8C959F",
-    tekst: "#1B1F24",
-    tekstDrugorzedny: "#57606A",
-    tekstWygaszony: "#6E7781",
-    akcent: "#0E7490",
-    wzrost: "#116329",
-    spadek: "#CF222E",
-    ostrzezenie: "#9A6700",
-    ostrzezenieNaPowierzchni: "#7A5200",
-    hoverWiersza: "#E8EBEE",
-    zaznaczenieWiersza: "#DDF0F5",
-    fokus: "#1B1F24",
+    tlo: "#ECEFF4",
+    panel: "#E5E9F0",
+    zebra: "#E8ECF2",
+    linia: "#D8DEE9",
+    obramowanieKontrolki: "#818690",
+    tekst: "#2E3440",
+    tekstDrugorzedny: "#545965",
+    tekstWygaszony: "#5F6470",
+    akcent: "#456690",
+    wzrost: "#536B3E",
+    spadek: "#A24751",
+    ostrzezenie: "#816424",
+    ostrzezenieNaPowierzchni: "#7C5F1E",
+    hoverWiersza: "#DCE1EB",
+    zaznaczenieWiersza: "#DBE4EC",
+    naglowekGridu: "#C0C7D4",
+    fokus: "#2E3440",
   },
 };

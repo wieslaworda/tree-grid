@@ -22,6 +22,11 @@ type Wlasciwosci = {
  * `linia` karty: `linia` (1,3:1 do tła w wariancie ciemnym) jest siatką tabeli
  * i na granicy panelu zlewała się z tłem.
  *
+ * Kształt karty shadcn/ui (`rounded-xl border shadow-sm`): promień z tokenu
+ * `Card.borderRadiusLG` (`METRYKI.promienKarty`), a cień klasą `shadow-sm` —
+ * `Card` antd nie ma tokenu cienia w spoczynku. `shadow-sm` Tailwinda to ta
+ * sama wartość, której używa shadcn.
+ *
  * **Bez zewnętrznego marginesu**: odstęp od listy daje rodzic (`gap-tg-sekcja`
  * w `main` widoku). Margines tutaj sumowałby się z tamtym odstępem.
  */
@@ -31,7 +36,7 @@ export function RamkaPanelu({ tytul, akcja, children }: Wlasciwosci) {
       size="small"
       title={tytul}
       extra={akcja}
-      className="border-tg-obramowanie-kontrolki"
+      className="border-tg-obramowanie-kontrolki shadow-sm"
     >
       {children}
     </Card>

@@ -66,6 +66,7 @@ function blokWspolny(): string {
     `  --tg-gruboscLinii: ${px(METRYKI.lineWidth)};`,
     `  --tg-gruboscLiniiSekcji: ${px(METRYKI.gruboscLiniiSekcji)};`,
     `  --tg-rozmiarPrzelacznika: ${px(METRYKI.rozmiarPrzelacznika)};`,
+    `  --tg-promienPolaWyboru: ${px(METRYKI.promienPolaWyboru)};`,
     `  --tg-szerokoscPaneluKategoriiWezla: ${px(METRYKI.szerokoscPaneluKategoriiWezla)};`,
     // Wyliczona tutaj, a nie wpisana w `METRYKI`: źródłem jest liczba wierszy
     // i wysokość wiersza, więc zmiana wiersza przesuwa ją sama.
