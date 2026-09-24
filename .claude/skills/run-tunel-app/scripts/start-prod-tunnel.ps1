@@ -154,10 +154,19 @@ foreach ($log in @($SrvOut, $SrvErr, $CfOut, $CfErr)) {
 
 if (-not $SkipBuild) {
     Write-Host 'Buduje wersje produkcyjna (npm run build)...'
-    $buildProc = Start-Process -FilePath $npm.Source `
-        -ArgumentList 'run', 'build' `
-        -WorkingDirectory $ProjectRoot `
-        -WindowStyle Hidden -PassThru
+    # NODE_ENV jawnie, bo Vite ustawia 'production' tylko przy PUSTEJ zmiennej.
+    # 'development' odziedziczone z powloki wpuszcza do buildu trasy tylko-dev
+    # (wzornik w app/routes.ts) - publiczne, poza brama sesji.
+    $prevNodeEnv = $env:NODE_ENV
+    $env:NODE_ENV = 'production'
+    try {
+        $buildProc = Start-Process -FilePath $npm.Source `
+            -ArgumentList 'run', 'build' `
+            -WorkingDirectory $ProjectRoot `
+            -WindowStyle Hidden -PassThru
+    } finally {
+        $env:NODE_ENV = $prevNodeEnv
+    }
     if (-not $buildProc.WaitForExit($BuildTimeoutSeconds * 1000)) {
         Stop-ProcessTree -ProcessId $buildProc.Id | Out-Null
         throw "Build nie zakonczyl sie w ciagu $BuildTimeoutSeconds s."
@@ -181,10 +190,15 @@ if (-not (Test-Path $serverEntry)) {
 # HOST=127.0.0.1 ogranicza nasluch do petli zwrotnej - bez tego Express slucha na
 # wszystkich interfejsach i aplikacja jest widoczna dla calej sieci lokalnej.
 # Z petla zwrotna jedyna droga do aplikacji jest tunel.
+# NODE_ENV=production z tego samego powodu co przy buildzie: react-router-serve
+# ustawia go tylko przy pustej zmiennej, a loader wzornika zwraca 404 wylacznie
+# poza 'development'. Obie oslony wzornika czytaja ten sam sygnal.
 $prevPort = $env:PORT
 $prevHost = $env:HOST
+$prevNodeEnv = $env:NODE_ENV
 $env:PORT = "$Port"
 $env:HOST = '127.0.0.1'
+$env:NODE_ENV = 'production'
 try {
     Write-Host "Uruchamiam serwer produkcyjny na 127.0.0.1:$Port..."
     $srvProc = Start-Process -FilePath $npm.Source `
@@ -196,6 +210,7 @@ try {
 } finally {
     $env:PORT = $prevPort
     $env:HOST = $prevHost
+    $env:NODE_ENV = $prevNodeEnv
 }
 
 # Czekamy na HTTP 200, nie na sam nasluch portu - patrz .DESCRIPTION.
