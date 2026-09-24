@@ -176,10 +176,10 @@ export async function getScreen(
 }
 
 /**
- * Zmienia nagłówek ekranu: nazwę, ziarno i listę domyślną. Drzewa nie wysyła —
- * drzewo ekranu ustala się przy tworzeniu (`PUT /screens/{id}` go nie czyta).
- * Zmieniona lista domyślna nadpisuje w API przypisania wszystkich węzłów,
- * niezmieniona zostawia je bez zmian.
+ * Zmienia nagłówek ekranu: nazwę, drzewo, ziarno i listę domyślną — ta sama
+ * treść co utworzenie. Zmienione drzewo albo zmieniona lista domyślna
+ * nadpisuje w API przypisania wszystkich węzłów (drzewa ekranu), a bez obu
+ * zmian przypisania zostają nietknięte.
  */
 export async function updateScreen(
   userId: string,
@@ -187,13 +187,7 @@ export async function updateScreen(
   payload: ScreenPayload,
 ): Promise<ScreenIdResult> {
   const path = screenPath(id);
-  const { name, grainMinutes, defaultCategoryIds } = payload;
-  const result = await requestApi(
-    "PUT",
-    path,
-    { name, grainMinutes, defaultCategoryIds },
-    { userId },
-  );
+  const result = await requestApi("PUT", path, payload, { userId });
 
   return result.ok ? { ok: true, id } : result;
 }
@@ -233,9 +227,8 @@ export async function deleteScreen(
 }
 
 /**
- * Odczytuje treść utworzenia albo zmiany z formularza ekranu. Formularz
- * edycji nie ma pola drzewa, więc `treeId` wychodzi `null` —
- * {@link updateScreen} i tak go nie wysyła.
+ * Odczytuje treść utworzenia albo zmiany z formularza ekranu — oba
+ * formularze wysyłają te same pola.
  *
  * `defaultCategoryIds` przez `formData.getAll`, czyli w kolejności pól
  * w formularzu — ta kolejność jest kolejnością wierszy ekranu. Formularz

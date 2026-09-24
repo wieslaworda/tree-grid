@@ -86,10 +86,10 @@ const PARAMETR_EKRANU = "ekran";
 const PARAMETR_NOWEGO = "nowy";
 
 /**
- * Parametr adresu z drzewem podglądu nowego ekranu. Czyta go wyłącznie
- * `fetcher.load()` z panelu nowego ekranu — strona nigdy na taki adres nie
- * nawiguje, bo nawigacja zresetowałaby wpisaną nazwę (plan `zapisane-ekrany`,
- * *Critical Implementation Details*).
+ * Parametr adresu z drzewem podglądu. Czyta go wyłącznie `fetcher.load()`
+ * z panelu nowego ekranu i z edycji zapisanego ekranu po zmianie drzewa —
+ * strona nigdy na taki adres nie nawiguje, bo nawigacja zresetowałaby wpisaną
+ * nazwę (plan `zapisane-ekrany`, *Critical Implementation Details*).
  */
 const PARAMETR_DRZEWA = "drzewo";
 
@@ -168,12 +168,20 @@ const TEKST_NADPISANIA =
   "Zapis nada tę listę wszystkim węzłom ekranu — grid poniżej pokazuje wynik.";
 
 /**
- * Powód nieczynnego panelu kategorii węzła: przy zmienionej liście domyślnej
- * grid pokazuje wynik nadpisania, a zapis nagłówka i tak zastąpiłby
- * kategorie dopasowane pojedynczym węzłom.
+ * Ostrzeżenie w edycji, gdy drzewo różni się od zapisanego: przypisania
+ * należą do węzłów starego drzewa, więc zapis nada listę domyślną wszystkim
+ * węzłom nowego (egzekwuje `PUT /screens/{id}`).
+ */
+const TEKST_ZMIANY_DRZEWA =
+  "Zapis nada kategorie domyślne wszystkim węzłom nowego drzewa — kategorie dopasowane węzłom obecnego drzewa przepadną.";
+
+/**
+ * Powód nieczynnego panelu kategorii węzła: przy zmienionym drzewie albo
+ * liście domyślnej grid pokazuje wynik nadpisania, a zapis nagłówka i tak
+ * zastąpiłby kategorie dopasowane pojedynczym węzłom.
  */
 const TEKST_BLOKADY_WEZLA =
-  "Zapisz albo cofnij zmianę kategorii domyślnych, żeby dopasować kategorie pojedynczego węzła.";
+  "Zapisz albo cofnij zmianę drzewa lub kategorii domyślnych, żeby dopasować kategorie pojedynczego węzła.";
 
 export function meta({ loaderData }: Route.MetaArgs) {
   const nazwa = loaderData?.wybrany?.name;
@@ -198,8 +206,10 @@ export function meta({ loaderData }: Route.MetaArgs) {
  * `routes/drzewo.tsx`).
  *
  * `?nowy&drzewo=<id>` dokłada `podglad` — węzły wskazanego **własnego**
- * drzewa. Ten adres woła wyłącznie `fetcher.load()` z panelu nowego ekranu:
- * zwraca komplet danych trasy, ale komponent czyta z niego sam podgląd.
+ * drzewa. Ten adres woła wyłącznie `fetcher.load()` z panelu nowego ekranu
+ * i z edycji po zmianie drzewa ({@link usePodgladDrzewa}): zwraca komplet
+ * danych trasy, ale komponent czyta z niego sam podgląd. `?nowy` sprawia, że
+ * loader nie czyta przy tym żadnego zapisanego ekranu.
  * Drzewa spoza listy własnych loader nie pyta, więc cudzy identyfikator nie
  * odsłania nawet tego, czy drzewo istnieje.
  *
@@ -294,8 +304,9 @@ export async function loader({ request, context }: Route.LoaderArgs) {
 }
 
 /**
- * Węzły drzewa wybranego w panelu nowego ekranu. `treeId` pozwala panelowi
- * odrzucić odpowiedź dla drzewa, które zdążył już zmienić.
+ * Węzły drzewa wybranego w panelu (nowy ekran albo zmiana drzewa w edycji).
+ * `treeId` pozwala panelowi odrzucić odpowiedź dla drzewa, które zdążył już
+ * zmienić.
  */
 type Podglad = { treeId: number; wezly: TreeNode[] };
 
@@ -495,8 +506,8 @@ const KOLUMNY_EKRANOW: readonly KolumnaSlownika<WierszListy>[] = [
  * ekranów użytkownika, pod nią panel, a pod panelem grid ekranu, który bierze
  * resztę wysokości okna.
  *
- * Panel pokazuje zapisany ekran (zmiana nazwy, ziarna i listy domyślnej,
- * usuwanie, a obok gridu — kategorie wybranego węzła) albo nowy ekran
+ * Panel pokazuje zapisany ekran (zmiana nazwy, drzewa, ziarna i listy
+ * domyślnej, usuwanie, a obok gridu — kategorie wybranego węzła) albo nowy ekran
  * z podglądem wierszy na żywo. Kolumny czasowe gridu należą do `S-05`.
  */
 export default function Ekrany({
@@ -542,6 +553,7 @@ export default function Ekrany({
             <ZapisanyEkran
               key={kluczEkranu(wybrany)}
               ekran={wybrany}
+              drzewa={drzewa}
               kategorie={kategorie}
               obiekty={obiekty}
               blad={actionData ?? undefined}
@@ -573,15 +585,15 @@ export default function Ekrany({
 }
 
 /**
- * Zapisany ekran: karta „Edycja: <nazwa>” ze zmianą nazwy, ziarna i listy
- * domyślnej oraz z usuwaniem, a pod nią grid ekranu. Drzewo stoi w karcie
- * tylko do odczytu — ustala się je przy tworzeniu (FR-011).
+ * Zapisany ekran: karta „Edycja: <nazwa>” ze zmianą nazwy, drzewa, ziarna
+ * i listy domyślnej oraz z usuwaniem, a pod nią grid ekranu.
  *
  * Wartości formularza trzyma stan tego komponentu, jak w {@link NowyEkran}.
- * Grid pokazuje zapisane przypisania, dopóki lista domyślna w formularzu jest
- * taka sama jak zapisana. Po jej zmianie pokazuje to, co zostanie po zapisie:
- * każdy węzeł z nową listą, bo tak nadpisuje przypisania
- * `PUT /screens/{id}`.
+ * Grid pokazuje zapisane przypisania, dopóki drzewo i lista domyślna
+ * w formularzu są takie same jak zapisane. Po zmianie któregokolwiek pokazuje
+ * to, co zostanie po zapisie: każdy węzeł (nowego drzewa) z listą domyślną,
+ * bo tak nadpisuje przypisania `PUT /screens/{id}`. Węzły innego drzewa
+ * przychodzą tym samym podglądem co w nowym ekranie ({@link usePodgladDrzewa}).
  *
  * Kategorie pojedynczego węzła (`S-04`, US-02): kliknięcie w wiersz gridu
  * wybiera węzeł, a panel {@link KategorieWezla} po prawej pokazuje jego
@@ -591,8 +603,9 @@ export default function Ekrany({
  * zmienioną listą domyślną i tak nadpisałby kategorie węzłów. Grid
  * przebudowuje się od razu z wysyłanej listy (`fetcher.formData`), zanim
  * rewalidacja przyniesie zapisany stan; odmowa przywraca stan z API. Dopóki
- * lista domyślna w formularzu różni się od zapisanej, panel jest nieczynny —
- * grid pokazuje wtedy wynik nadpisania, a nie zapisane kategorie węzłów.
+ * drzewo albo lista domyślna w formularzu różni się od zapisanej, panel jest
+ * nieczynny — grid pokazuje wtedy wynik nadpisania, a nie zapisane kategorie
+ * węzłów.
  *
  * Wybór węzła żyje w stanie tego komponentu (jak w `BudowaDrzewa`), więc
  * przeżywa rewalidację po zapisie kategorii — `kluczEkranu` nie zależy od
@@ -600,11 +613,13 @@ export default function Ekrany({
  */
 function ZapisanyEkran({
   ekran,
+  drzewa,
   kategorie,
   obiekty,
   blad,
 }: {
   ekran: ScreenDetail;
+  drzewa: UserTree[];
   kategorie: CatalogCategory[];
   obiekty: CatalogObject[];
   blad: ApiErrorBody | undefined;
@@ -628,6 +643,7 @@ function ZapisanyEkran({
   // w `NowyEkran`. Rodzic nadaje `key` z wersji ekranu (`kluczEkranu`), więc
   // inny ekran i ekran po udanym zapisie zaczynają od zapisanych wartości.
   const [nazwa, ustawNazwe] = useState(ekran.name);
+  const [drzewoId, ustawDrzewoId] = useState(ekran.treeId);
   const [ziarno, ustawZiarno] = useState<Ziarno>(
     () =>
       ZIARNA.find((minuty) => minuty === ekran.grainMinutes) ?? ZIARNO_DOMYSLNE,
@@ -639,16 +655,33 @@ function ZapisanyEkran({
   const pola = naruszeniaPol(blad);
   const ogolny = komunikatOgolny(blad, pola);
 
+  const zmienioneDrzewo = drzewoId !== ekran.treeId;
   const zmienioneDomyslne =
     kategorieIds.length !== ekran.defaultCategoryIds.length ||
     kategorieIds.some((id, indeks) => id !== ekran.defaultCategoryIds[indeks]);
+  // Zapis z tą zmianą nadpisze przypisania wszystkich węzłów listą domyślną.
+  const nadpisanie = zmienioneDrzewo || zmienioneDomyslne;
 
   // Edycja bez zmiany pola nie ma czego zapisać, więc „Zapisz zmiany” czeka
   // na pierwszą różnicę względem zapisanego ekranu (reguła wszystkich
   // formularzy edycji). Po udanym zapisie rodzic nadaje nowy `key`
   // (`kluczEkranu`), więc porównanie startuje od zapisanych wartości.
   const zmieniony =
-    nazwa !== ekran.name || ziarno !== ekran.grainMinutes || zmienioneDomyslne;
+    nazwa !== ekran.name || ziarno !== ekran.grainMinutes || nadpisanie;
+
+  const podglad = usePodgladDrzewa(drzewoId);
+  // Węzły drzewa z formularza: zapisane, dopóki drzewo się nie zmieniło,
+  // a po zmianie — z podglądu (`null`, zanim przyjdą).
+  const wezly = zmienioneDrzewo ? podglad.wezly : ekran.nodes;
+
+  function wybierzDrzewo(id: number) {
+    ustawDrzewoId(id);
+
+    // Powrót do zapisanego drzewa nie potrzebuje podglądu — węzły są w ekranie.
+    if (id !== ekran.treeId) {
+      podglad.wczytaj(id);
+    }
+  }
 
   const [wybranyWezelId, ustawWybranyWezelId] = useState<number | null>(null);
   // Węzeł, którego dotyczył ostatni zapis — odmowa stoi w panelu tylko przy
@@ -681,24 +714,25 @@ function ZapisanyEkran({
   }, [ekran.assignments, wysylaneKategorie]);
 
   const wiersze = useMemo<WezelGridu[]>(() => {
-    if (!zmienioneDomyslne) {
+    if (!nadpisanie) {
       return zbudujWezlyGridu(ekran.nodes, obiekty, kategorie, przypisania);
     }
 
-    return kategorieIds.length === 0
+    return wezly === null || kategorieIds.length === 0
       ? []
       : zbudujWezlyGridu(
-          ekran.nodes,
+          wezly,
           obiekty,
           kategorie,
-          przypisaniaDomyslne(ekran.nodes, kategorieIds),
+          przypisaniaDomyslne(wezly, kategorieIds),
         );
-  }, [ekran, obiekty, kategorie, kategorieIds, zmienioneDomyslne, przypisania]);
+  }, [ekran, wezly, obiekty, kategorie, kategorieIds, nadpisanie, przypisania]);
 
   // Węzeł usunięty od ostatniej rewalidacji (np. w drugiej karcie) to brak
-  // wyboru — jak zaznaczenie w `BudowaDrzewa`.
+  // wyboru — jak zaznaczenie w `BudowaDrzewa`. Przy zmienionym drzewie grid
+  // pokazuje węzły innego drzewa, więc wyboru też nie ma.
   const wybranyWezel =
-    wybranyWezelId === null
+    wybranyWezelId === null || zmienioneDrzewo
       ? null
       : (ekran.nodes.find((wezel) => wezel.id === wybranyWezelId) ?? null);
 
@@ -740,7 +774,11 @@ function ZapisanyEkran({
   const tekstPusty =
     kategorieIds.length === 0
       ? "Wybierz co najmniej jedną kategorię, żeby zobaczyć wiersze."
-      : "Drzewo tego ekranu nie ma jeszcze węzłów. Dodaj je w widoku „Drzewo”.";
+      : wezly === null
+        ? "Wczytywanie węzłów drzewa…"
+        : zmienioneDrzewo
+          ? "Wybrane drzewo nie ma jeszcze węzłów. Dodaj je w widoku „Drzewo”."
+          : "Drzewo tego ekranu nie ma jeszcze węzłów. Dodaj je w widoku „Drzewo”.";
 
   return (
     <>
@@ -767,6 +805,7 @@ function ZapisanyEkran({
         */}
         <RouterForm method="post" preventScrollReset>
           <input type="hidden" name="intent" value={ZAPISZ_EKRAN} />
+          <input type="hidden" name={POLE_DRZEWA} value={drzewoId} />
 
           <AntForm component={false} layout="vertical" requiredMark={false}>
             <PolaEkranu
@@ -781,18 +820,20 @@ function ZapisanyEkran({
               pola={pola}
               uwagaKategorii={zmienioneDomyslne ? TEKST_NADPISANIA : undefined}
               poleDrzewa={
-                <AntForm.Item
-                  label="Drzewo"
-                  htmlFor="edycja-ekranu-drzewo"
-                  extra="Drzewa zapisanego ekranu nie da się zmienić."
-                >
-                  {/* Bez `name` — drzewa nie wysyła się w zmianie ekranu. */}
-                  <Input
-                    id="edycja-ekranu-drzewo"
-                    value={ekran.treeName}
-                    disabled
-                  />
-                </AntForm.Item>
+                // Bez `allowClear`: zapisany ekran zawsze wskazuje drzewo,
+                // a puste pole dałoby tylko odmowę API.
+                <WyborDrzewa
+                  id="edycja-ekranu-drzewo"
+                  drzewa={drzewa}
+                  drzewoId={drzewoId}
+                  onWybierz={(id) => {
+                    if (id !== undefined) {
+                      wybierzDrzewo(id);
+                    }
+                  }}
+                  blad={pola[POLE_DRZEWA]}
+                  uwaga={zmienioneDrzewo ? TEKST_ZMIANY_DRZEWA : undefined}
+                />
               }
             />
 
@@ -840,14 +881,22 @@ function ZapisanyEkran({
         Grid i panel kategorii węzła obok siebie — minimalna wysokość budowy
         jak w `routes/drzewo.tsx`, a grid bierze resztę szerokości.
       */}
+      {zmienioneDrzewo && podglad.blad !== null ? (
+        <Alert type="error" showIcon title={podglad.blad.error.message} />
+      ) : null}
+
       <div className="flex min-h-tg-budowa flex-1 gap-tg-sekcja">
+        {/*
+          Przy zmienionym drzewie grid pokazuje węzły, których ekran jeszcze
+          nie ma — bez wyboru węzła, bo panel obok i tak jest nieczynny.
+        */}
         <ObszarGridu
-          kluczGridu={`ekran-${ekran.id}`}
+          kluczGridu={`ekran-${ekran.id}-${drzewoId}`}
           wiersze={wiersze}
           tekstPusty={tekstPusty}
-          wczytywanie={false}
+          wczytywanie={zmienioneDrzewo && podglad.wczytywanie}
           wybranyWezelId={wybranyWezel?.id ?? null}
-          onWybierzWezel={ustawWybranyWezelId}
+          onWybierzWezel={zmienioneDrzewo ? undefined : ustawWybranyWezelId}
         />
 
         <KategorieWezla
@@ -860,7 +909,7 @@ function ZapisanyEkran({
                   kategorieIds: przypisania.get(wybranyWezel.id) ?? [],
                 }
           }
-          blokada={zmienioneDomyslne ? TEKST_BLOKADY_WEZLA : undefined}
+          blokada={nadpisanie ? TEKST_BLOKADY_WEZLA : undefined}
           zajete={zapisWezlaWToku || zajety}
           odmowa={odmowaWezla}
           onZmien={zapiszKategorieWezla}
@@ -878,11 +927,9 @@ function ZapisanyEkran({
  * `<input name>` (powód przy funkcji agregującej w `FormularzKategorii`).
  * Pola wspólne z edycją rysuje {@link PolaEkranu}.
  *
- * Podgląd: wybór drzewa woła `fetcher.load()` na `?nowy&drzewo=<id>`, zamiast
- * nawigować — nawigacja przemontowałaby widok i zgubiła wpisaną nazwę.
- * Z odpowiedzi komponent czyta wyłącznie podgląd (i baner porażki), a listy
- * bierze z `loaderData` rodzica. Wiersze liczy ta sama funkcja co w zapisanym
- * ekranie, z przypisaniami domyślnymi — tak samo jak API przy zapisie.
+ * Podgląd: wybór drzewa wczytuje jego węzły {@link usePodgladDrzewa}. Wiersze
+ * liczy ta sama funkcja co w zapisanym ekranie, z przypisaniami domyślnymi —
+ * tak samo jak API przy zapisie.
  */
 function NowyEkran({
   drzewa,
@@ -895,7 +942,6 @@ function NowyEkran({
   obiekty: CatalogObject[];
   blad: ApiErrorBody | undefined;
 }) {
-  const fetcher = useFetcher<typeof loader>();
   const nawigacja = useNavigation();
   const zajety = nawigacja.state !== "idle";
   const wysylany = nawigacja.formData?.get("intent") === DODAJ_EKRAN;
@@ -910,18 +956,8 @@ function NowyEkran({
   const pola = naruszeniaPol(blad);
   const ogolny = komunikatOgolny(blad, pola);
 
-  const opcjeDrzew = useMemo(
-    () => drzewa.map((drzewo) => ({ value: drzewo.id, label: drzewo.name })),
-    [drzewa],
-  );
-
-  const wczytywanie = fetcher.state !== "idle";
-  const podglad = fetcher.data?.podglad ?? null;
-  const bladPodgladu = fetcher.data?.blad ?? null;
-  // Odpowiedź dla drzewa, które użytkownik zdążył już zmienić, nie jest
-  // podglądem bieżącego wyboru.
-  const wezly =
-    podglad !== null && podglad.treeId === drzewoId ? podglad.wezly : null;
+  const podglad = usePodgladDrzewa(drzewoId);
+  const wezly = podglad.wezly;
 
   const wiersze = useMemo<WezelGridu[]>(
     () =>
@@ -949,7 +985,7 @@ function NowyEkran({
     ustawDrzewoId(wybrane);
 
     if (wybrane !== null) {
-      fetcher.load(adresPodgladu(wybrane));
+      podglad.wczytaj(wybrane);
     }
   }
 
@@ -982,32 +1018,14 @@ function NowyEkran({
               kategorie={kategorie}
               pola={pola}
               poleDrzewa={
-                <AntForm.Item
-                  label="Drzewo"
-                  htmlFor="nowy-ekran-drzewo"
-                  validateStatus={
-                    pola[POLE_DRZEWA] === undefined ? undefined : "error"
-                  }
-                  help={pola[POLE_DRZEWA]}
-                  extra={
-                    drzewa.length === 0 ? (
-                      <Link to="/drzewo" className="text-tg-akcent">
-                        Najpierw dodaj drzewo
-                      </Link>
-                    ) : undefined
-                  }
-                >
-                  <Select<number>
-                    id="nowy-ekran-drzewo"
-                    placeholder="Wybierz jedno z własnych drzew"
-                    options={opcjeDrzew}
-                    value={drzewoId ?? undefined}
-                    onChange={wybierzDrzewo}
-                    allowClear
-                    showSearch={{ optionFilterProp: "label" }}
-                    disabled={drzewa.length === 0}
-                  />
-                </AntForm.Item>
+                <WyborDrzewa
+                  id="nowy-ekran-drzewo"
+                  drzewa={drzewa}
+                  drzewoId={drzewoId}
+                  onWybierz={wybierzDrzewo}
+                  blad={pola[POLE_DRZEWA]}
+                  czyszczenie
+                />
               }
             />
 
@@ -1025,23 +1043,106 @@ function NowyEkran({
         </RouterForm>
       </RamkaPanelu>
 
-      {bladPodgladu === null ? null : (
-        <Alert type="error" showIcon title={bladPodgladu.error.message} />
+      {podglad.blad === null ? null : (
+        <Alert type="error" showIcon title={podglad.blad.error.message} />
       )}
 
       <ObszarGridu
         kluczGridu={drzewoId === null ? "podglad" : `podglad-${drzewoId}`}
         wiersze={wiersze}
         tekstPusty={tekstPusty}
-        wczytywanie={wczytywanie}
+        wczytywanie={podglad.wczytywanie}
       />
     </>
   );
 }
 
 /**
- * Pola wspólne nowego i zapisanego ekranu: nazwa, drzewo (slot — w nowym
- * ekranie wybór, w edycji odczyt), ziarno i lista domyślna, razem z ukrytymi
+ * Podgląd węzłów drzewa innego niż zapisane — w nowym ekranie i w edycji po
+ * zmianie drzewa. `wczytaj` woła `fetcher.load()` na `?nowy&drzewo=<id>`,
+ * zamiast nawigować: nawigacja przemontowałaby widok i zgubiła wpisaną nazwę.
+ * Z odpowiedzi czyta wyłącznie podgląd i baner porażki — listy panel bierze
+ * z `loaderData` rodzica.
+ *
+ * `wezly` to węzły drzewa `drzewoId` albo `null`: odpowiedź dla drzewa, które
+ * użytkownik zdążył już zmienić, nie jest podglądem bieżącego wyboru.
+ */
+function usePodgladDrzewa(drzewoId: number | null) {
+  const fetcher = useFetcher<typeof loader>();
+  const podglad = fetcher.data?.podglad ?? null;
+
+  return {
+    wezly:
+      podglad !== null && podglad.treeId === drzewoId ? podglad.wezly : null,
+    wczytywanie: fetcher.state !== "idle",
+    blad: fetcher.data?.blad ?? null,
+    wczytaj: (treeId: number) => fetcher.load(adresPodgladu(treeId)),
+  };
+}
+
+/**
+ * Pole wyboru drzewa ekranu — w nowym ekranie i w edycji. Wartość trzyma
+ * rodzic i niesie ją ukrytym polem `treeId` (antd `Select` nie renderuje
+ * `<input name>`).
+ */
+function WyborDrzewa({
+  id,
+  drzewa,
+  drzewoId,
+  onWybierz,
+  blad,
+  uwaga,
+  czyszczenie = false,
+}: {
+  id: string;
+  drzewa: UserTree[];
+  drzewoId: number | null;
+  onWybierz: (id: number | undefined) => void;
+  /** Naruszenie pola `treeId` z API. */
+  blad: string | undefined;
+  /** Podpowiedź pod polem, gdy użytkownik ma drzewa. */
+  uwaga?: string;
+  /** Czy pole da się wyczyścić — tylko w nowym ekranie. */
+  czyszczenie?: boolean;
+}) {
+  const opcjeDrzew = useMemo(
+    () => drzewa.map((drzewo) => ({ value: drzewo.id, label: drzewo.name })),
+    [drzewa],
+  );
+
+  return (
+    <AntForm.Item
+      label="Drzewo"
+      htmlFor={id}
+      validateStatus={blad === undefined ? undefined : "error"}
+      help={blad}
+      extra={
+        drzewa.length === 0 ? (
+          <Link to="/drzewo" className="text-tg-akcent">
+            Najpierw dodaj drzewo
+          </Link>
+        ) : (
+          uwaga
+        )
+      }
+    >
+      <Select<number>
+        id={id}
+        placeholder="Wybierz jedno z własnych drzew"
+        options={opcjeDrzew}
+        value={drzewoId ?? undefined}
+        onChange={onWybierz}
+        allowClear={czyszczenie}
+        showSearch={{ optionFilterProp: "label" }}
+        disabled={drzewa.length === 0}
+      />
+    </AntForm.Item>
+  );
+}
+
+/**
+ * Pola wspólne nowego i zapisanego ekranu: nazwa, drzewo (slot na
+ * {@link WyborDrzewa}), ziarno i lista domyślna, razem z ukrytymi
  * polami, które niosą ziarno i kategorie do `action`. Rysowane wewnątrz
  * `AntForm component={false}` i `RouterForm` rodzica.
  *
@@ -1277,6 +1378,7 @@ function kluczEkranu(ekran: ScreenDetail): string {
   return JSON.stringify([
     ekran.id,
     ekran.name,
+    ekran.treeId,
     ekran.grainMinutes,
     ekran.defaultCategoryIds,
   ]);

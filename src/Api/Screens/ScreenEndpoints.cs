@@ -33,8 +33,8 @@ namespace Api.Screens;
 /// nazwa → ziarno → lista domyślna → drzewo → istnienie kategorii →
 /// unikalność nazwy. Naruszenia pól zbiera jedna mapa, a każde pole dostaje
 /// co najwyżej jeden komunikat — pierwszy w tej kolejności. Zmiana nagłówka
-/// idzie tą samą ścieżką bez drzewa, a nieistniejący ekran wygrywa z błędami
-/// pól (jak <c>PUT /trees/{id}</c>).
+/// idzie tą samą ścieżką, a nieistniejący ekran wygrywa z błędami pól (jak
+/// <c>PUT /trees/{id}</c>).
 /// </remarks>
 internal static class ScreenEndpoints
 {
@@ -310,20 +310,22 @@ internal static class ScreenEndpoints
     }
 
     /// <summary>
-    /// Zmienia nagłówek własnego ekranu: nazwę, ziarno i listę kategorii
-    /// domyślnych. Drzewo ekranu się nie zmienia (FR-011), więc żądanie go nie
-    /// niesie. Ta sama nazwa — także w innej wielkości liter — nie jest
+    /// Zmienia nagłówek własnego ekranu: nazwę, drzewo, ziarno i listę
+    /// kategorii domyślnych. Drzewo przechodzi tę samą kontrolę właściciela co
+    /// przy tworzeniu. Ta sama nazwa — także w innej wielkości liter — nie jest
     /// duplikatem: ekran nie koliduje sam ze sobą.
     /// </summary>
     /// <remarks>
-    /// Zmieniona lista domyślna nadpisuje przypisania <b>wszystkich</b>
-    /// bieżących węzłów drzewa (rozstrzygnięcie PRD <c>## Open Questions</c> #3
-    /// z 2026-09-24) — grid wygląda wtedy tak samo jak podgląd nowego ekranu.
-    /// Niezmieniona lista (<see cref="ScreenRules.DefaultsChanged"/>) zostawia
-    /// przypisania nietknięte, więc zmiana samej nazwy albo ziarna nie skasuje
-    /// kategorii dopasowanych pojedynczym węzłom (<c>S-04</c>). Stare wpisy
-    /// znikają <c>ExecuteDelete</c> w tej samej transakcji, a nowe zapisuje
-    /// jeden <c>SaveChanges</c> razem z nagłówkiem.
+    /// Zmieniona lista domyślna albo zmienione drzewo nadpisuje przypisania
+    /// <b>wszystkich</b> bieżących węzłów drzewa ekranu (rozstrzygnięcie PRD
+    /// <c>## Open Questions</c> #3 z 2026-09-24) — grid wygląda wtedy tak samo
+    /// jak podgląd nowego ekranu. Po zmianie drzewa inaczej się nie da: stare
+    /// przypisania wskazują węzły poprzedniego drzewa. Niezmienione drzewo
+    /// i niezmieniona lista (<see cref="ScreenRules.DefaultsChanged"/>)
+    /// zostawiają przypisania nietknięte, więc zmiana samej nazwy albo ziarna
+    /// nie skasuje kategorii dopasowanych pojedynczym węzłom (<c>S-04</c>).
+    /// Stare wpisy znikają <c>ExecuteDelete</c> w tej samej transakcji, a nowe
+    /// zapisuje jeden <c>SaveChanges</c> razem z nagłówkiem.
     /// </remarks>
     private static async Task<IResult> UpdateScreenAsync(
         int id,
@@ -364,6 +366,13 @@ internal static class ScreenEndpoints
             editedId: id,
             cancellationToken);
 
+        var treeId = request?.TreeId;
+
+        if (treeId is null || !await IsOwnedTreeAsync(db, treeId.Value, userId, cancellationToken))
+        {
+            fields[ScreenRequestFields.TreeId] = TreeNotOwnedMessage;
+        }
+
         if (fields.Count > 0)
         {
             return ValidationFailure(fields);
@@ -371,9 +380,11 @@ internal static class ScreenEndpoints
 
         // Walidacja wyżej przepuszcza wyłącznie komplet pól.
         var name = request!.Name!.Trim();
+        var treeChanged = screen.TreeId != treeId!.Value;
 
         screen.Name = name;
         screen.NormalizedName = ScreenRules.Normalize(name);
+        screen.TreeId = treeId.Value;
         screen.GrainMinutes = request.GrainMinutes!.Value;
 
         // Ten sam porządek co w `GET /screens/{id}`.
@@ -385,7 +396,7 @@ internal static class ScreenEndpoints
             .Select(entry => entry.CategoryId)
             .ToListAsync(cancellationToken);
 
-        if (ScreenRules.DefaultsChanged(currentDefaults, defaultCategoryIds))
+        if (treeChanged || ScreenRules.DefaultsChanged(currentDefaults, defaultCategoryIds))
         {
             await db.ScreenNodeCategories
                 .Where(assignment => assignment.ScreenId == id)
@@ -394,7 +405,8 @@ internal static class ScreenEndpoints
                 .Where(entry => entry.ScreenId == id)
                 .ExecuteDeleteAsync(cancellationToken);
 
-            // Bieżące węzły drzewa ekranu — ta sama transakcja, więc węzeł
+            // Bieżące węzły drzewa ekranu (po zmianie — nowego, które przeszło
+            // kontrolę właściciela wyżej) — ta sama transakcja, więc węzeł
             // dodany równolegle nie wciśnie się między ten odczyt a zapis.
             var nodeIds = await db.TreeNodes
                 .AsNoTracking()
@@ -561,7 +573,7 @@ internal static class ScreenEndpoints
     /// Kontrola pól wspólnych dla utworzenia i zmiany ekranu, w kolejności
     /// z komentarza klasy: nazwa → ziarno → lista domyślna → istnienie
     /// kategorii → unikalność nazwy. Zwraca mapę naruszeń (pustą, gdy wszystko
-    /// przeszło) — utworzenie dopisuje do niej jeszcze drzewo, ale pod własnym
+    /// przeszło) — utworzenie i zmiana dopisują do niej jeszcze drzewo, ale pod własnym
     /// kluczem, więc żadne pole nie zmienia przez to komunikatu.
     /// <paramref name="editedId"/> wyłącza zmieniany ekran z kontroli
     /// duplikatu nazwy.
@@ -745,11 +757,12 @@ internal static class ScreenRequestFields
 internal sealed record ScreenRequest(string? Name, int? TreeId, int? GrainMinutes, int[]? DefaultCategoryIds);
 
 /// <summary>
-/// Treść żądania zmiany nagłówka ekranu (<c>PUT /screens/{id}</c>) — bez
-/// drzewa, bo drzewo ekranu ustala się przy tworzeniu. Pola nullowalne z tego
-/// samego powodu co w <see cref="ScreenRequest"/>.
+/// Treść żądania zmiany nagłówka ekranu (<c>PUT /screens/{id}</c>) — ten sam
+/// kształt co utworzenie. Drzewo jest wymagane: brak pola daje tę samą odmowę
+/// co cudze drzewo, a nie „bez zmiany”. Pola nullowalne z tego samego powodu
+/// co w <see cref="ScreenRequest"/>.
 /// </summary>
-internal sealed record ScreenUpdateRequest(string? Name, int? GrainMinutes, int[]? DefaultCategoryIds);
+internal sealed record ScreenUpdateRequest(string? Name, int? TreeId, int? GrainMinutes, int[]? DefaultCategoryIds);
 
 /// <summary>
 /// Treść żądania zmiany kategorii jednego węzła ekranu — pełna lista w
