@@ -163,8 +163,29 @@ export async function action({ request }: Route.ActionArgs) {
 }
 
 /**
+ * Komórka koloru: próbka i zapis `#RRGGBB` obok. Tło próbki to wartość danych
+ * kategorii, a nie kolor widoku, więc idzie stylem wprost, a nie klasą
+ * `tg-*`; obramowanie z roli `linia` odcina próbkę bliską tłu wiersza w obu
+ * wariantach motywu. Próbka jest `aria-hidden` — czytnik dostaje zapis.
+ */
+function komorkaKoloru(kategoria: CatalogCategory) {
+  return (
+    <span className="inline-flex items-center gap-tg-element">
+      <span
+        aria-hidden
+        className="inline-block size-[1em] rounded-sm border border-tg-linia"
+        style={{ backgroundColor: kategoria.color }}
+      />
+      <span className="font-mono">{kategoria.color}</span>
+    </span>
+  );
+}
+
+/**
  * Kolumny tabeli w kolejności wyświetlania. Funkcja agregująca filtruje listą
  * z dopasowaniem dokładnym, bo fragment „M" pasowałby i do MIN, i do MAX.
+ * Kolor filtruje fragmentem zapisu (`#16`), a kolejność nie filtruje wcale —
+ * powód przy rodzaju `brak` w `TabelaSlownika`.
  */
 const KOLUMNY_TABELI: readonly KolumnaSlownika<CatalogCategory>[] = [
   { klucz: "code", tytul: "Kod", filtr: { rodzaj: "tekst" }, link: true },
@@ -173,6 +194,18 @@ const KOLUMNY_TABELI: readonly KolumnaSlownika<CatalogCategory>[] = [
     klucz: "aggregateFunction",
     tytul: "Funkcja agregująca",
     filtr: { rodzaj: "lista", opcje: FUNKCJE_AGREGUJACE },
+  },
+  {
+    klucz: "color",
+    tytul: "Kolor",
+    filtr: { rodzaj: "tekst" },
+    komorka: komorkaKoloru,
+  },
+  {
+    klucz: "sortOrder",
+    tytul: "Kolejność",
+    filtr: { rodzaj: "brak" },
+    liczba: true,
   },
 ];
 
@@ -355,6 +388,8 @@ function kluczPanelu(kategoria: CatalogCategory | null): string {
         kategoria.code,
         kategoria.name,
         kategoria.aggregateFunction,
+        kategoria.color,
+        kategoria.sortOrder,
       ]);
 }
 

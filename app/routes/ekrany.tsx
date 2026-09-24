@@ -480,8 +480,8 @@ export function shouldRevalidate({
 }
 
 /**
- * Wiersz listy ekranów. Ziarno jest tekstem („15 min”), bo `TabelaSlownika`
- * filtruje i sortuje wyłącznie po polach tekstowych.
+ * Wiersz listy ekranów. Ziarno jest tekstem („15 min”), bo filtr listowy
+ * `TabelaSlownika` porównuje wartość komórki z etykietą opcji.
  */
 type WierszListy = {
   id: number;

@@ -62,4 +62,29 @@ internal static class CategoryRules
             function,
             "Funkcja agregująca nie ma zapisu kanonicznego."),
     };
+
+    /// <summary>
+    /// Odczytuje kolor kategorii: <c>#</c> i dokładnie sześć cyfr
+    /// szesnastkowych po obcięciu spacji na brzegach, bez rozróżniania
+    /// wielkości liter. Wynik jest postacią kanoniczną — wielkimi literami —
+    /// więc <c>#1677ff</c> i <c>#1677FF</c> zapisują się tak samo. Skrót
+    /// <c>#RGB</c>, kanał przezroczystości i nazwy kolorów dają <c>false</c>.
+    /// </summary>
+    internal static bool TryNormalizeColor(string? value, out string color)
+    {
+        var candidate = value?.Trim() ?? string.Empty;
+
+        if (candidate.Length == Category.ColorLength
+            && candidate[0] == '#'
+            && candidate.Skip(1).All(char.IsAsciiHexDigit))
+        {
+            color = candidate.ToUpperInvariant();
+
+            return true;
+        }
+
+        color = string.Empty;
+
+        return false;
+    }
 }

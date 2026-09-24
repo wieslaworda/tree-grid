@@ -8,7 +8,8 @@ namespace Api.Tests;
 
 /// <summary>
 /// Regresja reguł słownika kategorii — odczytu i zapisu funkcji agregującej,
-/// wspólnej normalizacji kodu — oraz kształtu ich błędów walidacji.
+/// odczytu koloru, wspólnej normalizacji kodu — oraz kształtu ich błędów
+/// walidacji.
 ///
 /// Wzorem <see cref="ObjectRulesTests"/> testy nie podnoszą hosta ani bazy:
 /// reguły są czystymi funkcjami (<see cref="CategoryRules"/>,
@@ -104,6 +105,42 @@ public class CategoryRulesTests
         Assert.Equal("code", CategoryFormFields.Code);
         Assert.Equal("name", CategoryFormFields.Name);
         Assert.Equal("aggregateFunction", CategoryFormFields.AggregateFunction);
+        Assert.Equal("color", CategoryFormFields.Color);
+        Assert.Equal("sortOrder", CategoryFormFields.SortOrder);
+    }
+
+    [Theory]
+    [InlineData("#1677FF", "#1677FF")]
+    [InlineData("#1677ff", "#1677FF")]
+    [InlineData(" #a0B1c2 ", "#A0B1C2")]
+    public void Color_normalizes_to_uppercase_hex(string value, string expected)
+    {
+        Assert.True(CategoryRules.TryNormalizeColor(value, out var color));
+        Assert.Equal(expected, color);
+    }
+
+    [Theory]
+    [InlineData("")]
+    [InlineData(null)]
+    [InlineData("1677FF")]
+    // Skrót, kanał przezroczystości i nazwa koloru — formularz ich nie wysyła,
+    // więc API ich nie przyjmuje.
+    [InlineData("#16F")]
+    [InlineData("#1677FF80")]
+    [InlineData("red")]
+    [InlineData("#GG77FF")]
+    public void Colors_outside_the_hex_form_do_not_parse(string? value)
+    {
+        Assert.False(CategoryRules.TryNormalizeColor(value, out _));
+    }
+
+    [Fact]
+    public void Default_color_is_in_canonical_form()
+    {
+        // Wartość domyślna migracji ląduje w bazie bez przejścia przez
+        // walidację — musi już być postacią kanoniczną.
+        Assert.True(CategoryRules.TryNormalizeColor(Category.DefaultColor, out var color));
+        Assert.Equal(Category.DefaultColor, color);
     }
 
     [Fact]

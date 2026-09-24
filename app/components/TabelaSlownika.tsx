@@ -6,6 +6,7 @@ import {
 } from "antd";
 import {
   createContext,
+  type ReactNode,
   useContext,
   useEffect,
   useMemo,
@@ -25,9 +26,12 @@ const BEZ_FILTRA = "";
 /** Etykieta pierwszej opcji filtra listowego — zdejmuje filtr. */
 const WSZYSTKIE = "Wszystkie";
 
-/** Klucze wiersza, pod którymi stoi tekst — tylko po nich kolumna filtruje i sortuje. */
-type KluczTekstowy<W> = {
-  [K in keyof W]: W[K] extends string ? K : never;
+/**
+ * Klucze wiersza, pod którymi stoi tekst albo liczba — tylko po nich kolumna
+ * filtruje i sortuje.
+ */
+type KluczProsty<W> = {
+  [K in keyof W]: W[K] extends string | number ? K : never;
 }[keyof W] &
   string;
 
@@ -37,25 +41,40 @@ type KluczTekstowy<W> = {
  *   (z polskimi regułami, więc „ł" znajduje „Ł");
  * - `lista` — wybór jednej z `opcje`, dopasowanie dokładne („MIN" nie pokazuje
  *   „MAX"). Tabela sama dokłada przed nimi opcję „Wszystkie", która zdejmuje
- *   filtr.
+ *   filtr;
+ * - `brak` — kolumna nie filtruje, a jej komórka w wierszu filtrów jest pusta.
+ *   Dla liczb, w których dopasowanie fragmentu nic nie znaczy („1" pasowałoby
+ *   do 10 i 21).
  */
 export type FiltrKolumny =
   | { rodzaj: "tekst" }
-  | { rodzaj: "lista"; opcje: readonly string[] };
+  | { rodzaj: "lista"; opcje: readonly string[] }
+  | { rodzaj: "brak" };
 
 /**
  * Opis kolumny tabeli słownika. Klucz kolumny to pole wiersza — po nim idą
  * filtr, sortowanie i `dataIndex`.
  */
 export type KolumnaSlownika<W> = {
-  klucz: KluczTekstowy<W>;
+  klucz: KluczProsty<W>;
   tytul: string;
   filtr: FiltrKolumny;
   /**
    * Komórka jest linkiem wyboru wiersza — droga wyboru przed hydracją
-   * i z klawiatury. Zwykle kolumna kodu.
+   * i z klawiatury. Zwykle kolumna kodu. Wyklucza {@link komorka}.
    */
   link?: boolean;
+  /**
+   * Własna treść komórki ciała zamiast gołej wartości — np. próbka koloru.
+   * Filtr i sortowanie nadal idą po wartości spod `klucz`. Funkcja modułu,
+   * a nie domknięcie z renderu, z tego samego powodu co stałość `kolumny`.
+   */
+  komorka?: (wiersz: W) => ReactNode;
+  /**
+   * Kolumna liczbowa: komórki ciała dostają `.tg-liczba` (cyfry tej samej
+   * szerokości, do prawej). Nagłówek zostaje w kroju i wyrównaniu tytułów.
+   */
+  liczba?: boolean;
 };
 
 type Wlasciwosci<W extends { id: number }> = {
@@ -100,7 +119,7 @@ type Sortowanie = { klucz: string; kierunek: "ascend" | "descend" } | null;
  * Wiersz pasuje, gdy spełnia filtr każdej kolumny: w kolumnie tekstowej
  * niepusta fraza jest fragmentem wartości, bez rozróżniania wielkości liter
  * (z polskimi regułami, więc „ł" znajduje „Ł"); w kolumnie listowej wartość
- * jest równa wybranej opcji.
+ * jest równa wybranej opcji; kolumna bez filtra przepuszcza każdy wiersz.
  */
 function pasuje<W>(
   wiersz: W,
@@ -108,6 +127,10 @@ function pasuje<W>(
   filtry: Filtry,
 ): boolean {
   return kolumny.every(({ klucz, filtr }) => {
+    if (filtr.rodzaj === "brak") {
+      return true;
+    }
+
     const wartosc = String(wiersz[klucz]);
     const wybor = filtry[klucz] ?? BEZ_FILTRA;
 
@@ -135,9 +158,19 @@ function posortuj<W>(wiersze: W[], sortowanie: Sortowanie): W[] {
   const klucz = sortowanie.klucz as keyof W;
   const znak = sortowanie.kierunek === "ascend" ? 1 : -1;
 
-  return [...wiersze].sort(
-    (a, b) => znak * PORZADEK.compare(String(a[klucz]), String(b[klucz])),
-  );
+  // Liczby odejmowaniem, a nie collatorem: `numeric` w `Intl.Collator` czyta
+  // „-" jako znak interpunkcji, więc -10 wyszłoby za -3.
+  return [...wiersze].sort((a, b) => {
+    const x = a[klucz];
+    const y = b[klucz];
+
+    return (
+      znak *
+      (typeof x === "number" && typeof y === "number"
+        ? x - y
+        : PORZADEK.compare(String(x), String(y)))
+    );
+  });
 }
 
 /** Numer strony z danym wierszem albo `null`, gdy go w wierszach nie ma. */
@@ -202,7 +235,7 @@ function NaglowekZFiltrami({
         <tr>
           {kontekst.kolumny.map(({ klucz, tytul, filtr }) => (
             <td key={klucz} className="ant-table-cell">
-              {filtr.rodzaj === "lista" ? (
+              {filtr.rodzaj === "brak" ? null : filtr.rodzaj === "lista" ? (
                 // `w-full`: `Input` wypełnia komórkę sam, `Select` ma
                 // szerokość własnej treści. To układ, nie rozmiar gęstości —
                 // wysokość daje `size="small"` z motywu.
@@ -334,14 +367,17 @@ export function TabelaSlownika<W extends { id: number }>({
   // — powrót na górę strony po każdym wyborze odsuwałby go z oczu.
   const kolumnyAntd = useMemo<TableColumnsType<W>>(
     () =>
-      kolumny.map(({ klucz, tytul, link }) => ({
+      kolumny.map(({ klucz, tytul, link, komorka, liczba }) => ({
         title: tytul,
         dataIndex: klucz,
         key: klucz,
         sorter: true,
         sortOrder: sortowanie?.klucz === klucz ? sortowanie.kierunek : null,
+        // `onCell`, a nie `className` kolumny: ta trafiłaby też do `th`
+        // i przełożyła tytuł na krój liczb.
+        onCell: liczba ? () => ({ className: "tg-liczba" }) : undefined,
         render: link
-          ? (wartosc: string, wiersz: W) => (
+          ? (wartosc: string | number, wiersz: W) => (
               <Link
                 to={adresWyboru(wiersz.id)}
                 preventScrollReset
@@ -351,7 +387,9 @@ export function TabelaSlownika<W extends { id: number }>({
                 {wartosc}
               </Link>
             )
-          : undefined,
+          : komorka === undefined
+            ? undefined
+            : (_: unknown, wiersz: W) => komorka(wiersz),
       })),
     [kolumny, sortowanie, adresWyboru],
   );

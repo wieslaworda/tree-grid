@@ -23,6 +23,18 @@ public sealed class Category
     /// <summary>Najdłuższa dopuszczalna nazwa, po obcięciu spacji na brzegach.</summary>
     public const int NameMaxLength = 200;
 
+    /// <summary>Długość zapisu <c>#RRGGBB</c>.</summary>
+    public const int ColorLength = 7;
+
+    /// <summary>
+    /// Kolor wierszy sprzed kolumny <see cref="Color"/> (wartość domyślna
+    /// migracji <c>CategoryColorAndOrder</c>). Formularz dodawania startuje
+    /// z tego samego koloru (<c>KOLOR_DOMYSLNY</c> w
+    /// <c>app/components/FormularzKategorii.tsx</c>), ale API go nie
+    /// podstawia — brak koloru w żądaniu jest błędem walidacji.
+    /// </summary>
+    public const string DefaultColor = "#1677FF";
+
     /// <summary>
     /// Klucz całkowity z autoinkrementacją — widok wskazuje wybraną kategorię
     /// adresem <c>/kategorie?id=12</c>, a identyfikator usuniętej kategorii nie
@@ -49,6 +61,20 @@ public sealed class Category
     /// wykonuje.
     /// </summary>
     public AggregateFunction AggregateFunction { get; set; }
+
+    /// <summary>
+    /// Kolor kategorii zapisem <c>#RRGGBB</c> wielkimi literami — postać
+    /// kanoniczną ustala <c>CategoryRules.TryNormalizeColor</c>. Bez kanału
+    /// przezroczystości: formularz go nie oferuje, a API go nie przyjmuje.
+    /// </summary>
+    public string Color { get; set; } = DefaultColor;
+
+    /// <summary>
+    /// Kolejność kategorii — dowolna liczba całkowita, bez wymogu ciągłości
+    /// ani unikalności. Dziś wyłącznie zapisany atrybut: lista słownika nadal
+    /// sortuje po kodzie.
+    /// </summary>
+    public int SortOrder { get; set; }
 }
 
 /// <summary>

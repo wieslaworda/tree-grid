@@ -1,4 +1,12 @@
-import { Alert, Button, Form as AntForm, Input, Select } from "antd";
+import {
+  Alert,
+  Button,
+  ColorPicker,
+  Form as AntForm,
+  Input,
+  InputNumber,
+  Select,
+} from "antd";
 import { useState } from "react";
 import { Form as RouterForm, useNavigation } from "react-router";
 
@@ -18,13 +26,35 @@ import {
  * (`app/lib/categories.server.ts`); rozjazd nie daje błędu, tylko komunikat,
  * który nigdy się nie pokazuje.
  */
-const POLA_FORMULARZA = ["code", "name", "aggregateFunction"] as const;
+const POLA_FORMULARZA = [
+  "code",
+  "name",
+  "aggregateFunction",
+  "color",
+  "sortOrder",
+] as const;
 
 /**
  * Wartości pól w magazynie antd — `onValuesChange` podaje je w komplecie.
- * Funkcji agregującej tu nie ma: trzyma ją stan komponentu.
+ * Funkcji agregującej i koloru tu nie ma: trzyma je stan komponentu.
+ * Kolejność jest `null`, gdy pole wyczyszczono.
  */
-type WartosciKategorii = { code?: string; name?: string };
+type WartosciKategorii = {
+  code?: string;
+  name?: string;
+  sortOrder?: number | null;
+};
+
+/**
+ * Kolor startowy formularza dodawania — ten sam co `Category.DefaultColor`
+ * w `src/Api/Data/Category.cs`. To wartość danych kategorii, a nie kolor
+ * widoku, więc nie pochodzi z tokenów motywu. Dotyczy wyłącznie widoku: API
+ * nie podstawia koloru, a jego brak jest u niego błędem walidacji.
+ */
+const KOLOR_DOMYSLNY = "#1677FF";
+
+/** Kolejność startowa formularza dodawania — jak wyżej, tylko w widoku. */
+const KOLEJNOSC_DOMYSLNA = 0;
 
 /** Opcje wyboru funkcji — stała modułu, bo lista nie zależy od renderu. */
 const OPCJE_FUNKCJI = FUNKCJE_AGREGUJACE.map((funkcja) => ({
@@ -61,8 +91,14 @@ type Wlasciwosci = {
  * przejąłby magazyn antd i stan stąd przestałby być jedynym źródłem ukrytego
  * pola.
  *
- * Domyślne {@link FUNKCJA_DOMYSLNA} dotyczy wyłącznie dodawania; edycja
- * startuje z funkcji zapisanej w kategorii.
+ * Kolor idzie tą samą drogą i z tego samego powodu: `ColorPicker` też nie
+ * ma `<input name>`, więc wybór trzyma stan, a niesie go ukryte pole
+ * `color`. Kolejność to `InputNumber`, który renderuje zwykły `<input>`,
+ * więc jedzie w formularzu wprost, jak kod i nazwa.
+ *
+ * Domyślne {@link FUNKCJA_DOMYSLNA}, {@link KOLOR_DOMYSLNY}
+ * i {@link KOLEJNOSC_DOMYSLNA} dotyczą wyłącznie dodawania; edycja startuje
+ * z wartości zapisanych w kategorii.
  *
  * Zero wartości koloru i rozmiaru: wszystko przychodzi z tokenów motywu
  * (`app/theme/antd.ts`).
@@ -82,6 +118,7 @@ export function FormularzKategorii({
   const [funkcja, ustawFunkcje] = useState<FunkcjaAgregujaca>(
     kategoria?.aggregateFunction ?? FUNKCJA_DOMYSLNA,
   );
+  const [kolor, ustawKolor] = useState(kategoria?.color ?? KOLOR_DOMYSLNY);
 
   // Zajęty jest cały widok, gdy trwa dowolna nawigacja — także wysyłka
   // usuwania obok. Kręciołek dostaje jednak tylko ten przycisk, którego
@@ -94,14 +131,16 @@ export function FormularzKategorii({
 
   // Edycja bez zmiany pola nie ma czego zapisać, więc przycisk czeka na
   // pierwszą różnicę względem kategorii (reguła wszystkich formularzy
-  // edycji). Kod i nazwę zgłasza magazyn antd, funkcję — stan wyżej. Start
-  // `false` jest poprawny także w SSR; po udanym zapisie panel dostaje nowy
-  // `key` (`kluczPanelu` w `routes/kategorie.tsx`) i liczy od nowa.
+  // edycji). Kod, nazwę i kolejność zgłasza magazyn antd, funkcję i kolor —
+  // stan wyżej. Start `false` jest poprawny także w SSR; po udanym zapisie
+  // panel dostaje nowy `key` (`kluczPanelu` w `routes/kategorie.tsx`)
+  // i liczy od nowa.
   const [polaZmienione, ustawPolaZmienione] = useState(false);
   const moznaZapisac =
     kategoria === undefined ||
     polaZmienione ||
-    funkcja !== kategoria.aggregateFunction;
+    funkcja !== kategoria.aggregateFunction ||
+    kolor !== kategoria.color;
 
   return (
     <>
@@ -124,11 +163,16 @@ export function FormularzKategorii({
           // Wartości startowe przez `initialValues`, a nie `defaultValue` na
           // polu: pole pod `Form.Item` z `name` jest sterowane przez antd
           // i `defaultValue` by zignorowało.
-          initialValues={{ code: kategoria?.code, name: kategoria?.name }}
+          initialValues={{
+            code: kategoria?.code,
+            name: kategoria?.name,
+            sortOrder: kategoria?.sortOrder ?? KOLEJNOSC_DOMYSLNA,
+          }}
           onValuesChange={(_, wartosci) =>
             ustawPolaZmienione(
               wartosci.code !== kategoria?.code ||
-                wartosci.name !== kategoria?.name,
+                wartosci.name !== kategoria?.name ||
+                wartosci.sortOrder !== kategoria?.sortOrder,
             )
           }
         >
@@ -177,6 +221,54 @@ export function FormularzKategorii({
 
           {/* Jedyna droga, którą wybór z `Select` trafia do `action`. */}
           <input type="hidden" name="aggregateFunction" value={funkcja} />
+
+          <AntForm.Item
+            label="Kolor"
+            validateStatus={pola.color === undefined ? undefined : "error"}
+            help={pola.color}
+          >
+            {/*
+              Bez kanału przezroczystości i bez przełącznika formatu: API
+              przyjmuje wyłącznie `#RRGGBB`. Wielkie litery, bo taki zapis
+              zwraca API — inaczej porównanie z zapisanym kolorem uznałoby
+              `#1677ff` za zmianę. Bez `id` i `htmlFor`: wyzwalacz
+              `ColorPicker` to `div`, a nie kontrolka, z którą etykieta
+              mogłaby się powiązać.
+            */}
+            <ColorPicker
+              value={kolor}
+              disabledAlpha
+              disabledFormat
+              format="hex"
+              showText
+              onChange={(wybrany) =>
+                ustawKolor(wybrany.toHexString().toUpperCase())
+              }
+            />
+          </AntForm.Item>
+
+          {/* Jedyna droga, którą wybór z `ColorPicker` trafia do `action`. */}
+          <input type="hidden" name="color" value={kolor} />
+
+          <AntForm.Item
+            label="Kolejność"
+            name="sortOrder"
+            rules={[{ required: true }]}
+            validateStatus={pola.sortOrder === undefined ? undefined : "error"}
+            help={pola.sortOrder}
+          >
+            {/*
+              `precision={0}`: pole zaokrągla ułamek przy opuszczeniu, więc do
+              `action` jedzie liczba całkowita. Zakres i całkowitość i tak
+              rozstrzyga API — tu nie ma `min`/`max`.
+            */}
+            <InputNumber
+              name="sortOrder"
+              precision={0}
+              className="w-full"
+              required
+            />
+          </AntForm.Item>
 
           <AntForm.Item className="mb-0">
             <Button

@@ -92,6 +92,8 @@ internal static class CategoryEndpoints
             Name = input.Name,
             // Walidacja pól przepuszcza wyłącznie odczytaną funkcję.
             AggregateFunction = input.AggregateFunction!.Value,
+            Color = input.Color!,
+            SortOrder = input.SortOrder!.Value,
         };
 
         db.Categories.Add(entity);
@@ -108,9 +110,9 @@ internal static class CategoryEndpoints
     }
 
     /// <summary>
-    /// Zastępuje kod, nazwę i funkcję agregującą. Brak funkcji w żądaniu jest
-    /// błędem walidacji — API nie podstawia ani wartości domyślnej, ani
-    /// dotychczasowej.
+    /// Zastępuje kod, nazwę, funkcję agregującą, kolor i kolejność. Brak
+    /// funkcji, koloru albo kolejności w żądaniu jest błędem walidacji — API
+    /// nie podstawia ani wartości domyślnej, ani dotychczasowej.
     /// </summary>
     private static async Task<IResult> UpdateAsync(
         int id,
@@ -144,6 +146,8 @@ internal static class CategoryEndpoints
         entity.NormalizedCode = DictionaryCode.Normalize(input.Code);
         entity.Name = input.Name;
         entity.AggregateFunction = input.AggregateFunction!.Value;
+        entity.Color = input.Color!;
+        entity.SortOrder = input.SortOrder!.Value;
 
         await db.SaveChangesAsync(cancellationToken);
         await transaction.CommitAsync(cancellationToken);
@@ -207,22 +211,28 @@ internal static class CategoryEndpoints
             code = category.Code,
             name = category.Name,
             aggregateFunction = CategoryRules.FormatAggregateFunction(category.AggregateFunction),
+            color = category.Color,
+            sortOrder = category.SortOrder,
         };
 
     private static CategoryInput ReadInput(CategoryRequest? request)
     {
         var aggregateFunctionText = request?.AggregateFunction?.Trim() ?? string.Empty;
+        var colorText = request?.Color?.Trim() ?? string.Empty;
 
         return new(
             request?.Code?.Trim() ?? string.Empty,
             request?.Name?.Trim() ?? string.Empty,
             aggregateFunctionText,
-            CategoryRules.TryParseAggregateFunction(aggregateFunctionText, out var function) ? function : null);
+            CategoryRules.TryParseAggregateFunction(aggregateFunctionText, out var function) ? function : null,
+            colorText,
+            CategoryRules.TryNormalizeColor(colorText, out var color) ? color : null,
+            request?.SortOrder);
     }
 
     /// <summary>
     /// Naruszenia, które widać bez sięgania do bazy: brak i długość kodu oraz
-    /// nazwy, brak i wartość funkcji agregującej.
+    /// nazwy, brak i wartość funkcji agregującej i koloru, brak kolejności.
     /// </summary>
     private static Dictionary<string, string> ValidateFields(CategoryInput input)
     {
@@ -262,6 +272,22 @@ internal static class CategoryEndpoints
 
             fields[CategoryFormFields.AggregateFunction] =
                 $"Funkcja agregująca musi być jedną z: {string.Join(", ", allowed)}.";
+        }
+
+        if (input.ColorText.Length == 0)
+        {
+            fields[CategoryFormFields.Color] = "Wybierz kolor kategorii.";
+        }
+        else if (input.Color is null)
+        {
+            fields[CategoryFormFields.Color] = "Kolor musi mieć zapis #RRGGBB.";
+        }
+
+        // `null` niesie i brak pola, i wartość, której klient nie odczytał
+        // jako liczby całkowitej (`readCategoryForm`) — jeden komunikat na oba.
+        if (input.SortOrder is null)
+        {
+            fields[CategoryFormFields.SortOrder] = "Podaj kolejność jako liczbę całkowitą.";
         }
 
         return fields;
@@ -316,15 +342,19 @@ internal static class CategoryEndpoints
             statusCode: StatusCodes.Status400BadRequest);
 
     /// <summary>
-    /// Treść żądania po obcięciu spacji. Funkcja agregująca występuje dwa razy:
-    /// jako tekst — żeby odróżnić jej brak od wartości spoza listy — i jako
-    /// wynik odczytu, <c>null</c> dla tekstu, którego nie da się odczytać.
+    /// Treść żądania po obcięciu spacji. Funkcja agregująca i kolor występują
+    /// dwa razy: jako tekst — żeby odróżnić brak od wartości niepoprawnej —
+    /// i jako wynik odczytu, <c>null</c> dla tekstu, którego nie da się
+    /// odczytać.
     /// </summary>
     private readonly record struct CategoryInput(
         string Code,
         string Name,
         string AggregateFunctionText,
-        AggregateFunction? AggregateFunction);
+        AggregateFunction? AggregateFunction,
+        string ColorText,
+        string? Color,
+        int? SortOrder);
 }
 
 /// <summary>
@@ -347,6 +377,10 @@ internal static class CategoryFormFields
     public const string Name = "name";
 
     public const string AggregateFunction = "aggregateFunction";
+
+    public const string Color = "color";
+
+    public const string SortOrder = "sortOrder";
 }
 
 /// <summary>
@@ -377,5 +411,13 @@ internal static class CategoryResponses
 /// brak dawał błąd walidacji w kontrakcie, a nie błąd wiązania w kształcie
 /// frameworka. Funkcja agregująca jest tekstem, a nie enumem, z tego samego
 /// powodu: nieznana nazwa ma dać komunikat pod polem, a nie 400 z wiązania.
+/// Kolejność jest liczbą: klient (<c>readCategoryForm</c>) wysyła <c>null</c>
+/// zamiast tekstu, który nie jest liczbą całkowitą, więc wiązanie jej nie
+/// odrzuca.
 /// </summary>
-internal sealed record CategoryRequest(string? Code, string? Name, string? AggregateFunction);
+internal sealed record CategoryRequest(
+    string? Code,
+    string? Name,
+    string? AggregateFunction,
+    string? Color,
+    int? SortOrder);

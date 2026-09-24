@@ -68,6 +68,9 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options)
             entity.Property(c => c.Code).HasMaxLength(Category.CodeMaxLength);
             entity.Property(c => c.NormalizedCode).HasMaxLength(Category.CodeMaxLength);
             entity.Property(c => c.Name).HasMaxLength(Category.NameMaxLength);
+            entity.Property(c => c.Color)
+                .HasMaxLength(Category.ColorLength)
+                .HasDefaultValue(Category.DefaultColor);
 
             entity.HasIndex(c => c.NormalizedCode).IsUnique();
 

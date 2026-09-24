@@ -227,9 +227,9 @@ const ODMOWA_WALIDACJI: ApiErrorBody = {
 
 /** Słownik kategorii w kolejności API (po kodzie). */
 const KATEGORIE: CatalogCategory[] = [
-  { id: 1, code: "P", name: "Produkcja", aggregateFunction: "SUM" },
-  { id: 2, code: "Q", name: "Moc bierna", aggregateFunction: "SUM" },
-  { id: 3, code: "U", name: "Napięcie", aggregateFunction: "MAX" },
+  { id: 1, code: "P", name: "Produkcja", aggregateFunction: "SUM", color: "#1677FF", sortOrder: 1 },
+  { id: 2, code: "Q", name: "Moc bierna", aggregateFunction: "SUM", color: "#52C41A", sortOrder: 2 },
+  { id: 3, code: "U", name: "Napięcie", aggregateFunction: "MAX", color: "#FA8C16", sortOrder: 3 },
 ];
 
 /** Identyfikatory kategorii z {@link KATEGORIE}, po kodzie. */

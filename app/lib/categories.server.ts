@@ -32,24 +32,30 @@ const CATEGORIES_PATH = "/categories";
 /**
  * Kategoria słownika — dokładnie kształt elementu `items` z `GET /categories`
  * i odpowiedzi `POST`/`PUT`. Funkcja agregująca przychodzi zapisem
- * kanonicznym (`SUM`/`MIN`/`MAX`).
+ * kanonicznym (`SUM`/`MIN`/`MAX`), kolor — jako `#RRGGBB` wielkimi literami.
  */
 export type CatalogCategory = {
   id: number;
   code: string;
   name: string;
   aggregateFunction: FunkcjaAgregujaca;
+  color: string;
+  sortOrder: number;
 };
 
 /**
- * Treść zapisu. Funkcja agregująca jest tekstem prosto z formularza, a nie
- * {@link FunkcjaAgregujaca}: wartość spoza listy ma dostać komunikat pod polem
- * od API, które jako jedyne rozstrzyga o jej poprawności.
+ * Treść zapisu. Funkcja agregująca i kolor są tekstem prosto z formularza:
+ * wartość spoza listy albo spoza zapisu `#RRGGBB` ma dostać komunikat pod
+ * polem od API, które jako jedyne rozstrzyga o jej poprawności. Kolejność
+ * jest `null`, gdy pole jest puste albo nie jest liczbą całkowitą — komunikat
+ * też układa API (wzorzec `treeId` w `readScreenForm`).
  */
 export type CategoryPayload = {
   code: string;
   name: string;
   aggregateFunction: string;
+  color: string;
+  sortOrder: number | null;
 };
 
 export type CategoryListResult =
@@ -107,16 +113,38 @@ export async function deleteCategory(id: number): Promise<CategoryDeleteResult> 
  * `app/components/FormularzKategorii.tsx` — po nich API adresuje komunikaty
  * walidacji. Zgodności nie sprawdza ani kompilator, ani `npm run typecheck`.
  *
- * Bez własnej walidacji i bez porażki: wszystkie trzy pola są tekstem, a brak
- * albo zła wartość każdego z nich (także brak funkcji agregującej) jest
- * regułą API i stamtąd przychodzi komunikat pod polem.
+ * Bez własnej walidacji i bez porażki: brak albo zła wartość każdego pola
+ * (także brak funkcji agregującej, koloru i kolejności) jest regułą API
+ * i stamtąd przychodzi komunikat pod polem.
  */
 export function readCategoryForm(formData: FormData): CategoryPayload {
   return {
     code: String(formData.get("code") ?? ""),
     name: String(formData.get("name") ?? ""),
     aggregateFunction: String(formData.get("aggregateFunction") ?? ""),
+    color: String(formData.get("color") ?? ""),
+    sortOrder: parseSortOrder(String(formData.get("sortOrder") ?? "")),
   };
+}
+
+/** Zakres `int` z C# — liczba spoza niego dałaby błąd wiązania w API. */
+const MIN_INT = -2_147_483_648;
+const MAX_INT = 2_147_483_647;
+
+/**
+ * Kolejność z pola formularza albo `null`, gdy nie jest liczbą całkowitą
+ * w zakresie `int`. Wzorzec, a nie samo `Number(...)` — powód przy
+ * `parseEntityId` w `api.server.ts` (`"1e3"`, `"0x10"`, `" 7 "`). Zera
+ * wiodące przechodzą: `"007"` to wciąż kolejność 7.
+ */
+function parseSortOrder(value: string): number | null {
+  if (!/^-?\d+$/.test(value)) {
+    return null;
+  }
+
+  const sortOrder = Number(value);
+
+  return sortOrder >= MIN_INT && sortOrder <= MAX_INT ? sortOrder : null;
 }
 
 function toCategoryResult(path: string, result: ApiResult): CategoryResult {
@@ -146,6 +174,8 @@ function isCatalogCategory(value: unknown): value is CatalogCategory {
     Number.isInteger(candidate.id) &&
     typeof candidate.code === "string" &&
     typeof candidate.name === "string" &&
-    FUNKCJE_AGREGUJACE.some((funkcja) => funkcja === candidate.aggregateFunction)
+    FUNKCJE_AGREGUJACE.some((funkcja) => funkcja === candidate.aggregateFunction) &&
+    typeof candidate.color === "string" &&
+    Number.isInteger(candidate.sortOrder)
   );
 }
