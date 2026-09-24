@@ -75,6 +75,13 @@ export default [
       // i obiektu żyją w stanie widoku, a nie w adresie; tożsamość do API
       // bierze `loader` i `action` z bramy.
       route("drzewo", "routes/drzewo.tsx"),
+
+      // Ekrany — jedna trasa w układzie widoku drzew: lista ekranów
+      // użytkownika, pod nią panel (zapisany ekran albo nowy z podglądem)
+      // i grid. Wybór ekranu niesie parametr `?ekran=`, tryb nowego ekranu
+      // `?nowy`; bez nich widok otwiera pierwszy ekran. Podgląd nowego
+      // ekranu pobiera węzły drzewa `fetcher.load()` z tej samej trasy.
+      route("ekrany", "routes/ekrany.tsx"),
     ]),
   ]),
 ] satisfies RouteConfig;

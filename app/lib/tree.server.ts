@@ -265,8 +265,11 @@ function isUserTree(value: unknown): value is UserTree {
  * Sprawdza kształt węzła. Odpowiedź API jest z definicji nieznanym JSON-em,
  * a widok buduje z `parentId` hierarchię — element w innym kształcie
  * wywróciłby render zamiast skończyć się kopertą błędu.
+ *
+ * Eksportowany dla klienta ekranów (`screens.server.ts`): `GET /screens/{id}`
+ * zwraca węzły w tym samym kształcie, więc strażnik jest jeden.
  */
-function isTreeNode(value: unknown): value is TreeNode {
+export function isTreeNode(value: unknown): value is TreeNode {
   if (typeof value !== "object" || value === null) {
     return false;
   }

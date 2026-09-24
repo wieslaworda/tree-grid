@@ -596,8 +596,8 @@ Trasa `/ekrany` w układzie widoku drzew: lista własnych ekranów, panel nowego
 
 #### Automated
 
-- [x] 3.1 Typy przechodzą: `npm run typecheck`
-- [x] 3.2 Build produkcyjny przechodzi: `npm run build`
+- [x] 3.1 Typy przechodzą: `npm run typecheck` — c4def03
+- [x] 3.2 Build produkcyjny przechodzi: `npm run build` — c4def03
 
 #### Manual
 
@@ -612,10 +612,10 @@ Trasa `/ekrany` w układzie widoku drzew: lista własnych ekranów, panel nowego
 
 #### Automated
 
-- [ ] 4.1 Typy przechodzą (w tym typegen nowej trasy): `npm run typecheck`
-- [ ] 4.2 Build produkcyjny przechodzi: `npm run build`
-- [ ] 4.3 Testy API nadal przechodzą: `dotnet test tests/Api.Tests`
-- [ ] 4.4 Kontrakty renderowania nienaruszone: po `npm run build` i `npm run start` wynik `curl -s http://localhost:3000/ekrany` (z ciasteczkiem sesji) zawiera `@layer antd`, a offset ostatniego `data-css-hash` jest mniejszy niż offset `</head>`
+- [x] 4.1 Typy przechodzą (w tym typegen nowej trasy): `npm run typecheck`
+- [x] 4.2 Build produkcyjny przechodzi: `npm run build`
+- [x] 4.3 Testy API nadal przechodzą: `dotnet test tests/Api.Tests`
+- [x] 4.4 Kontrakty renderowania nienaruszone: po `npm run build` i `npm run start` wynik `curl -s http://localhost:3000/ekrany` (z ciasteczkiem sesji) zawiera `@layer antd`, a offset ostatniego `data-css-hash` jest mniejszy niż offset `</head>`
 
 #### Manual
 

@@ -16,7 +16,8 @@ export function meta({}: Route.MetaArgs) {
  * treść zastępcza, link „Obiekty" i wylogowanie — daje dziś nagłówek powłoki
  * (`routes/powloka.tsx`), a powtarzanie tego pod nim tylko zaśmiecało ekran
  * (decyzja użytkownika przy S-07). Trasa zostaje, bo na `/` trafia się po
- * zalogowaniu (`HOME_ROUTE`) i tu ma stanąć lista zapisanych ekranów z S-06.
+ * zalogowaniu (`HOME_ROUTE`). Lista zapisanych ekranów z S-06 mieszka pod
+ * `/ekrany` (`routes/ekrany.tsx`), a nie tutaj.
  *
  * Ścieżka SSR z warstwą `antd` (CLAUDE.md, kontrakty 1 i 2) jest na tej
  * trasie nadal realnie ćwiczona — przez menu i przycisk wylogowania

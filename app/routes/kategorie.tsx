@@ -300,10 +300,10 @@ function EdycjaKategorii({
       }
     >
       {/*
-        Każdy błąd — także z usuwania (np. kategoria usunięta w międzyczasie)
-        — idzie do formularza, który ma baner i komunikaty pod polami.
-        Usuwanie kategorii nie ma własnej odmowy: nic się do kategorii nie
-        odwołuje.
+        Każdy błąd — także z usuwania (np. kategoria usunięta w międzyczasie
+        albo odmowa `category_sole_screen_default`, gdy kategoria jest jedyną
+        domyślną jakiegoś ekranu) — idzie do formularza, który ma baner
+        i komunikaty pod polami.
       */}
       <FormularzKategorii
         kategoria={kategoria}
@@ -324,12 +324,14 @@ function EdycjaKategorii({
         Bez własnego `<form>` — powód przy usuwaniu obiektu
         w `routes/obiekty.tsx`: potwierdzenie wysyła `intent` przez
         `useSubmit` pod bieżący adres (z `?id=`). Wygląd przycisku i zakaz
-        `danger` — w `PotwierdzenieUsuniecia`. Przycisk nie zależy od żadnych
-        powiązań — do czasu S-04 nic nie odwołuje się do kategorii — więc
-        wyłącza go tylko trwająca nawigacja.
+        `danger` — w `PotwierdzenieUsuniecia`. Przycisk wyłącza tylko trwająca
+        nawigacja: czy kategorii używa jakiś ekran, rozstrzyga API przy
+        usuwaniu. Usunięcie zdejmuje kategorię z ekranów kaskadą (S-06), więc
+        pytanie o tym uprzedza; kategorię będącą jedyną domyślną ekranu API
+        odrzuca, a odmowa trafia do banera formularza wyżej.
       */}
       <PotwierdzenieUsuniecia
-        pytanie={`Usunąć kategorię „${kategoria.code}"?`}
+        pytanie={`Usunąć kategorię „${kategoria.code}”? Zniknie też z ekranów, które jej używają.`}
         etykieta="Usuń kategorię"
         wylaczone={zajety}
         wToku={usuwanie}

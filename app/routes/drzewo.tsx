@@ -577,8 +577,10 @@ function EdycjaDrzewa({
     >
       {/*
         Każdy błąd tej karty — także z usuwania (np. drzewo usunięte
-        w drugiej karcie) — idzie do formularza, który ma baner i komunikat
-        pod polem.
+        w drugiej karcie albo 409 `tree_in_screen`, gdy drzewo wskazuje
+        ekran, z nazwami ekranów w komunikacie) — idzie do formularza, który
+        ma baner i komunikat pod polem. Odmowa bez `context.fields` trafia do
+        banera.
 
         „Usuń drzewo” stoi w rzędzie „Zapisz zmiany”, czyli wewnątrz `<form>`
         zmiany nazwy, ale go nie wysyła — powód i wygląd przycisku
