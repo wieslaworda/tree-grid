@@ -6,6 +6,7 @@ import { DrzewoStruktury } from "~/components/DrzewoStruktury";
 import { FormularzDrzewa } from "~/components/FormularzDrzewa";
 import { ListaObiektowZrodlowych } from "~/components/ListaObiektowZrodlowych";
 import { ObszarPrzewijania } from "~/components/ObszarPrzewijania";
+import { PasekBudowy } from "~/components/PasekBudowy";
 import { PotwierdzenieUsuniecia } from "~/components/PotwierdzenieUsuniecia";
 import { RamkaPanelu } from "~/components/RamkaPanelu";
 import {
@@ -34,8 +35,8 @@ import { jestWariantem } from "~/theme/tokeny";
  *
  * Komponenty są te same, których używa widok, z danymi przykładowymi z tego
  * modułu — także obudowy: karta panelu (`RamkaPanelu`), przyciski usuwania
- * (`PotwierdzenieUsuniecia`) i ramka przewijania drzewa
- * (`ObszarPrzewijania`), więc wzornik pokazuje to, co widoki naprawdę
+ * (`PotwierdzenieUsuniecia`), pasek akcji budowy (`PasekBudowy`) i ramka
+ * przewijania drzewa (`ObszarPrzewijania`), więc wzornik pokazuje to, co widoki naprawdę
  * składają, a nie własną kopię.
  *
  * Typy loadera z `react-router`, a nie z `./+types/wzornik`: trasa jest
@@ -138,6 +139,9 @@ const WYBRANE_DRZEWO = DRZEWA[0];
 /** Zaznaczony węzeł: ST-01 na najwyższym poziomie, z poddrzewem. */
 const WYBRANY_WEZEL = 1;
 
+/** Kod obiektu zaznaczonego węzła — do „Dodaj pod: …” i pytania o usunięcie. */
+const KOD_WYBRANEGO_WEZLA = "ST-01";
+
 /** Obiekt zaznaczony na liście obiektów: FW-02, którego nie ma w drzewie. */
 const WYBRANY_OBIEKT = 4;
 
@@ -164,7 +168,7 @@ const KOLUMNY_DRZEW: readonly KolumnaSlownika<UserTree>[] = [
  * i `pytanieOUsuniecieDrzewa` z `routes/drzewo.tsx` (tam prywatne), dla liczby
  * węzłów większej niż jeden.
  */
-const PYTANIE_O_WEZEL = `Usunąć węzeł ST-01 razem z ${liczbaWezlowPodrzednych(
+const PYTANIE_O_WEZEL = `Usunąć węzeł ${KOD_WYBRANEGO_WEZLA} razem z ${liczbaWezlowPodrzednych(
   WEZLY,
   WYBRANY_WEZEL,
 )} węzłami podrzędnymi?`;
@@ -352,6 +356,58 @@ export default function Wzornik() {
         </Siatka>
       </Grupa>
 
+      {/*
+        Podpowiedź stanu „wyłączony bez obiektu” pokazuje się dopiero po
+        najechaniu i celowo nie jest otwierana programowo: zrzut czeka na
+        dokładnie jeden widoczny dymek (potwierdzenie usunięcia niżej), a hover
+        sprawdza się na żywym widoku (plan, What We're NOT Doing).
+      */}
+      <Grupa tytul="Pasek akcji budowy (PasekBudowy)">
+        <Siatka kolumny={3}>
+          <Stan nazwa="włączony (obiekt i węzeł zaznaczone)">
+            <PasekBudowy
+              etykietaDodania={`Dodaj pod: ${KOD_WYBRANEGO_WEZLA}`}
+              dodajWylaczone={false}
+              bezObiektu={false}
+              dodajWToku={false}
+              onDodaj={nic}
+              pytanie={PYTANIE_O_WEZEL}
+              usunWylaczone={false}
+              usunWToku={false}
+              onUsun={nic}
+            />
+          </Stan>
+
+          <Stan nazwa="wyłączony bez obiektu (podpowiedź po najechaniu)">
+            <PasekBudowy
+              etykietaDodania="Dodaj na najwyższy poziom"
+              dodajWylaczone
+              bezObiektu
+              dodajWToku={false}
+              onDodaj={nic}
+              pytanie=""
+              usunWylaczone
+              usunWToku={false}
+              onUsun={nic}
+            />
+          </Stan>
+
+          <Stan nazwa="w toku (dodawanie)">
+            <PasekBudowy
+              etykietaDodania={`Dodaj pod: ${KOD_WYBRANEGO_WEZLA}`}
+              dodajWylaczone
+              bezObiektu={false}
+              dodajWToku
+              onDodaj={nic}
+              pytanie={PYTANIE_O_WEZEL}
+              usunWylaczone
+              usunWToku={false}
+              onUsun={nic}
+            />
+          </Stan>
+        </Siatka>
+      </Grupa>
+
       <Grupa tytul="Lista obiektów słownika (ListaObiektowZrodlowych)">
         <Siatka kolumny={3}>
           <Stan nazwa="z zaznaczonym">
@@ -504,7 +560,7 @@ function UsunDrzewo() {
   );
 }
 
-/** „Usuń węzeł" — jak w `BudowaDrzewa` (`routes/drzewo.tsx`). */
+/** „Usuń węzeł" — jak w `PasekBudowy`, którym składa go `BudowaDrzewa`. */
 function UsunWezel() {
   return (
     <PotwierdzenieUsuniecia

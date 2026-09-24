@@ -14,6 +14,7 @@ import { DrzewoStruktury } from "~/components/DrzewoStruktury";
 import { FormularzDrzewa } from "~/components/FormularzDrzewa";
 import { ListaObiektowZrodlowych } from "~/components/ListaObiektowZrodlowych";
 import { ObszarPrzewijania } from "~/components/ObszarPrzewijania";
+import { PasekBudowy } from "~/components/PasekBudowy";
 import { PotwierdzenieUsuniecia } from "~/components/PotwierdzenieUsuniecia";
 import { RamkaPanelu } from "~/components/RamkaPanelu";
 import {
@@ -833,31 +834,27 @@ function BudowaDrzewa({
           aria-label="Drzewo użytkownika"
           className="flex min-h-0 flex-1 flex-col gap-tg-element"
         >
-          <div className="flex flex-wrap items-center gap-tg-element">
-            <Button
-              onClick={dodaj}
-              disabled={wybranyObiekt === null || zajete}
-              loading={intentWToku === DODAJ}
-            >
-              {kodWezla === null ? "Dodaj na najwyższy poziom" : `Dodaj pod: ${kodWezla}`}
-            </Button>
-
-            {/* Wygląd i zakaz `danger` — w `PotwierdzenieUsuniecia`. */}
-            <PotwierdzenieUsuniecia
-              pytanie={
-                wybranyWezel === null
-                  ? ""
-                  : pytanieOUsuniecie(
-                      kodWezla ?? "",
-                      liczbaWezlowPodrzednych(wezly, wybranyWezel.id),
-                    )
-              }
-              etykieta="Usuń węzeł"
-              wylaczone={wybranyWezel === null || zajete}
-              wToku={intentWToku === USUN}
-              onPotwierdz={usun}
-            />
-          </div>
+          {/* Podpowiedź przy wyłączonym „Dodaj…” i wygląd „Usuń węzeł” — w `PasekBudowy`. */}
+          <PasekBudowy
+            etykietaDodania={
+              kodWezla === null ? "Dodaj na najwyższy poziom" : `Dodaj pod: ${kodWezla}`
+            }
+            dodajWylaczone={wybranyObiekt === null || zajete}
+            bezObiektu={wybranyObiekt === null}
+            dodajWToku={intentWToku === DODAJ}
+            onDodaj={dodaj}
+            pytanie={
+              wybranyWezel === null
+                ? ""
+                : pytanieOUsuniecie(
+                    kodWezla ?? "",
+                    liczbaWezlowPodrzednych(wezly, wybranyWezel.id),
+                  )
+            }
+            usunWylaczone={wybranyWezel === null || zajete}
+            usunWToku={intentWToku === USUN}
+            onUsun={usun}
+          />
 
           {odmowa === null ? null : (
             <Alert

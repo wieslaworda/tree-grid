@@ -163,7 +163,12 @@ export function ListaObiektowZrodlowych({
       }}
     >
       <div className="flex items-center gap-tg-element">
+        {/*
+          `size="small"` — ta sama wysokość co pola filtrów listy drzew
+          (`TabelaSlownika`), żeby widok miał jedną wysokość pola filtra.
+        */}
         <Input
+          size="small"
           allowClear
           aria-label="Filtruj obiekty po kodzie lub nazwie"
           placeholder="Filtruj po kodzie lub nazwie…"

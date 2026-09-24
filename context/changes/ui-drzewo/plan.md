@@ -641,40 +641,40 @@ planie przesuną się.
 
 #### Automated
 
-- [x] 3.1 Typy przechodzą: `npm run typecheck`
-- [x] 3.2 Build produkcyjny przechodzi: `npm run build`
-- [x] 3.3 Kopie zniknęły: `grep -n "function RamkaPanelu\|cancelButtonProps" app/routes/*.tsx` nic nie zwraca
-- [x] 3.4 Brak numerycznych klas odstępu: `grep -nE "\b(p|px|py|m|mt|mb|mx|my|gap|min-h)-[0-9]+" app/routes/drzewo.tsx app/routes/kategorie.tsx app/routes/obiekty.tsx app/components/Formularz*.tsx app/components/ListaObiektowZrodlowych.tsx app/components/RamkaPanelu.tsx app/components/PotwierdzenieUsuniecia.tsx app/components/ObszarPrzewijania.tsx` nic nie zwraca
-- [x] 3.5 Brak literałów koloru i palety Tailwinda w tych samych plikach
-- [x] 3.6 Klasy metryk są w zbudowanym CSS: `grep -l "tg-sekcja" build/client/assets/*.css` zwraca plik
-- [x] 3.7 Build nie zawiera wzornika: `grep -rl "wzornik" build/` nic nie zwraca
+- [x] 3.1 Typy przechodzą: `npm run typecheck` — f82c380
+- [x] 3.2 Build produkcyjny przechodzi: `npm run build` — f82c380
+- [x] 3.3 Kopie zniknęły: `grep -n "function RamkaPanelu\|cancelButtonProps" app/routes/*.tsx` nic nie zwraca — f82c380
+- [x] 3.4 Brak numerycznych klas odstępu: `grep -nE "\b(p|px|py|m|mt|mb|mx|my|gap|min-h)-[0-9]+" app/routes/drzewo.tsx app/routes/kategorie.tsx app/routes/obiekty.tsx app/components/Formularz*.tsx app/components/ListaObiektowZrodlowych.tsx app/components/RamkaPanelu.tsx app/components/PotwierdzenieUsuniecia.tsx app/components/ObszarPrzewijania.tsx` nic nie zwraca — f82c380
+- [x] 3.5 Brak literałów koloru i palety Tailwinda w tych samych plikach — f82c380
+- [x] 3.6 Klasy metryk są w zbudowanym CSS: `grep -l "tg-sekcja" build/client/assets/*.css` zwraca plik — f82c380
+- [x] 3.7 Build nie zawiera wzornika: `grep -rl "wzornik" build/` nic nie zwraca — f82c380
 
 #### Manual
 
-- [x] 3.8 Na `/drzewo`, `/kategorie` i `/obiekty` odstęp listy od karty jest ten sam
-- [x] 3.9 „Usuń drzewo”, „Usuń węzeł”, „Usuń obiekt”, „Usuń kategorię” są obrysowane neutralnie i czytelne na panelu w obu wariantach; w dymku wypełnione jest tylko „Usuń”, a „Anuluj” obrysowane
-- [x] 3.10 Każde z czterech usunięć dalej pyta i po potwierdzeniu usuwa (w tym „Usuń drzewo” nie wysyła formularza nazwy)
-- [x] 3.11 Drzewo i lista obiektów w budowie mają tę samą ramkę i tło; lista ma jeden pasek przewijania
-- [x] 3.12 Wiersze listy drzew, drzewa i listy obiektów mają 24 px w obu wariantach
+- [x] 3.8 Na `/drzewo`, `/kategorie` i `/obiekty` odstęp listy od karty jest ten sam — f82c380
+- [x] 3.9 „Usuń drzewo”, „Usuń węzeł”, „Usuń obiekt”, „Usuń kategorię” są obrysowane neutralnie i czytelne na panelu w obu wariantach; w dymku wypełnione jest tylko „Usuń”, a „Anuluj” obrysowane — f82c380
+- [x] 3.10 Każde z czterech usunięć dalej pyta i po potwierdzeniu usuwa (w tym „Usuń drzewo” nie wysyła formularza nazwy) — f82c380
+- [x] 3.11 Drzewo i lista obiektów w budowie mają tę samą ramkę i tło; lista ma jeden pasek przewijania — f82c380
+- [x] 3.12 Wiersze listy drzew, drzewa i listy obiektów mają 24 px w obu wariantach — f82c380
 
 ### Phase 4: Stany widoku /drzewo i bramka „po”
 
 #### Automated
 
-- [ ] 4.1 Typy przechodzą: `npm run typecheck`
-- [ ] 4.2 Build produkcyjny przechodzi: `npm run build`
-- [ ] 4.3 Brak numerycznych klas odstępu i literałów koloru w `drzewo.tsx`, `ListaObiektowZrodlowych.tsx`, `PasekBudowy.tsx` (te same `grep` co w fazie 3)
-- [ ] 4.4 Build nie zawiera wzornika: `grep -rl "wzornik" build/` nic nie zwraca
-- [ ] 4.5 Adres API nie trafia do bundla klienckiego: `grep -r "127.0.0.1:5180" build/client` nic nie zwraca
-- [ ] 4.6 Cztery zrzuty „po” i `roznice.md` istnieją w `context/changes/ui-drzewo/zrzuty/`
+- [x] 4.1 Typy przechodzą: `npm run typecheck`
+- [x] 4.2 Build produkcyjny przechodzi: `npm run build`
+- [x] 4.3 Brak numerycznych klas odstępu i literałów koloru w `drzewo.tsx`, `ListaObiektowZrodlowych.tsx`, `PasekBudowy.tsx` (te same `grep` co w fazie 3)
+- [x] 4.4 Build nie zawiera wzornika: `grep -rl "wzornik" build/` nic nie zwraca
+- [x] 4.5 Adres API nie trafia do bundla klienckiego: `grep -r "127.0.0.1:5180" build/client` nic nie zwraca
+- [x] 4.6 Cztery zrzuty „po” i `roznice.md` istnieją w `context/changes/ui-drzewo/zrzuty/`
 
 #### Manual
 
-- [ ] 4.7 Tab na liście obiektów pokazuje obrys `fokus` w całości (nieprzycięty) w obu wariantach; Enter/spacja zaznacza wiersz
-- [ ] 4.8 Fokus aktywnego węzła drzewa (strzałki po kliknięciu w drzewo) jest odróżnialny od celu upuszczenia w obu wariantach
-- [ ] 4.9 Najechanie na wyłączone „Dodaj na najwyższy poziom” bez zaznaczonego obiektu pokazuje podpowiedź; przy zaznaczonym przycisk działa jak dotąd
-- [ ] 4.10 Pole filtra listy obiektów ma tę samą wysokość co filtry listy drzew
-- [ ] 4.11 Przy oknie ok. 950 px budowa pokazuje więcej wierszy niż na zrzucie „przed”; przy niskim oknie budowa trzyma 10 wierszy i przewija się widok
-- [ ] 4.12 Każda różnica między zrzutami „przed” i „po” jest w `roznice.md`; przy 390 px nic nie nachodzi na siebie
-- [ ] 4.13 Dodawanie (przyciskiem i przeciągnięciem), przesuwanie i usuwanie węzła oraz usuwanie przeciągnięciem na listę działają jak przed zmianą
-- [ ] 4.14 Źródło strony `/drzewo` zawiera `@layer antd`, a ostatni `data-css-hash` stoi przed `</head>`
+- [x] 4.7 Tab na liście obiektów pokazuje obrys `fokus` w całości (nieprzycięty) w obu wariantach; Enter/spacja zaznacza wiersz
+- [x] 4.8 Fokus aktywnego węzła drzewa (strzałki po kliknięciu w drzewo) jest odróżnialny od celu upuszczenia w obu wariantach
+- [x] 4.9 Najechanie na wyłączone „Dodaj na najwyższy poziom” bez zaznaczonego obiektu pokazuje podpowiedź; przy zaznaczonym przycisk działa jak dotąd
+- [x] 4.10 Pole filtra listy obiektów ma tę samą wysokość co filtry listy drzew
+- [x] 4.11 Przy oknie ok. 950 px budowa pokazuje więcej wierszy niż na zrzucie „przed”; przy niskim oknie budowa trzyma 10 wierszy i przewija się widok
+- [x] 4.12 Każda różnica między zrzutami „przed” i „po” jest w `roznice.md`; przy 390 px nic nie nachodzi na siebie
+- [x] 4.13 Dodawanie (przyciskiem i przeciągnięciem), przesuwanie i usuwanie węzła oraz usuwanie przeciągnięciem na listę działają jak przed zmianą
+- [x] 4.14 Źródło strony `/drzewo` zawiera `@layer antd`, a ostatni `data-css-hash` stoi przed `</head>`
