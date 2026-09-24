@@ -26,7 +26,7 @@ type Wlasciwosci = {
   onRozwin: (ids: number[]) => void;
   /**
    * Obiekt upuszczony z listy: pod węzeł (`parentId`) albo na najwyższy
-   * poziom (`null`). Ta sama ścieżka co „Dodaj", łącznie z dialogiem gałęzi.
+   * poziom (`null`). Ta sama ścieżka co „Dodaj".
    */
   onUpuscObiekt: (objectId: number, parentId: number | null) => void;
   /** Węzeł przeciągnięty w drzewie, już w semantyce `PUT /tree/nodes/{id}`. */

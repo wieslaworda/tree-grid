@@ -2,7 +2,7 @@
 
 ## Overview
 
-Dodajemy do repozytorium pierwszy automatyczny test procesowy (E2E): jeden scenariusz w `@playwright/test`, który przechodzi ścieżkę north star `S-03` z roadmapy przez prawdziwą przeglądarkę. Dyspozytor zakłada konto, buduje słownik z relacją rodzic–dziecko, zakłada nazwane drzewo, składa w nim strukturę, a próba zapętlenia zostaje odrzucona z komunikatem wskazującym ścieżkę. Jedno polecenie `npm run test:e2e` samo stawia oba procesy — API .NET na tymczasowej bazie SQLite i build produkcyjny React Routera na :3000 — więc test sprawdza tę samą ścieżkę, która idzie przez tunel.
+Dodajemy do repozytorium pierwszy automatyczny test procesowy (E2E): jeden scenariusz w `@playwright/test`, który przechodzi ścieżkę north star `S-03` z roadmapy przez prawdziwą przeglądarkę. Dyspozytor zakłada konto, dodaje do słownika dwa obiekty, zakłada nazwane drzewo, składa w nim strukturę, a próba zapętlenia zostaje odrzucona z komunikatem wskazującym ścieżkę. Jedno polecenie `npm run test:e2e` samo stawia oba procesy — API .NET na tymczasowej bazie SQLite i build produkcyjny React Routera na :3000 — więc test sprawdza tę samą ścieżkę, która idzie przez tunel.
 
 Powód: jedyną automatyczną weryfikacją frontendu jest dziś `npm run typecheck`, a rdzenna reguła produktu (blokada zapętlenia) jest sprawdzana wyłącznie ręcznie. Roadmapa trzyma „Runner testów” w sekcji *Parked* z powodu ryzyka `time`, więc zakres jest świadomie minimalny: jeden test, bez zestawu na zapas.
 
@@ -31,11 +31,11 @@ Gdy port 5180 lub 3000 jest zajęty, polecenie kończy się głośnym błędem, 
 
 - Przebieg zapętlenia sprawdzony w regułach API: `src/Api/Tree/TreeRules.cs:139-150` (`FindConflictOnAdd`) i `:372-393` (`AncestorObjectPath`); kolejność walidacji duplikat → zapętlenie → limit w `src/Api/Tree/TreeEndpoints.cs:340-365`.
 - Komunikat powstaje w API, nie we frontendzie: `src/Api/Tree/TreeEndpoints.cs:835-850` — `"Dodanie obiektu {kod} utworzyłoby zapętlenie: {ścieżka z ' → '}."`. Frontend pokazuje go bez zmian w antd `Alert type="error"` (`role="alert"`) w sekcji „Drzewo użytkownika” (`app/routes/drzewo.tsx:952-959`).
-- Relację rodzic–dziecko ustawia się na rodzicu: pole „Podobiekty” (antd `Select mode="multiple"`, `id="childIds"`, `app/components/FormularzObiektu.tsx:155-179`), etykiety opcji `KOD — Nazwa` (`:84`). Dziecko trzeba więc założyć pierwsze.
+- Obiekt słownika to wyłącznie kod i nazwa — podobiekty i FR-005 usunięto 2026-09-24 (`lista-obiektow/change.md`). Relację rodzic–dziecko test buduje wyłącznie w drzewie, więc kolejność zakładania obiektów jest dowolna.
 - Po dodaniu obiektu strona przechodzi w tryb edycji (`/obiekty?id=N`, karta „Edycja: KOD”); powrót do formularza dodawania to przycisk „Nowy obiekt” (`app/routes/obiekty.tsx:404`).
 - Nowe konto bez drzew widzi na `/drzewo` kartę „Nowe drzewo” z polem „Nazwa” i przyciskiem „Dodaj drzewo” (`app/routes/drzewo.tsx:540-544`); po sukcesie przekierowanie na `/drzewo?drzewo=<id>` (`:273`).
 - Przycisk dodawania zmienia tekst z zaznaczeniem: „Dodaj na najwyższy poziom” albo „Dodaj pod: KOD” (`app/routes/drzewo.tsx:911-917`) — to wygodna asercja, który węzeł jest zaznaczony.
-- Dialog „Zakres dodania” z przyciskami „Cała gałąź / Tylko obiekt / Anuluj” otwiera się tylko dla obiektu z podobiektami (`app/components/DialogGalezi.tsx:53-73`, warunek `app/routes/drzewo.tsx:817-822`).
+- Dodanie nie otwiera żadnego dialogu: każdy obiekt trafia do drzewa sam, od razu po kliknięciu „Dodaj”.
 - Pułapka widoku: dodanie P na najwyższy poziom **nie** rozwija węzła (`app/routes/drzewo.tsx:780`); dodanie C pod P rozwija P automatycznie (`:780-784`).
 - Hasło: min. 10 znaków plus domyślne wymagania Identity (`src/Api/Program.cs:53`).
 - `getByLabel('Nazwa')`, `getByLabel('Kod')` łapią też filtry kolumn „Filtruj kolumnę …” (`app/components/TabelaSlownika.tsx:212,229`) — potrzebne `{ exact: true }`.
@@ -43,7 +43,7 @@ Gdy port 5180 lub 3000 jest zajęty, polecenie kończy się głośnym błędem, 
 ## What We're NOT Doing
 
 - Zmiany w kodzie aplikacji — ani `data-testid`, ani konfigurowalnego `API_BASE_URL`. Test opiera się na etykietach, rolach i `aria-label`.
-- Przeciągania (drag & drop) — test używa przycisku „Dodaj”, który przechodzi przez tę samą funkcję `dodajObiekt` i ten sam dialog (`app/routes/drzewo.tsx:810-829`).
+- Przeciągania (drag & drop) — test używa przycisku „Dodaj”, który przechodzi przez tę samą funkcję `dodajObiekt` co upuszczenie z listy (`app/routes/drzewo.tsx`).
 - Izolacji kont, logowania po wylogowaniu, duplikatu rodzeństwa, limitu rozmiaru drzewa, filtra MS-06, usuwania węzłów — poza zakresem pierwszego testu.
 - Innych przeglądarek niż Chromium i widoków mobilnych (NFR ogranicza produkt do desktopu).
 - Pipeline'u CI — nadal w sekcji *Parked* roadmapy.
@@ -147,7 +147,7 @@ Instalacja Playwright, konfiguracja stawiająca oba procesy na odizolowanym stan
 
 ### Overview
 
-Test dostaje resztę scenariusza: słownik z relacją rodzic–dziecko, nazwane drzewo, poprawna struktura i odrzucone zapętlenie, sprawdzone także po przeładowaniu strony.
+Test dostaje resztę scenariusza: słownik z dwoma obiektami, nazwane drzewo, poprawna struktura i odrzucone zapętlenie, sprawdzone także po przeładowaniu strony.
 
 ### Changes Required:
 
@@ -167,11 +167,11 @@ Test dostaje resztę scenariusza: słownik z relacją rodzic–dziecko, nazwane 
 
 **Contract** (kolejność kroków):
 1. **„słownik: dziecko”** — `/obiekty`, formularz „Nowy obiekt”: „Kod” i „Nazwa” (`exact: true`), „Dodaj obiekt”; asercja karty „Edycja: E2E-C”.
-2. **„słownik: rodzic z podobiektem”** — „Nowy obiekt”, „Kod”/„Nazwa” rodzica, w „Podobiekty” wpisanie `E2E-C` i wybór opcji `E2E-C — Dziecko E2E`, `Escape`, „Dodaj obiekt”; asercja karty „Edycja: E2E-P”.
+2. **„słownik: rodzic”** — „Nowy obiekt”, „Kod”/„Nazwa” rodzica, „Dodaj obiekt”; asercja karty „Edycja: E2E-P”.
 3. **„nowe drzewo”** — `/drzewo`, karta „Nowe drzewo”, „Nazwa”, „Dodaj drzewo”; asercja `toHaveURL(/\/drzewo\?drzewo=\d+/)` i nazwy w sekcji „Lista drzew”.
-4. **„struktura: rodzic na górze”** — w sekcji „Obiekty słownika” klik wiersza `E2E-P`, „Dodaj na najwyższy poziom”, w dialogu „Zakres dodania” wybór „Tylko obiekt”; asercja węzła `E2E-P — Rodzic E2E` w sekcji „Drzewo użytkownika”.
+4. **„struktura: rodzic na górze”** — w sekcji „Obiekty słownika” klik wiersza `E2E-P`, „Dodaj na najwyższy poziom”; asercja węzła `E2E-P — Rodzic E2E` w sekcji „Drzewo użytkownika”.
 5. **„struktura: dziecko pod rodzicem”** — klik węzła rodzica (asercja przycisku „Dodaj pod: E2E-P”), klik wiersza `E2E-C`, „Dodaj pod: E2E-P”; asercja widocznego węzła `E2E-C — Dziecko E2E` (rodzic rozwija się sam).
-6. **„zapętlenie odrzucone”** — klik węzła dziecka (asercja „Dodaj pod: E2E-C”), klik wiersza `E2E-P`, „Dodaj pod: E2E-C”, w dialogu „Tylko obiekt”; asercja `getByRole("alert")` w sekcji „Drzewo użytkownika” z tekstem `KOMUNIKAT_ZAPETLENIA`.
+6. **„zapętlenie odrzucone”** — klik węzła dziecka (asercja „Dodaj pod: E2E-C”), klik wiersza `E2E-P`, „Dodaj pod: E2E-C”; asercja `getByRole("alert")` w sekcji „Drzewo użytkownika” z tekstem `KOMUNIKAT_ZAPETLENIA`.
 7. **„struktura bez zmian po odmowie”** — w sekcji „Drzewo użytkownika” dokładnie jeden węzeł `E2E-P — Rodzic E2E` i jeden `E2E-C — Dziecko E2E`; następnie `page.reload()` i ta sama asercja (po przeładowaniu rodzic może być zwinięty — rozwinąć przez przełącznik węzła, jeśli dziecka nie widać), co dowodzi, że odmowę egzekwuje serwer, a nie sam interfejs.
 
 Węzły i wiersze adresowane wewnątrz sekcji po `aria-label` (`page.getByRole("region", { name: ... })` albo `page.locator('section[aria-label="..."]')`), teksty węzłów przez `getByText(tytul, { exact: true })`.

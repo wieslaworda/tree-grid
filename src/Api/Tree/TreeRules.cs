@@ -9,108 +9,21 @@ namespace Api.Tree;
 /// <remarks>
 /// Zapętlenie w drzewie to <b>obiekt na własnej ścieżce do korzenia</b> —
 /// ścieżce jednego wystąpienia, a nie cykl w grafie obiektów. A pod B w jednej
-/// gałęzi i B pod A w innej jest poprawne, dlatego ta klasa nie używa
-/// <c>ObjectRules.FindCycle</c> (powód w komentarzu tamtej klasy).
+/// gałęzi i B pod A w innej jest poprawne. Słownik nie niesie relacji między
+/// obiektami, więc całą strukturę składa użytkownik, a reguła patrzy wyłącznie
+/// na drzewo.
 ///
-/// Przejścia idą jawnym stosem, a nie rekurencją — z tego samego powodu co
-/// w <c>ObjectRules.FindCycle</c>: <c>StackOverflowException</c> kończy cały
-/// proces API i nie da się go złapać.
+/// Przejścia idą jawnym stosem, a nie rekurencją: głębokość przejścia to
+/// głębokość drzewa, a <c>StackOverflowException</c> kończy cały proces API
+/// i nie da się go złapać.
 /// </remarks>
 internal static class TreeRules
 {
     /// <summary>
-    /// Mapa „obiekt → podobiekty" ze słownika, z dziećmi w kolejności kodu
-    /// znormalizowanego (porządek porządkowy, ten sam co w <c>GET /objects</c>).
-    /// Z tej kolejności powstaje kolejność rodzeństwa w skopiowanej gałęzi
-    /// i kolejność przejścia w <see cref="FindConflictOnAdd"/>.
+    /// Czy drzewo o <paramref name="nodeCount"/> węzłach jest pełne — kolejne
+    /// dodanie przekroczyłoby <paramref name="limit"/>.
     /// </summary>
-    /// <remarks>
-    /// Relacja do obiektu spoza <paramref name="normalizedCodeById"/> jest
-    /// pomijana — ten sam wybór co w <c>GET /objects</c>: gałąź nie wskazuje
-    /// obiektu, którego słownik nie zna.
-    /// </remarks>
-    internal static Dictionary<int, IReadOnlyList<int>> CatalogChildrenInCodeOrder(
-        IEnumerable<(int ParentId, int ChildId)> links,
-        IReadOnlyDictionary<int, string> normalizedCodeById)
-        => links
-            .Where(link => normalizedCodeById.ContainsKey(link.ParentId)
-                && normalizedCodeById.ContainsKey(link.ChildId))
-            .GroupBy(link => link.ParentId)
-            .ToDictionary(
-                group => group.Key,
-                group => (IReadOnlyList<int>)group
-                    .Select(link => link.ChildId)
-                    .Distinct()
-                    .OrderBy(childId => normalizedCodeById[childId], StringComparer.Ordinal)
-                    .ThenBy(childId => childId)
-                    .ToList());
-
-    /// <summary>
-    /// Rozwija dodawany obiekt w gałąź do wstawienia: sam obiekt albo — przy
-    /// <paramref name="includeBranch"/> — obiekt z pełną strukturą podrzędną
-    /// ze słownika, rozpisaną na osobne wystąpienia (romb daje dwa wystąpienia
-    /// wspólnego potomka).
-    /// </summary>
-    /// <param name="budget">
-    /// Ile węzłów wolno jeszcze dodać: limit minus bieżący rozmiar drzewa.
-    /// </param>
-    /// <returns>
-    /// Gałąź z liczbą węzłów albo wynik „za duże"
-    /// (<see cref="BranchExpansion.IsTooLarge"/>), gdy liczba węzłów przekroczy
-    /// <paramref name="budget"/>.
-    /// </returns>
-    /// <remarks>
-    /// Węzły są liczone w trakcie, a rozwijanie przerywa się na pierwszym
-    /// węźle ponad budżet. Łańcuch rombów rozwija się wykładniczo — liczenie
-    /// po fakcie oznaczałoby zbudowanie w pamięci gałęzi, której i tak nie
-    /// wolno zapisać.
-    /// </remarks>
-    internal static BranchExpansion ExpandBranch(
-        int objectId,
-        bool includeBranch,
-        IReadOnlyDictionary<int, IReadOnlyList<int>> catalogChildren,
-        int budget)
-    {
-        var count = 1;
-
-        if (count > budget)
-        {
-            return new BranchExpansion(null, count);
-        }
-
-        var root = new BranchNode(objectId);
-
-        if (!includeBranch)
-        {
-            return new BranchExpansion(root, count);
-        }
-
-        // Ramka to (rodzic w budowanej gałęzi, obiekt dziecka). Dzieci trafiają
-        // na stos od końca, więc zdejmowane są w kolejności kodu, a poddrzewo
-        // pierwszego dziecka jest domykane przed drugim — dzięki temu każde
-        // dziecko dopisuje się do listy rodzica we właściwym miejscu.
-        var stack = new Stack<(BranchNode Parent, int ObjectId)>();
-        PushChildren(stack, root, catalogChildren);
-
-        while (stack.Count > 0)
-        {
-            var (parent, childObjectId) = stack.Pop();
-
-            count++;
-
-            if (count > budget)
-            {
-                return new BranchExpansion(null, count);
-            }
-
-            var node = new BranchNode(childObjectId);
-            parent.Add(node);
-
-            PushChildren(stack, node, catalogChildren);
-        }
-
-        return new BranchExpansion(root, count);
-    }
+    internal static bool IsFull(int nodeCount, int limit) => nodeCount >= limit;
 
     /// <summary>
     /// Szuka zapętlenia przy dodaniu obiektu pod miejsce, do którego prowadzi
@@ -122,32 +35,23 @@ internal static class TreeRules
     /// </param>
     /// <returns>
     /// <c>null</c> albo ścieżka obiektów od wystąpienia konfliktowego wśród
-    /// przodków, przez miejsce docelowe, do wystąpienia w gałęzi — np.
-    /// przodkowie <c>[GPZ-01, L1]</c> i gałąź <c>L2 → T5 → GPZ-01</c> dają
-    /// <c>[GPZ-01, L1, L2, T5, GPZ-01]</c>; obiekt pod samym sobą —
-    /// <c>[X, X]</c>.
+    /// przodków, przez miejsce docelowe, do dodawanego obiektu — np. przodkowie
+    /// <c>[GPZ-01, L1]</c> i obiekt <c>GPZ-01</c> dają <c>[GPZ-01, L1, GPZ-01]</c>;
+    /// obiekt pod samym sobą — <c>[X, X]</c>.
     /// </returns>
     /// <remarks>
-    /// Przejście idzie po grafie słownika, a nie po rozwiniętej gałęzi, więc
-    /// działa także wtedy, gdy gałąź jest za duża, żeby ją rozwinąć — dzięki
-    /// temu zapętlenie jest zgłaszane przed rozmiarem, jak każe kolejność
-    /// kontroli. Obiekt raz przeszukany bez konfliktu nie jest odwiedzany
-    /// ponownie: zbiór przodków jest stały, więc jego kolejne wystąpienie
-    /// dałoby ten sam wynik. Pierwszy konflikt w tym przejściu jest więc
-    /// pierwszym w pre-orderze rozwiniętej gałęzi.
+    /// Dodanie wstawia jeden obiekt bez dzieci, więc przejście kończy się na
+    /// nim samym. Rdzeń jest wspólny z <see cref="FindConflictOnMove"/>, żeby
+    /// obie operacje budowały ścieżkę konfliktu w tej samej kolejności.
     /// </remarks>
     internal static IReadOnlyList<int>? FindConflictOnAdd(
         IReadOnlyList<int> ancestorObjectIds,
-        int objectId,
-        bool includeBranch,
-        IReadOnlyDictionary<int, IReadOnlyList<int>> catalogChildren)
+        int objectId)
         => FindConflict(
             ancestorObjectIds,
             objectId,
             objectOf: key => key,
-            childrenOf: key => includeBranch && catalogChildren.TryGetValue(key, out var children)
-                ? children
-                : []);
+            childrenOf: _ => []);
 
     /// <summary>
     /// Szuka zapętlenia przy przeniesieniu węzła <paramref name="nodeId"/>
@@ -223,9 +127,9 @@ internal static class TreeRules
 
     /// <summary>
     /// Rdzeń kontroli zapętlenia wspólny dla dodania i przeniesienia.
-    /// Gałąź jest grafem kluczy (<paramref name="childrenOf"/>) — obiektów
-    /// słownika przy dodaniu, węzłów drzewa przy przeniesieniu — a
-    /// <paramref name="objectOf"/> zamienia klucz na obiekt.
+    /// Gałąź jest grafem kluczy (<paramref name="childrenOf"/>) — sam dodawany
+    /// obiekt przy dodaniu, węzły przenoszonego poddrzewa przy przeniesieniu —
+    /// a <paramref name="objectOf"/> zamienia klucz na obiekt.
     /// </summary>
     private static IReadOnlyList<int>? FindConflict(
         IReadOnlyList<int> ancestorObjectIds,
@@ -297,22 +201,6 @@ internal static class TreeRules
         }
 
         return null;
-    }
-
-    private static void PushChildren(
-        Stack<(BranchNode Parent, int ObjectId)> stack,
-        BranchNode parent,
-        IReadOnlyDictionary<int, IReadOnlyList<int>> catalogChildren)
-    {
-        if (!catalogChildren.TryGetValue(parent.ObjectId, out var children))
-        {
-            return;
-        }
-
-        for (var index = children.Count - 1; index >= 0; index--)
-        {
-            stack.Push((parent, children[index]));
-        }
     }
 }
 
@@ -391,31 +279,4 @@ internal sealed class TreeSnapshot
 
         return path;
     }
-}
-
-/// <summary>
-/// Węzeł gałęzi rozwiniętej ze słownika, jeszcze przed zapisem — bez
-/// identyfikatora i pozycji, które nada zapis.
-/// </summary>
-internal sealed class BranchNode(int objectId)
-{
-    private readonly List<BranchNode> children = [];
-
-    public int ObjectId { get; } = objectId;
-
-    /// <summary>Dzieci w kolejności rodzeństwa w drzewie.</summary>
-    public IReadOnlyList<BranchNode> Children => children;
-
-    internal void Add(BranchNode child) => children.Add(child);
-}
-
-/// <summary>
-/// Wynik <see cref="TreeRules.ExpandBranch"/>: gałąź i liczba jej węzłów albo
-/// „za duże" — wtedy <see cref="Branch"/> jest <c>null</c>, a
-/// <see cref="NodeCount"/> to liczba węzłów policzonych do chwili przerwania
-/// (budżet plus jeden), czyli dolne ograniczenie, a nie pełny rozmiar gałęzi.
-/// </summary>
-internal sealed record BranchExpansion(BranchNode? Branch, int NodeCount)
-{
-    public bool IsTooLarge => Branch is null;
 }

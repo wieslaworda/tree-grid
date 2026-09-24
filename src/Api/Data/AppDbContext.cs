@@ -7,8 +7,8 @@ namespace Api.Data;
 /// <summary>
 /// Kontekst EF Core aplikacji. Od S-01 jest kontekstem Identity — daje
 /// <c>UserManager</c> miejsce na konta. Od S-02 niesie też słownik obiektów
-/// (<see cref="CatalogObject"/> i relację rodzic–podobiekt
-/// <see cref="CatalogObjectLink"/>), wspólny dla wszystkich kont. Od S-09 —
+/// (<see cref="CatalogObject"/>), wspólny dla wszystkich kont i bez relacji
+/// między obiektami. Od S-09 —
 /// słownik kategorii danych (<see cref="Category"/>), również wspólny i na razie
 /// bez relacji z czymkolwiek. Od S-03 — nazwane drzewa użytkownika
 /// (<see cref="UserTree"/>): jedyna tabela z właścicielem, dowolnie wiele drzew
@@ -20,8 +20,6 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options)
     : IdentityDbContext<AppUser>(options)
 {
     public DbSet<CatalogObject> CatalogObjects => Set<CatalogObject>();
-
-    public DbSet<CatalogObjectLink> CatalogObjectLinks => Set<CatalogObjectLink>();
 
     public DbSet<Category> Categories => Set<Category>();
 
@@ -51,32 +49,6 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options)
             // Unikalność po postaci znormalizowanej, nie po kodzie wpisanym —
             // powód w komentarzu `CatalogObject`.
             entity.HasIndex(o => o.NormalizedCode).IsUnique();
-        });
-
-        builder.Entity<CatalogObjectLink>(link =>
-        {
-            link.HasKey(l => new { l.ParentId, l.ChildId });
-
-            // `Restrict`, a nie domyślna dla wymaganej relacji kaskada: kaskada
-            // usunęłaby razem z obiektem jego relacje, czyli po cichu wycięła
-            // gałąź z drzew, w których występuje. Usunąć wolno wyłącznie obiekt
-            // bez powiązań, a klucze obce są w `e_sqlite3` włączone domyślnie,
-            // więc baza odmówi także wtedy, gdy kontrola w endpoincie zawiedzie.
-            link.HasOne(l => l.Parent)
-                .WithMany(o => o.Children)
-                .HasForeignKey(l => l.ParentId)
-                .OnDelete(DeleteBehavior.Restrict);
-
-            link.HasOne(l => l.Child)
-                .WithMany(o => o.Parents)
-                .HasForeignKey(l => l.ChildId)
-                .OnDelete(DeleteBehavior.Restrict);
-
-            // Cykl długości 1 da się wykluczyć samym schematem; dłuższe cykle
-            // wymagają przejścia grafu (`ObjectRules.FindCycle`).
-            link.ToTable(table => table.HasCheckConstraint(
-                "CK_CatalogObjectLinks_ParentIsNotChild",
-                "\"ParentId\" <> \"ChildId\""));
         });
 
         builder.Entity<Category>(entity =>

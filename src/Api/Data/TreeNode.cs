@@ -7,11 +7,10 @@ namespace Api.Data;
 /// jego własne <see cref="Id"/>, a nie para „rodzic, obiekt".
 /// </summary>
 /// <remarks>
-/// Węzeł jest kopią struktury z chwili dodania, a nie odwołaniem do relacji
-/// słownika: dołączona gałąź (<see cref="CatalogObjectLink"/>) zostaje
-/// rozpisana na osobne węzły, a późniejsza zmiana słownika jej nie rusza.
-/// Z obiektu węzeł bierze wyłącznie tożsamość — kod i nazwę widok czyta ze
-/// słownika na bieżąco.
+/// Strukturę drzewa składa wyłącznie użytkownik, węzeł po węźle — słownik nie
+/// zna relacji między obiektami, więc nie ma z czego jej kopiować. Z obiektu
+/// węzeł bierze wyłącznie tożsamość — kod i nazwę widok czyta ze słownika na
+/// bieżąco.
 ///
 /// Właścicielem węzła jest drzewo, a właścicielem drzewa — konto. Węzeł nie ma
 /// własnego <c>UserId</c>: dwa źródła właściciela mogłyby się rozjechać, a jedno
@@ -27,10 +26,8 @@ public sealed class TreeNode
 {
     /// <summary>
     /// Najwięcej węzłów w jednym nazwanym drzewie — limit na drzewo, nie na
-    /// konto. Rozwinięcie gałęzi ze słownika rozpisuje romb na kilka wystąpień,
-    /// a łańcuch rombów — wykładniczo, więc limit jest liczony w trakcie
-    /// rozwijania, a nie po nim. Utrzymuje też drzewo w rozmiarze, który grid
-    /// z S-05 wyrenderuje w wirtualizacji.
+    /// konto. Utrzymuje drzewo w rozmiarze, który grid z S-05 wyrenderuje
+    /// w wirtualizacji.
     /// </summary>
     public const int MaxNodesPerTree = 2000;
 

@@ -46,7 +46,6 @@ Każdy dyspozytor ma inne potrzeby operacyjne, więc jeden uniwersalny, sztywny 
 
 #### Acceptance Criteria
 - Próba dodania obiektu, która tworzyłaby zapętlenie, jest odrzucana z komunikatem
-- Dodanie obiektu posiadającego własne podobiekty uruchamia pytanie o dołączenie całej struktury podrzędnej
 - Liczba kolumn czasowych odpowiada wybranemu ziarnu dla doby: 5 min → 288, 15 min → 96, godzina → 24
 - Zapisany ekran po ponownym otwarciu odtwarza strukturę, kategorie i ustawienia czasu bez zmian
 
@@ -57,14 +56,13 @@ Każdy dyspozytor ma inne potrzeby operacyjne, więc jeden uniwersalny, sztywny 
   > Socrates: Rozważone kontrargumenty: "dane są losowe, więc wystarczyłby jeden wspólny profil" oraz "własna rejestracja to dodatkowa powierzchnia zamiast pracy nad kontrolką". Rozstrzygnięcie: FR zostaje — separacja ekranów między użytkownikami jest częścią problemu, nie dodatkiem.
 
 ### Obiekty i struktura drzewa
-- FR-002: Użytkownik może przeglądać, dodawać i edytować obiekty dostępne do budowy drzewa. Priority: must-have
+- FR-002: Użytkownik może przeglądać, dodawać i edytować obiekty dostępne do budowy drzewa. Obiekt to kod i nazwa — słownik nie przechowuje relacji między obiektami (podobiektów); hierarchię buduje użytkownik w drzewie. Priority: must-have
   > Socrates: Rozważone kontrargumenty: "obiekty pochodzą z systemu źródłowego, więc edycja tworzy rozjazd z rzeczywistością" oraz "to osobny CRUD poza sednem MVP". Rozstrzygnięcie: FR zostaje bez zmian.
 - FR-003: Użytkownik może zbudować własną strukturę drzewiastą z listy dostępnych obiektów. Priority: must-have
   > Socrates: Rozważone kontrargumenty: "budowanie bez drag&drop może być uciążliwe i odeśle użytkownika do sztywnego widoku" oraz "gotowe szablony dałyby wartość szybciej niż budowa od zera". Rozstrzygnięcie: FR zostaje — samodzielna budowa struktury jest rdzeniem produktu.
 - FR-004: Użytkownik jest blokowany przed utworzeniem struktury zawierającej zapętlenie. Priority: must-have
   > Socrates: Rozważone kontrargumenty: "w czystym drzewie zapętlenie jest niemożliwe z definicji, więc walidacja byłaby martwym kodem" oraz "blokada bez wskazania cyklu frustruje". Rozstrzygnięcie: FR zostaje — ten sam obiekt może wystąpić w wielu miejscach struktury, więc cykl jest realnie możliwy.
-- FR-005: Użytkownik otrzymuje podpowiedź o dołączeniu całej struktury podrzędnej, gdy dodawany obiekt ma już własne podobiekty. Priority: must-have
-  > Socrates: Rozważone kontrargumenty: "powtarzalne pytanie zamienia się w odruchowe 'tak'" oraz "prościej zawsze dołączać całość i pozwolić usunąć zbędne gałęzie". Rozstrzygnięcie: FR zostaje — świadomy wybór zakresu gałęzi jest częścią wartości narzędzia.
+- FR-005: *Wycofane 2026-09-24.* Było: podpowiedź o dołączeniu całej struktury podrzędnej, gdy dodawany obiekt ma w słowniku podobiekty. Struktura drzewa jest budowana wyłącznie przez użytkownika, obiekt po obiekcie, więc słownik nie niesie podobiektów i nie ma gałęzi do dołączenia. Numer zostaje zarezerwowany, żeby odwołania w roadmapie i planach nie wskazywały innego wymagania.
 
 ### Kategorie i prezentacja danych
 - FR-006: Użytkownik może przypisać obiektowi w drzewie kategorie/atrybuty danych z ograniczonej listy. Priority: must-have
@@ -92,9 +90,9 @@ Każdy dyspozytor ma inne potrzeby operacyjne, więc jeden uniwersalny, sztywny 
 
 ## Business Logic
 
-Aplikacja ocenia każdą zmianę struktury przed jej przyjęciem: odrzuca operacje tworzące zapętlenie, a przy dodaniu obiektu mającego podobiekty rozstrzyga z użytkownikiem zakres dołączanej gałęzi.
+Aplikacja ocenia każdą zmianę struktury przed jej przyjęciem i odrzuca operacje tworzące zapętlenie.
 
-Reguła działa na wejściach: aktualna struktura ekranu, obiekt dodawany przez użytkownika oraz miejsce w drzewie, w które ten obiekt trafia. Wynikiem jest przyjęcie albo odrzucenie operacji wraz z rozstrzygnięciem, czy do struktury trafia sam obiekt, czy cała jego gałąź podrzędna.
+Reguła działa na wejściach: aktualna struktura ekranu, obiekt dodawany (albo węzeł przenoszony) przez użytkownika oraz miejsce w drzewie, w które trafia. Wynikiem jest przyjęcie albo odrzucenie operacji. Dodanie wstawia zawsze sam obiekt — słownik nie zna relacji między obiektami, więc całą hierarchię składa użytkownik.
 
 Użytkownik spotyka regułę w jednym momencie — przy dodawaniu obiektu do drzewa — i nie może jej obejść, ponieważ ekran o niespójnej strukturze nie daje się zapisać. Ten sam obiekt może występować w wielu miejscach struktury, dlatego zapętlenie jest realnie możliwe i wymaga jawnej oceny przy każdej operacji.
 

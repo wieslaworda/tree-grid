@@ -17,7 +17,6 @@ import {
   useSubmit,
 } from "react-router";
 
-import { DialogGalezi } from "~/components/DialogGalezi";
 import { DrzewoStruktury } from "~/components/DrzewoStruktury";
 import { FormularzDrzewa } from "~/components/FormularzDrzewa";
 import { ListaObiektowZrodlowych } from "~/components/ListaObiektowZrodlowych";
@@ -36,7 +35,6 @@ import { kontekstUzytkownika, requireSameOrigin } from "~/lib/auth.server";
 import {
   type Przeniesienie,
   liczbaWezlowPodrzednych,
-  maPodobiekty,
   obiektyUzyteWDrzewie,
   wezlyZDziecmi,
 } from "~/lib/drzewo";
@@ -112,7 +110,6 @@ const POLE_NAZWY = "name";
  */
 const POLE_OBIEKTU = "objectId";
 const POLE_RODZICA = "parentId";
-const POLE_GALEZI = "includeBranch";
 const POLE_POZYCJI = "position";
 const POLE_WEZLA = "nodeId";
 
@@ -315,7 +312,6 @@ export async function action({ request, context }: Route.ActionArgs) {
     // Puste pole rodzica to najwyższy poziom, nie błąd.
     const rodzic = pole(formData, POLE_RODZICA);
     const parentId = rodzic === "" ? null : parseEntityId(rodzic);
-    const galaz = pole(formData, POLE_GALEZI);
     const naruszenia: Record<string, string> = {};
 
     if (objectId === null) {
@@ -326,19 +322,11 @@ export async function action({ request, context }: Route.ActionArgs) {
       naruszenia[POLE_RODZICA] = "Nieprawidłowy identyfikator węzła nadrzędnego.";
     }
 
-    if (galaz !== "true" && galaz !== "false") {
-      naruszenia[POLE_GALEZI] = "Określ, czy dołączyć gałąź podrzędną obiektu.";
-    }
-
     if (objectId === null || Object.keys(naruszenia).length > 0) {
       return bladWalidacji(naruszenia);
     }
 
-    const wynik = await addNode(userId, treeId, {
-      objectId,
-      parentId,
-      includeBranch: galaz === "true",
-    });
+    const wynik = await addNode(userId, treeId, { objectId, parentId });
 
     // Koperta API idzie do widoku nietknięta, razem ze statusem: to ona niesie
     // ścieżkę zapętlenia i kod dublowanego obiektu w komunikacie.
@@ -485,9 +473,9 @@ export default function Drzewo({
           />
 
           {/*
-            `key` z identyfikatora drzewa: zaznaczenia, rozwinięcia i otwarty
-            dialog gałęzi należą do jednego drzewa i nie mogą przejść na
-            następne po przełączeniu w liście.
+            `key` z identyfikatora drzewa: zaznaczenia i rozwinięcia należą
+            do jednego drzewa i nie mogą przejść na następne po przełączeniu
+            w liście.
           */}
           {wybrane !== null ? (
             <BudowaDrzewa
@@ -682,12 +670,6 @@ type OczekujaceRozwiniecie = {
 };
 
 /**
- * Obiekt i cel zapamiętane w chwili kliknięcia „Dodaj" albo upuszczenia
- * z listy — na czas dialogu gałęzi.
- */
-type Dodanie = { obiekt: CatalogObject; parentId: number | null };
-
-/**
  * Budowa jednego drzewa — `treeId` z wyboru w adresie. Każde `fetcher.submit`
  * dostaje jawne `action` z adresem tego drzewa: `action` trasy czyta
  * identyfikator z `?drzewo=` w `request.url`, a domyślny cel wysyłki nie jest
@@ -716,11 +698,6 @@ function BudowaDrzewa({
   const [rozwiniete, ustawRozwiniete] = useState<number[]>(() =>
     wezlyZDziecmi(wezly),
   );
-
-  // Dialog ma osobny stan otwarcia i treści: zamykany `Modal` animuje się
-  // jeszcze przez chwilę i bez zapamiętanej treści mignąłby pusty.
-  const [dodanie, ustawDodanie] = useState<Dodanie | null>(null);
-  const [dialogOtwarty, ustawDialogOtwarty] = useState(false);
 
   const oczekujace = useRef<OczekujaceRozwiniecie | null>(null);
 
@@ -784,11 +761,18 @@ function BudowaDrzewa({
     }
   }, [fetcher.state, fetcher.data]);
 
-  function wyslijDodanie(
-    obiekt: CatalogObject,
-    parentId: number | null,
-    includeBranch: boolean,
-  ) {
+  /**
+   * Jedyna ścieżka dodania obiektu pod węzeł (`parentId`) albo na najwyższy
+   * poziom (`null`) — wspólna dla „Dodaj" i upuszczenia z listy, żeby
+   * rozwinięcie rodzica działało w obu tak samo. Dodanie wstawia zawsze sam
+   * obiekt: słownik nie zna relacji, więc nie ma gałęzi, o którą trzeba by
+   * pytać.
+   */
+  function dodajObiekt(obiekt: CatalogObject, parentId: number | null) {
+    if (zajete) {
+      return;
+    }
+
     oczekujace.current = { rodzic: parentId, wToku: false };
 
     fetcher.submit(
@@ -796,30 +780,9 @@ function BudowaDrzewa({
         intent: DODAJ,
         [POLE_OBIEKTU]: String(obiekt.id),
         [POLE_RODZICA]: parentId === null ? "" : String(parentId),
-        [POLE_GALEZI]: String(includeBranch),
       },
       { method: "post", action: adresWysylki },
     );
-  }
-
-  /**
-   * Jedyna ścieżka dodania obiektu pod węzeł (`parentId`) albo na najwyższy
-   * poziom (`null`) — wspólna dla „Dodaj" i upuszczenia z listy, żeby dialog
-   * gałęzi i rozwinięcie rodzica działały w obu tak samo.
-   */
-  function dodajObiekt(obiekt: CatalogObject, parentId: number | null) {
-    if (zajete) {
-      return;
-    }
-
-    // FR-005: o zakres pyta się wyłącznie przy obiekcie z podobiektami;
-    // bez nich „cała gałąź" i „tylko obiekt" to ta sama operacja.
-    if (maPodobiekty(obiekt)) {
-      ustawDodanie({ obiekt, parentId });
-      ustawDialogOtwarty(true);
-    } else {
-      wyslijDodanie(obiekt, parentId, false);
-    }
   }
 
   function dodaj() {
@@ -853,14 +816,6 @@ function BudowaDrzewa({
       },
       { method: "post", action: adresWysylki },
     );
-  }
-
-  function wybierzZakres(includeBranch: boolean) {
-    ustawDialogOtwarty(false);
-
-    if (dodanie !== null) {
-      wyslijDodanie(dodanie.obiekt, dodanie.parentId, includeBranch);
-    }
   }
 
   /**
@@ -987,14 +942,6 @@ function BudowaDrzewa({
           />
         </section>
       </div>
-
-      <DialogGalezi
-        open={dialogOtwarty}
-        kod={dodanie?.obiekt.code ?? ""}
-        liczbaPodobiektow={dodanie?.obiekt.childIds.length ?? 0}
-        onWybierz={wybierzZakres}
-        onAnuluj={() => ustawDialogOtwarty(false)}
-      />
     </>
   );
 }

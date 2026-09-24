@@ -12,17 +12,18 @@ namespace Api.Objects;
 /// odwzorowuje wynik reguły na kopertę błędu.
 ///
 /// Słownik jest wspólny dla wszystkich kont, więc żaden endpoint nie filtruje
-/// po właścicielu, a API nie potrzebuje tu tożsamości użytkownika.
+/// po właścicielu, a API nie potrzebuje tu tożsamości użytkownika. Obiekt to
+/// wyłącznie kod i nazwa — relacji między obiektami słownik nie niesie.
 /// </summary>
 /// <remarks>
 /// Każdy zapis otwiera transakcję <b>przed</b> pierwszym odczytem stanu, na
 /// którym opiera decyzję, i zatwierdza ją dopiero po <c>SaveChanges</c>. Na
 /// SQLite <c>BeginTransaction</c> startuje od razu jako transakcja zapisowa
 /// (<c>BEGIN IMMEDIATE</c>), więc drugi równoległy zapis czeka na pierwszy
-/// (<c>busy_timeout</c> z <c>Program.cs</c>), zamiast czytać ten sam stan
-/// grafu. Odczyt przed transakcją pozwoliłby dwóm zapisom — A dostaje
-/// podobiekt B, B jednocześnie dostaje A — przejść kontrolę cyklu osobno
-/// i razem zapisać cykl, czyli dokładnie ten stan, którego reguła zabrania.
+/// (<c>busy_timeout</c> z <c>Program.cs</c>), zamiast czytać ten sam stan.
+/// Odczyt przed transakcją pozwoliłby dwóm zapisom tego samego kodu przejść
+/// kontrolę duplikatu osobno i skończyć się wyjątkiem z unikalnego indeksu,
+/// a usunięciu obiektu — minąć się z równoległym dodaniem go do drzewa.
 /// Wyjście z metody bez <c>Commit</c> (odmowa, wyjątek) wycofuje transakcję
 /// przy jej zwolnieniu.
 /// </remarks>
@@ -45,43 +46,22 @@ internal static class ObjectEndpoints
     }
 
     /// <summary>
-    /// Cały słownik z relacjami, posortowany po kodzie znormalizowanym
-    /// porządkiem porządkowym — tym samym, którym porównuje go unikalny indeks.
+    /// Cały słownik posortowany po kodzie znormalizowanym porządkiem
+    /// porządkowym — tym samym, którym porównuje go unikalny indeks.
     /// </summary>
     private static async Task<IResult> ListAsync(AppDbContext db, CancellationToken cancellationToken)
     {
         var catalog = await LoadCatalogAsync(db, cancellationToken);
 
-        // Obiekty i relacje to dwa zapytania bez wspólnej transakcji —
-        // transakcja zapisowa ustawiałaby każdy odczyt listy w kolejce za
-        // zapisami. Zapis wchodzący między oba zapytania może zostawić relację
-        // do obiektu, którego lista nie zawiera; taka relacja jest pomijana,
-        // żeby odpowiedź nigdy nie wskazywała identyfikatora spoza `items`.
-        var links = (await LoadLinksAsync(db, cancellationToken))
-            .Where(link => catalog.ContainsKey(link.ParentId) && catalog.ContainsKey(link.ChildId))
-            .ToList();
-
-        var childrenByParent = links.ToLookup(link => link.ParentId, link => link.ChildId);
-        var parentsByChild = links.ToLookup(link => link.ChildId, link => link.ParentId);
-
         var items = catalog.Values
             .OrderBy(entry => entry.NormalizedCode, StringComparer.Ordinal)
-            .Select(entry => ObjectResponse(
-                entry.Id,
-                entry.Code,
-                entry.Name,
-                [.. childrenByParent[entry.Id].Order()],
-                [.. parentsByChild[entry.Id].Order()]))
+            .Select(entry => ObjectResponse(entry.Id, entry.Code, entry.Name))
             .ToList();
 
         return Results.Ok(new { items });
     }
 
-    /// <summary>
-    /// Zakłada obiekt. Kontroli cyklu tu nie ma i być nie musi: do obiektu,
-    /// którego jeszcze nie ma, nic nie prowadzi, więc jego podobiekty nie mogą
-    /// zamknąć pętli.
-    /// </summary>
+    /// <summary>Zakłada obiekt.</summary>
     private static async Task<IResult> CreateAsync(
         ObjectRequest? request,
         AppDbContext db,
@@ -90,10 +70,9 @@ internal static class ObjectEndpoints
         var input = ReadInput(request);
         var fields = ValidateFields(input);
 
-        // Transakcja także tutaj: kontrola duplikatu kodu i istnienia
-        // podobiektów ma czytać ten sam stan, na który trafi zapis — inaczej
-        // równoległe usunięcie podobiektu kończy się błędem klucza obcego,
-        // a równoległe utworzenie tego samego kodu — wyjątkiem z indeksu.
+        // Transakcja także tutaj: kontrola duplikatu kodu ma czytać ten sam
+        // stan, na który trafi zapis — inaczej równoległe utworzenie tego
+        // samego kodu kończy się wyjątkiem z indeksu.
         await using var transaction = await db.Database.BeginTransactionAsync(cancellationToken);
 
         var catalog = await LoadCatalogAsync(db, cancellationToken);
@@ -112,11 +91,6 @@ internal static class ObjectEndpoints
             Name = input.Name,
         };
 
-        foreach (var childId in input.ChildIds)
-        {
-            entity.Children.Add(new CatalogObjectLink { ChildId = childId });
-        }
-
         db.CatalogObjects.Add(entity);
 
         await db.SaveChangesAsync(cancellationToken);
@@ -124,13 +98,10 @@ internal static class ObjectEndpoints
 
         return Results.Created(
             $"{ObjectsPath}/{entity.Id}",
-            ObjectResponse(entity.Id, entity.Code, entity.Name, input.ChildIds, parentIds: []));
+            ObjectResponse(entity.Id, entity.Code, entity.Name));
     }
 
-    /// <summary>
-    /// Zastępuje kod, nazwę i <b>cały</b> zestaw podobiektów. To jedyna
-    /// ścieżka, na której może powstać cykl.
-    /// </summary>
+    /// <summary>Zastępuje kod i nazwę obiektu.</summary>
     private static async Task<IResult> UpdateAsync(
         int id,
         ObjectRequest? request,
@@ -143,9 +114,7 @@ internal static class ObjectEndpoints
         // Przed pierwszym odczytem — patrz komentarz klasy.
         await using var transaction = await db.Database.BeginTransactionAsync(cancellationToken);
 
-        var entity = await db.CatalogObjects
-            .Include(o => o.Children)
-            .SingleOrDefaultAsync(o => o.Id == id, cancellationToken);
+        var entity = await db.CatalogObjects.SingleOrDefaultAsync(o => o.Id == id, cancellationToken);
 
         // Nieistniejący zasób wygrywa z błędami pól: poprawianie formularza
         // obiektu, którego nie ma, i tak niczego by nie zapisało.
@@ -155,27 +124,8 @@ internal static class ObjectEndpoints
         }
 
         var catalog = await LoadCatalogAsync(db, cancellationToken);
-        var links = await LoadLinksAsync(db, cancellationToken);
 
         ValidateAgainstCatalog(fields, input, catalog, editedId: id);
-
-        if (!fields.ContainsKey(ObjectFormFields.ChildIds))
-        {
-            if (input.ChildIds.Contains(id))
-            {
-                fields[ObjectFormFields.ChildIds] = "Obiekt nie może być własnym podobiektem.";
-            }
-            else if (ObjectRules.FindCycle(id, input.ChildIds, ChildrenByParent(links)) is { } cycle)
-            {
-                // Wszystkie węzły ścieżki są w `catalog`: podobiekty przeszły
-                // kontrolę istnienia, a resztę wskazują relacje z kluczami
-                // obcymi, odczytane w tej samej transakcji.
-                var codes = cycle.Select(node => catalog[node].Code);
-
-                fields[ObjectFormFields.ChildIds] =
-                    $"Zapisanie tych podobiektów utworzyłoby zapętlenie: {string.Join(" → ", codes)}.";
-            }
-        }
 
         if (fields.Count > 0)
         {
@@ -186,45 +136,19 @@ internal static class ObjectEndpoints
         entity.NormalizedCode = ObjectRules.NormalizeCode(input.Code);
         entity.Name = input.Name;
 
-        // Różnica zestawów, a nie „usuń wszystkie, dodaj od nowa": relacje,
-        // które zostają, nie są ruszane wcale. Relacja jest usuwana jako
-        // encja, a nie wyjmowana z kolekcji — przy `Restrict` odcięcie
-        // wymaganej relacji od rodzica rzuca wyjątkiem zamiast ją usunąć.
-        var currentChildIds = entity.Children.Select(link => link.ChildId).ToHashSet();
-
-        foreach (var link in entity.Children.Where(link => !input.ChildIds.Contains(link.ChildId)).ToList())
-        {
-            db.CatalogObjectLinks.Remove(link);
-        }
-
-        foreach (var childId in input.ChildIds.Where(childId => !currentChildIds.Contains(childId)))
-        {
-            entity.Children.Add(new CatalogObjectLink { ChildId = childId });
-        }
-
         await db.SaveChangesAsync(cancellationToken);
         await transaction.CommitAsync(cancellationToken);
 
-        var parentIds = links
-            .Where(link => link.ChildId == id)
-            .Select(link => link.ParentId)
-            .Order()
-            .ToList();
-
-        return Results.Ok(ObjectResponse(entity.Id, entity.Code, entity.Name, input.ChildIds, parentIds));
+        return Results.Ok(ObjectResponse(entity.Id, entity.Code, entity.Name));
     }
 
     /// <summary>
-    /// Usuwa obiekt bez powiązań w słowniku i bez wystąpień w drzewach.
-    /// Odmowa relacji dotyczy także żądania wysłanego z pominięciem interfejsu,
-    /// który przycisk usuwania i tak wyłącza; o drzewach interfejs nie wie
+    /// Usuwa obiekt bez wystąpień w drzewach. O drzewach interfejs nie wie
     /// (są prywatne), więc tę odmowę widzi dopiero po odpowiedzi API.
     /// </summary>
     private static async Task<IResult> DeleteAsync(int id, AppDbContext db, CancellationToken cancellationToken)
     {
-        // Przed pierwszym odczytem — patrz komentarz klasy. Bez tego relacja
-        // dopisana równolegle między kontrolą a usunięciem zamieniłaby czytelną
-        // odmowę w błąd klucza obcego.
+        // Przed pierwszym odczytem — patrz komentarz klasy.
         await using var transaction = await db.Database.BeginTransactionAsync(cancellationToken);
 
         var entity = await db.CatalogObjects.SingleOrDefaultAsync(o => o.Id == id, cancellationToken);
@@ -234,26 +158,11 @@ internal static class ObjectEndpoints
             return ObjectNotFound(id);
         }
 
-        var parentCodes = SortCodes(await db.CatalogObjectLinks
-            .Where(link => link.ChildId == id)
-            .Select(link => new CodeEntry(link.Parent.Code, link.Parent.NormalizedCode))
-            .ToListAsync(cancellationToken));
-
-        var childCodes = SortCodes(await db.CatalogObjectLinks
-            .Where(link => link.ParentId == id)
-            .Select(link => new CodeEntry(link.Child.Code, link.Child.NormalizedCode))
-            .ToListAsync(cancellationToken));
-
-        if (ObjectResponses.DescribeDeletionRefusal(entity.Code, parentCodes, childCodes) is { } refusal)
-        {
-            return Results.Json(refusal, statusCode: StatusCodes.Status409Conflict);
-        }
-
-        // Wystąpienia w drzewach — w tej samej transakcji, z tego samego powodu
-        // co kontrola relacji: węzeł dodany równolegle między kontrolą
-        // a usunięciem zamieniłby odmowę w błąd klucza obcego (`Restrict`
-        // w `AppDbContext`). Zapytanie celowo nie filtruje po właścicielu —
-        // liczy się każde drzewo — i celowo nie oddaje nic poza faktem użycia.
+        // Wystąpienia w drzewach — w tej samej transakcji: węzeł dodany
+        // równolegle między kontrolą a usunięciem zamieniłby odmowę w błąd
+        // klucza obcego (`Restrict` w `AppDbContext`). Zapytanie celowo nie
+        // filtruje po właścicielu — liczy się każde drzewo — i celowo nie
+        // oddaje nic poza faktem użycia.
         if (await db.TreeNodes.AnyAsync(node => node.ObjectId == id, cancellationToken))
         {
             return Results.Json(
@@ -273,21 +182,12 @@ internal static class ObjectEndpoints
     /// Odpowiedź o obiekcie — ten sam kształt dla elementu listy, utworzenia
     /// i zmiany, więc powstaje w jednym miejscu.
     /// </summary>
-    private static object ObjectResponse(
-        int id,
-        string code,
-        string name,
-        IReadOnlyList<int> childIds,
-        IReadOnlyList<int> parentIds)
-        => new { id, code, name, childIds, parentIds };
+    private static object ObjectResponse(int id, string code, string name)
+        => new { id, code, name };
 
     private static ObjectInput ReadInput(ObjectRequest? request) => new(
         request?.Code?.Trim() ?? string.Empty,
-        request?.Name?.Trim() ?? string.Empty,
-        // Powtórzony identyfikator jest scalany, a nie odrzucany: zestaw
-        // podobiektów jest zbiorem, a relacja o tej samej parze i tak nie
-        // zmieściłaby się w kluczu złożonym. Brak pola to pusty zestaw.
-        [.. (request?.ChildIds ?? []).Distinct().Order()]);
+        request?.Name?.Trim() ?? string.Empty);
 
     /// <summary>
     /// Naruszenia, które widać bez sięgania do bazy: brak i długość pól.
@@ -322,8 +222,7 @@ internal static class ObjectEndpoints
     }
 
     /// <summary>
-    /// Naruszenia, które wymagają stanu słownika: kod zajęty przez inny obiekt
-    /// i nieistniejący podobiekt.
+    /// Naruszenie, które wymaga stanu słownika: kod zajęty przez inny obiekt.
     /// </summary>
     /// <remarks>
     /// Pierwsze naruszenie pola wygrywa: formularz pokazuje pod polem jeden
@@ -336,32 +235,23 @@ internal static class ObjectEndpoints
         IReadOnlyDictionary<int, CatalogEntry> catalog,
         int? editedId)
     {
-        if (!fields.ContainsKey(ObjectFormFields.Code))
+        if (fields.ContainsKey(ObjectFormFields.Code))
         {
-            var normalizedCode = ObjectRules.NormalizeCode(input.Code);
-
-            // Porównanie porządkowe, tak jak porównuje unikalny indeks. Obiekt
-            // edytowany nie koliduje sam ze sobą — zmiana samej wielkości liter
-            // własnego kodu jest dozwolona.
-            var holder = catalog.Values.FirstOrDefault(entry =>
-                entry.Id != editedId
-                && string.Equals(entry.NormalizedCode, normalizedCode, StringComparison.Ordinal));
-
-            if (holder is not null)
-            {
-                fields[ObjectFormFields.Code] = $"Obiekt o kodzie „{holder.Code}\" już istnieje.";
-            }
+            return;
         }
 
-        var missing = input.ChildIds.Where(childId => !catalog.ContainsKey(childId)).ToList();
+        var normalizedCode = ObjectRules.NormalizeCode(input.Code);
 
-        if (missing.Count > 0)
+        // Porównanie porządkowe, tak jak porównuje unikalny indeks. Obiekt
+        // edytowany nie koliduje sam ze sobą — zmiana samej wielkości liter
+        // własnego kodu jest dozwolona.
+        var holder = catalog.Values.FirstOrDefault(entry =>
+            entry.Id != editedId
+            && string.Equals(entry.NormalizedCode, normalizedCode, StringComparison.Ordinal));
+
+        if (holder is not null)
         {
-            fields.TryAdd(
-                ObjectFormFields.ChildIds,
-                missing.Count == 1
-                    ? $"Podobiekt o identyfikatorze {missing[0]} nie istnieje."
-                    : $"Podobiekty o identyfikatorach {string.Join(", ", missing)} nie istnieją.");
+            fields[ObjectFormFields.Code] = $"Obiekt o kodzie „{holder.Code}\" już istnieje.";
         }
     }
 
@@ -373,31 +263,6 @@ internal static class ObjectEndpoints
             .Select(o => new CatalogEntry(o.Id, o.Code, o.NormalizedCode, o.Name))
             .ToDictionaryAsync(entry => entry.Id, cancellationToken);
 
-    private static async Task<List<LinkEntry>> LoadLinksAsync(
-        AppDbContext db,
-        CancellationToken cancellationToken)
-        => await db.CatalogObjectLinks
-            .AsNoTracking()
-            .Select(link => new LinkEntry(link.ParentId, link.ChildId))
-            .ToListAsync(cancellationToken);
-
-    /// <summary>
-    /// Graf sąsiedztwa w kształcie, który przyjmuje
-    /// <see cref="ObjectRules.FindCycle"/>. Dzieci posortowane, żeby ścieżka
-    /// cyklu w komunikacie nie zależała od kolejności wierszy w bazie.
-    /// </summary>
-    private static Dictionary<int, IReadOnlyCollection<int>> ChildrenByParent(IEnumerable<LinkEntry> links)
-        => links
-            .GroupBy(link => link.ParentId)
-            .ToDictionary(
-                group => group.Key,
-                group => (IReadOnlyCollection<int>)group.Select(link => link.ChildId).Order().ToList());
-
-    private static List<string> SortCodes(IEnumerable<CodeEntry> entries)
-        => [.. entries
-            .OrderBy(entry => entry.NormalizedCode, StringComparer.Ordinal)
-            .Select(entry => entry.Code)];
-
     private static IResult ObjectNotFound(int id)
         => Results.Json(
             ApiError.Create(ApiErrorCodes.NotFound, $"Nie znaleziono obiektu o identyfikatorze {id}."),
@@ -408,14 +273,10 @@ internal static class ObjectEndpoints
             ApiError.Validation(ValidationMessage, fields),
             statusCode: StatusCodes.Status400BadRequest);
 
-    /// <summary>Treść żądania po obcięciu spacji i scaleniu powtórzeń.</summary>
-    private readonly record struct ObjectInput(string Code, string Name, IReadOnlyList<int> ChildIds);
+    /// <summary>Treść żądania po obcięciu spacji.</summary>
+    private readonly record struct ObjectInput(string Code, string Name);
 
     private sealed record CatalogEntry(int Id, string Code, string NormalizedCode, string Name);
-
-    private sealed record LinkEntry(int ParentId, int ChildId);
-
-    private sealed record CodeEntry(string Code, string NormalizedCode);
 }
 
 /// <summary>
@@ -433,12 +294,6 @@ internal static class ObjectFormFields
     public const string Code = "code";
 
     public const string Name = "name";
-
-    /// <summary>
-    /// Zestaw podobiektów. Pod tym polem lądują trzy naruszenia: nieistniejący
-    /// podobiekt, obiekt jako własny podobiekt i zapętlenie.
-    /// </summary>
-    public const string ChildIds = "childIds";
 
     /// <summary>
     /// Pole zbiorcze na naruszenia, które nie dotyczą żadnego konkretnego pola
@@ -461,55 +316,6 @@ internal static class ObjectFormFields
 /// </summary>
 internal static class ObjectResponses
 {
-    /// <summary>Klucz w <c>context</c> z kodami obiektów nadrzędnych.</summary>
-    internal const string ParentsContextKey = "parents";
-
-    /// <summary>Klucz w <c>context</c> z kodami podobiektów.</summary>
-    internal const string ChildrenContextKey = "children";
-
-    /// <summary>
-    /// Odmowa usunięcia obiektu <paramref name="code"/> albo <c>null</c>, gdy
-    /// usunięcie jest dozwolone (<see cref="ObjectRules.CanDelete"/>).
-    /// Odpowiedzią odmowy jest 409 z <see cref="ApiErrorCodes.ObjectHasRelations"/>.
-    /// </summary>
-    /// <remarks>
-    /// Komunikat wymienia kody powiązanych obiektów, bo użytkownik musi
-    /// wiedzieć, które relacje zdjąć, zanim spróbuje ponownie. W
-    /// <c>context</c> oba klucze są zawsze obecne, także z pustą listą — klient
-    /// nie musi rozróżniać „brak pola" od „brak powiązań".
-    /// </remarks>
-    public static ApiError? DescribeDeletionRefusal(
-        string code,
-        IReadOnlyList<string> parentCodes,
-        IReadOnlyList<string> childCodes)
-    {
-        if (ObjectRules.CanDelete(parentCodes.Count, childCodes.Count))
-        {
-            return null;
-        }
-
-        var relations = new List<string>();
-
-        if (parentCodes.Count > 0)
-        {
-            relations.Add($"obiekty nadrzędne: {string.Join(", ", parentCodes)}");
-        }
-
-        if (childCodes.Count > 0)
-        {
-            relations.Add($"podobiekty: {string.Join(", ", childCodes)}");
-        }
-
-        return ApiError.Create(
-            ApiErrorCodes.ObjectHasRelations,
-            $"Nie można usunąć obiektu „{code}\", bo ma powiązania — {string.Join("; ", relations)}.",
-            new Dictionary<string, object?>
-            {
-                [ParentsContextKey] = parentCodes,
-                [ChildrenContextKey] = childCodes,
-            });
-    }
-
     /// <summary>
     /// Odmowa usunięcia obiektu <paramref name="code"/>, który stoi
     /// w czyimkolwiek drzewie roboczym — 409 z
@@ -531,4 +337,4 @@ internal static class ObjectResponses
 /// brak dawał błąd walidacji w kontrakcie, a nie błąd wiązania w kształcie
 /// frameworka.
 /// </summary>
-internal sealed record ObjectRequest(string? Code, string? Name, int[]? ChildIds);
+internal sealed record ObjectRequest(string? Code, string? Name);

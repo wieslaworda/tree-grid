@@ -130,20 +130,13 @@ public static class ApiErrorCodes
     public const string ValidationError = "validation_error";
 
     /// <summary>
-    /// Odmowa usunięcia obiektu słownika, który ma obiekt nadrzędny albo
-    /// podobiekt (409). Osobny kod względem <see cref="ValidationError"/> jest
-    /// świadomy: żądanie nie niesie żadnego błędnego pola, tylko zderza się ze
-    /// stanem zasobu, a klient pokazuje taki komunikat nad przyciskiem, a nie
-    /// pod polem formularza.
-    /// </summary>
-    public const string ObjectHasRelations = "object_has_relations";
-
-    /// <summary>
     /// Odmowa usunięcia obiektu słownika, który stoi w czyimkolwiek drzewie
     /// roboczym (409, <c>DELETE /objects/{id}</c>). Osobny kod względem
-    /// <see cref="ObjectHasRelations"/>, bo zdjęcie relacji w słowniku tu nie
-    /// pomaga. <c>context</c> jest pusty celowo: słownik jest wspólny, a drzewa
-    /// prywatne, więc odmowa nie mówi, czyje to drzewo ani ile w nim wystąpień.
+    /// <see cref="ValidationError"/> jest świadomy: żądanie nie niesie żadnego
+    /// błędnego pola, tylko zderza się ze stanem zasobu, a klient pokazuje taki
+    /// komunikat nad przyciskiem, a nie pod polem formularza. <c>context</c> jest
+    /// pusty celowo: słownik jest wspólny, a drzewa prywatne, więc odmowa nie
+    /// mówi, czyje to drzewo ani ile w nim wystąpień.
     /// </summary>
     public const string ObjectInTree = "object_in_tree";
 
@@ -152,7 +145,8 @@ public static class ApiErrorCodes
     /// do korzenia (409, <c>POST /trees/{treeId}/nodes</c>
     /// i <c>PUT /trees/{treeId}/nodes/{id}</c>).
     /// <c>context.path</c> niesie kody obiektów od wystąpienia konfliktowego
-    /// wśród przodków do wystąpienia w dołączanej gałęzi.
+    /// wśród przodków do dodawanego obiektu albo do wystąpienia w przenoszonym
+    /// poddrzewie.
     /// </summary>
     public const string TreeCycle = "tree_cycle";
 
@@ -168,8 +162,8 @@ public static class ApiErrorCodes
     /// <summary>
     /// Odmowa dodania, po którym drzewo przekroczyłoby limit węzłów (409,
     /// <c>POST /trees/{treeId}/nodes</c>). <c>context</c>: <c>limit</c>, <c>current</c>
-    /// (bieżący rozmiar drzewa) i <c>adding</c> (węzły policzone w dołączanej
-    /// gałęzi do chwili przerwania rozwijania).
+    /// (bieżący rozmiar drzewa) i <c>adding</c> (liczba dodawanych węzłów —
+    /// dodanie wstawia jeden obiekt, więc dziś zawsze 1).
     /// </summary>
     public const string TreeTooLarge = "tree_too_large";
 

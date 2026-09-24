@@ -3,11 +3,8 @@ namespace Api.Data;
 /// <summary>
 /// Obiekt słownika — materiał, z którego dyspozytor składa drzewo ekranu
 /// (S-03). Słownik jest wspólny dla wszystkich kont, więc obiekt nie ma
-/// właściciela ani autora.
-///
-/// Relacja rodzic–podobiekt jest wiele-do-wielu (ten sam obiekt bywa
-/// podobiektem kilku rodziców), dlatego nie jest kluczem obcym w tej tabeli,
-/// tylko osobną encją <see cref="CatalogObjectLink"/>.
+/// właściciela ani autora. Obiekt to wyłącznie kod i nazwa — słownik nie niesie
+/// relacji między obiektami, strukturę składa użytkownik w swoim drzewie.
 ///
 /// Wystąpienia obiektu w drzewach użytkowników (<see cref="TreeNode"/>)
 /// wskazują go kluczem obcym bez kaskady: obiektu użytego w czyimkolwiek
@@ -49,10 +46,4 @@ public sealed class CatalogObject
 
     /// <summary>Nazwa obiektu, bez spacji na brzegach.</summary>
     public string Name { get; set; } = string.Empty;
-
-    /// <summary>Relacje, w których ten obiekt jest rodzicem.</summary>
-    public ICollection<CatalogObjectLink> Children { get; set; } = [];
-
-    /// <summary>Relacje, w których ten obiekt jest podobiektem.</summary>
-    public ICollection<CatalogObjectLink> Parents { get; set; } = [];
 }

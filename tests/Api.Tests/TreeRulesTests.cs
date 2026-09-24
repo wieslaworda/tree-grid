@@ -1,4 +1,3 @@
-using System.Diagnostics;
 using System.Text.Json;
 using Api.Data;
 using Api.Errors;
@@ -8,7 +7,7 @@ using Api.Tree;
 namespace Api.Tests;
 
 /// <summary>
-/// Regresja reguł drzewa roboczego — rozwinięcia gałęzi, zapętlenia po ścieżce
+/// Regresja reguł drzewa roboczego — limitu rozmiaru, zapętlenia po ścieżce
 /// przodków, duplikatu rodzeństwa i przenumerowania pozycji — oraz kształtu
 /// odmów drzewa i nazw, które muszą się zgadzać po obu stronach granicy.
 ///
@@ -25,144 +24,37 @@ public class TreeRulesTests
     /// </summary>
     private static readonly string[] ProblemDetailsFields = ["type", "title", "status", "detail"];
 
-    // Obiekty słownika nazwane tak, jak w opisach przypadków. Identyfikatory
-    // celowo nie idą w kolejności kodów — inaczej test kolejności rodzeństwa
-    // przeszedłby także przy sortowaniu po identyfikatorze.
-    private const int Gpz01 = 1, T5 = 3, L2 = 5, L1 = 7;
+    // Obiekty słownika nazwane tak, jak w opisach przypadków.
+    private const int Gpz01 = 1, L2 = 5, L1 = 7;
 
     private const int A = 11, B = 12, C = 13, D = 14, X = 15;
 
-    private static readonly IReadOnlyDictionary<int, string> NormalizedCodes = new Dictionary<int, string>
-    {
-        [Gpz01] = "GPZ-01",
-        [T5] = "T5",
-        [L2] = "L2",
-        [L1] = "L1",
-        [A] = "A",
-        [B] = "B",
-        [C] = "C",
-        [D] = "D",
-        [X] = "X",
-    };
-
-    private static readonly IReadOnlyDictionary<int, IReadOnlyList<int>> NoCatalogChildren =
-        new Dictionary<int, IReadOnlyList<int>>();
-
-    // --- Rozwinięcie gałęzi -------------------------------------------------
+    // --- Limit rozmiaru -----------------------------------------------------
 
     [Fact]
-    public void Adding_without_branch_expands_to_the_object_alone()
+    public void Tree_one_node_below_the_limit_accepts_another_node()
     {
-        var catalog = Catalog((Gpz01, L1), (L1, T5));
-
-        var expansion = TreeRules.ExpandBranch(Gpz01, includeBranch: false, catalog, budget: 100);
-
-        Assert.False(expansion.IsTooLarge);
-        Assert.Equal(1, expansion.NodeCount);
-        Assert.Equal(Gpz01, expansion.Branch!.ObjectId);
-        Assert.Empty(expansion.Branch.Children);
+        Assert.False(TreeRules.IsFull(TreeNode.MaxNodesPerTree - 1, TreeNode.MaxNodesPerTree));
     }
 
     [Fact]
-    public void Adding_with_branch_copies_the_whole_structure_in_code_order()
+    public void Tree_at_the_limit_accepts_no_more_nodes()
     {
-        // Relacje podane w kolejności, która nie jest kolejnością kodów.
-        var catalog = Catalog((Gpz01, L2), (Gpz01, L1), (L1, T5));
-
-        var expansion = TreeRules.ExpandBranch(Gpz01, includeBranch: true, catalog, budget: 100);
-
-        Assert.False(expansion.IsTooLarge);
-        Assert.Equal(4, expansion.NodeCount);
-        Assert.Equal("GPZ-01(L1(T5),L2)", Describe(expansion.Branch!));
-    }
-
-    [Fact]
-    public void Diamond_in_the_catalog_expands_into_two_occurrences()
-    {
-        // A→B, A→C, B→D, C→D — w drzewie D stoi raz pod B i raz pod C.
-        var catalog = Catalog((A, B), (A, C), (B, D), (C, D));
-
-        var expansion = TreeRules.ExpandBranch(A, includeBranch: true, catalog, budget: 100);
-
-        Assert.False(expansion.IsTooLarge);
-        Assert.Equal(5, expansion.NodeCount);
-        Assert.Equal("A(B(D),C(D))", Describe(expansion.Branch!));
-    }
-
-    [Fact]
-    public void Branch_that_exactly_fills_the_budget_is_accepted()
-    {
-        var catalog = Catalog((A, B), (A, C), (B, D), (C, D));
-
-        var expansion = TreeRules.ExpandBranch(A, includeBranch: true, catalog, budget: 5);
-
-        Assert.False(expansion.IsTooLarge);
-        Assert.Equal(5, expansion.NodeCount);
-    }
-
-    [Fact]
-    public void Branch_over_the_budget_is_too_large()
-    {
-        var catalog = Catalog((A, B), (A, C), (B, D), (C, D));
-
-        var expansion = TreeRules.ExpandBranch(A, includeBranch: true, catalog, budget: 4);
-
-        Assert.True(expansion.IsTooLarge);
-        Assert.Null(expansion.Branch);
-        Assert.Equal(5, expansion.NodeCount);
-    }
-
-    [Fact]
-    public void Single_object_does_not_fit_into_a_full_tree()
-    {
-        var expansion = TreeRules.ExpandBranch(A, includeBranch: false, NoCatalogChildren, budget: 0);
-
-        Assert.True(expansion.IsTooLarge);
-        Assert.Equal(1, expansion.NodeCount);
-    }
-
-    [Fact]
-    public void Exponential_branch_is_cut_off_at_the_budget_without_expanding_the_rest()
-    {
-        // Łańcuch 40 rombów rozwija się w ponad 2^40 węzłów. Wynik w ułamku
-        // sekundy i licznik równy budżetowi plus jeden dowodzą, że rozwijanie
-        // przerywa się na pierwszym węźle ponad budżet, a nie liczy po fakcie.
-        var links = new List<(int ParentId, int ChildId)>();
-        var codes = new Dictionary<int, string>();
-
-        for (var level = 0; level < 40; level++)
-        {
-            var top = level * 3;
-            var left = top + 1;
-            var right = top + 2;
-            var next = top + 3;
-
-            links.AddRange([(top, left), (top, right), (left, next), (right, next)]);
-        }
-
-        for (var id = 0; id <= 40 * 3; id++)
-        {
-            codes[id] = $"N{id:D4}";
-        }
-
-        var catalog = TreeRules.CatalogChildrenInCodeOrder(links, codes);
-        var stopwatch = Stopwatch.StartNew();
-
-        var expansion = TreeRules.ExpandBranch(0, includeBranch: true, catalog, budget: TreeNode.MaxNodesPerTree);
-
-        stopwatch.Stop();
-
-        Assert.True(expansion.IsTooLarge);
-        Assert.Equal(TreeNode.MaxNodesPerTree + 1, expansion.NodeCount);
-        Assert.True(stopwatch.Elapsed < TimeSpan.FromSeconds(5), $"Rozwijanie trwało {stopwatch.Elapsed}.");
+        Assert.True(TreeRules.IsFull(TreeNode.MaxNodesPerTree, TreeNode.MaxNodesPerTree));
     }
 
     // --- Konflikt przodków --------------------------------------------------
 
     [Fact]
+    public void Adding_at_the_top_level_is_never_a_conflict()
+    {
+        Assert.Null(TreeRules.FindConflictOnAdd([], A));
+    }
+
+    [Fact]
     public void Object_added_under_itself_is_a_conflict_of_length_one()
     {
-        var conflict = TreeRules.FindConflictOnAdd([A, X], X, includeBranch: false, NoCatalogChildren);
+        var conflict = TreeRules.FindConflictOnAdd([A, X], X);
 
         Assert.NotNull(conflict);
         Assert.Equal([X, X], conflict);
@@ -172,32 +64,22 @@ public class TreeRulesTests
     public void Direct_conflict_is_reported_from_the_ancestor_occurrence()
     {
         // A → B w drzewie; dodanie A pod B stawia A na jego własnej ścieżce.
-        var conflict = TreeRules.FindConflictOnAdd([A, B], A, includeBranch: false, NoCatalogChildren);
+        var conflict = TreeRules.FindConflictOnAdd([A, B], A);
 
         Assert.NotNull(conflict);
         Assert.Equal([A, B, A], conflict);
     }
 
     [Fact]
-    public void Deep_conflict_in_the_branch_is_reported_as_the_full_path_in_order()
+    public void Deep_conflict_is_reported_as_the_full_path_in_order()
     {
-        // Przodkowie GPZ-01 → L1, dołączana gałąź L2 → T5 → GPZ-01.
-        var catalog = Catalog((L2, T5), (T5, Gpz01));
-
-        var conflict = TreeRules.FindConflictOnAdd([Gpz01, L1], L2, includeBranch: true, catalog);
+        // Przodkowie GPZ-01 → L1 → L2, dodawany GPZ-01.
+        var conflict = TreeRules.FindConflictOnAdd([Gpz01, L1, L2], Gpz01);
 
         // Kolejność jest częścią wyniku: z niej powstaje komunikat
-        // „GPZ-01 → L1 → L2 → T5 → GPZ-01".
+        // „GPZ-01 → L1 → L2 → GPZ-01".
         Assert.NotNull(conflict);
-        Assert.Equal([Gpz01, L1, L2, T5, Gpz01], conflict);
-    }
-
-    [Fact]
-    public void Deep_conflict_is_ignored_when_only_the_object_is_added()
-    {
-        var catalog = Catalog((L2, T5), (T5, Gpz01));
-
-        Assert.Null(TreeRules.FindConflictOnAdd([Gpz01, L1], L2, includeBranch: false, catalog));
+        Assert.Equal([Gpz01, L1, L2, Gpz01], conflict);
     }
 
     [Fact]
@@ -212,25 +94,7 @@ public class TreeRulesTests
             new TreeNodeEntry(3, null, B, 1),
         ]);
 
-        Assert.Null(TreeRules.FindConflictOnAdd(
-            tree.AncestorObjectPath(3),
-            A,
-            includeBranch: false,
-            NoCatalogChildren));
-    }
-
-    [Fact]
-    public void First_conflict_in_pre_order_wins()
-    {
-        // Przodkowie A → B, dołączana gałąź C z dziećmi D (→ B) i X (→ A).
-        // D ma kod wcześniejszy niż X, więc jego poddrzewo jest przechodzone
-        // pierwsze i to ono wyznacza ścieżkę, choć konflikt z A byłby dłuższy.
-        var catalog = Catalog((C, X), (C, D), (D, B), (X, A));
-
-        var conflict = TreeRules.FindConflictOnAdd([A, B], C, includeBranch: true, catalog);
-
-        Assert.NotNull(conflict);
-        Assert.Equal([B, C, D, B], conflict);
+        Assert.Null(TreeRules.FindConflictOnAdd(tree.AncestorObjectPath(3), A));
     }
 
     [Fact]
@@ -386,14 +250,14 @@ public class TreeRulesTests
     [Fact]
     public void Cycle_refusal_has_the_contract_shape_with_the_path_of_codes()
     {
-        string[] path = ["GPZ-01", "L1", "L2", "T5", "GPZ-01"];
+        string[] path = ["GPZ-01", "L1", "L2", "GPZ-01"];
 
-        using var document = Serialize(TreeResponses.Cycle(TreeOperation.Add, "L2", path));
+        using var document = Serialize(TreeResponses.Cycle(TreeOperation.Add, "GPZ-01", path));
 
         var error = AssertEnvelope(document, "tree_cycle", ApiErrorCodes.TreeCycle);
 
         Assert.Equal(
-            "Dodanie obiektu L2 utworzyłoby zapętlenie: GPZ-01 → L1 → L2 → T5 → GPZ-01.",
+            "Dodanie obiektu GPZ-01 utworzyłoby zapętlenie: GPZ-01 → L1 → L2 → GPZ-01.",
             error.GetProperty("message").GetString());
 
         var context = error.GetProperty("context");
@@ -442,7 +306,7 @@ public class TreeRulesTests
     [Fact]
     public void Too_large_refusal_has_the_contract_shape()
     {
-        using var document = Serialize(TreeResponses.TooLarge(TreeNode.MaxNodesPerTree, 1990, 11));
+        using var document = Serialize(TreeResponses.TooLarge(TreeNode.MaxNodesPerTree, 2000, 1));
 
         var error = AssertEnvelope(document, "tree_too_large", ApiErrorCodes.TreeTooLarge);
 
@@ -452,8 +316,8 @@ public class TreeRulesTests
 
         Assert.Equal(["limit", "current", "adding"], PropertyNames(context));
         Assert.Equal(2000, context.GetProperty(TreeResponses.LimitContextKey).GetInt32());
-        Assert.Equal(1990, context.GetProperty(TreeResponses.CurrentContextKey).GetInt32());
-        Assert.Equal(11, context.GetProperty(TreeResponses.AddingContextKey).GetInt32());
+        Assert.Equal(2000, context.GetProperty(TreeResponses.CurrentContextKey).GetInt32());
+        Assert.Equal(1, context.GetProperty(TreeResponses.AddingContextKey).GetInt32());
     }
 
     [Fact]
@@ -499,24 +363,10 @@ public class TreeRulesTests
         Assert.Equal("name", TreeRequestFields.Name);
         Assert.Equal("objectId", TreeRequestFields.ObjectId);
         Assert.Equal("parentId", TreeRequestFields.ParentId);
-        Assert.Equal("includeBranch", TreeRequestFields.IncludeBranch);
         Assert.Equal("position", TreeRequestFields.Position);
     }
 
     // --- Pomocnicze ---------------------------------------------------------
-
-    private static Dictionary<int, IReadOnlyList<int>> Catalog(params (int ParentId, int ChildId)[] links)
-        => TreeRules.CatalogChildrenInCodeOrder(links, NormalizedCodes);
-
-    /// <summary>Gałąź jako tekst „KOD(dziecko,dziecko)" — kolejność widać wprost.</summary>
-    private static string Describe(BranchNode node)
-    {
-        var code = NormalizedCodes[node.ObjectId];
-
-        return node.Children.Count == 0
-            ? code
-            : $"{code}({string.Join(",", node.Children.Select(Describe))})";
-    }
 
     private static void AssertContiguous(int[] expectedOrder, IReadOnlyList<int> order)
     {

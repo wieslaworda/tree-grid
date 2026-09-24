@@ -24,21 +24,13 @@ type Wlasciwosci = {
   zajete: boolean;
 };
 
-/** Wiersz tabeli: obiekt z gotowym tekstem kolumny podobiektów. */
-type Wiersz = ObiektSlownika & { podobiekty: string };
+/** Wiersz tabeli — obiekt słownika bez żadnych pól wyliczanych. */
+type Wiersz = ObiektSlownika;
 
 /** Stała modułu, bo antd porównuje kolumny po referencji. */
 const KOLUMNY: TableColumnsType<Wiersz> = [
   { title: "Kod", dataIndex: "code", key: "code" },
   { title: "Nazwa", dataIndex: "name", key: "name" },
-  // `tg-liczba`: liczba podobiektów to liczba, więc krój tabelaryczny
-  // i wyrównanie do prawej jak w kolumnach liczbowych gridu (`app/app.css`).
-  {
-    title: "Podobiekty",
-    dataIndex: "podobiekty",
-    key: "podobiekty",
-    className: "tg-liczba",
-  },
 ];
 
 /**
@@ -103,27 +95,17 @@ export function ListaObiektowZrodlowych({
   const kontener = useRef<HTMLDivElement>(null);
   const wysokoscTresci = useWysokoscTresci(kontener);
 
-  const wiersze = useMemo<Wiersz[]>(
-    () =>
-      obiekty.map((obiekt) => ({
-        ...obiekt,
-        podobiekty:
-          obiekt.childIds.length > 0 ? String(obiekt.childIds.length) : "—",
-      })),
-    [obiekty],
-  );
-
   const frazaFiltra = filtr.trim().toLocaleLowerCase("pl");
 
   // Oba filtry naraz: fraza i — przy zaznaczonym polu — brak w drzewie.
   const widoczne = useMemo(
     () =>
-      wiersze.filter(
+      obiekty.filter(
         (wiersz) =>
           pasuje(wiersz, frazaFiltra) &&
           !(bezUzytych && uzyteObiekty.has(wiersz.id)),
       ),
-    [wiersze, frazaFiltra, bezUzytych, uzyteObiekty],
+    [obiekty, frazaFiltra, bezUzytych, uzyteObiekty],
   );
 
   // Nad listą z węzłem: przyjęcie upuszczenia (`preventDefault`)
@@ -249,7 +231,7 @@ export function ListaObiektowZrodlowych({
             emptyText:
               obiekty.length === 0
                 ? "Słownik obiektów jest pusty — dodaj obiekty w widoku Obiekty."
-                : bezUzytych && wiersze.some((wiersz) => pasuje(wiersz, frazaFiltra))
+                : bezUzytych && obiekty.some((wiersz) => pasuje(wiersz, frazaFiltra))
                   ? "Wszystkie pasujące obiekty są już użyte w tym drzewie."
                   : "Żaden obiekt nie pasuje do filtra.",
           }}

@@ -2,8 +2,7 @@
  * Czyste funkcje widoku budowy drzewa: płaska lista węzłów z API i słownik
  * obiektów zamienione na dane antd `Tree`, liczba węzłów poddrzewa (do
  * potwierdzenia usunięcia), węzły z dziećmi (do startowego rozwinięcia
- * całego drzewa), sprawdzenie, czy obiekt ma podobiekty w słowniku
- * (do dialogu gałęzi), oraz przeliczenie upuszczenia węzła w drzewie na
+ * całego drzewa) oraz przeliczenie upuszczenia węzła w drzewie na
  * przeniesienie w semantyce API.
  *
  * Moduł świadomie **bez** sufiksu `.server` i bez żadnego importu z modułów
@@ -67,13 +66,12 @@ export type ObiektSlownika = {
   id: number;
   code: string;
   name: string;
-  childIds: number[];
 };
 
 /**
  * Tytuł obiektu w drzewie i w komunikatach: „KOD — Nazwa". Kod i nazwa są
- * czytane ze słownika na bieżąco — kopią przy dodaniu jest struktura, nie
- * opis obiektu (plan `budowa-drzewa`, „What We're NOT Doing").
+ * czytane ze słownika na bieżąco — węzeł niesie wyłącznie tożsamość obiektu,
+ * nie jego opis (plan `budowa-drzewa`, „What We're NOT Doing").
  */
 export function tytulObiektu(obiekt: ObiektSlownika): string {
   return `${obiekt.code} — ${obiekt.name}`;
@@ -169,14 +167,6 @@ export function wezlyZDziecmi(wezly: readonly WezelDrzewa[]): number[] {
   }
 
   return [...rodzice];
-}
-
-/**
- * Czy obiekt ma w słowniku choć jeden podobiekt. Tylko wtedy dodanie pyta
- * o zakres (FR-005) — obiekt bez podobiektów nie ma gałęzi do dołączenia.
- */
-export function maPodobiekty(obiekt: ObiektSlownika): boolean {
-  return obiekt.childIds.length > 0;
 }
 
 /** Przeniesienie węzła w semantyce `PUT /tree/nodes/{id}`. */

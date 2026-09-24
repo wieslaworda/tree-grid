@@ -1,7 +1,5 @@
 import { Alert, Button, Card, Popconfirm, Typography } from "antd";
-import { useMemo } from "react";
 import {
-  type ShouldRevalidateFunctionArgs,
   data,
   redirect,
   useLinkClickHandler,
@@ -37,7 +35,6 @@ import type { Route } from "./+types/obiekty";
 
 /**
  * Kody odmowy usunięcia z API (`src/Api/Errors/ApiError.cs`):
- * `ObjectHasRelations` — obiekt ma rodzica albo podobiekt w słowniku,
  * `ObjectInTree` — obiekt stoi w czyimkolwiek drzewie roboczym. Po nich widok
  * rozpoznaje, że odpowiedź dotyczy przycisku usuwania, a nie formularza
  * obiektu — oba wysyłają do tej samej `action`. Zbiór, a nie jedna stała:
@@ -45,10 +42,7 @@ import type { Route } from "./+types/obiekty";
  * tutaj, bo inaczej odmowa wylądowałaby w banerze formularza edycji, jakby
  * zawinił zapis.
  */
-const ODMOWY_USUNIECIA: ReadonlySet<string> = new Set([
-  "object_has_relations",
-  "object_in_tree",
-]);
+const ODMOWY_USUNIECIA: ReadonlySet<string> = new Set(["object_in_tree"]);
 
 /** Wartości pola `intent` — po nich `action` rozróżnia trzy operacje. */
 const DODAJ = "dodaj";
@@ -77,8 +71,7 @@ export function meta({ loaderData }: Route.MetaArgs) {
 
 /**
  * Cały słownik i — gdy adres go wskazuje — obiekt wybrany do edycji. Jedno
- * `GET /objects` wystarcza do obu: z niego biorą się też opcje podobiektów
- * i kody obiektów nadrzędnych.
+ * `GET /objects` wystarcza do obu.
  *
  * Porażka **nie** jest rzucana, tylko wraca do widoku razem ze statusem:
  * `ErrorBoundary` z `app/root.tsx` nie czyta koperty błędu i przy zgaszonym
@@ -152,7 +145,7 @@ export async function action({ request }: Route.ActionArgs) {
     const wynik = await createObject(formularz.payload);
 
     // Koperta API idzie do formularza nietknięta, razem ze statusem: to ona
-    // niesie mapę naruszeń pól (duplikat kodu, nieistniejący podobiekt).
+    // niesie mapę naruszeń pól (brak pola, za długa wartość, duplikat kodu).
     return wynik.ok
       ? redirect(adresWyboru(wynik.object.id))
       : data(wynik.error, { status: wynik.status });
@@ -204,63 +197,29 @@ export async function action({ request }: Route.ActionArgs) {
   );
 }
 
-/**
- * Odmowa usunięcia (409) znaczy, że widok pokazuje nieaktualny stan: ktoś
- * w międzyczasie dołożył powiązanie. Po akcji zakończonej 4xx React Router
- * domyślnie nie woła loaderów, więc bez tego przycisk usuwania zostałby
- * aktywny, a tabela i „Obiekty nadrzędne" pokazywałyby stan sprzed zmiany do
- * ręcznego odświeżenia.
- */
-export function shouldRevalidate({
-  actionStatus,
-  defaultShouldRevalidate,
-}: ShouldRevalidateFunctionArgs) {
-  return actionStatus === 409 || defaultShouldRevalidate;
-}
-
-/** Wiersz tabeli: obiekt z gotowym tekstem kolumny podobiektów. */
-type Wiersz = CatalogObject & { podobiekty: string };
-
-/**
- * Kolumny tabeli w kolejności wyświetlania. Kolumna podobiektów filtruje po
- * gotowym tekście kodów.
- */
-const KOLUMNY_TABELI: readonly KolumnaSlownika<Wiersz>[] = [
+/** Kolumny tabeli w kolejności wyświetlania. */
+const KOLUMNY_TABELI: readonly KolumnaSlownika<CatalogObject>[] = [
   { klucz: "code", tytul: "Kod", filtr: { rodzaj: "tekst" }, link: true },
   { klucz: "name", tytul: "Nazwa", filtr: { rodzaj: "tekst" } },
-  { klucz: "podobiekty", tytul: "Podobiekty", filtr: { rodzaj: "tekst" } },
 ];
 
 /**
  * Słownik obiektów w jednym widoku: lista na górze, pod nią panel, który
  * dodaje, edytuje i usuwa — bez przechodzenia na osobne trasy.
  *
- * Lista to płaska tabela z kolumną podobiektów, a nie drzewo: przy relacji
- * wiele-do-wielu ten sam obiekt stałby w drzewie wielokrotnie. Filtry,
- * sortowanie, stronicowanie i przeskok na stronę wybranego obiektu daje
- * wspólna `TabelaSlownika`.
+ * Lista to płaska tabela: obiekt to wyłącznie kod i nazwa, a strukturę
+ * składa się w drzewie (`routes/drzewo.tsx`). Filtry, sortowanie,
+ * stronicowanie i przeskok na stronę wybranego obiektu daje wspólna
+ * `TabelaSlownika`.
  */
 export default function Obiekty({
   loaderData,
   actionData,
 }: Route.ComponentProps) {
+  // Tablica prosto z loadera, a nie kopia w renderze: tabela przeskakuje na
+  // stronę wybranego obiektu przy każdej zmianie tożsamości `wiersze`, a ta
+  // ma się zmieniać wyłącznie po przebiegu loadera.
   const { obiekty, wybrany, nieznany, blad } = loaderData;
-
-  // `useMemo` po `obiekty`, a nie świeża tablica w renderze: tabela przeskakuje
-  // na stronę wybranego obiektu przy każdej zmianie tożsamości `wiersze`,
-  // a ta ma się zmieniać wyłącznie po przebiegu loadera.
-  const wiersze = useMemo<Wiersz[]>(() => {
-    const kody = new Map(obiekty.map((obiekt) => [obiekt.id, obiekt.code]));
-
-    return obiekty.map((obiekt) => ({
-      ...obiekt,
-      podobiekty:
-        obiekt.childIds
-          .map((id) => kody.get(id))
-          .filter((kod) => kod !== undefined)
-          .join(", ") || "—",
-    }));
-  }, [obiekty]);
 
   return (
     <main className="mx-auto max-w-4xl p-8">
@@ -278,8 +237,8 @@ export default function Obiekty({
       */}
       {blad === null ? (
         <>
-          <TabelaSlownika<Wiersz>
-            wiersze={wiersze}
+          <TabelaSlownika<CatalogObject>
+            wiersze={obiekty}
             kolumny={KOLUMNY_TABELI}
             wybranyId={wybrany?.id}
             adresWyboru={adresWyboru}
@@ -299,7 +258,6 @@ export default function Obiekty({
           <PanelObiektu
             key={kluczPanelu(wybrany)}
             obiekt={wybrany}
-            obiekty={obiekty}
             nieznany={nieznany}
             blad={actionData}
           />
@@ -313,16 +271,14 @@ export default function Obiekty({
 
 /**
  * Panel pod listą: formularz dodawania, gdy nic nie jest wybrane, albo
- * formularz edycji z obiektami nadrzędnymi i usuwaniem, gdy jest.
+ * formularz edycji z usuwaniem, gdy jest.
  */
 function PanelObiektu({
   obiekt,
-  obiekty,
   nieznany,
   blad,
 }: {
   obiekt: CatalogObject | null;
-  obiekty: CatalogObject[];
   nieznany: string | null;
   blad: ApiErrorBody | undefined;
 }) {
@@ -339,7 +295,6 @@ function PanelObiektu({
         )}
 
         <FormularzObiektu
-          obiekty={obiekty}
           blad={blad}
           intent={DODAJ}
           etykietaZapisu="Dodaj obiekt"
@@ -348,16 +303,14 @@ function PanelObiektu({
     );
   }
 
-  return <EdycjaObiektu obiekt={obiekt} obiekty={obiekty} blad={blad} />;
+  return <EdycjaObiektu obiekt={obiekt} blad={blad} />;
 }
 
 function EdycjaObiektu({
   obiekt,
-  obiekty,
   blad,
 }: {
   obiekt: CatalogObject;
-  obiekty: CatalogObject[];
   blad: ApiErrorBody | undefined;
 }) {
   // Odmowa usunięcia idzie do banera nad przyciskiem usuwania, wszystko inne
@@ -368,20 +321,9 @@ function EdycjaObiektu({
       : undefined;
   const bladZapisu = odmowaUsuniecia === undefined ? blad : undefined;
 
-  const kody = new Map(obiekty.map((kandydat) => [kandydat.id, kandydat.code]));
-  const rodzice = obiekt.parentIds
-    .map((id) => kody.get(id))
-    .filter((kod) => kod !== undefined);
-
-  // Warunek z `ObjectRules.CanDelete` powtórzony wyłącznie dla wyglądu
-  // przycisku. Wiążąca jest odpowiedź API, która odmawia także żądaniu
-  // wysłanemu z pominięciem tego widoku albo na nieaktualnym stanie.
-  //
-  // Użycia w drzewach świadomie tu nie ma: słownik jest wspólny, a drzewa
-  // prywatne, więc widok nie wie, czy obiekt stoi w czyimś drzewie. Przycisk
-  // zostaje aktywny, a o drzewach decyduje API odmową `object_in_tree`.
-  const maPowiazania = obiekt.parentIds.length > 0 || obiekt.childIds.length > 0;
-
+  // Przycisk usuwania jest zawsze aktywny: słownik jest wspólny, a drzewa
+  // prywatne, więc widok nie wie, czy obiekt stoi w czyimś drzewie. O tym
+  // decyduje API odmową `object_in_tree`.
   const wyslij = useSubmit();
   const nawigacja = useNavigation();
   const zajety = nawigacja.state !== "idle";
@@ -407,28 +349,15 @@ function EdycjaObiektu({
     >
       <FormularzObiektu
         obiekt={obiekt}
-        obiekty={obiekty}
         blad={bladZapisu}
         intent={ZAPISZ}
         etykietaZapisu="Zapisz zmiany"
       />
 
       {/*
-        Poziom 5: te nagłówki stoją wewnątrz karty, pod jej tytułem, i nie
-        mają być od niego większe.
+        Poziom 5: nagłówek stoi wewnątrz karty, pod jej tytułem, i nie ma być
+        od niego większy.
       */}
-      <Typography.Title level={5} className="mt-8">
-        Obiekty nadrzędne
-      </Typography.Title>
-      {/*
-        Tylko do odczytu: relację ustawia się po stronie rodzica, w jego
-        podobiektach. Kody, a nie linki — rodzic jest o jedno kliknięcie
-        w tabeli powyżej.
-      */}
-      <Typography.Paragraph>
-        {rodzice.length > 0 ? rodzice.join(", ") : "brak"}
-      </Typography.Paragraph>
-
       <Typography.Title level={5} className="mt-8">
         Usuwanie
       </Typography.Title>
@@ -461,7 +390,6 @@ function EdycjaObiektu({
           // akcja bezpieczna musi wyglądać inaczej niż „Usuń". Para
           // `color` + `variant`, bo samo jedno z nich nie przebija kontekstu.
           cancelButtonProps={{ color: "default", variant: "outlined" }}
-          disabled={maPowiazania}
           onConfirm={() =>
             wyslij(
               { intent: USUN },
@@ -469,16 +397,10 @@ function EdycjaObiektu({
             )
           }
         >
-          <Button disabled={maPowiazania || zajety} loading={usuwanie}>
+          <Button disabled={zajety} loading={usuwanie}>
             Usuń obiekt
           </Button>
         </Popconfirm>
-
-        {maPowiazania ? (
-          <Typography.Text type="secondary">
-            Usunąć można tylko obiekt bez powiązań.
-          </Typography.Text>
-        ) : null}
       </div>
     </RamkaPanelu>
   );
@@ -517,14 +439,12 @@ function RamkaPanelu({
 
 /**
  * Klucz panelu: „nowy" przy dodawaniu, a przy edycji identyfikator razem
- * z zapisanymi wartościami, które pokazuje formularz. Obiekty nadrzędne
- * świadomie poza kluczem — nie są polem formularza, a ich zmiana (np. po
- * rewalidacji przy 409) nie powinna kasować niezapisanych edycji.
+ * z zapisanymi wartościami, które pokazuje formularz.
  */
 function kluczPanelu(obiekt: CatalogObject | null): string {
   return obiekt === null
     ? "nowy"
-    : JSON.stringify([obiekt.id, obiekt.code, obiekt.name, obiekt.childIds]);
+    : JSON.stringify([obiekt.id, obiekt.code, obiekt.name]);
 }
 
 /**

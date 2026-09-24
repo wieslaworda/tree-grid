@@ -19,7 +19,6 @@
 import {
   type ApiFailure,
   type ApiResult,
-  apiError,
   invalidResponse,
   parseEntityId,
   requestApi,
@@ -33,24 +32,19 @@ const OBJECTS_PATH = "/objects";
 
 /**
  * Obiekt słownika — dokładnie kształt elementu `items` z `GET /objects`
- * i odpowiedzi `POST`/`PUT`.
+ * i odpowiedzi `POST`/`PUT`. Obiekt to wyłącznie kod i nazwa: słownik nie
+ * niesie relacji między obiektami, strukturę składa użytkownik w drzewie.
  */
 export type CatalogObject = {
   id: number;
   code: string;
   name: string;
-  childIds: number[];
-  parentIds: number[];
 };
 
-/**
- * Treść zapisu. `childIds` to **cały** zestaw podobiektów: `PUT` go zastępuje,
- * więc pominięty identyfikator to zdjęta relacja, a nie „bez zmian".
- */
+/** Treść zapisu — `PUT` zastępuje kod i nazwę. */
 export type ObjectPayload = {
   code: string;
   name: string;
-  childIds: number[];
 };
 
 export type ObjectListResult = { ok: true; objects: CatalogObject[] } | ApiFailure;
@@ -109,40 +103,13 @@ export async function deleteObject(id: number): Promise<ObjectDeleteResult> {
  * (`src/Api/Objects/ObjectEndpoints.cs`) i z atrybutami `name` w
  * `app/components/FormularzObiektu.tsx` — po nich API adresuje komunikaty
  * walidacji. Zgodności nie sprawdza ani kompilator, ani `npm run typecheck`.
- *
- * `getAll`, a nie `get`: każdy wybrany podobiekt to osobne ukryte pole
- * `childIds`, bo antd `Select` nie wysyła niczego natywnym formularzem.
- * Wartość, która nie jest identyfikatorem ({@link parseEntityId}), kończy
- * odczyt błędem walidacji pod `childIds` — ani nie znika po cichu z zapisu,
- * ani nie leci do API, gdzie `Number("")` dałoby 0, a `NaN` wywróciłoby
- * wiązanie `int[]` poza kopertą z mapą pól. Z UI nie da się tego osiągnąć;
- * to odpowiedź dla ręcznie spreparowanego żądania.
  */
 export function readObjectForm(formData: FormData): ObjectFormResult {
-  const childIds: number[] = [];
-
-  for (const value of formData.getAll("childIds")) {
-    const id = typeof value === "string" ? parseEntityId(value) : null;
-
-    if (id === null) {
-      return {
-        ok: false,
-        status: 400,
-        error: apiError("validation_error", "Przesłane dane są nieprawidłowe.", {
-          fields: { childIds: "Lista podobiektów zawiera nieprawidłowy identyfikator." },
-        }),
-      };
-    }
-
-    childIds.push(id);
-  }
-
   return {
     ok: true,
     payload: {
       code: String(formData.get("code") ?? ""),
       name: String(formData.get("name") ?? ""),
-      childIds,
     },
   };
 }
@@ -159,7 +126,7 @@ function toObjectResult(path: string, result: ApiResult): ObjectResult {
 
 /**
  * Sprawdza kształt obiektu. Odpowiedź API jest z definicji nieznanym JSON-em,
- * a widoki budują z `childIds` i `parentIds` mapy kodów — element w innym
+ * a widoki budują z kodów i nazw teksty wierszy i węzłów — element w innym
  * kształcie wywróciłby render zamiast skończyć się kopertą błędu.
  */
 function isCatalogObject(value: unknown): value is CatalogObject {
@@ -172,12 +139,6 @@ function isCatalogObject(value: unknown): value is CatalogObject {
   return (
     Number.isInteger(candidate.id) &&
     typeof candidate.code === "string" &&
-    typeof candidate.name === "string" &&
-    isIdList(candidate.childIds) &&
-    isIdList(candidate.parentIds)
+    typeof candidate.name === "string"
   );
-}
-
-function isIdList(value: unknown): value is number[] {
-  return Array.isArray(value) && value.every((item) => Number.isInteger(item));
 }

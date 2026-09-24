@@ -3,7 +3,7 @@ project: TreeGrid
 version: 1
 status: draft
 created: 2026-09-21
-updated: 2026-09-23
+updated: 2026-09-24
 prd_version: 1
 main_goal: speed
 top_blocker: time
@@ -59,7 +59,7 @@ Przy celu sekwencjonowania `speed` to również fragment, który najtaniej odpow
 | F-02 | `motyw-terminalowy`   | (foundation) aplikacja ma jeden motyw o gęstości roboczej, z przełącznikiem jasny/ciemny   | —             | NFR (gęstość odczytu liczb), NFR (dwa warianty motywu), NFR (kontrast i rola koloru) | in-progress |
 | S-01 | `konto-i-logowanie`   | założyć konto, zalogować się i wylogować; żaden widok nie jest dostępny bez logowania      | F-01          | FR-001, Access Control, NFR (izolacja kont)            | in-progress |
 | S-02 | `lista-obiektow`      | przeglądać, dodawać i edytować obiekty dostępne do budowy drzewa                           | F-01          | FR-002                                                 | in-progress |
-| S-03 | `budowa-drzewa`       | prowadzić własne nazwane drzewa i składać w wybranym drzewie strukturę; zapętlenie jest odrzucane, a gałąź podrzędna rozstrzygana | S-02          | FR-003, FR-004, FR-005, US-01, Business Logic, Access Control, NFR (izolacja kont), MS-03, MS-04, MS-05, MS-06, MS-07 | in-progress |
+| S-03 | `budowa-drzewa`       | prowadzić własne nazwane drzewa i składać w wybranym drzewie strukturę; zapętlenie jest odrzucane | S-02          | FR-003, FR-004, US-01, Business Logic, Access Control, NFR (izolacja kont), MS-03, MS-04, MS-05, MS-06, MS-07 | in-progress |
 | S-04 | `kategorie-danych`    | przypisać węzłowi wybranego drzewa kategorie danych ze słownika kategorii                  | S-03, S-09    | FR-006                                                 | proposed |
 | S-05 | `grid-czasowy`        | wybrać drzewo, ziarno czasowe i dobę oraz zobaczyć grid z punktami czasowymi               | S-04          | FR-007, FR-008, US-01, NFR (288 kolumn, feedback >2 s) | proposed |
 | S-06 | `zapisane-ekrany`     | zapisać pod nazwą ekran wskazujący drzewo wraz z ziarnem i dobą, wybrać go z listy własnych i odtworzyć | S-01, S-05    | FR-009, FR-010, US-01, NFR (izolacja kont)             | proposed |
@@ -133,27 +133,27 @@ Foundations below assume these are present and do NOT re-scaffold them.
 
 ### S-02: Lista obiektów do budowy drzewa
 
-- **Outcome:** Dyspozytor przegląda listę dostępnych obiektów, dodaje nowe i edytuje istniejące — wraz z informacją o ich podobiektach, z której korzysta później budowa drzewa.
+- **Outcome:** Dyspozytor przegląda listę dostępnych obiektów, dodaje nowe i edytuje istniejące. Obiekt to kod i nazwa — bez podobiektów (usunięte 2026-09-24): strukturę składa dyspozytor w drzewie w `S-03`.
 - **Change ID:** `lista-obiektow`
 - **PRD refs:** FR-002
 - **Prerequisites:** F-01
 - **Parallel with:** S-01
 - **Blockers:** —
 - **Unknowns:** —
-- **Risk:** Formalnie zależy tylko od `F-01`, więc może powstawać równolegle do `S-01` — to jedyne miejsce w całej roadmapie, gdzie da się rozdzielić pracę, a przy głównym ryzyku `time` to realna dźwignia. Warunek: widoki tego plastra muszą finalnie wylądować za bramą logowania z `S-01`, bo sekcja `Access Control` nie przewiduje dostępu bez zalogowania. Drugie ryzyko: obiekty niosą relację rodzic–dziecko, od której zależy FR-005 w `S-03`; jeśli ta relacja nie powstanie tutaj, `S-03` trzeba będzie cofnąć.
+- **Risk:** Formalnie zależy tylko od `F-01`, więc może powstawać równolegle do `S-01` — to jedyne miejsce w całej roadmapie, gdzie da się rozdzielić pracę, a przy głównym ryzyku `time` to realna dźwignia. Warunek: widoki tego plastra muszą finalnie wylądować za bramą logowania z `S-01`, bo sekcja `Access Control` nie przewiduje dostępu bez zalogowania.
 - **Status:** in-progress
 
 ### S-03: Własne drzewa i budowa ich struktury z blokadą zapętlenia
 
 - **Outcome:** Dyspozytor prowadzi listę własnych drzew i składa strukturę w drzewie wybranym z tej listy:
   - **Drzewa (MS-03–MS-05).** Na górze widoku „Drzewo" stoi lista jego drzew w tym samym układzie co lista obiektów. Dyspozytor dodaje drzewo, zmienia jego nazwę i usuwa je razem z całą strukturą. Nagłówek drzewa to wyłącznie nazwa (unikalna w obrębie konta) i identyfikator. Cudze drzewa są niewidoczne i nieosiągalne także z pominięciem interfejsu. Bez żadnego drzewa lista pokazuje zachętę „Dodaj drzewo", a budowa struktury jest nieaktywna. Dotychczasowe drzewo robocze konta nie ginie — staje się pierwszym nazwanym drzewem.
-  - **Dodawanie (FR-003, FR-005).** Obiekt z listy trafia na koniec dzieci zaznaczonego węzła albo na najwyższy poziom — przyciskiem „Dodaj" albo przeciągnięciem z listy na węzeł lub strefę najwyższego poziomu. Obiekt, który ma w słowniku podobiekty, uruchamia pytanie „Cała gałąź / Tylko obiekt / Anuluj". Dołączona gałąź jest kopią struktury ze słownika z chwili dodania.
-  - **Odmowy (FR-004, `Business Logic`).** Operacja, która postawiłaby obiekt na jego własnej ścieżce do korzenia, jest odrzucana z komunikatem wskazującym ścieżkę — także gdy konflikt leży głęboko w dołączanej gałęzi, bo wtedy odrzucana jest cała operacja. Ten sam obiekt w dwóch różnych gałęziach jest poprawny. Odrzucany jest też duplikat rodzeństwa w tym samym miejscu drzewa oraz przekroczenie limitu rozmiaru drzewa.
+  - **Dodawanie (FR-003).** Obiekt z listy trafia na koniec dzieci zaznaczonego węzła albo na najwyższy poziom — przyciskiem „Dodaj" albo przeciągnięciem z listy na węzeł lub strefę najwyższego poziomu. Dodanie wstawia zawsze sam obiekt: słownik nie zna podobiektów, więc nie ma gałęzi do dołączenia (FR-005 wycofane 2026-09-24).
+  - **Odmowy (FR-004, `Business Logic`).** Operacja, która postawiłaby obiekt na jego własnej ścieżce do korzenia, jest odrzucana z komunikatem wskazującym ścieżkę — także gdy konflikt leży głęboko w przenoszonym poddrzewie, bo wtedy odrzucana jest cała operacja. Ten sam obiekt w dwóch różnych gałęziach jest poprawny. Odrzucany jest też duplikat rodzeństwa w tym samym miejscu drzewa oraz przekroczenie limitu rozmiaru drzewa.
   - **Przesuwanie i usuwanie (MS-07).** Przeciągnięcie węzła wewnątrz drzewa przenosi go z poddrzewem albo zmienia kolejność rodzeństwa, z tą samą walidacją. Węzeł z poddrzewem usuwa się przyciskiem „Usuń węzeł" (po potwierdzeniu) albo przeciągnięciem go z drzewa na listę obiektów (bez potwierdzenia).
   - **Filtr listy (MS-06).** Pole wyboru „Pokaż obiekty nieużyte w drzewie" zawęża listę obiektów do tych, których nie ma w wybranym drzewie. Działa razem z filtrem tekstowym.
   - **Słownik.** Obiektu użytego w jakimkolwiek drzewie nie da się usunąć ze słownika. Odmowa nie wskazuje, czyje to drzewo.
 - **Change ID:** `budowa-drzewa`
-- **PRD refs:** FR-003, FR-004, FR-005, US-01, sekcja `Business Logic`, sekcja `Access Control`, NFR (izolacja kont), MS-03, MS-04, MS-05, MS-06, MS-07
+- **PRD refs:** FR-003, FR-004, US-01, sekcja `Business Logic`, sekcja `Access Control`, NFR (izolacja kont), MS-03, MS-04, MS-05, MS-06, MS-07
 - **Prerequisites:** S-02
 - **Parallel with:** —
 - **Blockers:** —

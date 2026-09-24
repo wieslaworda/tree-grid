@@ -269,9 +269,9 @@ internal static class TreeEndpoints
     }
 
     /// <summary>
-    /// Dodaje obiekt — sam albo z całą gałęzią ze słownika — na koniec dzieci
-    /// <c>parentId</c> (<c>null</c> — najwyższy poziom). Gałąź jest kopią
-    /// struktury słownika z tej chwili.
+    /// Dodaje jeden obiekt na koniec dzieci <c>parentId</c> (<c>null</c> —
+    /// najwyższy poziom). Słownik nie zna relacji między obiektami, więc
+    /// dodanie nigdy nie przynosi ze sobą struktury podrzędnej.
     /// </summary>
     private static async Task<IResult> AddNodeAsync(
         int treeId,
@@ -298,18 +298,10 @@ internal static class TreeEndpoints
         var fields = new Dictionary<string, string>();
         var objectId = request?.ObjectId;
         var parentId = request?.ParentId;
-        var includeBranch = request?.IncludeBranch;
 
         if (objectId is null)
         {
             fields[TreeRequestFields.ObjectId] = "Wskaż obiekt do dodania.";
-        }
-
-        // Brak flagi jest błędem, a nie domyślnym „tylko obiekt": FR-005 każe
-        // o zakres pytać, więc API nie zgaduje odpowiedzi za użytkownika.
-        if (includeBranch is null)
-        {
-            fields[TreeRequestFields.IncludeBranch] = "Określ, czy dołączyć gałąź podrzędną obiektu.";
         }
 
         var catalog = await LoadCatalogAsync(db, cancellationToken);
@@ -335,7 +327,6 @@ internal static class TreeEndpoints
 
         // Walidacja wyżej przepuszcza wyłącznie komplet pól.
         var addedObjectId = objectId!.Value;
-        var withBranch = includeBranch!.Value;
 
         if (TreeRules.HasDuplicateSibling(tree.ChildrenOf(parentId), addedObjectId, exceptNodeId: null))
         {
@@ -344,19 +335,7 @@ internal static class TreeEndpoints
                 ParentCode(tree, catalog, parentId)));
         }
 
-        // Relacje słownika są potrzebne tylko do gałęzi — „tylko obiekt" ich
-        // nie czyta.
-        var catalogChildren = withBranch
-            ? TreeRules.CatalogChildrenInCodeOrder(
-                await LoadLinksAsync(db, cancellationToken),
-                catalog.ToDictionary(pair => pair.Key, pair => pair.Value.NormalizedCode))
-            : new Dictionary<int, IReadOnlyList<int>>();
-
-        if (TreeRules.FindConflictOnAdd(
-                tree.AncestorObjectPath(parentId),
-                addedObjectId,
-                withBranch,
-                catalogChildren) is { } conflict)
+        if (TreeRules.FindConflictOnAdd(tree.AncestorObjectPath(parentId), addedObjectId) is { } conflict)
         {
             return Conflict(TreeResponses.Cycle(
                 TreeOperation.Add,
@@ -364,22 +343,22 @@ internal static class TreeEndpoints
                 Codes(conflict, catalog)));
         }
 
-        var expansion = TreeRules.ExpandBranch(
-            addedObjectId,
-            withBranch,
-            catalogChildren,
-            budget: TreeNode.MaxNodesPerTree - tree.Count);
-
-        if (expansion.IsTooLarge)
+        if (TreeRules.IsFull(tree.Count, TreeNode.MaxNodesPerTree))
         {
-            return Conflict(TreeResponses.TooLarge(TreeNode.MaxNodesPerTree, tree.Count, expansion.NodeCount));
+            return Conflict(TreeResponses.TooLarge(TreeNode.MaxNodesPerTree, tree.Count, adding: 1));
         }
 
         // Nowy węzeł staje na końcu grupy rodzeństwa, której pozycje są ciągłe
         // od 0 — liczba rodzeństwa jest więc jego pozycją.
-        var root = ToEntities(expansion.Branch!, treeId, parentId, tree.ChildrenOf(parentId).Count);
+        var node = new TreeNode
+        {
+            TreeId = treeId,
+            ParentId = parentId,
+            ObjectId = addedObjectId,
+            Position = tree.ChildrenOf(parentId).Count,
+        };
 
-        db.TreeNodes.Add(root);
+        db.TreeNodes.Add(node);
 
         await db.SaveChangesAsync(cancellationToken);
         await transaction.CommitAsync(cancellationToken);
@@ -387,7 +366,7 @@ internal static class TreeEndpoints
         // 201 bez nagłówka `Location`: pod `/trees/{treeId}/nodes/{id}` są tylko `PUT`
         // i `DELETE`, więc `GET` dałby 405 (`context/foundation/lessons.md`,
         // „Kontrakt API nie wyprzedza emitenta").
-        return Results.Json(new { id = root.Id }, statusCode: StatusCodes.Status201Created);
+        return Results.Json(new { id = node.Id }, statusCode: StatusCodes.Status201Created);
     }
 
     /// <summary>
@@ -640,61 +619,11 @@ internal static class TreeEndpoints
         CancellationToken cancellationToken)
         => await db.CatalogObjects
             .AsNoTracking()
-            .Select(o => new CatalogEntry(o.Id, o.Code, o.NormalizedCode))
+            .Select(o => new CatalogEntry(o.Id, o.Code))
             .ToDictionaryAsync(entry => entry.Id, cancellationToken);
-
-    private static async Task<List<(int ParentId, int ChildId)>> LoadLinksAsync(
-        AppDbContext db,
-        CancellationToken cancellationToken)
-        => (await db.CatalogObjectLinks
-                .AsNoTracking()
-                .Select(link => new { link.ParentId, link.ChildId })
-                .ToListAsync(cancellationToken))
-            .Select(link => (link.ParentId, link.ChildId))
-            .ToList();
 
     private static TreeNodeEntry ToEntry(TreeNode node)
         => new(node.Id, node.ParentId, node.ObjectId, node.Position);
-
-    /// <summary>
-    /// Zamienia rozwiniętą gałąź na encje do zapisu. Korzeń dostaje rodzica
-    /// i pozycję w jego grupie, potomkowie — nawigację i indeks wśród
-    /// rodzeństwa; identyfikatory i klucze obce potomków nada zapis.
-    /// </summary>
-    private static TreeNode ToEntities(BranchNode branch, int treeId, int? parentId, int position)
-    {
-        var root = new TreeNode
-        {
-            TreeId = treeId,
-            ParentId = parentId,
-            ObjectId = branch.ObjectId,
-            Position = position,
-        };
-
-        // Jawny stos — powód w komentarzu `TreeRules`.
-        var stack = new Stack<(BranchNode Branch, TreeNode Entity)>();
-        stack.Push((branch, root));
-
-        while (stack.Count > 0)
-        {
-            var (source, entity) = stack.Pop();
-
-            for (var index = 0; index < source.Children.Count; index++)
-            {
-                var child = new TreeNode
-                {
-                    TreeId = treeId,
-                    ObjectId = source.Children[index].ObjectId,
-                    Position = index,
-                };
-
-                entity.Children.Add(child);
-                stack.Push((source.Children[index], child));
-            }
-        }
-
-        return root;
-    }
 
     private static IReadOnlyList<int> Order(TreeSnapshot tree, int? parentId)
         => [.. tree.ChildrenOf(parentId).Select(node => node.Id)];
@@ -746,7 +675,7 @@ internal static class TreeEndpoints
     private static IResult Conflict(ApiError error)
         => Results.Json(error, statusCode: StatusCodes.Status409Conflict);
 
-    private sealed record CatalogEntry(int Id, string Code, string NormalizedCode);
+    private sealed record CatalogEntry(int Id, string Code);
 
     private sealed record TreeNameEntry(int Id, string Name, string NormalizedName);
 
@@ -787,9 +716,6 @@ internal static class TreeRequestFields
     /// </summary>
     public const string ParentId = "parentId";
 
-    /// <summary>Zakres dodania: brak pola — API nie wybiera zakresu za użytkownika.</summary>
-    public const string IncludeBranch = "includeBranch";
-
     /// <summary>Pozycja przeniesienia: brak pola albo wartość spoza 0…liczba rodzeństwa.</summary>
     public const string Position = "position";
 }
@@ -824,13 +750,14 @@ internal static class TreeResponses
     /// <summary>Klucz w <c>context</c> z bieżącym rozmiarem drzewa.</summary>
     internal const string CurrentContextKey = "current";
 
-    /// <summary>Klucz w <c>context</c> z liczbą węzłów dodawanej gałęzi.</summary>
+    /// <summary>Klucz w <c>context</c> z liczbą dodawanych węzłów.</summary>
     internal const string AddingContextKey = "adding";
 
     /// <summary>
     /// Odmowa <see cref="ApiErrorCodes.TreeCycle"/>. Komunikat nazywa obiekt
     /// operacji i pełną ścieżkę — FR-004 wymaga, żeby użytkownik widział, gdzie
-    /// pętla by się zamknęła, także gdy konflikt siedzi głęboko w gałęzi.
+    /// pętla by się zamknęła, także gdy konflikt siedzi głęboko w przenoszonym
+    /// poddrzewie.
     /// </summary>
     public static ApiError Cycle(TreeOperation operation, string subjectCode, IReadOnlyList<string> pathCodes)
     {
@@ -867,8 +794,8 @@ internal static class TreeResponses
 
     /// <summary>
     /// Odmowa <see cref="ApiErrorCodes.TreeTooLarge"/>.
-    /// <paramref name="adding"/> przy przerwanym rozwijaniu jest dolnym
-    /// ograniczeniem (<see cref="BranchExpansion.NodeCount"/>).
+    /// <paramref name="adding"/> — liczba dodawanych węzłów; dodanie wstawia
+    /// jeden obiekt, więc dziś zawsze 1.
     /// </summary>
     /// <remarks>
     /// „węzłów" pasuje do 2000 i do każdego limitu kończącego się na 0, 1
@@ -899,7 +826,7 @@ internal sealed record TreeRequest(string? Name);
 /// dawał błąd walidacji w kontrakcie, a nie błąd wiązania w kształcie
 /// frameworka; <c>ParentId</c> <c>null</c> to najwyższy poziom.
 /// </summary>
-internal sealed record AddTreeNodeRequest(int? ObjectId, int? ParentId, bool? IncludeBranch);
+internal sealed record AddTreeNodeRequest(int? ObjectId, int? ParentId);
 
 /// <summary>
 /// Treść żądania przeniesienia węzła. <c>ParentId</c> <c>null</c> — najwyższy

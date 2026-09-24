@@ -211,7 +211,7 @@ export async function requestApi(
   const body = await readJson(response);
 
   // Błąd API leci dalej w oryginale: to on niesie `code`, po którym rozgałęzia
-  // się widok (`object_has_relations`), i mapę naruszeń pól w `context`.
+  // się widok (`object_in_tree`), i mapę naruszeń pól w `context`.
   if (!response.ok) {
     return isApiErrorBody(body)
       ? { ok: false, status: response.status, error: body }
@@ -246,7 +246,7 @@ const MAX_ENTITY_ID = 2_147_483_647;
  * `Number("1e3")`, `Number(" 7 ")`, `Number("0x10")` i `Number("07")` dają
  * liczby, ale żadna z tych wartości nie jest identyfikatorem. Jedno miejsce
  * dla parametru `?id=` z adresów słowników i dla pól z identyfikatorami
- * (`childIds` obiektu).
+ * (obiekt, rodzic i węzeł w akcjach drzewa).
  */
 export function parseEntityId(value: string): number | null {
   if (!/^[1-9]\d*$/.test(value)) {

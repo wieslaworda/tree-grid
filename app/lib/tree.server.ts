@@ -93,7 +93,6 @@ export type TreeNode = {
 export type AddNodePayload = {
   objectId: number;
   parentId: number | null;
-  includeBranch: boolean;
 };
 
 /**
@@ -194,9 +193,8 @@ export async function getTreeNodes(
 }
 
 /**
- * Dodaje obiekt — sam albo z całą gałęzią ze słownika — na koniec dzieci
- * `parentId` (`null` — najwyższy poziom) w drzewie `treeId`. Zwraca
- * identyfikator węzła-korzenia wstawionej gałęzi.
+ * Dodaje jeden obiekt na koniec dzieci `parentId` (`null` — najwyższy poziom)
+ * w drzewie `treeId`. Zwraca identyfikator nowego węzła.
  */
 export async function addNode(
   userId: string,

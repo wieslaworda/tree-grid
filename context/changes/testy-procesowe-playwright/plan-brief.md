@@ -23,14 +23,14 @@ Istnieje xUnit dla reguł API (`tests/Api.Tests/`), ale nic nie przechodzi przez
 | Frontend | Build produkcyjny, `react-router-serve` na `127.0.0.1:3000` | Testuje dokładnie ścieżkę, która idzie przez tunel, łącznie z kontraktami SSR. |
 | Zakres scenariusza | North star + struktura bez zmian po odmowie (także po przeładowaniu) | Dowodzi tezy S-03 i tego, że odmowę egzekwuje serwer, a nie sam interfejs. |
 | Sekrety | Generowane raz w procesie głównym konfiguracji, przekazywane przez `env` | Zgodne z lekcją o sekretach: nic w repo, logach ani raporcie. |
-| Interakcja z drzewem | Przycisk „Dodaj”, nie przeciąganie | Ta sama funkcja `dodajObiekt` i ten sam dialog, bez niestabilności drag & drop. |
+| Interakcja z drzewem | Przycisk „Dodaj”, nie przeciąganie | Ta sama funkcja `dodajObiekt` co upuszczenie z listy, bez niestabilności drag & drop. |
 | Dokumentacja | CLAUDE.md (Komendy, Znane luki) + wpis Parked w roadmapie | Agenci przestaną twierdzić, że jedyną weryfikacją jest typecheck. |
 
 ## Scope
 
 **In scope:**
 - `@playwright/test`, `playwright.config.ts`, skrypt `test:e2e`, wpisy w `.gitignore`
-- `e2e/dane.ts` i `e2e/budowa-drzewa.spec.ts` — jeden scenariusz w siedmiu krokach
+- `e2e/dane.ts` i `e2e/budowa-drzewa.spec.ts` — jeden scenariusz w siedmiu krokach (obiekty bez podobiektów, dodawanie bez dialogu gałęzi)
 - Aktualizacja CLAUDE.md (Komendy, Znane luki) i wpisu Parked w roadmapie
 
 **Out of scope:**
@@ -47,7 +47,7 @@ Istnieje xUnit dla reguł API (`tests/Api.Tests/`), ale nic nie przechodzi przez
 | Phase | What it delivers | Key risk |
 | --- | --- | --- |
 | 1. Infrastruktura Playwright i dwa procesy | Konfiguracja, izolowana baza, sekrety, krok „rejestracja” | Ciasteczko `Secure` na `http://127.0.0.1` — zapasowo `baseURL` na `localhost` |
-| 2. Ścieżka north star S-03 | Słownik P→C, drzewo, struktura, odrzucone zapętlenie `E2E-P → E2E-C → E2E-P` | Wybór opcji w antd `Select mode="multiple"` i zwinięty węzeł po przeładowaniu |
+| 2. Ścieżka north star S-03 | Słownik P i C, drzewo, struktura, odrzucone zapętlenie `E2E-P → E2E-C → E2E-P` | Zwinięty węzeł po przeładowaniu |
 | 3. Dokumentacja i roadmapa | Prawdziwy opis weryfikacji w CLAUDE.md, wpis Parked w roadmapie | Minimalne |
 
 **Prerequisites:** zainstalowane .NET 10 SDK i Node; jednorazowo `npx playwright install chromium`; zatrzymany stos deweloperski (5180) i tunel (3000).

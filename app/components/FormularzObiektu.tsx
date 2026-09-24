@@ -1,5 +1,4 @@
-import { Alert, Button, Form as AntForm, Input, Select } from "antd";
-import { useMemo, useState } from "react";
+import { Alert, Button, Form as AntForm, Input } from "antd";
 import { Form as RouterForm, useNavigation } from "react-router";
 
 import type { ApiErrorBody } from "~/lib/api.server";
@@ -13,13 +12,11 @@ import type { CatalogObject } from "~/lib/objects.server";
  * (`app/lib/objects.server.ts`); rozjazd nie daje błędu, tylko komunikat,
  * który nigdy się nie pokazuje.
  */
-const POLA_FORMULARZA = ["code", "name", "childIds"] as const;
+const POLA_FORMULARZA = ["code", "name"] as const;
 
 type Wlasciwosci = {
   /** Edytowany obiekt albo `undefined` przy dodawaniu. */
   obiekt?: CatalogObject;
-  /** Cały słownik — źródło opcji podobiektów. */
-  obiekty: CatalogObject[];
   /** Koperta z odpowiedzi `action`, gdy ostatni zapis się nie udał. */
   blad: ApiErrorBody | undefined;
   /**
@@ -38,20 +35,8 @@ type Wlasciwosci = {
  * Budowa jest ta z `app/routes/logowanie.tsx`: `RouterForm` jako jedyny
  * renderuje `<form>`, a `AntForm component={false}` daje wyłącznie układ
  * i komunikaty. `name` na kodzie i nazwie stoi w dwóch miejscach z opisanego
- * tam powodu.
- *
- * Podobiekty idą inaczej i to jest najważniejsza rzecz w tym pliku. antd
- * `Select` nie renderuje żadnego `<input name>`, więc `request.formData()` nie
- * zobaczyłby wybranych obiektów — bez żadnego błędu, z zapisem pustego
- * zestawu, który `PUT` potraktowałby jako zdjęcie wszystkich relacji. Dlatego
- * wybór trzyma stan tego komponentu, a każdy wybrany obiekt dostaje własne
- * ukryte pole `childIds`. `Form.Item` wokół `Select` świadomie **nie** ma
- * `name`: z nim wartość przejąłby magazyn antd i stan stąd przestałby być
- * jedynym źródłem ukrytych pól.
- *
- * Na liście opcji nie ma edytowanego obiektu, i na tym koniec filtrowania.
- * Opcje, które zamknęłyby cykl, zostają — regułą wiążącą jest odpowiedź API,
- * a jej komunikat ze ścieżką zapętlenia trafia pod pole podobiektów.
+ * tam powodu. Obiekt to wyłącznie kod i nazwa — relacji między obiektami
+ * słownik nie niesie, strukturę składa się w drzewie.
  *
  * Zero wartości koloru i rozmiaru: wszystko przychodzi z tokenów motywu
  * (`app/theme/antd.ts`), więc formularz ma gęstość reszty interfejsu i nie
@@ -59,32 +44,12 @@ type Wlasciwosci = {
  */
 export function FormularzObiektu({
   obiekt,
-  obiekty,
   blad,
   intent,
   etykietaZapisu,
 }: Wlasciwosci) {
   const pola = naruszeniaPol(blad);
   const ogolny = komunikatOgolny(blad, pola);
-
-  // Stan przeżywa nieudaną wysyłkę, bo `action` zwracający błąd nie montuje
-  // widoku od nowa. Zmianę obiektu przy tej samej trasie obsługuje `key`
-  // nadany panelowi w `routes/obiekty.tsx`, a nie ten komponent.
-  const [podobiekty, ustawPodobiekty] = useState<number[]>(
-    obiekt?.childIds ?? [],
-  );
-
-  const edytowanyId = obiekt?.id;
-  const opcje = useMemo(
-    () =>
-      obiekty
-        .filter((kandydat) => kandydat.id !== edytowanyId)
-        .map((kandydat) => ({
-          value: kandydat.id,
-          label: `${kandydat.code} — ${kandydat.name}`,
-        })),
-    [obiekty, edytowanyId],
-  );
 
   // Zajęty jest cały widok, gdy trwa dowolna nawigacja — także wysyłka
   // formularza usuwania obok. Kręciołek dostaje jednak tylko ten przycisk,
@@ -151,32 +116,6 @@ export function FormularzObiektu({
           >
             <Input name="name" autoComplete="off" required />
           </AntForm.Item>
-
-          <AntForm.Item
-            label="Podobiekty"
-            htmlFor="childIds"
-            validateStatus={pola.childIds === undefined ? undefined : "error"}
-            help={pola.childIds}
-          >
-            <Select
-              id="childIds"
-              mode="multiple"
-              allowClear
-              // Etykieta niesie i kod, i nazwę, więc filtrowanie po niej
-              // wyszukuje po obu. Bez `optionFilterProp` antd szukałby po
-              // `value`, czyli po identyfikatorze, którego nikt nie zna.
-              showSearch={{ optionFilterProp: "label" }}
-              options={opcje}
-              value={podobiekty}
-              onChange={ustawPodobiekty}
-              placeholder="Wybierz podobiekty — szukaj po kodzie lub nazwie"
-            />
-          </AntForm.Item>
-
-          {/* Jedyna droga, którą wybór z `Select` trafia do `action`. */}
-          {podobiekty.map((id) => (
-            <input key={id} type="hidden" name="childIds" value={id} />
-          ))}
 
           <AntForm.Item className="mb-0">
             <Button
