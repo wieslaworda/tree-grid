@@ -1,10 +1,13 @@
-import { Alert, Button, Card, Popconfirm, Typography } from "antd";
+import { Alert, Button, Typography } from "antd";
 import { useEffect, useId, useRef, useState } from "react";
 import { type LoaderFunctionArgs, data, redirect } from "react-router";
 
 import { DrzewoStruktury } from "~/components/DrzewoStruktury";
 import { FormularzDrzewa } from "~/components/FormularzDrzewa";
 import { ListaObiektowZrodlowych } from "~/components/ListaObiektowZrodlowych";
+import { ObszarPrzewijania } from "~/components/ObszarPrzewijania";
+import { PotwierdzenieUsuniecia } from "~/components/PotwierdzenieUsuniecia";
+import { RamkaPanelu } from "~/components/RamkaPanelu";
 import {
   type KolumnaSlownika,
   TabelaSlownika,
@@ -30,10 +33,10 @@ import { jestWariantem } from "~/theme/tokeny";
  * wizualna zmiany `ui-drzewo`).
  *
  * Komponenty są te same, których używa widok, z danymi przykładowymi z tego
- * modułu. Kartę panelu i przyciski usuwania wzornik składa tak, jak robią to
- * dziś trasy (`Card size="small"` z ramką `obramowanieKontrolki`,
- * `Popconfirm` z wyjątkiem „Anuluj"), bo wspólnych komponentów jeszcze nie
- * ma — fazy 3–4 planu przepinają go na nie.
+ * modułu — także obudowy: karta panelu (`RamkaPanelu`), przyciski usuwania
+ * (`PotwierdzenieUsuniecia`) i ramka przewijania drzewa
+ * (`ObszarPrzewijania`), więc wzornik pokazuje to, co widoki naprawdę
+ * składają, a nie własną kopię.
  *
  * Typy loadera z `react-router`, a nie z `./+types/wzornik`: trasa jest
  * rejestrowana tylko w trybie deweloperskim, a `react-router typegen` ładuje
@@ -167,13 +170,6 @@ const PYTANIE_O_WEZEL = `Usunąć węzeł ST-01 razem z ${liczbaWezlowPodrzednyc
 )} węzłami podrzędnymi?`;
 const PYTANIE_O_DRZEWO = `Usunąć drzewo „${WYBRANE_DRZEWO.name}” razem z ${WEZLY.length} węzłami?`;
 
-/**
- * Wyjątek „Anuluj" od wypełnionych przycisków — ten sam, który trasy wpisują
- * dziś w każdym `Popconfirm` usuwania (`routes/obiekty.tsx`, tam uzasadnienie).
- * Stała modułu, bo antd porównuje propsy przycisków po referencji.
- */
-const ANULUJ_OBRYSOWANE = { color: "default", variant: "outlined" } as const;
-
 /** Koperty błędów w kształcie, w jakim emituje je API. */
 const BLAD_POLA_NAZWY: ApiErrorBody = {
   error: {
@@ -293,7 +289,7 @@ export default function Wzornik() {
                 intent="zapisz-drzewo"
                 etykietaZapisu="Zapisz zmiany"
                 obokZapisu={
-                  <UsunDrzewo pytanie={PYTANIE_O_DRZEWO} otwarteNaStart={false} />
+                  <UsunDrzewo />
                 }
               />
             </RamkaPanelu>
@@ -320,7 +316,7 @@ export default function Wzornik() {
                 intent="zapisz-drzewo-blad-ogolny"
                 etykietaZapisu="Zapisz zmiany"
                 obokZapisu={
-                  <UsunDrzewo pytanie={PYTANIE_O_DRZEWO} otwarteNaStart={false} />
+                  <UsunDrzewo />
                 }
               />
             </RamkaPanelu>
@@ -399,20 +395,15 @@ export default function Wzornik() {
         <Siatka kolumny={2}>
           <Stan nazwa="zamknięte">
             <div className="flex flex-wrap items-center gap-3">
-              <UsunDrzewo pytanie={PYTANIE_O_DRZEWO} otwarteNaStart={false} />
-              <UsunWezel pytanie={PYTANIE_O_WEZEL} otwarteNaStart={false} />
+              <UsunDrzewo />
+              <UsunWezel />
             </div>
           </Stan>
 
           <Stan nazwa="potwierdzenie otwarte (programowo)">
-            {/*
-              Dymek otwiera się nad przyciskiem (domyślne `placement`), więc
-              nad przyciskiem musi zostać miejsce na cały dymek — inaczej antd
-              przerzuci go pod spód albo przytnie na krawędzi strony.
-            */}
-            <div className="flex flex-wrap items-center gap-3 pt-36">
-              <UsunWezel pytanie={PYTANIE_O_WEZEL} otwarteNaStart />
-            </div>
+            <OtwartePoZamontowaniu>
+              <UsunWezel />
+            </OtwartePoZamontowaniu>
           </Stan>
         </Siatka>
       </Grupa>
@@ -486,32 +477,6 @@ function Stan({
 // ─── Kompozycje w kształcie z tras ───────────────────────────────────────────
 
 /**
- * Ramka panelu pod listą — złożona jak `RamkaPanelu` w `routes/drzewo.tsx`
- * (tam bez zewnętrznego marginesu; uzasadnienie `Card` i ramki
- * `obramowanieKontrolki` w `routes/obiekty.tsx`).
- */
-function RamkaPanelu({
-  tytul,
-  akcja,
-  children,
-}: {
-  tytul: string;
-  akcja?: React.ReactNode;
-  children: React.ReactNode;
-}) {
-  return (
-    <Card
-      size="small"
-      title={tytul}
-      extra={akcja}
-      className="border-tg-obramowanie-kontrolki"
-    >
-      {children}
-    </Card>
-  );
-}
-
-/**
  * Baner odmowy operacji na węzłach — złożony jak w `BudowaDrzewa`
  * (`routes/drzewo.tsx`): komunikat w tytule, naruszenia pól w opisie.
  */
@@ -528,78 +493,64 @@ function BanerOdmowy({ odmowa }: { odmowa: ApiErrorBody }) {
   );
 }
 
+/** „Usuń drzewo" — jak w `EdycjaDrzewa` (`routes/drzewo.tsx`). */
+function UsunDrzewo() {
+  return (
+    <PotwierdzenieUsuniecia
+      pytanie={PYTANIE_O_DRZEWO}
+      etykieta="Usuń drzewo"
+      onPotwierdz={nic}
+    />
+  );
+}
+
+/** „Usuń węzeł" — jak w `BudowaDrzewa` (`routes/drzewo.tsx`). */
+function UsunWezel() {
+  return (
+    <PotwierdzenieUsuniecia
+      pytanie={PYTANIE_O_WEZEL}
+      etykieta="Usuń węzeł"
+      onPotwierdz={nic}
+    />
+  );
+}
+
 /**
- * Stan dymku potwierdzenia: zamknięty albo otwierany **po zamontowaniu**,
- * a nie od pierwszego renderu — render serwerowy zostaje zamknięty, jak
- * w widoku, a dymek pokazuje się dopiero po hydracji. Sterowany, ale z
- * `onOpenChange`, więc kliknięcie obok nadal go zamyka.
+ * Otwiera dymek potwierdzenia **po zamontowaniu**, a nie od pierwszego
+ * renderu — render serwerowy zostaje zamknięty, jak w widoku, a dymek
+ * pokazuje się dopiero po hydracji. Kliknięciem w przycisk z DOM-u, a nie
+ * sterowanym `open`: `PotwierdzenieUsuniecia` celowo nie wystawia stanu
+ * dymku, a wzornik ma pokazywać komponent taki, jaki składają widoki.
+ * Kliknięcie obok nadal zamyka dymek.
+ *
+ * Kliknięcie odłożone `setTimeout` i odwoływane przy sprzątaniu: `StrictMode`
+ * (`app/entry.client.tsx`) odpala efekt dwa razy, a dwa kliknięcia
+ * otworzyłyby i od razu zamknęły dymek.
+ *
+ * `pt-36`: dymek otwiera się nad przyciskiem (domyślne `placement`), więc nad
+ * przyciskiem musi zostać miejsce na cały dymek — inaczej antd przerzuci go
+ * pod spód albo przytnie na krawędzi strony.
  */
-function useOtwarcie(otwarteNaStart: boolean) {
-  const [otwarte, ustawOtwarte] = useState(false);
+function OtwartePoZamontowaniu({ children }: { children: React.ReactNode }) {
+  const obszar = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    if (otwarteNaStart) {
-      ustawOtwarte(true);
-    }
-  }, [otwarteNaStart]);
+    const klik = window.setTimeout(() => {
+      obszar.current?.querySelector<HTMLButtonElement>("button")?.click();
+    }, 0);
 
-  return [otwarte, ustawOtwarte] as const;
-}
-
-/** „Usuń drzewo" — złożone jak w `EdycjaDrzewa` (`routes/drzewo.tsx`). */
-function UsunDrzewo({
-  pytanie,
-  otwarteNaStart,
-}: {
-  pytanie: string;
-  otwarteNaStart: boolean;
-}) {
-  const [otwarte, ustawOtwarte] = useOtwarcie(otwarteNaStart);
+    return () => window.clearTimeout(klik);
+  }, []);
 
   return (
-    <Popconfirm
-      title={pytanie}
-      description="Tej operacji nie da się cofnąć."
-      okText="Usuń"
-      cancelText="Anuluj"
-      cancelButtonProps={ANULUJ_OBRYSOWANE}
-      open={otwarte}
-      onOpenChange={ustawOtwarte}
-      onConfirm={nic}
-    >
-      <Button>Usuń drzewo</Button>
-    </Popconfirm>
-  );
-}
-
-/** „Usuń węzeł" — złożone jak w `BudowaDrzewa` (`routes/drzewo.tsx`). */
-function UsunWezel({
-  pytanie,
-  otwarteNaStart,
-}: {
-  pytanie: string;
-  otwarteNaStart: boolean;
-}) {
-  const [otwarte, ustawOtwarte] = useOtwarcie(otwarteNaStart);
-
-  return (
-    <Popconfirm
-      title={pytanie}
-      description="Tej operacji nie da się cofnąć."
-      okText="Usuń"
-      cancelText="Anuluj"
-      cancelButtonProps={ANULUJ_OBRYSOWANE}
-      open={otwarte}
-      onOpenChange={ustawOtwarte}
-      onConfirm={nic}
-    >
-      <Button>Usuń węzeł</Button>
-    </Popconfirm>
+    <div ref={obszar} className="flex flex-wrap items-center gap-3 pt-36">
+      {children}
+    </div>
   );
 }
 
 /**
- * `DrzewoStruktury` w ramce przewijania złożonej jak w `BudowaDrzewa`
+ * `DrzewoStruktury` w `ObszarPrzewijania`, jak w `BudowaDrzewa`
  * (`routes/drzewo.tsx`), z własnym stanem zaznaczenia i rozwinięć, żeby dało
  * się w nim klikać. Drzewo startuje rozwinięte w całości, jak w widoku.
  */
@@ -619,7 +570,7 @@ function DemoDrzewa({
     // Wysokość ramki daje tu klasa, bo wzornik nie ma układu widoku, z którego
     // ramka w `/drzewo` bierze resztę wysokości (wyjątek z nagłówka modułu).
     <div className="flex h-72 flex-col">
-      <div className="min-h-0 flex-1 overflow-auto border border-tg-obramowanie-kontrolki bg-tg-panel">
+      <ObszarPrzewijania>
         <DrzewoStruktury
           wezly={wezly}
           obiekty={OBIEKTY}
@@ -631,7 +582,7 @@ function DemoDrzewa({
           onPrzenies={nic}
           zajete={zajete}
         />
-      </div>
+      </ObszarPrzewijania>
     </div>
   );
 }

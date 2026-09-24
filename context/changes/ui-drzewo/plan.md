@@ -627,35 +627,35 @@ planie przesuną się.
 
 #### Automated
 
-- [x] 2.1 Typy przechodzą: `npm run typecheck`
-- [x] 2.2 Build produkcyjny przechodzi: `npm run build`
-- [x] 2.3 Po `npm run start`: `curl -s http://localhost:3000/logowanie` zawiera `--tg-odstepSekcji` i `--tg-fokus`
-- [x] 2.4 Kontrakty 1–2 z `CLAUDE.md` na `/logowanie`: `grep -c "@layer antd"` > 0, a offset ostatniego `data-css-hash` mniejszy niż offset `</head>` (port 3000 sprawdzony przez `netstat`)
+- [x] 2.1 Typy przechodzą: `npm run typecheck` — ea3922b
+- [x] 2.2 Build produkcyjny przechodzi: `npm run build` — ea3922b
+- [x] 2.3 Po `npm run start`: `curl -s http://localhost:3000/logowanie` zawiera `--tg-odstepSekcji` i `--tg-fokus` — ea3922b
+- [x] 2.4 Kontrakty 1–2 z `CLAUDE.md` na `/logowanie`: `grep -c "@layer antd"` > 0, a offset ostatniego `data-css-hash` mniejszy niż offset `</head>` (port 3000 sprawdzony przez `netstat`) — ea3922b
 
 #### Manual
 
-- [x] 2.5 Tab po `/logowanie` i `/obiekty`: kontrolki antd zachowują własny fokus (bez podwójnego obrysu)
-- [x] 2.6 Przełączenie wariantu nie przesuwa ani jednego piksela (metryki wspólne)
+- [x] 2.5 Tab po `/logowanie` i `/obiekty`: kontrolki antd zachowują własny fokus (bez podwójnego obrysu) — ea3922b
+- [x] 2.6 Przełączenie wariantu nie przesuwa ani jednego piksela (metryki wspólne) — ea3922b
 
 ### Phase 3: Wspólne komponenty i trzy widoki
 
 #### Automated
 
-- [ ] 3.1 Typy przechodzą: `npm run typecheck`
-- [ ] 3.2 Build produkcyjny przechodzi: `npm run build`
-- [ ] 3.3 Kopie zniknęły: `grep -n "function RamkaPanelu\|cancelButtonProps" app/routes/*.tsx` nic nie zwraca
-- [ ] 3.4 Brak numerycznych klas odstępu: `grep -nE "\b(p|px|py|m|mt|mb|mx|my|gap|min-h)-[0-9]+" app/routes/drzewo.tsx app/routes/kategorie.tsx app/routes/obiekty.tsx app/components/Formularz*.tsx app/components/ListaObiektowZrodlowych.tsx app/components/RamkaPanelu.tsx app/components/PotwierdzenieUsuniecia.tsx app/components/ObszarPrzewijania.tsx` nic nie zwraca
-- [ ] 3.5 Brak literałów koloru i palety Tailwinda w tych samych plikach
-- [ ] 3.6 Klasy metryk są w zbudowanym CSS: `grep -l "tg-sekcja" build/client/assets/*.css` zwraca plik
-- [ ] 3.7 Build nie zawiera wzornika: `grep -rl "wzornik" build/` nic nie zwraca
+- [x] 3.1 Typy przechodzą: `npm run typecheck`
+- [x] 3.2 Build produkcyjny przechodzi: `npm run build`
+- [x] 3.3 Kopie zniknęły: `grep -n "function RamkaPanelu\|cancelButtonProps" app/routes/*.tsx` nic nie zwraca
+- [x] 3.4 Brak numerycznych klas odstępu: `grep -nE "\b(p|px|py|m|mt|mb|mx|my|gap|min-h)-[0-9]+" app/routes/drzewo.tsx app/routes/kategorie.tsx app/routes/obiekty.tsx app/components/Formularz*.tsx app/components/ListaObiektowZrodlowych.tsx app/components/RamkaPanelu.tsx app/components/PotwierdzenieUsuniecia.tsx app/components/ObszarPrzewijania.tsx` nic nie zwraca
+- [x] 3.5 Brak literałów koloru i palety Tailwinda w tych samych plikach
+- [x] 3.6 Klasy metryk są w zbudowanym CSS: `grep -l "tg-sekcja" build/client/assets/*.css` zwraca plik
+- [x] 3.7 Build nie zawiera wzornika: `grep -rl "wzornik" build/` nic nie zwraca
 
 #### Manual
 
-- [ ] 3.8 Na `/drzewo`, `/kategorie` i `/obiekty` odstęp listy od karty jest ten sam
-- [ ] 3.9 „Usuń drzewo”, „Usuń węzeł”, „Usuń obiekt”, „Usuń kategorię” są obrysowane neutralnie i czytelne na panelu w obu wariantach; w dymku wypełnione jest tylko „Usuń”, a „Anuluj” obrysowane
-- [ ] 3.10 Każde z czterech usunięć dalej pyta i po potwierdzeniu usuwa (w tym „Usuń drzewo” nie wysyła formularza nazwy)
-- [ ] 3.11 Drzewo i lista obiektów w budowie mają tę samą ramkę i tło; lista ma jeden pasek przewijania
-- [ ] 3.12 Wiersze listy drzew, drzewa i listy obiektów mają 24 px w obu wariantach
+- [x] 3.8 Na `/drzewo`, `/kategorie` i `/obiekty` odstęp listy od karty jest ten sam
+- [x] 3.9 „Usuń drzewo”, „Usuń węzeł”, „Usuń obiekt”, „Usuń kategorię” są obrysowane neutralnie i czytelne na panelu w obu wariantach; w dymku wypełnione jest tylko „Usuń”, a „Anuluj” obrysowane
+- [x] 3.10 Każde z czterech usunięć dalej pyta i po potwierdzeniu usuwa (w tym „Usuń drzewo” nie wysyła formularza nazwy)
+- [x] 3.11 Drzewo i lista obiektów w budowie mają tę samą ramkę i tło; lista ma jeden pasek przewijania
+- [x] 3.12 Wiersze listy drzew, drzewa i listy obiektów mają 24 px w obu wariantach
 
 ### Phase 4: Stany widoku /drzewo i bramka „po”
 

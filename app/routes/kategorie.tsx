@@ -1,4 +1,4 @@
-import { Alert, Button, Card, Popconfirm, Typography } from "antd";
+import { Alert, Button, Typography } from "antd";
 import {
   data,
   redirect,
@@ -8,6 +8,8 @@ import {
 } from "react-router";
 
 import { FormularzKategorii } from "~/components/FormularzKategorii";
+import { PotwierdzenieUsuniecia } from "~/components/PotwierdzenieUsuniecia";
+import { RamkaPanelu } from "~/components/RamkaPanelu";
 import {
   type KolumnaSlownika,
   TabelaSlownika,
@@ -186,8 +188,11 @@ export default function Kategorie({
   const { kategorie, wybrana, nieznany, blad } = loaderData;
 
   return (
-    <main className="mx-auto max-w-4xl p-8">
-      <Typography.Title level={1}>Kategorie</Typography.Title>
+    // Układ i odstępy jak w `routes/obiekty.tsx` (tam uzasadnienie).
+    <main className="mx-auto flex max-w-4xl flex-col gap-tg-sekcja p-tg-strona">
+      <Typography.Title level={1} className="mb-0">
+        Kategorie
+      </Typography.Title>
 
       {/*
         Baner zamiast tabeli i panelu, a nie nad nimi — powód jak
@@ -247,7 +252,7 @@ function PanelKategorii({
       <RamkaPanelu tytul="Nowa kategoria">
         {nieznany === null ? null : (
           <Alert
-            className="mb-6"
+            className="mb-tg-element"
             type="warning"
             showIcon
             title={`Nie znaleziono kategorii o identyfikatorze „${nieznany}". Możesz dodać nową.`}
@@ -311,63 +316,28 @@ function EdycjaKategorii({
         Poziom 5: nagłówek stoi wewnątrz karty, pod jej tytułem, i nie ma być
         od niego większy.
       */}
-      <Typography.Title level={5} className="mt-8">
+      <Typography.Title level={5} className="mt-tg-sekcja">
         Usuwanie
       </Typography.Title>
 
       {/*
-        Bez własnego `<form>` i bez `danger` — powody przy usuwaniu obiektu
+        Bez własnego `<form>` — powód przy usuwaniu obiektu
         w `routes/obiekty.tsx`: potwierdzenie wysyła `intent` przez
-        `useSubmit` pod bieżący adres (z `?id=`), a czerwień palety jest
-        w gridzie zarezerwowana dla wartości „spadek". Przycisk nie zależy od
-        żadnych powiązań — do czasu S-04 nic nie odwołuje się do kategorii —
-        więc wyłącza go tylko trwająca nawigacja.
+        `useSubmit` pod bieżący adres (z `?id=`). Wygląd przycisku i zakaz
+        `danger` — w `PotwierdzenieUsuniecia`. Przycisk nie zależy od żadnych
+        powiązań — do czasu S-04 nic nie odwołuje się do kategorii — więc
+        wyłącza go tylko trwająca nawigacja.
       */}
-      <Popconfirm
-        title={`Usunąć kategorię „${kategoria.code}"?`}
-        description="Tej operacji nie da się cofnąć."
-        okText="Usuń"
-        cancelText="Anuluj"
-        // Jedyny świadomy wyjątek od wypełnionych przycisków (`PRZYCISKI`
-        // w `app/theme/antd.ts`): w potwierdzeniu nieodwracalnej operacji
-        // akcja bezpieczna musi wyglądać inaczej niż „Usuń". Para
-        // `color` + `variant`, bo samo jedno z nich nie przebija kontekstu.
-        cancelButtonProps={{ color: "default", variant: "outlined" }}
-        onConfirm={() =>
+      <PotwierdzenieUsuniecia
+        pytanie={`Usunąć kategorię „${kategoria.code}"?`}
+        etykieta="Usuń kategorię"
+        wylaczone={zajety}
+        wToku={usuwanie}
+        onPotwierdz={() =>
           wyslij({ intent: USUN }, { method: "post", preventScrollReset: true })
         }
-      >
-        <Button disabled={zajety} loading={usuwanie}>
-          Usuń kategorię
-        </Button>
-      </Popconfirm>
+      />
     </RamkaPanelu>
-  );
-}
-
-/**
- * Ramka panelu pod listą — ta sama co w `routes/obiekty.tsx` (tam powód
- * `Card size="small"` i ramki `obramowanieKontrolki`). Osobna kopia, bo panel
- * i formularz zostają osobne dla każdego słownika; wspólna jest tabela.
- */
-function RamkaPanelu({
-  tytul,
-  akcja,
-  children,
-}: {
-  tytul: string;
-  akcja?: React.ReactNode;
-  children: React.ReactNode;
-}) {
-  return (
-    <Card
-      size="small"
-      title={tytul}
-      extra={akcja}
-      className="mt-8 border-tg-obramowanie-kontrolki"
-    >
-      {children}
-    </Card>
   );
 }
 

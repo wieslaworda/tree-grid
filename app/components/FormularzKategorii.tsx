@@ -89,7 +89,7 @@ export function FormularzKategorii({
   return (
     <>
       {ogolny === undefined ? null : (
-        <Alert className="mb-6" type="error" showIcon title={ogolny} />
+        <Alert className="mb-tg-element" type="error" showIcon title={ogolny} />
       )}
 
       {/*

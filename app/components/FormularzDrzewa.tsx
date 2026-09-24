@@ -75,7 +75,7 @@ export function FormularzDrzewa({
   return (
     <>
       {ogolny === undefined ? null : (
-        <Alert className="mb-6" type="error" showIcon title={ogolny} />
+        <Alert className="mb-tg-element" type="error" showIcon title={ogolny} />
       )}
 
       {/*
@@ -119,7 +119,7 @@ export function FormularzDrzewa({
           </AntForm.Item>
 
           <AntForm.Item className="mb-0">
-            <div className="flex flex-wrap gap-3">
+            <div className="flex flex-wrap gap-tg-element">
               <Button
                 type="primary"
                 htmlType="submit"

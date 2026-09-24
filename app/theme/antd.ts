@@ -43,6 +43,15 @@ export const MOTYWY: Record<Wariant, ThemeConfig> = {
  * z kontekstu i przycisk po cichu zostanie wypełniony. Kolor tekstu na
  * wypełnieniu to `Button.primaryColor` niżej.
  *
+ * Świadomy wyjątek od tej wartości domyślnej jest jeden i mieszka
+ * w `app/components/PotwierdzenieUsuniecia.tsx`: „Anuluj” w dymku
+ * potwierdzenia usunięcia, przebity parą `color="default"` +
+ * `variant="outlined"` (akcja bezpieczna nie może wyglądać jak „Usuń”).
+ * Przycisk uruchamiający usunięcie zostaje wypełniony — obrys neutralny
+ * na nim był próbowany i cofnięty (decyzja użytkownika z 2026-09-24, zmiana
+ * `ui-drzewo`), bo na karcie w kolorze `panel` czytał się jak przezroczysty.
+ * Kolejny wyjątek dopisuje się tam albo tutaj, a nie w pliku trasy.
+ *
  * Stała modułowa z tego samego powodu co {@link MOTYWY}: świeży obiekt
  * w renderze unieważniałby memoizację `ConfigProvider`.
  */

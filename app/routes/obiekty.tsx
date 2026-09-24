@@ -1,4 +1,4 @@
-import { Alert, Button, Card, Popconfirm, Typography } from "antd";
+import { Alert, Button, Typography } from "antd";
 import {
   data,
   redirect,
@@ -8,6 +8,8 @@ import {
 } from "react-router";
 
 import { FormularzObiektu } from "~/components/FormularzObiektu";
+import { PotwierdzenieUsuniecia } from "~/components/PotwierdzenieUsuniecia";
+import { RamkaPanelu } from "~/components/RamkaPanelu";
 import {
   type KolumnaSlownika,
   TabelaSlownika,
@@ -222,12 +224,19 @@ export default function Obiekty({
   const { obiekty, wybrany, nieznany, blad } = loaderData;
 
   return (
-    <main className="mx-auto max-w-4xl p-8">
+    // Odstępy z metryk układu (`app/theme/tokeny.ts`), te same co w
+    // `/drzewo` i `/kategorie`: `gap-tg-sekcja` między tytułem, listą
+    // i panelem daje jeden odstęp listy od karty we wszystkich trzech
+    // widokach. Tytuł bez własnego dolnego marginesu (`mb-0` zeruje margines
+    // nagłówka antd), bo sumowałby się z tym odstępem.
+    <main className="mx-auto flex max-w-4xl flex-col gap-tg-sekcja p-tg-strona">
       {/*
         Bez linku „← Strona główna": do strony głównej prowadzi nazwa aplikacji
         w nagłówku powłoki (`routes/powloka.tsx`).
       */}
-      <Typography.Title level={1}>Obiekty</Typography.Title>
+      <Typography.Title level={1} className="mb-0">
+        Obiekty
+      </Typography.Title>
 
       {/*
         Baner zamiast tabeli i panelu, a nie nad nimi: pusta tabela pod
@@ -287,7 +296,7 @@ function PanelObiektu({
       <RamkaPanelu tytul="Nowy obiekt">
         {nieznany === null ? null : (
           <Alert
-            className="mb-6"
+            className="mb-tg-element"
             type="warning"
             showIcon
             title={`Nie znaleziono obiektu o identyfikatorze „${nieznany}". Możesz dodać nowy.`}
@@ -358,13 +367,13 @@ function EdycjaObiektu({
         Poziom 5: nagłówek stoi wewnątrz karty, pod jej tytułem, i nie ma być
         od niego większy.
       */}
-      <Typography.Title level={5} className="mt-8">
+      <Typography.Title level={5} className="mt-tg-sekcja">
         Usuwanie
       </Typography.Title>
 
       {odmowaUsuniecia === undefined ? null : (
         <Alert
-          className="mb-6"
+          className="mb-tg-element"
           type="error"
           showIcon
           title={odmowaUsuniecia.error.message}
@@ -373,67 +382,26 @@ function EdycjaObiektu({
 
       {/*
         Bez własnego `<form>`: przycisk nie jest przyciskiem wysyłki, tylko
-        otwiera `Popconfirm`, a dopiero potwierdzenie wysyła `intent` przez
-        `useSubmit` — pod bieżący adres, więc z `?id=` wybranego obiektu.
-        Zabezpieczeniem jest właśnie to potwierdzenie, nie kolor: przycisk
-        świadomie **nie** dostaje `danger`, bo czerwień palety jest w gridzie
-        zarezerwowana dla wartości „spadek".
+        otwiera dymek potwierdzenia, a dopiero potwierdzenie wysyła `intent`
+        przez `useSubmit` — pod bieżący adres, więc z `?id=` wybranego
+        obiektu. Wygląd przycisku i zakaz `danger` — w
+        `PotwierdzenieUsuniecia`.
       */}
-      <div className="flex flex-wrap items-center gap-3">
-        <Popconfirm
-          title={`Usunąć obiekt „${obiekt.code}"?`}
-          description="Tej operacji nie da się cofnąć."
-          okText="Usuń"
-          cancelText="Anuluj"
-          // Jedyny świadomy wyjątek od wypełnionych przycisków (`PRZYCISKI`
-          // w `app/theme/antd.ts`): w potwierdzeniu nieodwracalnej operacji
-          // akcja bezpieczna musi wyglądać inaczej niż „Usuń". Para
-          // `color` + `variant`, bo samo jedno z nich nie przebija kontekstu.
-          cancelButtonProps={{ color: "default", variant: "outlined" }}
-          onConfirm={() =>
+      <div className="flex flex-wrap items-center gap-tg-element">
+        <PotwierdzenieUsuniecia
+          pytanie={`Usunąć obiekt „${obiekt.code}"?`}
+          etykieta="Usuń obiekt"
+          wylaczone={zajety}
+          wToku={usuwanie}
+          onPotwierdz={() =>
             wyslij(
               { intent: USUN },
               { method: "post", preventScrollReset: true },
             )
           }
-        >
-          <Button disabled={zajety} loading={usuwanie}>
-            Usuń obiekt
-          </Button>
-        </Popconfirm>
+        />
       </div>
     </RamkaPanelu>
-  );
-}
-
-/**
- * Ramka panelu pod listą — oddziela formularz od tabeli nad nim.
- *
- * `Card`, a nie `section` z klasami `border`/`p-*`: odstęp wewnętrzny, grubość
- * i promień obramowania przychodzą z tokenów motywu (`size="small"` to wariant
- * gęsty, zgodny z `sizeUnit`/`sizeStep` z `app/theme/tokeny.ts`), więc w pliku
- * trasy nie ląduje żaden rozmiar. Kolor ramki to `obramowanieKontrolki`, a nie
- * domyślna `linia` karty: `linia` (1,3:1 do tła w wariancie ciemnym) jest
- * siatką tabeli i na granicy panelu zlewała się z tłem.
- */
-function RamkaPanelu({
-  tytul,
-  akcja,
-  children,
-}: {
-  tytul: string;
-  akcja?: React.ReactNode;
-  children: React.ReactNode;
-}) {
-  return (
-    <Card
-      size="small"
-      title={tytul}
-      extra={akcja}
-      className="mt-8 border-tg-obramowanie-kontrolki"
-    >
-      {children}
-    </Card>
   );
 }
 

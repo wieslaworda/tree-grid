@@ -1,6 +1,7 @@
 import { Checkbox, Input, Table, type TableColumnsType } from "antd";
 import { useEffect, useMemo, useRef, useState } from "react";
 
+import { ObszarPrzewijania } from "~/components/ObszarPrzewijania";
 import {
   type ObiektSlownika,
   TYP_PRZECIAGANEGO_OBIEKTU,
@@ -127,7 +128,7 @@ export function ListaObiektowZrodlowych({
     // wiersz listy upuszczony na listę i plik z pulpitu nie robią nic.
     // Wyróżnienie `outline` z akcentem, jak cel upuszczenia w drzewie.
     <div
-      className={`flex min-h-0 flex-1 flex-col gap-3 ${
+      className={`flex min-h-0 flex-1 flex-col gap-tg-element ${
         nadLista ? "outline outline-tg-akcent" : ""
       }`}
       onDragEnter={nadCelem}
@@ -161,7 +162,7 @@ export function ListaObiektowZrodlowych({
         }
       }}
     >
-      <div className="flex items-center gap-3">
+      <div className="flex items-center gap-tg-element">
         <Input
           allowClear
           aria-label="Filtruj obiekty po kodzie lub nazwie"
@@ -186,12 +187,11 @@ export function ListaObiektowZrodlowych({
         a kontener tylko przycina: przy `overflow-auto` każda nadwyżka ułamka
         piksela (zaokrąglenia, nagłówek, który urósł po pomiarze, np. po
         doładowaniu fontu) dokładała drugi pionowy pasek obok paska tabeli.
+        Ramka i tło wspólne z drzewem obok (`ObszarPrzewijania`).
       */}
-      <div
+      <ObszarPrzewijania
         ref={kontener}
-        className={`min-h-0 flex-1 border border-tg-obramowanie-kontrolki ${
-          wysokoscTresci === undefined ? "overflow-auto" : "overflow-hidden"
-        }`}
+        przycinanie={wysokoscTresci !== undefined}
       >
         <Table<Wiersz>
           size="small"
@@ -236,7 +236,7 @@ export function ListaObiektowZrodlowych({
                   : "Żaden obiekt nie pasuje do filtra.",
           }}
         />
-      </div>
+      </ObszarPrzewijania>
     </div>
   );
 }

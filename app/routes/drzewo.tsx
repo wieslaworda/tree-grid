@@ -1,11 +1,4 @@
-import {
-  Alert,
-  Button,
-  Card,
-  Empty,
-  Popconfirm,
-  Typography,
-} from "antd";
+import { Alert, Button, Empty, Typography } from "antd";
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
   type ShouldRevalidateFunctionArgs,
@@ -20,6 +13,9 @@ import {
 import { DrzewoStruktury } from "~/components/DrzewoStruktury";
 import { FormularzDrzewa } from "~/components/FormularzDrzewa";
 import { ListaObiektowZrodlowych } from "~/components/ListaObiektowZrodlowych";
+import { ObszarPrzewijania } from "~/components/ObszarPrzewijania";
+import { PotwierdzenieUsuniecia } from "~/components/PotwierdzenieUsuniecia";
+import { RamkaPanelu } from "~/components/RamkaPanelu";
 import {
   type KolumnaSlownika,
   TabelaSlownika,
@@ -434,8 +430,15 @@ export default function Drzewo({
     // i lista obiektów przewijają się każde u siebie. `overflow-auto` to
     // tylko zapas na niskie okno — budowa nie schodzi poniżej minimalnej
     // wysokości i wtedy przewija się cały widok.
-    <main className="flex h-full flex-col overflow-auto p-8">
-      <Typography.Title level={1}>Drzewo</Typography.Title>
+    //
+    // Odstępy z metryk układu (`app/theme/tokeny.ts`), te same co w
+    // `/kategorie` i `/obiekty`: `gap-tg-sekcja` między tytułem, listą,
+    // panelem i budową. Tytuł bez własnego dolnego marginesu (`mb-0` zeruje
+    // margines nagłówka antd), bo sumowałby się z tym odstępem.
+    <main className="flex h-full flex-col gap-tg-sekcja overflow-auto p-tg-strona">
+      <Typography.Title level={1} className="mb-0">
+        Drzewo
+      </Typography.Title>
 
       {/*
         Baner zamiast listy i budowy, a nie nad nimi — powód jak
@@ -447,7 +450,7 @@ export default function Drzewo({
         // `min-h-0` jest nośne: bez niego kontener flex rośnie do pełnej
         // wysokości treści drzewa i listy, więc zamiast ich własnych pasków
         // przewijania przewijałaby się cała strona.
-        <div className="flex min-h-0 flex-1 flex-col gap-6">
+        <div className="flex min-h-0 flex-1 flex-col gap-tg-sekcja">
           <section aria-label="Lista drzew">
             {/*
               `drzewa` prosto z `loaderData`: tożsamość tablicy zmienia się
@@ -577,12 +580,10 @@ function EdycjaDrzewa({
         pod polem.
 
         „Usuń drzewo” stoi w rzędzie „Zapisz zmiany”, czyli wewnątrz `<form>`
-        zmiany nazwy, ale go nie wysyła: `Button` antd ma domyślnie
-        `type="button"`. Bez `danger` — powody przy usuwaniu obiektu
-        w `routes/obiekty.tsx`: potwierdzenie wysyła `intent` przez
-        `useSubmit`, a czerwień palety jest w gridzie zarezerwowana dla
-        wartości „spadek". Adres wysyłki jawny, z `?drzewo=` tego drzewa —
-        z niego `action` bierze identyfikator.
+        zmiany nazwy, ale go nie wysyła — powód i wygląd przycisku
+        w `PotwierdzenieUsuniecia`. Potwierdzenie wysyła `intent` przez
+        `useSubmit`; adres wysyłki jawny, z `?drzewo=` tego drzewa — z niego
+        `action` bierze identyfikator.
       */}
       <FormularzDrzewa
         drzewo={drzewo}
@@ -590,16 +591,12 @@ function EdycjaDrzewa({
         intent={ZAPISZ_DRZEWO}
         etykietaZapisu="Zapisz zmiany"
         obokZapisu={
-          <Popconfirm
-            title={pytanieOUsuniecieDrzewa(drzewo.name, liczbaWezlow)}
-            description="Tej operacji nie da się cofnąć."
-            okText="Usuń"
-            cancelText="Anuluj"
-            // Ten sam świadomy wyjątek od wypełnionych przycisków co
-            // w `routes/obiekty.tsx`: akcja bezpieczna w potwierdzeniu
-            // nieodwracalnej operacji musi wyglądać inaczej niż „Usuń".
-            cancelButtonProps={{ color: "default", variant: "outlined" }}
-            onConfirm={() =>
+          <PotwierdzenieUsuniecia
+            pytanie={pytanieOUsuniecieDrzewa(drzewo.name, liczbaWezlow)}
+            etykieta="Usuń drzewo"
+            wylaczone={zajety}
+            wToku={usuwanie}
+            onPotwierdz={() =>
               wyslij(
                 { intent: USUN_DRZEWO },
                 {
@@ -609,40 +606,10 @@ function EdycjaDrzewa({
                 },
               )
             }
-          >
-            <Button disabled={zajety} loading={usuwanie}>
-              Usuń drzewo
-            </Button>
-          </Popconfirm>
+          />
         }
       />
     </RamkaPanelu>
-  );
-}
-
-/**
- * Ramka panelu pod listą — ta sama co w `routes/kategorie.tsx` (tam powód
- * osobnej kopii) i `routes/obiekty.tsx` (tam powód `Card size="small"`
- * i ramki `obramowanieKontrolki`).
- */
-function RamkaPanelu({
-  tytul,
-  akcja,
-  children,
-}: {
-  tytul: string;
-  akcja?: React.ReactNode;
-  children: React.ReactNode;
-}) {
-  return (
-    <Card
-      size="small"
-      title={tytul}
-      extra={akcja}
-      className="border-tg-obramowanie-kontrolki"
-    >
-      {children}
-    </Card>
   );
 }
 
@@ -857,12 +824,16 @@ function BudowaDrzewa({
 
   return (
     <>
-      <div className="flex min-h-60 flex-1 gap-6">
+      {/*
+        Minimalna wysokość budowy to liczba wierszy z motywu
+        (`wierszeMinimalnejBudowy` × `wysokoscWiersza`), a nie piksele.
+      */}
+      <div className="flex min-h-tg-budowa flex-1 gap-tg-sekcja">
         <section
           aria-label="Drzewo użytkownika"
-          className="flex min-h-0 flex-1 flex-col gap-3"
+          className="flex min-h-0 flex-1 flex-col gap-tg-element"
         >
-          <div className="flex flex-wrap items-center gap-3">
+          <div className="flex flex-wrap items-center gap-tg-element">
             <Button
               onClick={dodaj}
               disabled={wybranyObiekt === null || zajete}
@@ -871,13 +842,9 @@ function BudowaDrzewa({
               {kodWezla === null ? "Dodaj na najwyższy poziom" : `Dodaj pod: ${kodWezla}`}
             </Button>
 
-            {/*
-              Bez `danger` — powód przy usuwaniu obiektu w `routes/obiekty.tsx`:
-              czerwień palety jest w gridzie zarezerwowana dla wartości
-              „spadek", a zabezpieczeniem jest potwierdzenie.
-            */}
-            <Popconfirm
-              title={
+            {/* Wygląd i zakaz `danger` — w `PotwierdzenieUsuniecia`. */}
+            <PotwierdzenieUsuniecia
+              pytanie={
                 wybranyWezel === null
                   ? ""
                   : pytanieOUsuniecie(
@@ -885,23 +852,11 @@ function BudowaDrzewa({
                       liczbaWezlowPodrzednych(wezly, wybranyWezel.id),
                     )
               }
-              description="Tej operacji nie da się cofnąć."
-              okText="Usuń"
-              cancelText="Anuluj"
-              // Ten sam świadomy wyjątek od wypełnionych przycisków co
-              // w `routes/obiekty.tsx`: akcja bezpieczna w potwierdzeniu
-              // nieodwracalnej operacji musi wyglądać inaczej niż „Usuń".
-              cancelButtonProps={{ color: "default", variant: "outlined" }}
-              disabled={wybranyWezel === null || zajete}
-              onConfirm={usun}
-            >
-              <Button
-                disabled={wybranyWezel === null || zajete}
-                loading={intentWToku === USUN}
-              >
-                Usuń węzeł
-              </Button>
-            </Popconfirm>
+              etykieta="Usuń węzeł"
+              wylaczone={wybranyWezel === null || zajete}
+              wToku={intentWToku === USUN}
+              onPotwierdz={usun}
+            />
           </div>
 
           {odmowa === null ? null : (
@@ -913,7 +868,7 @@ function BudowaDrzewa({
             />
           )}
 
-          <div className="min-h-0 flex-1 overflow-auto border border-tg-obramowanie-kontrolki bg-tg-panel">
+          <ObszarPrzewijania>
             <DrzewoStruktury
               wezly={wezly}
               obiekty={obiekty}
@@ -925,7 +880,7 @@ function BudowaDrzewa({
               onPrzenies={przenies}
               zajete={zajete}
             />
-          </div>
+          </ObszarPrzewijania>
         </section>
 
         <section
