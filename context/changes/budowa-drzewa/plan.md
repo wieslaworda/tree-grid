@@ -24,20 +24,33 @@ zbudowały jedno drzewo robocze na konto. Fazy 4, 5 i 8 zamieniają je w listę
 Nagłówek drzewa to wyłącznie nazwa (unikalna w obrębie konta) i identyfikator.
 Na górze `/drzewo` stoi kompaktowa lista drzew z panelem dodawania, zmiany nazwy
 i usuwania, a budowa działa na drzewie wybranym z listy. Lista obiektów dostaje
-filtr „Pokaż obiekty nieużyte w drzewie” i przyjmuje upuszczony węzeł drzewa
+filtr „Bez obiektów drzewa” (w roadmapie „Pokaż obiekty nieużyte w drzewie”)
+i przyjmuje upuszczony węzeł drzewa
 jako polecenie usunięcia go z poddrzewem, bez potwierdzenia. Istniejące drzewo
 robocze każdego konta staje się jego pierwszym nazwanym drzewem.
 
 **Szkic zapisywany z nazwą (fazy 6–7, prośba użytkownika z 2026-09-23; dawna
 faza 6 staje się fazą 8).** Panel drzewa dostaje wygląd i nawigację Obiektów
 i Kategorii: kartę pod listą z tytułem „Nowe drzewo” albo „Edycja: <nazwa>”,
-przyciskiem „Nowe drzewo” w nagłówku i sekcją „Usuwanie”. Struktura przestaje
+przyciskiem „Nowe drzewo” w nagłówku i „Usuń drzewo” obok „Zapisz zmiany”
+(w pierwszej wersji planu — osobna sekcja „Usuwanie”). Struktura przestaje
 być zapisywana operacja po operacji. Budowa zmienia **szkic** w przeglądarce,
 sprawdzając każdą operację od razu tymi samymi regułami co API, a „Dodaj
 drzewo” i „Zapisz zmiany” zapisują nazwę i całą strukturę jednym żądaniem. API
 waliduje całość ponownie, zachowuje identyfikatory istniejących węzłów i odrzuca
 zapis na nieaktualnej wersji drzewa. Niezapisany szkic chroni dialog przy
 wyjściu z widoku i ostrzeżenie przeglądarki przy odświeżeniu.
+
+**Zmiany widoku przed fazami 6–7 (commit `7cf1cfb`, prośby użytkownika
+z 2026-09-24).** Część fazy 7 i cała faza 8 weszły wcześniej, na dzisiejszym
+API pojedynczych operacji, bez szkicu: karta pod listą w układzie Kategorii
+(z „Usuń drzewo” w rzędzie „Zapisz zmiany” zamiast sekcji „Usuwanie”), tryb
+`/drzewo?nowe`, drzewo rozwinięte w całości po wyborze, widok mieszczący się
+w oknie z osobnym przewijaniem drzewa i listy, pole wyboru „Bez obiektów
+drzewa” i usuwanie węzła przeciągnięciem na listę. Do fazy 7 „Zapisz zmiany”
+zapisuje samą nazwę, tryb nowego drzewa ma nieaktywną budowę, a usunięcie
+przeciągnięciem trafia do bazy od razu. Fazy 7 i 8 opisują niżej, co z tego
+już jest i co przepinają na szkic.
 
 ## Current State Analysis
 
@@ -177,6 +190,39 @@ Stan po fazie 5 (commit `48dc32e`), zweryfikowany przy planowaniu faz 6–7:
   ale nie przekierowania po `action` (`:1018-1060`) ani fetchery. W `app/` nie
   ma dziś żadnej blokady nawigacji.
 
+Stan po commicie `7cf1cfb` (2026-09-24), punkt wyjścia faz 6–7 w widoku:
+
+- **Panel to jeden formularz naraz, jak w Kategoriach.** `PanelDrzew`
+  (`app/routes/drzewo.tsx`) z `key` z `kluczPanelu` (`nowe` albo `[id, nazwa]`):
+  bez wybranego drzewa `RamkaPanelu` „Nowe drzewo” z `FormularzDrzewa`
+  i „Dodaj drzewo”; przy wybranym `EdycjaDrzewa` — tytuł „Edycja: <nazwa>”,
+  w nagłówku `Button href="/drzewo?nowe"` z `useLinkClickHandler` „Nowe
+  drzewo”, `FormularzDrzewa` z „Zapisz zmiany” i „Usuń drzewo” w `Popconfirm`
+  podanym przez `obokZapisu` (ten sam rząd, wewnątrz `<form>` zmiany nazwy,
+  `type="button"`). `useOstatniIntent` nie istnieje. „Zapisz zmiany” to nadal
+  `zapisz-drzewo` → `renameTree`, czyli sama nazwa.
+- **Tryb nowego drzewa już jest.** `PARAMETR_NOWEGO = "nowe"`, `ADRES_NOWEGO`;
+  loader nie przekierowuje przy `?nowe`. W tym trybie (oraz na koncie bez drzew)
+  pod kartą stoi `Empty` „Wpisz nazwę i kliknij „Dodaj drzewo”, żeby zacząć
+  budować strukturę.” — budowa jest nieaktywna, bo polecenia na węzłach
+  potrzebują istniejącego drzewa. `?drzewo=` spoza listy daje kartę „Nowe
+  drzewo” i ostrzeżenie „Nie znaleziono drzewa „X”. Wybierz drzewo z listy.”
+  w miejscu budowy.
+- **Układ mieści się w oknie.** Lista drzew na całą szerokość, pod nią karta,
+  pod kartą budowa z `min-h-60` (240 px, 10 wierszy po 24 px). Kontener nad
+  budową ma nośne `min-h-0` — bez niego rośnie do wysokości treści i zamiast
+  pasków drzewa i listy przewija się strona; `main` ma `overflow-auto` tylko
+  jako zapas na niskie okno.
+- **Drzewo startuje rozwinięte.** `rozwiniete` w `BudowaDrzewa` zaczyna od
+  `wezlyZDziecmi(wezly)` (`app/lib/drzewo.ts`); `key` z identyfikatora drzewa
+  rozwija wszystko przy każdym wyborze i odświeżeniu, a zwinięcia przeżywają
+  rewalidację.
+- **Lista obiektów ma jeden pasek przewijania.** Kontener
+  `ListaObiektowZrodlowych` przewija tylko do pierwszego pomiaru, potem
+  `overflow-hidden`, a przewija ciało tabeli (`scroll.y`); pomiar biegnie także
+  przy zmianie rozmiaru tabeli.
+- **Faza 8 działa na API pojedynczych operacji** — szczegóły w sekcji fazy 8.
+
 ## Desired End State
 
 Po wykonaniu planu:
@@ -232,8 +278,10 @@ Po fazach 4, 5 i 8 (tam, gdzie się różnią, zastępują punkty 2, 3 i 10):
     poprawny, a limit 2000 węzłów dotyczy jednego drzewa.
 17. Drzewo innego konta — przez API i przez ręcznie wpisany `?drzewo=` — jest
     nieistniejące (404 w API, ostrzeżenie „Nie znaleziono drzewa” w widoku).
-18. Pole wyboru „Pokaż obiekty nieużyte w drzewie” zawęża listę obiektów do
-    tych, których nie ma w wybranym drzewie, razem z filtrem tekstowym.
+18. Pole wyboru „Bez obiektów drzewa” (roadmapa MS-06: „Pokaż obiekty
+    nieużyte w drzewie”; etykieta wybrana przez użytkownika 2026-09-24), po
+    prawej stronie pola „Filtruj po kodzie lub nazwie…”, zawęża listę obiektów
+    do tych, których nie ma w wybranym drzewie, razem z filtrem tekstowym.
 19. Węzeł przeciągnięty z drzewa na listę obiektów znika z poddrzewem bez
     potwierdzenia; przeciąganie w drzewie i z listy do drzewa działa jak po
     fazie 3.
@@ -251,9 +299,12 @@ Po fazach 6–8 (tam, gdzie się różnią, zastępują punkty 14, 16 i 19):
     niż zapisana — 409 `tree_stale`. Węzły, które przetrwały zapis, zachowują
     `id`, także gdy zmieniły rodzica, a ich dawne poddrzewo zostało usunięte.
 22. Pod listą drzew stoi karta jak w Kategoriach: „Edycja: <nazwa>” z przyciskiem
-    „Nowe drzewo” w nagłówku, polem nazwy, „Zapisz zmiany” i sekcją „Usuwanie”;
-    w trybie nowego drzewa (`/drzewo?nowe`, a także konto bez drzew) — „Nowe
-    drzewo” z „Dodaj drzewo”. Pod kartą budowa, aktywna w obu trybach.
+    „Nowe drzewo” w nagłówku, jednym polem nazwy i rzędem „Zapisz zmiany” +
+    „Usuń drzewo” (bez osobnej sekcji „Usuwanie” — decyzja użytkownika
+    z 2026-09-24); w trybie nowego drzewa (`/drzewo?nowe`, a także konto bez
+    drzew) — „Nowe drzewo” z „Dodaj drzewo”. Pod kartą budowa, aktywna w obu
+    trybach. Karta i tryb nowego są w kodzie od `7cf1cfb`; aktywna budowa
+    w trybie nowego przychodzi ze szkicem (faza 7).
 23. Dodawanie (przyciskiem i przeciągnięciem, z dialogiem gałęzi), przesuwanie
     i usuwanie węzła zmieniają szkic. Każda operacja jest sprawdzana od razu,
     z tymi samymi komunikatami co przed fazą 6, a odmowa nie zmienia szkicu.
@@ -262,8 +313,17 @@ Po fazach 6–8 (tam, gdzie się różnią, zastępują punkty 14, 16 i 19):
 25. Szkic ze zmianami oznacza karta („Niezapisane zmiany”). Wyjście z widoku
     albo przejście na inne drzewo pyta o porzucenie zmian; odświeżenie
     i zamknięcie karty dają ostrzeżenie przeglądarki.
-26. Filtr „nieużyte” i usuwanie przeciągnięciem na listę (faza 8) działają na
-    szkicu; usunięcie przeciągnięciem trafia do bazy dopiero z zapisem.
+26. Filtr „Bez obiektów drzewa” i usuwanie przeciągnięciem na listę (faza 8)
+    działają na szkicu; usunięcie przeciągnięciem trafia do bazy dopiero
+    z zapisem. Do fazy 7 (stan `7cf1cfb`) oba działają na drzewie z bazy,
+    a usunięcie przeciągnięciem idzie do API od razu.
+27. Wybrane drzewo otwiera się rozwinięte w całości — przy każdym wyborze
+    z listy i przy odświeżeniu; zwinięte ręcznie gałęzie zostają zwinięte po
+    kolejnych operacjach.
+28. Widok mieści się w oknie: drzewo i lista obiektów wypełniają wysokość pod
+    kartą i przewijają się każde własnym pionowym paskiem (lista — dokładnie
+    jednym). Dopiero gdy budowa nie mieści minimum 240 px, przewija się cały
+    widok.
 
 ### Key Discoveries:
 
@@ -334,7 +394,10 @@ Po fazach 6–8 (tam, gdzie się różnią, zastępują punkty 14, 16 i 19):
 - **Żadnego potwierdzenia przy usuwaniu przeciągnięciem i żadnego „cofnij”**
   — decyzja użytkownika (MS-07); potwierdzenie mają „Usuń węzeł” i „Usuń
   drzewo”. Od fazy 7 usunięcie (każde) zmienia tylko szkic, więc do zapisu da
-  się je porzucić razem z resztą zmian — ale nie cofnąć pojedynczo.
+  się je porzucić razem z resztą zmian — ale nie cofnąć pojedynczo. Do fazy 7
+  (stan `7cf1cfb`) usunięcie przeciągnięciem idzie od razu do API, więc
+  przypadkowe upuszczenie węzła na listę jest nieodwracalne — ryzyko przyjęte
+  do czasu szkicu.
 - **Żadnego przycisku „Odrzuć zmiany”, autozapisu ani historii szkicu.** Karta
   ma tylko „Dodaj drzewo” / „Zapisz zmiany” (prośba użytkownika); szkic porzuca
   się, wychodząc z widoku po potwierdzeniu. Szkic nie przeżywa odświeżenia
@@ -419,6 +482,12 @@ faza 7 przepina widok, faza 8 przenosi na szkic filtr i usuwanie
 przeciągnięciem. Między fazą 6 a 7 widok `/drzewo` nie zapisuje — ten sam
 świadomy koszt co między fazami 4 i 5.
 
+Kolejność faz 7 i 8 odwróciła się częściowo w commicie `7cf1cfb`: wygląd karty
+z fazy 7 i cała faza 8 weszły przed fazą 6, na API pojedynczych operacji. Faza
+7 nie buduje więc karty ani filtra od zera, tylko przepina gotowy widok na
+szkic — w tym `usunWezel` (jedna ścieżka „Usuń węzeł” i upuszczenia na
+listę) z fetchera na zmianę szkicu.
+
 ## Critical Implementation Details
 
 **Timing & lifecycle.** Każda operacja zapisu na drzewie otwiera transakcję
@@ -470,7 +539,10 @@ Handlery listy nie mogą dotykać typu obiektu, a handlery drzewa nie dotykają
 typu węzła. **Od fazy 8** węzeł znika ze szkicu synchronicznie w `drop`, czyli
 przed `dragend` rc-tree — usunięcie ze szkicu trzeba odłożyć do następnego
 zadania (np. `setTimeout(…, 0)`), żeby rc-tree dokończył `cleanDragState` na
-węźle, który jeszcze jest w DOM-ie.
+węźle, który jeszcze jest w DOM-ie. W kodzie (`upuscWezel` w
+`app/routes/drzewo.tsx`, `7cf1cfb`) odłożenie jest już teraz, przy wysyłce
+fetcherem: sama wysyłka przerenderowuje drzewo (stan zajętości, `draggable`
+wyłączone) przed `dragend`. Przy przepięciu na szkic zostaje bez zmian.
 
 **State sequencing (zapis całości, faza 6).** Zapis idzie w jednej transakcji,
 ale w trzech krokach `SaveChanges` w stałej kolejności: **wstaw nowe węzły →
@@ -1415,6 +1487,11 @@ Reguły operacji w przeglądarce, budowa na szkicu bez fetchera, karta drzewa po
 listą w układzie Kategorii z trybem nowego drzewa, zapis nazwy i struktury
 jednym formularzem oraz ochrona niezapisanego szkicu.
 
+Karta, tryb `/drzewo?nowe`, układ wysokości i startowe rozwinięcie są w kodzie
+od `7cf1cfb` (Current State Analysis, „Stan po commicie `7cf1cfb`”). W tej
+fazie zostaje: szkic i jego reguły, struktura w formularzu karty, aktywna
+budowa w trybie nowego drzewa, znacznik „Niezapisane zmiany” i ochrona szkicu.
+
 ### Changes Required:
 
 #### 1. Klient API zapisu
@@ -1474,6 +1551,8 @@ wysyłką.
 (tylko przy edycji), wysyłane ukrytymi polami `nodes` i `version` — wzorzec
 ukrytych pól `childIds` w `FormularzObiektu`. Błędy pól `nodes` i `version`
 oraz odmowy 409 trafiają do banera nad polem, nazwa — pod pole, jak dotąd.
+Właściwość `obokZapisu` (przyciski w rzędzie przycisku wysyłki, dziś „Usuń
+drzewo”) jest od `7cf1cfb` i zostaje.
 
 #### 4. Ochrona niezapisanego szkicu
 
@@ -1497,29 +1576,38 @@ aktywna także przed pierwszym zapisem.
 
 **Contract**:
 
-- Parametr `PARAMETR_NOWEGO = "nowe"`, adres `/drzewo?nowe` dosłowny.
+- Parametr `PARAMETR_NOWEGO = "nowe"`, adres `/drzewo?nowe` dosłowny
+  (`ADRES_NOWEGO`) — **jest od `7cf1cfb`**.
 - `loader`: `?nowe` albo brak parametru przy pustej liście drzew → tryb
-  nowego drzewa (bez przekierowania, pusty szkic). Brak parametru przy
-  niepustej liście → przekierowanie na pierwsze drzewo, jak dotąd.
-  `?drzewo=` spoza listy → ostrzeżenie w karcie trybu nowego („Nie znaleziono
-  drzewa „X”. Możesz dodać nowe.” — wzorzec Kategorii), bez żadnych danych.
-  Własne drzewo → węzły i wersja z `getTreeNodes`.
-- Układ jak w `routes/kategorie.tsx`: tytuł, `TabelaSlownika<UserTree>` na
-  całą szerokość (`naStronie={5}`, pusta lista: „Nie masz jeszcze żadnego
-  drzewa. Dodaj pierwsze w panelu poniżej.”), pod nią karta `Card
-  size="small"` w ramce `obramowanieKontrolki` (własna kopia `RamkaPanelu`,
-  jak w Kategoriach), pod kartą budowa. Budowa ma minimalną wysokość
-  wyliczoną z `METRYKI.wysokoscWiersza` razy liczba wierszy (stała w widoku
-  z komentarzem, bez literału w pikselach), a widok przewija się pionowo, gdy
-  okno jest niższe.
-- Karta w trybie nowego: tytuł „Nowe drzewo”, bez przycisku w nagłówku,
-  `FormularzDrzewa` z „Dodaj drzewo”. Karta wybranego drzewa: tytuł „Edycja:
-  <nazwa>”, w nagłówku znacznik „Niezapisane zmiany” (tylko przy zmianach,
-  tekst drugorzędny z motywu) i `Button href="/drzewo?nowe"`
-  z `useLinkClickHandler` „Nowe drzewo”, `FormularzDrzewa` z „Zapisz
-  zmiany”, nagłówek poziomu 5 „Usuwanie” i „Usuń drzewo” w `Popconfirm` bez
-  `danger`, z liczbą węzłów zapisanych w bazie. Jeden formularz naraz, więc
-  `useOstatniIntent` znika.
+  nowego drzewa (bez przekierowania) — **jest**; w tej fazie dochodzi pusty
+  szkic zamiast `Empty` pod kartą. Brak parametru przy niepustej liście →
+  przekierowanie na pierwsze drzewo, jak dotąd. `?drzewo=` spoza listy →
+  karta „Nowe drzewo” i ostrzeżenie „Nie znaleziono drzewa „X”. Wybierz
+  drzewo z listy.” w miejscu budowy, bez żadnych danych — **tak jest w kodzie**
+  i tak zostaje (nie w karcie, jak w Kategoriach). Własne drzewo → węzły
+  i wersja z `getTreeNodes`.
+- Układ jak w `routes/kategorie.tsx` — **jest**: tytuł,
+  `TabelaSlownika<UserTree>` na całą szerokość (`naStronie={5}`, pusta lista:
+  „Nie masz jeszcze żadnego drzewa. Dodaj pierwsze w panelu poniżej.”), pod
+  nią karta `Card size="small"` w ramce `obramowanieKontrolki` (własna kopia
+  `RamkaPanelu`, jak w Kategoriach), pod kartą budowa. Budowa ma minimalną
+  wysokość `min-h-60` (240 px, 10 wierszy po `METRYKI.wysokoscWiersza`),
+  kontener nad nią nośne `min-h-0`, a `main` przewija się pionowo, gdy okno
+  jest niższe. Drzewo i lista przewijają się każde u siebie.
+- Karta w trybie nowego — **jest**: tytuł „Nowe drzewo”, bez przycisku
+  w nagłówku, `FormularzDrzewa` z „Dodaj drzewo”. Karta wybranego drzewa —
+  **jest poza znacznikiem**: tytuł „Edycja: <nazwa>”, w nagłówku
+  `Button href="/drzewo?nowe"` z `useLinkClickHandler` „Nowe drzewo”,
+  `FormularzDrzewa` z „Zapisz zmiany”, a w tym samym rzędzie (`obokZapisu`)
+  „Usuń drzewo” w `Popconfirm` bez `danger`, z liczbą węzłów zapisanych
+  w bazie. Bez nagłówka „Usuwanie” — decyzja użytkownika z 2026-09-24.
+  `useOstatniIntent` już nie ma. W tej fazie dochodzi w nagłówku znacznik
+  „Niezapisane zmiany” (tylko przy zmianach, tekst drugorzędny z motywu),
+  obok przycisku „Nowe drzewo”.
+- Startowe rozwinięcie — **jest**: `rozwiniete` zaczyna od
+  `wezlyZDziecmi(...)`, więc drzewo otwiera się rozwinięte w całości.
+  W szkicu liczone ze stanu startowego szkicu; `key` = `<id>:<wersja>`
+  rozwija wszystko także po udanym zapisie.
 - Szkic, znacznik zmian i `OchronaSzkicu` w komponencie z `key` =
   `nowe` / `<id>:<wersja>` obejmującym kartę i budowę. `BudowaDrzewa`
   dostaje szkic i funkcję jego zmiany zamiast fetchera; odmowa operacji to
@@ -1527,7 +1615,10 @@ aktywna także przed pierwszym zapisem.
   rozwinięcie rodzica po dodaniu lub przeniesieniu — od razu, bez
   `OczekujaceRozwiniecie`. Zaznaczenia, dialog gałęzi, „Dodaj pod: …” i „Usuń
   węzeł” z potwierdzeniem zostają. `DrzewoStruktury` i
-  `ListaObiektowZrodlowych` bez zmian właściwości; `zajete` = trwa zapis.
+  `ListaObiektowZrodlowych` bez zmian właściwości (także tych z fazy 8,
+  obecnych od `7cf1cfb`: `uzyteObiekty`, `onUpuscWezel`, `zajete`) — zmienia
+  się tylko to, co widok w nie podaje: `uzyteObiekty` ze szkicu, `usunWezel`
+  zmienia szkic zamiast wysyłać fetcherem; `zajete` = trwa zapis.
 - `action`: `requireSameOrigin` pierwszy; `dodaj-drzewo` (nazwa + `nodes`
   → `createTree` → przekierowanie na nowe drzewo), `zapisz-drzewo`
   (`?drzewo=`, nazwa, `version`, `nodes` → `saveTree` → przekierowanie na to
@@ -1570,7 +1661,11 @@ automatycznej zatrzymaj się i poczekaj na ręczne potwierdzenie. Polecenie
 i `app/components/OchronaSzkicu.tsx`. Przed weryfikacją przez tunel sprawdź,
 czy portu 3000 nie trzyma stary proces. Weryfikacja ręczna fazy 5 (5.5–5.14)
 idzie razem z tą — tam, gdzie mówi o panelu obok listy albo „Zapisz nazwę”,
-sprawdza się kartę pod listą i „Zapisz zmiany”.
+sprawdza się kartę pod listą i „Zapisz zmiany”. W kryterium o wyglądzie karty
+„sekcja „Usuwanie”” oznacza „Usuń drzewo” w rzędzie „Zapisz zmiany” (decyzja
+użytkownika z 2026-09-24, stan `7cf1cfb`), a do kryterium o niskim oknie
+dochodzi: wybrane drzewo otwiera się rozwinięte, lista obiektów ma jeden pasek
+przewijania.
 
 ---
 
@@ -1578,11 +1673,18 @@ sprawdza się kartę pod listą i „Zapisz zmiany”.
 
 ### Overview
 
-Pole wyboru „Pokaż obiekty nieużyte w drzewie” na liście obiektów (MS-06) oraz
-lista jako cel upuszczenia węzła, które usuwa go z poddrzewem bez
-potwierdzenia (MS-07). Od fazy 7 oba działają na **szkicu**: filtr liczy
-obiekty ze szkicu, a usunięcie przeciągnięciem trafia do bazy z „Zapisz
-zmiany”.
+Pole wyboru „Bez obiektów drzewa” na liście obiektów (MS-06; w roadmapie
+„Pokaż obiekty nieużyte w drzewie”) oraz lista jako cel upuszczenia węzła,
+które usuwa go z poddrzewem bez potwierdzenia (MS-07). Od fazy 7 oba działają
+na **szkicu**: filtr liczy obiekty ze szkicu, a usunięcie przeciągnięciem
+trafia do bazy z „Zapisz zmiany”.
+
+**Zrobione przed fazami 6–7, w commicie `7cf1cfb`**, na API pojedynczych
+operacji: filtr liczy obiekty z węzłów wczytanych z bazy, a upuszczony węzeł
+idzie `intent` `usun` fetcherem, czyli od razu `DELETE
+/trees/{treeId}/nodes/{id}`. Kontrakt niżej opisuje kod. Po fazie 7 zostaje
+w nim jedna zmiana: `usunWezel` w widoku zmienia szkic, a `uzyteObiekty`
+liczy się ze szkicu (sekcja fazy 7).
 
 ### Changes Required:
 
@@ -1594,9 +1696,10 @@ zmiany”.
 
 **Contract**: `TYP_PRZECIAGANEGO_WEZLA = "application/x-treegrid-node"`;
 `obiektyUzyteWDrzewie(wezly) → ReadonlySet<number>` (obiekty wszystkich
-węzłów, na każdej głębokości); odczyt identyfikatora z `dataTransfer` dla
-podanego typu z tą samą kontrolą dodatniej liczby całkowitej co dziś
-`przeciaganyObiekt` — jedna funkcja dla obu kierunków.
+węzłów, na każdej głębokości); `przeciaganyTyp(dataTransfer, typ)`
+i `identyfikatorZPrzeciagania(dataTransfer, typ)` z kontrolą dodatniej liczby
+całkowitej — jedna para funkcji dla obu kierunków; dawne `przeciaganyObiekt`
+w `DrzewoStruktury` zniknęło na ich rzecz.
 
 #### 2. Węzeł jako źródło przeciągania poza drzewo
 
@@ -1619,17 +1722,22 @@ upuszczonego węzła.
 
 **Contract**:
 
-- antd `Checkbox` „Pokaż obiekty nieużyte w drzewie” przy polu filtra,
-  domyślnie odznaczony, stan w komponencie; właściwość `uzyteObiekty`. Oba
-  filtry łączone koniunkcją. Tekst pustej listy przy zaznaczonym polu i bez
-  trafień: „Wszystkie pasujące obiekty są już użyte w tym drzewie.”.
-- Cały komponent jest celem upuszczenia wyłącznie dla
+- antd `Checkbox` „Bez obiektów drzewa” w jednym rzędzie z polem filtra, po
+  jego prawej stronie (`shrink-0`, pole tekstowe oddaje miejsce), domyślnie
+  odznaczony, stan w komponencie; właściwość `uzyteObiekty`. Oba filtry
+  łączone koniunkcją i nie zmieniają zaznaczenia. Tekst pustej listy przy
+  zaznaczonym polu, gdy fraza coś trafia, ale wszystko jest w drzewie:
+  „Wszystkie pasujące obiekty są już użyte w tym drzewie.”; gdy fraza nic nie
+  trafia — dotychczasowe „Żaden obiekt nie pasuje do filtra.”.
+- Cały komponent (pole filtra i tabela) jest celem upuszczenia wyłącznie dla
   `TYP_PRZECIAGANEGO_WEZLA`: `dragenter`/`dragover` z `preventDefault`
-  i `dropEffect = "move"` (nie przy `zajete`), wyróżnienie klasami `tg-*`,
-  `dragleave` z kontrolą `relatedTarget` jak strefa najwyższego poziomu
-  w `DrzewoStruktury`, `drop` → `onUpuscWezel(id)`. Właściwości
-  `onUpuscWezel`, `zajete` (trwa zapis karty). Wiersze jako źródło
-  przeciągania bez zmian.
+  i `dropEffect = "move"` (nie przy `zajete`), wyróżnienie
+  `outline outline-tg-akcent` jak cel upuszczenia w drzewie, `dragleave`
+  z kontrolą `relatedTarget` jak strefa najwyższego poziomu
+  w `DrzewoStruktury`, `drop` → `onUpuscWezel(id)`; `preventDefault` w `drop`
+  także przy `zajete`, żeby pusty `text/plain` rc-tree nie wkleił się do pola
+  filtra. Właściwości `onUpuscWezel`, `zajete` (dziś: trwa operacja fetchera;
+  od fazy 7: trwa zapis karty). Wiersze jako źródło przeciągania bez zmian.
 
 #### 4. Usunięcie upuszczonego węzła
 
@@ -1638,12 +1746,14 @@ upuszczonego węzła.
 **Intent**: Upuszczenie na listę to ta sama operacja na szkicu co „Usuń węzeł”,
 tylko bez potwierdzenia.
 
-**Contract**: usunięcie ze szkicu przyjmuje identyfikator węzła; „Usuń węzeł”
-podaje zaznaczony, `onUpuscWezel` — upuszczony (węzeł spoza bieżącego szkicu
-jest ignorowany), odłożony do następnego zadania (Critical Implementation
-Details). Usunięcie ustawia znacznik „Niezapisane zmiany”. `uzyteObiekty`
-liczone raz w widoku ze szkicu. Usunięty węzeł, który był zaznaczony,
-przestaje nim być na tej samej zasadzie co dziś.
+**Contract**: jedna funkcja usunięcia `usunWezel(nodeId)`; „Usuń węzeł”
+podaje zaznaczony (po potwierdzeniu), `upuscWezel` — upuszczony (węzeł spoza
+bieżącego drzewa jest ignorowany), odłożony `setTimeout(…, 0)` (Critical
+Implementation Details). `uzyteObiekty` liczone raz w widoku (`useMemo` na
+`wezly`). Usunięty węzeł, który był zaznaczony, przestaje nim być na tej samej
+zasadzie co dziś. Dziś `usunWezel` wysyła `intent` `usun` fetcherem (pomija
+wywołanie, gdy fetcher jest zajęty); od fazy 7 zmienia szkic, ustawia
+znacznik „Niezapisane zmiany”, a `uzyteObiekty` liczy się ze szkicu.
 
 ### Success Criteria:
 
@@ -1666,7 +1776,10 @@ przestaje nim być na tej samej zasadzie co dziś.
 
 **Implementation Note**: Po zakończeniu fazy i przejściu weryfikacji
 automatycznej zatrzymaj się i poczekaj na ręczne potwierdzenie. Kryterium
-o literałach koloru sprawdza to samo polecenie `grep` co w fazie 7.
+o literałach koloru sprawdza to samo polecenie `grep` co w fazie 7. Kryteria
+mają brzmienie sprzed zmiany etykiety: „Pokaż obiekty nieużyte w drzewie” to
+w kodzie „Bez obiektów drzewa” (jak sprawdzać je przed fazą 7 — notatka
+w Progress fazy 8).
 
 ---
 
@@ -1766,10 +1879,12 @@ o literałach koloru sprawdza to samo polecenie `grep` co w fazie 7.
     Zapisać w drugiej karcie, potem w pierwszej → baner `tree_stale`, szkic
     zostaje. `/drzewo?nowe`: zbudować strukturę, „Dodaj drzewo” — drzewo ze
     strukturą. Usunąć wszystkie drzewa — karta „Nowe drzewo” z aktywną budową.
-13. (Faza 8) Zaznaczyć „Pokaż obiekty nieużyte w drzewie”, dodać obiekt —
-    znika z listy; przeciągnąć jego węzeł na listę — węzeł znika ze szkicu bez
-    pytania, obiekt wraca na listę, karta mówi „Niezapisane zmiany”; „Zapisz
-    zmiany” i odświeżyć. Powtórzyć w Firefoksie i przez tunel.
+13. (Faza 8) Zaznaczyć „Bez obiektów drzewa”, dodać obiekt — znika z listy;
+    przeciągnąć jego węzeł na listę — węzeł znika ze szkicu bez pytania,
+    obiekt wraca na listę, karta mówi „Niezapisane zmiany”; „Zapisz zmiany”
+    i odświeżyć. Powtórzyć w Firefoksie i przez tunel. Przed fazą 7 (stan
+    `7cf1cfb`) ten sam krok bez znacznika i bez „Zapisz zmiany”: węzeł znika
+    od razu z bazy, co widać po odświeżeniu.
 
 ## Performance Considerations
 
@@ -2011,6 +2126,13 @@ zapisuje (stary klient woła usunięte endpointy węzłów i `PUT /trees/{id}` b
 
 #### Manual
 
+> 2026-09-24 (`7cf1cfb`): karta pod listą, tryb `/drzewo?nowe`, układ
+> wysokości i startowe rozwinięcie są w kodzie przed fazą 6, na API
+> pojedynczych operacji; kroki fazy 7 sprawdza się dopiero po przepięciu na
+> szkic. W 7.5 „sekcja „Usuwanie”” = „Usuń drzewo” w rzędzie „Zapisz
+> zmiany” (decyzja użytkownika). Do 7.13 dochodzi: wybrane drzewo otwiera się
+> rozwinięte, lista obiektów ma jeden pionowy pasek.
+
 - [ ] 7.5 Karta pod listą wygląda jak w Kategoriach: „Edycja: <nazwa>”, „Nowe drzewo” w nagłówku, „Zapisz zmiany”, sekcja „Usuwanie”; `/drzewo?nowe` i konto bez drzew pokazują „Nowe drzewo” z aktywną budową
 - [ ] 7.6 Dodawanie (przyciskiem i przeciągnięciem, z dialogiem gałęzi), przesuwanie i usuwanie węzła zmieniają tylko szkic — po porzuceniu zmian drzewo wraca do stanu zapisanego
 - [ ] 7.7 Zapętlenie (także głęboko w dołączanej gałęzi), duplikat rodzeństwa i przekroczenie limitu są odrzucane od razu, z komunikatem jak przed fazą 6, a szkic się nie zmienia; A pod B tu i B pod A tam przechodzi
@@ -2027,11 +2149,19 @@ zapisuje (stary klient woła usunięte endpointy węzłów i `PUT /trees/{id}` b
 
 #### Automated
 
-- [ ] 8.1 Typy przechodzą: `npm run typecheck`
-- [ ] 8.2 Build produkcyjny przechodzi: `npm run build`
-- [ ] 8.3 Nowe i zmienione widoki nie zawierają literałów koloru ani palety Tailwinda
+- [x] 8.1 Typy przechodzą: `npm run typecheck` — 7cf1cfb
+- [x] 8.2 Build produkcyjny przechodzi: `npm run build` — 7cf1cfb
+- [x] 8.3 Nowe i zmienione widoki nie zawierają literałów koloru ani palety Tailwinda — 7cf1cfb
 
 #### Manual
+
+> 2026-09-24 (`7cf1cfb`): faza 8 wykonana przed fazami 6–7, na API
+> pojedynczych operacji — kroki automatyczne dotyczą tego stanu i trzeba je
+> powtórzyć po fazie 7. Pole wyboru ma etykietę „Bez obiektów drzewa” (w 8.4
+> „Pokaż obiekty nieużyte w drzewie”). Do fazy 7 „szkic” w 8.4 i 8.6 to
+> drzewo z bazy, usunięcie przeciągnięciem trafia do API od razu, a
+> „Niezapisane zmiany” i „Zapisz zmiany” (8.6, 8.11) jeszcze nie istnieją;
+> w 8.9 „zapis” = trwająca operacja fetchera.
 
 - [ ] 8.4 Zaznaczone „Pokaż obiekty nieużyte w drzewie” pokazuje tylko obiekty, których nie ma w szkicu wybranego drzewa na żadnej głębokości; obiekt dodany znika z listy, usunięty wraca, a zmiana drzewa przelicza listę
 - [ ] 8.5 Pole wyboru działa razem z filtrem tekstowym, a przy braku trafień lista pokazuje właściwy tekst
