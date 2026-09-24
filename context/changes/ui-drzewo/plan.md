@@ -661,20 +661,20 @@ planie przesuną się.
 
 #### Automated
 
-- [x] 4.1 Typy przechodzą: `npm run typecheck`
-- [x] 4.2 Build produkcyjny przechodzi: `npm run build`
-- [x] 4.3 Brak numerycznych klas odstępu i literałów koloru w `drzewo.tsx`, `ListaObiektowZrodlowych.tsx`, `PasekBudowy.tsx` (te same `grep` co w fazie 3)
-- [x] 4.4 Build nie zawiera wzornika: `grep -rl "wzornik" build/` nic nie zwraca
-- [x] 4.5 Adres API nie trafia do bundla klienckiego: `grep -r "127.0.0.1:5180" build/client` nic nie zwraca
-- [x] 4.6 Cztery zrzuty „po” i `roznice.md` istnieją w `context/changes/ui-drzewo/zrzuty/`
+- [x] 4.1 Typy przechodzą: `npm run typecheck` — 42265fb
+- [x] 4.2 Build produkcyjny przechodzi: `npm run build` — 42265fb
+- [x] 4.3 Brak numerycznych klas odstępu i literałów koloru w `drzewo.tsx`, `ListaObiektowZrodlowych.tsx`, `PasekBudowy.tsx` (te same `grep` co w fazie 3) — 42265fb
+- [x] 4.4 Build nie zawiera wzornika: `grep -rl "wzornik" build/` nic nie zwraca — 42265fb
+- [x] 4.5 Adres API nie trafia do bundla klienckiego: `grep -r "127.0.0.1:5180" build/client` nic nie zwraca — 42265fb
+- [x] 4.6 Cztery zrzuty „po” i `roznice.md` istnieją w `context/changes/ui-drzewo/zrzuty/` — 42265fb
 
 #### Manual
 
-- [x] 4.7 Tab na liście obiektów pokazuje obrys `fokus` w całości (nieprzycięty) w obu wariantach; Enter/spacja zaznacza wiersz
-- [x] 4.8 Fokus aktywnego węzła drzewa (strzałki po kliknięciu w drzewo) jest odróżnialny od celu upuszczenia w obu wariantach
-- [x] 4.9 Najechanie na wyłączone „Dodaj na najwyższy poziom” bez zaznaczonego obiektu pokazuje podpowiedź; przy zaznaczonym przycisk działa jak dotąd
-- [x] 4.10 Pole filtra listy obiektów ma tę samą wysokość co filtry listy drzew
-- [x] 4.11 Przy oknie ok. 950 px budowa pokazuje więcej wierszy niż na zrzucie „przed”; przy niskim oknie budowa trzyma 10 wierszy i przewija się widok
-- [x] 4.12 Każda różnica między zrzutami „przed” i „po” jest w `roznice.md`; przy 390 px nic nie nachodzi na siebie
-- [x] 4.13 Dodawanie (przyciskiem i przeciągnięciem), przesuwanie i usuwanie węzła oraz usuwanie przeciągnięciem na listę działają jak przed zmianą
-- [x] 4.14 Źródło strony `/drzewo` zawiera `@layer antd`, a ostatni `data-css-hash` stoi przed `</head>`
+- [x] 4.7 Tab na liście obiektów pokazuje obrys `fokus` w całości (nieprzycięty) w obu wariantach; Enter/spacja zaznacza wiersz — 42265fb
+- [x] 4.8 Fokus aktywnego węzła drzewa (strzałki po kliknięciu w drzewo) jest odróżnialny od celu upuszczenia w obu wariantach — 42265fb
+- [x] 4.9 Najechanie na wyłączone „Dodaj na najwyższy poziom” bez zaznaczonego obiektu pokazuje podpowiedź; przy zaznaczonym przycisk działa jak dotąd — 42265fb
+- [x] 4.10 Pole filtra listy obiektów ma tę samą wysokość co filtry listy drzew — 42265fb
+- [x] 4.11 Przy oknie ok. 950 px budowa pokazuje więcej wierszy niż na zrzucie „przed”; przy niskim oknie budowa trzyma 10 wierszy i przewija się widok — 42265fb
+- [x] 4.12 Każda różnica między zrzutami „przed” i „po” jest w `roznice.md`; przy 390 px nic nie nachodzi na siebie — 42265fb
+- [x] 4.13 Dodawanie (przyciskiem i przeciągnięciem), przesuwanie i usuwanie węzła oraz usuwanie przeciągnięciem na listę działają jak przed zmianą — 42265fb
+- [x] 4.14 Źródło strony `/drzewo` zawiera `@layer antd`, a ostatni `data-css-hash` stoi przed `</head>` — 42265fb
