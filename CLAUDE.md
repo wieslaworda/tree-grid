@@ -1,3 +1,7 @@
+# CLAUDE.md
+
+This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+
 # Wytyczne repozytorium
 
 ## Cztery kontrakty, które psują się po cichu
@@ -53,15 +57,36 @@ na każdej trasie i zepsułoby wykrywanie gotowości w `start-prod-tunnel.ps1`.
 ## Komendy
 
 ```
+# frontend (React Router v8, SSR)
 npm run dev        # serwer deweloperski, http://localhost:5173
 npm run build      # build produkcyjny do build/
 npm run start      # serwowanie zbudowanej aplikacji, http://localhost:3000
 npm run typecheck  # react-router typegen && tsc
+
+# backend (ASP.NET Core, .NET 10 przypięty w global.json)
+dotnet build TreeGrid.sln
+dotnet test tests/Api.Tests                                         # xUnit
+dotnet test tests/Api.Tests --filter "FullyQualifiedName~TreeRulesTests"   # jedna klasa
+dotnet tool restore                                                  # dotnet-ef z .config/
+dotnet ef migrations add <Nazwa> --project src/Api
+dotnet ef database update --project src/Api
+
+# oba procesy naraz, lokalnie (bez tunelu): build, kopia bazy, API :5180 + Vite :5173
+.\buduj_app_dev.ps1          # -Stop zatrzymuje oba
 ```
 
-`npm run typecheck` to **jedyna** automatyczna weryfikacja w tym repo. Nie ma
-runnera testów, nie ma lintera, nie ma CI. Sprawdza typy i nic ponadto — nie
-uznawaj zmiany za zweryfikowaną dlatego, że przeszła.
+Automatyczna weryfikacja to `npm run typecheck` i `dotnet test`. Testy .NET
+pokrywają **reguły domenowe i kształt kontraktu błędów** (`*RulesTests`,
+`*ErrorContractTests`) — nie podnoszą hosta ani potoku HTTP, a frontend nie ma
+żadnych testów. Lintera i CI nie ma. Przejście obu komend nie znaczy, że
+zmiana w widoku albo w potoku HTTP działa.
+
+Działające API trzyma `src/Api/bin/Debug/net10.0/Api.exe`, więc `dotnet build`
+i `dotnet test` kończą się `MSB3021`/`MSB3027` („file is locked by Api"),
+zanim cokolwiek skompilują. Zatrzymaj API (`.\buduj_app_dev.ps1 -Stop` albo
+`start-api.ps1 -Stop`), a samych testów na poprzednim buildzie możesz użyć
+z `--no-build`. Nie ubijaj procesu, którego nie uruchomiłeś w tej sesji, bez
+pytania.
 
 Żeby naprawdę sprawdzić zmianę w ścieżce renderowania — kontrakty 1 i 2 powyżej
 — zbuduj, uruchom serwer i obejrzyj wysłany HTML:
@@ -88,13 +113,60 @@ cicho kłamie. `netstat -ano | grep ":3000.*LISTENING"` pokaże wiszący PID.
 
 ## Układ katalogów
 
-- `app/` — cały kod aplikacji. Alias ścieżek i ustawienia strict są w
-  `@tsconfig.json`; używaj aliasu zamiast długich ścieżek względnych.
-- `app/welcome/` to pozostałość po szablonie startowym, nie kod produktu. Usuń
-  go w pierwszym commicie, który dodaje do `@app/routes.ts` trasę inną niż
-  `index`.
+- `app/` — frontend. Alias `~/` i ustawienia strict są w `@tsconfig.json`;
+  używaj aliasu zamiast długich ścieżek względnych. `app/lib/*.server.ts` to
+  klienci API per zasób, `app/lib/drzewo.ts` — czysta logika drzewa po stronie
+  widoku (przeciąganie, wyliczanie przeniesień).
+- `src/Api/` — API .NET: minimal API, EF Core + SQLite, jeden folder na obszar
+  (`Auth`, `Objects`, `Categories`, `Tree`), w każdym `*Endpoints.cs` (mapowanie
+  i transakcje) oraz `*Rules.cs` (czyste reguły, testowane jednostkowo). Plik
+  bazy: `src/Api/db/treegrid.db` (poza repo).
+- `tests/Api.Tests/` — xUnit, referencja do `src/Api`.
 - `context/` — decyzje produktowe, nie kod aplikacji. Źródło prawdy o tym, co
   jest budowane. Narzędzia w tym repo traktują ten katalog jako nienadpisywalny.
+  `context/changes/<id>/plan.md` to plan danego plastra; komentarze w kodzie
+  często odsyłają do konkretnych kroków tych planów.
+
+## Architektura: dwa procesy, jedna granica
+
+```
+przeglądarka ──► react-router-serve :3000 ──(loader/action, fetch)──► Kestrel 127.0.0.1:5180 ──► SQLite (WAL)
+                 sesja w ciasteczku,           nagłówek X-TreeGrid-User
+                 brama w middleware
+```
+
+- **Przeglądarka nigdy nie woła API.** Każde wywołanie idzie przez
+  `requestApi` z `@app/lib/api.server.ts`. Sufiks `.server.ts` jest nośny —
+  React Router wycina te moduły z bundla klienckiego; nie zmieniaj go.
+- **Sesja żyje wyłącznie w React Routerze** (`createCookieSessionStorage`
+  w `app/lib/session.server.ts`). API używa `AddIdentityCore` tylko jako
+  magazynu kont i weryfikacji hasła — nie ma `UseAuthentication` i nie ma go
+  mieć. Klucz podpisu ciasteczka React Router pobiera z API
+  (`/internal/session-signing-key`).
+- **Tożsamość do API niesie nagłówek `X-TreeGrid-User`**, ustawiany z sesji.
+  Jest wiarygodny tylko dzięki trzem warunkom opisanym w
+  `src/Api/Tree/TreeIdentity.cs`: Kestrel wyłącznie na pętli zwrotnej, tunel
+  wyłącznie na port 3000, żadna trasa zasobowa nie przepuszcza nagłówków
+  z przeglądarki. Złamanie któregokolwiek daje odczyt i zapis cudzych drzew.
+  Stała nazwy nagłówka jest zdublowana w C# i TS — zmieniaj obie.
+- **Brama to `middleware`, nie `loader`** — `app/routes/chronione.tsx`. Wszystko
+  wewnątrz `layout("routes/chronione.tsx", …)` w `@app/routes.ts` wymaga sesji;
+  trasa wpisana obok jest publiczna. Pusty `loader` w bramie jest celowy
+  (bez niego nawigacja kliencka do widoku bez loadera omija middleware).
+  `routes/powloka.tsx` (nagłówek z menu) stoi zawsze wewnątrz bramy.
+- **Każda `action` zmieniająca stan woła `requireSameOrigin`**
+  (`app/lib/auth.server.ts`). Wildcard `*.trycloudflare.com`
+  w `allowedActionOrigins` (`@react-router.config.ts`) jest bezpieczny tylko
+  razem z tą kontrolą.
+- **Migracje:** w Development API migruje bazę przy starcie; w Production
+  odmawia startu przy oczekujących migracjach (`dotnet ef database update`).
+  Brak sekretów `Auth:*` poza Development też zatrzymuje start. W Development
+  sekrety ustawia się przez `dotnet user-secrets --project src/Api`
+  (polecenia w `src/Api/Auth/AuthSecrets.cs`) — nie proś o ich wartości i nie
+  zapisuj ich w repo.
+- **Reguła zapętlenia drzewa** (sprawdzenie ścieżki przodków), duplikat
+  rodzeństwa i limit węzłów mieszkają w `src/Api/Tree/TreeRules.cs`,
+  unikalność nazwy drzewa w `TreeNameRules.cs` — egzekwuje je API, nie widok.
 
 ## Kontekst produktowy
 
@@ -114,9 +186,10 @@ techniczną:
   przyjęciem. To rdzenna reguła biznesowa aplikacji, nie formalność.
 
 `@context/foundation/tech-stack.md` zapisuje wybrany stack i — co istotne — że
-backend ma być oparty na **ASP.NET Core + SQLite w podkatalogu**. Ten backend
-jeszcze nie istnieje. Nic w tym repo nie jest backendem nodowym; nie dodawaj
-takiego bez wcześniejszego sprawdzenia tamtej decyzji.
+backend jest oparty na **ASP.NET Core + SQLite w podkatalogu** (`src/Api`).
+Serwer React Routera nie jest backendem — nie przechowuje danych i nie
+rozmawia z bazą; nie dodawaj logiki domenowej ani trwałości po stronie Node
+bez wcześniejszego sprawdzenia tamtej decyzji.
 
 `README.md` to niezmieniony readme szablonu React Router. Opisuje starter, a nie
 ten produkt — nie traktuj go jako dokumentacji TreeGrida i nie powołuj się na
@@ -125,10 +198,13 @@ niego, odpowiadając na pytania o aplikację.
 ## Konwencje
 
 **Format odpowiedzi błędów.** API zwraca `{ error: { code, message, context } }`,
-nigdy `{ error: string }`. Dotyczy to zarówno przyszłego API .NET, jak i każdej
-trasy zasobowej oraz `action` po stronie React Routera. Żaden kod w repo jeszcze
-tego nie realizuje — nie ma endpointów — więc pierwszy, który je doda, ustala
-wzorzec dla reszty. `ErrorBoundary` w `@app/root.tsx` to osobna sprawa: obsługuje
+nigdy `{ error: string }`. Dotyczy to zarówno API .NET, jak i każdej trasy
+zasobowej oraz `action` po stronie React Routera. Po stronie C# wzorcem jest
+`src/Api/Errors/ApiError.cs`, a `UseApiErrorContract()` stoi w `Program.cs`
+przed routingiem, żeby także 404 i wyjątki frameworka nie wyszły jako
+`ProblemDetails`. Po stronie TS kształt jest przepisany ręcznie w
+`app/lib/api.server.ts` (`ApiErrorBody`); kody błędów samego serwera React
+Routera (`ROUTE_ERROR_CODES`) są celowo rozłączne z kodami API. `ErrorBoundary` w `@app/root.tsx` to osobna sprawa: obsługuje
 błędy renderowania, a nie kształt odpowiedzi HTTP.
 
 Komunikaty commitów pisane są po polsku, jako krótki opis tego, co się zmieniło.
@@ -168,30 +244,35 @@ działa w izolacie V8, a dysk kontenera jest efemeryczny — plikowy SQLite by t
 nie przetrwał, i to po cichu. Obie ścieżki nazywają się podobnie i łatwo je
 pomylić; ta pomyłka jest w rejestrze ryzyk wpisem o wysokim wpływie.
 
-Port produkcyjny to **3000** (`react-router-serve`), nie 5173 i nie 5000.
+Port produkcyjny to **3000** (`react-router-serve`), nie 5173 i nie 5000; API
+stoi na **5180**, wyłącznie na `127.0.0.1`, i **nigdy** nie jest tunelowane.
 Wystawienie obsługuje `.claude/skills/run-tunel-app/scripts/start-prod-tunnel.ps1`
-(`-Stop` zatrzymuje). Skrypt ustawia jawnie `PORT` i `HOST=127.0.0.1` — pierwsze
+(`-Stop` zatrzymuje), a API — osobny `start-api.ps1` z tego samego katalogu,
+domyślnie w `Production` (czyli z odmową startu na niezmigrowanej bazie). Skrypt ustawia jawnie `PORT` i `HOST=127.0.0.1` — pierwsze
 zamienia cichy dryf na losowy port w głośny `EADDRINUSE`, drugie ogranicza
 nasłuch do pętli zwrotnej, więc jedyną drogą do aplikacji jest tunel.
 
 `@Dockerfile` zostaje jako kontrakt na przyszłość, ale **nie jest dziś ścieżką
-wdrożenia** — Docker nie jest na maszynie deweloperskiej zainstalowany. Wraca do
-gry razem z backendem .NET, gdy pojawi się wolumen na plik bazy.
+wdrożenia** — Docker nie jest na maszynie deweloperskiej zainstalowany i
+Dockerfile nie obejmuje jeszcze API .NET ani wolumenu na plik bazy.
 
 Dwie rzeczy do zapamiętania o samym quick tunnelu: **adres zmienia się przy
 każdym restarcie** i nie da się go przypiąć, więc nie zapisuj go na sztywno
 nigdzie w kodzie ani w ciasteczkach; **Cloudflare Access na `trycloudflare.com`
 nie działa**, więc od chwili uruchomienia tunelu jedyną kontrolą dostępu jest
-logowanie samej aplikacji. Dopóki go nie ma, adresu nikomu nie przekazuj.
+logowanie samej aplikacji — brama w `chronione.tsx`, kod rejestracyjny
+i blokada konta po nieudanych próbach. Nie osłabiaj żadnego z nich „na chwilę".
 
 ## Znane luki
 
 Nie traktuj ich jako błędów do naprawienia przy okazji — to zaległa praca:
 
-- Brak runnera testów. Nic nie weryfikuje zachowania.
-- Brak backendu .NET, więc brak trwałości danych i uwierzytelniania, mimo że PRD
-  oznacza oba jako must-have.
-- Brak pipeline'u CI.
+- Brak testów frontendu i testów procesowych (E2E). Pierwszy test Playwright
+  jest zaplanowany w `context/changes/testy-procesowe-playwright/`, a runner
+  testów stoi w roadmapie w sekcji *Parked* — nie rozbudowuj zestawu na zapas.
+- Testy .NET nie podnoszą hosta (`WebApplicationFactory`), więc potok HTTP
+  i endpointy są weryfikowane ręcznie.
+- Brak lintera i pipeline'u CI.
 <!-- BEGIN @przeprogramowani/10x-cli -->
 
 ## 10xDevs AI Toolkit - Module 2, Lesson 3
