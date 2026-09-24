@@ -611,17 +611,17 @@ planie przesuną się.
 
 #### Automated
 
-- [x] 1.1 Typy przechodzą: `npm run typecheck`
-- [x] 1.2 Build produkcyjny przechodzi: `npm run build`
-- [x] 1.3 Build nie zawiera wzornika: `grep -rl "wzornik" build/` nic nie zwraca
-- [x] 1.4 Wzornik nie ma literałów koloru: `grep -nE "#[0-9a-fA-F]{3,8}\b|(bg|text|border)-(slate|gray|zinc|neutral|sky|blue|cyan|red|green)-" app/routes/wzornik.tsx` nic nie zwraca
-- [x] 1.5 Cztery zrzuty „przed” istnieją w `context/changes/ui-drzewo/zrzuty/`
+- [x] 1.1 Typy przechodzą: `npm run typecheck` — 6bb24bf
+- [x] 1.2 Build produkcyjny przechodzi: `npm run build` — 6bb24bf
+- [x] 1.3 Build nie zawiera wzornika: `grep -rl "wzornik" build/` nic nie zwraca — 6bb24bf
+- [x] 1.4 Wzornik nie ma literałów koloru: `grep -nE "#[0-9a-fA-F]{3,8}\b|(bg|text|border)-(slate|gray|zinc|neutral|sky|blue|cyan|red|green)-" app/routes/wzornik.tsx` nic nie zwraca — 6bb24bf
+- [x] 1.5 Cztery zrzuty „przed” istnieją w `context/changes/ui-drzewo/zrzuty/` — 6bb24bf
 
 #### Manual
 
-- [x] 1.6 Zrzuty ciemny i jasny różnią się kolorami, a nie układem (ta sama geometria)
-- [x] 1.7 Na zrzutach widać podpisane sekcje każdego stanu, otwarty dymek potwierdzenia i wiersz z fokusem
-- [x] 1.8 `npm run start` (produkcja): `/wzornik` daje 404
+- [x] 1.6 Zrzuty ciemny i jasny różnią się kolorami, a nie układem (ta sama geometria) — 6bb24bf
+- [x] 1.7 Na zrzutach widać podpisane sekcje każdego stanu, otwarty dymek potwierdzenia i wiersz z fokusem — 6bb24bf
+- [x] 1.8 `npm run start` (produkcja): `/wzornik` daje 404 — 6bb24bf
 
 ### Phase 2: Tokeny układu i fokusu
 
