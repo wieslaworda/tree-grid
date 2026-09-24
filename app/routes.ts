@@ -40,7 +40,11 @@ export default [
   // w bezpieczną stronę: `react-router build` i `typegen` ładują ten plik przy
   // `NODE_ENV=production` (Vite ustawia go, gdy jest pusty), więc trasa i jej
   // moduł w buildzie nie powstają wcale. Drugie zabezpieczenie stoi w loaderze
-  // wzornika: 404 przy każdym innym `NODE_ENV`. Z tego samego powodu moduł
+  // wzornika: 404 przy każdym innym `NODE_ENV`. Obie osłony czytają jednak
+  // **ten sam sygnał**: Vite i `react-router-serve` ustawiają `production`
+  // tylko przy pustej zmiennej, więc `NODE_ENV=development` odziedziczone
+  // z powłoki przepuszcza obie naraz. Dlatego `start-prod-tunnel.ps1` ustawia
+  // `NODE_ENV=production` jawnie, obok `PORT` i `HOST`. Z tego samego powodu moduł
   // wzornika nie importuje swoich typów z `./+types/` — typegen ich nie
   // wygeneruje.
   ...(process.env.NODE_ENV === "development"

@@ -603,6 +603,34 @@ planie przesuną się.
 - Skill: `.claude/skills/10x-ui/SKILL.md`,
   `.claude/skills/10x-ui/references/ui-quality-checklist.md`
 
+## Odstępstwa od planu
+
+Dopisane po implementacji (review `reviews/impl-review.md`, 2026-09-24).
+Bloki faz wyżej zostają w brzmieniu zatwierdzonym; tam, gdzie się z tą
+sekcją rozjeżdżają, obowiązuje ta sekcja.
+
+- **Przycisk uruchamiający usunięcie jest wypełniony akcentem**, a nie
+  obrysowany neutralnie (Desired End State, faza 3 zmiana 2 i 4, kryterium
+  3.9). Decyzja użytkownika po obejrzeniu fazy 3: obrysowany przycisk
+  dostaje tło `colorBgContainer`, czyli `panel` karty, i czytał się jak
+  przezroczysty. Obrysowane zostaje wyłącznie „Anuluj” w dymku. Kryterium 3.9
+  odhaczone w tym brzmieniu. Źródło: `change.md`, komentarze
+  w `PotwierdzenieUsuniecia.tsx` i przy `PRZYCISKI` w `app/theme/antd.ts`.
+- **`grep` z kryteriów 3.4 i 4.3 łapie resety zerowe** (`min-h-0` wymagane
+  kontraktem `ObszarPrzewijania`, `mb-0` zerujące margines tytułu antd
+  i `Form.Item`), więc dosłownie nie może zwrócić pustki. Odhaczone wg
+  intencji — brak niezerowych literałów odstępu — sprawdzonej wyrażeniem
+  `\b(p|px|py|m|mt|mb|mx|my|gap|min-h)-([1-9][0-9]*|0[0-9])`.
+- **Zrzuty robi `zrzuty/zrzut.mjs`** (Edge przez DevTools, czekanie na
+  gotowość w czasie rzeczywistym) zamiast `msedge --screenshot
+  --virtual-time-budget` z fazy 1: animacje wejścia antd nie kończyły się pod
+  budżetem czasu wirtualnego deterministycznie.
+- **Poprawki z review**: `Popconfirm` w `PotwierdzenieUsuniecia` bez
+  `disabled` (wystarcza wyłączony przycisk; `disabled` blokował zamknięcie
+  otwartego dymka kliknięciem obok); `start-prod-tunnel.ps1` ustawia
+  `NODE_ENV=production` jawnie przy buildzie i starcie, bo obie osłony
+  wzornika czytają ten sam sygnał.
+
 ## Progress
 
 > Convention: `- [ ]` pending, `- [x]` done. Append ` — <commit sha>` when a step lands. Do not rename step titles. See `references/progress-format.md`.

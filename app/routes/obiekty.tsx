@@ -387,20 +387,18 @@ function EdycjaObiektu({
         obiektu. Wygląd przycisku i zakaz `danger` — w
         `PotwierdzenieUsuniecia`.
       */}
-      <div className="flex flex-wrap items-center gap-tg-element">
-        <PotwierdzenieUsuniecia
-          pytanie={`Usunąć obiekt „${obiekt.code}"?`}
-          etykieta="Usuń obiekt"
-          wylaczone={zajety}
-          wToku={usuwanie}
-          onPotwierdz={() =>
-            wyslij(
-              { intent: USUN },
-              { method: "post", preventScrollReset: true },
-            )
-          }
-        />
-      </div>
+      <PotwierdzenieUsuniecia
+        pytanie={`Usunąć obiekt „${obiekt.code}"?`}
+        etykieta="Usuń obiekt"
+        wylaczone={zajety}
+        wToku={usuwanie}
+        onPotwierdz={() =>
+          wyslij(
+            { intent: USUN },
+            { method: "post", preventScrollReset: true },
+          )
+        }
+      />
     </RamkaPanelu>
   );
 }

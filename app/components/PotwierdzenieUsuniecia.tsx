@@ -7,7 +7,7 @@ type Wlasciwosci = {
   etykieta: string;
   /** Wołane dopiero po „Usuń” w dymku — tu żyje wysyłka usunięcia. */
   onPotwierdz: () => void;
-  /** Przycisk i dymek nieczynne (brak celu, trwająca operacja). */
+  /** Przycisk nieczynny, więc dymka nie da się otworzyć (brak celu, trwająca operacja). */
   wylaczone?: boolean;
   /** Usuwanie w toku — kręciołek na przycisku uruchamiającym. */
   wToku?: boolean;
@@ -67,7 +67,10 @@ export function PotwierdzenieUsuniecia({
       okText="Usuń"
       cancelText="Anuluj"
       cancelButtonProps={OBRYSOWANY}
-      disabled={wylaczone}
+      // Bez `disabled` na `Popconfirm` — wystarcza wyłączony przycisk, który
+      // dymka nie otworzy. `disabled` tutaj sprawia, że antd ignoruje
+      // `onOpenChange`, więc dymek otwarty w chwili startu innej operacji
+      // przestaje się zamykać kliknięciem obok.
       onConfirm={onPotwierdz}
     >
       <Button
