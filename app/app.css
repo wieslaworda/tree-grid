@@ -40,6 +40,15 @@
    po cichu brakującą klasę albo klasę rozwiązującą się do niczego. Dopisując
    rolę do palety, dopisz ją też tutaj.
 
+   To samo dotyczy metryk układu (`--spacing-tg-*` → `p-tg-strona`,
+   `gap-tg-sekcja`, `gap-tg-element`, `min-h-tg-budowa`): wartości stoją
+   w `METRYKI` w `app/theme/tokeny.ts`, a zmienne emituje wspólny blok
+   `:root` z `app/theme/zmienne.ts`. Dopisując metrykę układu, dopisz ją
+   w trzech miejscach: `METRYKI`, `blokWspolny` i tutaj. Nazwy klas są
+   rolami, a nie wartościami — `p-tg-strona` nie mówi, ile ma pikseli, i ma
+   nie mówić. `--tg-gruboscFokusu` nie ma tu klasy, bo czyta ją wyłącznie
+   reguła `:focus-visible` niżej.
+
    `inline` jest istotne: bez niego Tailwind opakowałby wartość jeszcze raz
    i klasa przestałaby śledzić zmianę `data-motyw`. */
 @theme inline {
@@ -58,6 +67,12 @@
   --color-tg-ostrzezenie-na-powierzchni: var(--tg-ostrzezenieNaPowierzchni);
   --color-tg-hover-wiersza: var(--tg-hoverWiersza);
   --color-tg-zaznaczenie-wiersza: var(--tg-zaznaczenieWiersza);
+  --color-tg-fokus: var(--tg-fokus);
+
+  --spacing-tg-strona: var(--tg-odstepStrony);
+  --spacing-tg-sekcja: var(--tg-odstepSekcji);
+  --spacing-tg-element: var(--tg-odstepElementow);
+  --spacing-tg-budowa: var(--tg-minWysokoscBudowy);
 }
 
 /* Tło i kolor tekstu dokumentu biorą się ze zmiennych, a nie z klas wariantu:
@@ -66,6 +81,33 @@
 html {
   background: var(--tg-tlo);
   color: var(--tg-tekst);
+}
+
+@layer base {
+  /* Widoczny fokus klawiatury dla elementów, których antd nie styluje —
+     przede wszystkim wiersza tabeli z `tabIndex` na liście obiektów
+     (`ListaObiektowZrodlowych.tsx`), który bez tej reguły dostaje domyślny
+     obrys przeglądarki.
+
+     Reguła stoi w warstwie `base`, a warstwa `antd` jest wyżej (deklaracja
+     na górze tego pliku): tam, gdzie antd sam ustawia `outline` — przyciski,
+     pola, fokus aktywnego węzła `Tree` (`lineWidthFocus` w
+     `colorPrimaryBorder`) — wygrywa antd i komponent zachowuje własny fokus.
+     Tak ma zostać: przeniesienie tej reguły do `utilities` albo poza warstwę
+     nadpisałoby fokus każdej kontrolki antd i dało podwójny obrys.
+
+     Obrys jest **wcięty**, nie odsunięty: ujemne `outline-offset` równe
+     grubości kładzie go wewnątrz krawędzi elementu. Odsunięty obrys wiersza
+     wewnątrz przewijanego ciała tabeli antd albo kontenera z
+     `overflow-hidden` zostaje przycięty — i to trzeba obejrzeć, typy tego nie
+     wyłapią.
+
+     Kolor to rola `fokus`, a nie akcent: obrys akcentem znaczy cel
+     upuszczenia. Kontrasty i uzasadnienie: `PALETY` w `app/theme/tokeny.ts`. */
+  :focus-visible {
+    outline: var(--tg-gruboscFokusu) solid var(--tg-fokus);
+    outline-offset: calc(-1 * var(--tg-gruboscFokusu));
+  }
 }
 
 @layer utilities {

@@ -1,5 +1,6 @@
 /**
- * Zamienia `PALETY` na tekst CSS, który `app/root.tsx` wstrzykuje do `<head>`.
+ * Zamienia `PALETY` i metryki układu z `METRYKI` na tekst CSS, który
+ * `app/root.tsx` wstrzykuje do `<head>`.
  *
  * To jest most z TypeScriptu do Tailwinda. Kierunek odwrotny — „antd →
  * Tailwind" przez `cssVar: true` — jest zamknięty: `@ant-design/cssinjs`
@@ -11,7 +12,7 @@
  * wartości muszą dojechać do przeglądarki jako CSS — i to robi ten moduł.
  */
 
-import { PALETY, type Wariant } from "~/theme/tokeny";
+import { METRYKI, PALETY, type Wariant } from "~/theme/tokeny";
 
 /**
  * Pełny tekst CSS, policzony **raz na poziomie modułu**. Serwer renderuje to
@@ -19,7 +20,8 @@ import { PALETY, type Wariant } from "~/theme/tokeny";
  *
  * Emitowane są **oba** bloki, zawsze — także ten dla niewybranego wariantu.
  * Dzięki temu przełączenie atrybutu `data-motyw` zmienia kolory po stronie
- * Tailwinda natychmiast, bez generowania ani pobierania czegokolwiek.
+ * Tailwinda natychmiast, bez generowania ani pobierania czegokolwiek. Przed
+ * nimi stoi blok wspólny z metrykami układu, którego przełączenie nie dotyka.
  *
  * Wejściem są wyłącznie stałe modułowe. Żadna wartość nie pochodzi z żądania
  * ani od użytkownika — i to jest jedyny warunek, pod którym wolno wstrzyknąć
@@ -30,7 +32,40 @@ import { PALETY, type Wariant } from "~/theme/tokeny";
 export const ZMIENNE_CSS: string = zbudujCss();
 
 function zbudujCss(): string {
-  return (Object.keys(PALETY) as Wariant[]).map(blokWariantu).join("\n");
+  const bloki = (Object.keys(PALETY) as Wariant[]).map(blokWariantu);
+  return [blokWspolny(), ...bloki].join("\n");
+}
+
+/**
+ * Metryki układu, jeden blok dla obu wariantów.
+ *
+ * Selektor `:root`, a nie `[data-motyw]`: metryki nie zależą od wariantu, więc
+ * nie mają prawa stać w bloku, który przełączenie wariantu podmienia. To jest
+ * ta sama ściana co rozdzielne typy `Paleta` i `Metryki` w `tokeny.ts`,
+ * przeniesiona do CSS — przełączenie `data-motyw` fizycznie nie ma czego
+ * przesunąć. Z blokami wariantów nie konkuruje o specyficzność, bo nie
+ * deklaruje żadnej z ich zmiennych.
+ *
+ * Tylko metryki konsumowane przez Tailwind, nie cały `METRYKI` — pozostałe
+ * czyta antd przez `app/theme/antd.ts`, a zmienna, której nic nie czyta, jest
+ * drugim źródłem prawdy czekającym na użycie. Wartości z jednostką `px`, bo
+ * trafiają prosto do `padding`, `gap`, `min-height` i `outline`.
+ *
+ * Blok, jak bloki wariantów, stoi poza `@layer` — uzasadnienie niżej,
+ * w `blokWariantu`.
+ */
+function blokWspolny(): string {
+  const px = (n: number) => `${n}px`;
+  const deklaracje = [
+    `  --tg-odstepStrony: ${px(METRYKI.odstepStrony)};`,
+    `  --tg-odstepSekcji: ${px(METRYKI.odstepSekcji)};`,
+    `  --tg-odstepElementow: ${px(METRYKI.odstepElementow)};`,
+    `  --tg-gruboscFokusu: ${px(METRYKI.gruboscFokusu)};`,
+    // Wyliczona tutaj, a nie wpisana w `METRYKI`: źródłem jest liczba wierszy
+    // i wysokość wiersza, więc zmiana wiersza przesuwa ją sama.
+    `  --tg-minWysokoscBudowy: ${px(METRYKI.wierszeMinimalnejBudowy * METRYKI.wysokoscWiersza)};`,
+  ];
+  return `:root {\n${deklaracje.join("\n")}\n}`;
 }
 
 function blokWariantu(wariant: Wariant): string {

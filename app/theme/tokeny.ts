@@ -77,7 +77,8 @@ type RolaKoloru =
   | "ostrzezenie"
   | "ostrzezenieNaPowierzchni"
   | "hoverWiersza"
-  | "zaznaczenieWiersza";
+  | "zaznaczenieWiersza"
+  | "fokus";
 
 /**
  * Paleta jednego wariantu. **Wyłącznie stringi heksowe** — `Record` po
@@ -105,6 +106,11 @@ type Metryki = {
   lineHeight: number;
   wysokoscWiersza: number;
   wysokoscNaglowka: number;
+  odstepStrony: number;
+  odstepSekcji: number;
+  odstepElementow: number;
+  wierszeMinimalnejBudowy: number;
+  gruboscFokusu: number;
   fontFamily: string;
   fontFamilyCode: string;
 };
@@ -146,6 +152,34 @@ export const METRYKI: Metryki = {
   lineHeight: 1.75,
   wysokoscWiersza: 24,
   wysokoscNaglowka: 48,
+  // ——— METRYKI UKŁADU ———
+  // Nie idą do antd — czyta je wyłącznie Tailwind, przez zmienne `--tg-*`
+  // z `app/theme/zmienne.ts` i klasy `p-tg-strona`, `gap-tg-sekcja`,
+  // `gap-tg-element`, `min-h-tg-budowa` z `@theme inline` w `app/app.css`.
+  //
+  // Skala 3 px, ta sama co `sizeUnit`/`sizeStep` wyżej, a nie 4 px Tailwinda:
+  // odstępy układu mają stać w tym samym rytmie co odstępy wewnątrz
+  // komponentów antd, inaczej widok miesza dwie siatki. Zastępują `p-8`,
+  // `gap-6` i `gap-3` (32/24/12 px) z widoków słownikowych — decyzja zmiany
+  // `ui-drzewo` (`context/changes/ui-drzewo/plan.md`, faza 2).
+  //
+  // Odstęp strony równy odstępowi sekcji świadomie: to dwie role, a nie jedna
+  // wartość — gdy jedna z nich się zmieni, druga ma zostać na miejscu.
+  odstepStrony: 12,
+  odstepSekcji: 12,
+  odstepElementow: 6,
+  // Liczba wierszy, a **nie piksele**: wysokość minimalnej budowy wynika
+  // z `wysokoscWiersza` i jest wyliczana w `app/theme/zmienne.ts`
+  // (`10 × 24` = 240 px, tyle co dotychczasowe `min-h-60`). Liczba pikseli
+  // wpisana tutaj rozjechałaby się z drzewem po pierwszej zmianie wiersza.
+  wierszeMinimalnejBudowy: 10,
+  // Grubość obrysu `:focus-visible` z `app/app.css` — i zarazem jego ujemne
+  // przesunięcie, bo obrys jest wcięty w element, a nie odsunięty od niego.
+  // Grubsza niż 1-pikselowy obrys celu upuszczenia w akcencie
+  // (`DrzewoStruktury.tsx`, `ListaObiektowZrodlowych.tsx`), więc te dwa stany
+  // różnią się także grubością, nie tylko barwą. Fokusu komponentów antd
+  // (`lineWidthFocus`, 3 px) nie dotyczy — ten rysuje antd sam.
+  gruboscFokusu: 2,
   fontFamily:
     '"Inter", ui-sans-serif, system-ui, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji"',
   fontFamilyCode:
@@ -162,6 +196,19 @@ export const METRYKI: Metryki = {
  * ale wyłącznie jako `linia`, czyli siatka, której WCAG nie dotyczy.
  * Podobnie `ostrzezenieNaPowierzchni` w wariancie jasnym to `#7A5200`, bo
  * sygnałowe `#9A6700` na `#F1F3F5` daje 4,43:1, tuż pod progiem 4,5:1.
+ *
+ * `fokus` (obrys `:focus-visible` z `app/app.css`) ma dokładnie heks `tekst`
+ * wariantu, ale jest osobną rolą: to, że dziś się pokrywają, jest decyzją,
+ * a nie zależnością — zmiana koloru tekstu nie ma po cichu przemalowywać
+ * fokusu. Nie jest akcentem, bo obrys akcentem znaczy już cel upuszczenia
+ * (`DrzewoStruktury.tsx`, `ListaObiektowZrodlowych.tsx`); fokus jest od niego
+ * odróżnialny barwą (neutralny wobec cyjanu) i grubością (`gruboscFokusu`
+ * 2 px wobec 1 px), a nie jasnością — w ciemnym wariancie `#D6DEE8` i
+ * `#22D3EE` dzielą zaledwie 1,33:1. Kontrast obrysu z powierzchniami, na
+ * których może stanąć (`tlo`, `panel`, `zebra`, `hoverWiersza`,
+ * `zaznaczenieWiersza`), policzony wzorem WCAG: ciemny ≥ 9,03:1
+ * (najsłabszy na `zaznaczenieWiersza` `#123A44`), jasny ≥ 13,84:1
+ * (najsłabszy na `hoverWiersza` `#E8EBEE`) — daleko ponad próg 3:1.
  */
 export const PALETY: Record<Wariant, Paleta> = {
   ciemny: {
@@ -180,6 +227,7 @@ export const PALETY: Record<Wariant, Paleta> = {
     ostrzezenieNaPowierzchni: "#F5A524",
     hoverWiersza: "#1B2430",
     zaznaczenieWiersza: "#123A44",
+    fokus: "#D6DEE8",
   },
   jasny: {
     tlo: "#FFFFFF",
@@ -197,5 +245,6 @@ export const PALETY: Record<Wariant, Paleta> = {
     ostrzezenieNaPowierzchni: "#7A5200",
     hoverWiersza: "#E8EBEE",
     zaznaczenieWiersza: "#DDF0F5",
+    fokus: "#1B1F24",
   },
 };

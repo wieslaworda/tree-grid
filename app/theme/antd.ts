@@ -3,6 +3,11 @@
  *
  * Nic poza tym modułem nie składa motywu antd. Lokalne `theme={...}` przy
  * pojedynczym widoku jest dokładnie tym, co ta zmiana likwiduje.
+ *
+ * Metryki układu (`odstepStrony`, `odstepSekcji`, `odstepElementow`,
+ * `wierszeMinimalnejBudowy`, `gruboscFokusu`) i rola `fokus` celowo tu nie
+ * trafiają: konsumuje je wyłącznie Tailwind, przez `app/theme/zmienne.ts`
+ * i `app/app.css` — fokus komponentów antd zostaje przy jego własnych tokenach.
  */
 
 import { theme, type ConfigProviderProps, type ThemeConfig } from "antd";

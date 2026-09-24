@@ -627,15 +627,15 @@ planie przesuną się.
 
 #### Automated
 
-- [ ] 2.1 Typy przechodzą: `npm run typecheck`
-- [ ] 2.2 Build produkcyjny przechodzi: `npm run build`
-- [ ] 2.3 Po `npm run start`: `curl -s http://localhost:3000/logowanie` zawiera `--tg-odstepSekcji` i `--tg-fokus`
-- [ ] 2.4 Kontrakty 1–2 z `CLAUDE.md` na `/logowanie`: `grep -c "@layer antd"` > 0, a offset ostatniego `data-css-hash` mniejszy niż offset `</head>` (port 3000 sprawdzony przez `netstat`)
+- [x] 2.1 Typy przechodzą: `npm run typecheck`
+- [x] 2.2 Build produkcyjny przechodzi: `npm run build`
+- [x] 2.3 Po `npm run start`: `curl -s http://localhost:3000/logowanie` zawiera `--tg-odstepSekcji` i `--tg-fokus`
+- [x] 2.4 Kontrakty 1–2 z `CLAUDE.md` na `/logowanie`: `grep -c "@layer antd"` > 0, a offset ostatniego `data-css-hash` mniejszy niż offset `</head>` (port 3000 sprawdzony przez `netstat`)
 
 #### Manual
 
-- [ ] 2.5 Tab po `/logowanie` i `/obiekty`: kontrolki antd zachowują własny fokus (bez podwójnego obrysu)
-- [ ] 2.6 Przełączenie wariantu nie przesuwa ani jednego piksela (metryki wspólne)
+- [x] 2.5 Tab po `/logowanie` i `/obiekty`: kontrolki antd zachowują własny fokus (bez podwójnego obrysu)
+- [x] 2.6 Przełączenie wariantu nie przesuwa ani jednego piksela (metryki wspólne)
 
 ### Phase 3: Wspólne komponenty i trzy widoki
 
