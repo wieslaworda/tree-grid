@@ -1,7 +1,6 @@
 import {
   Alert,
   Button,
-  Descriptions,
   Form as AntForm,
   Input,
   Segmented,
@@ -9,10 +8,11 @@ import {
   Spin,
   Typography,
 } from "antd";
-import { useMemo, useState } from "react";
+import { type ReactNode, useMemo, useState } from "react";
 import {
   Link,
   Form as RouterForm,
+  type ShouldRevalidateFunctionArgs,
   data,
   redirect,
   useFetcher,
@@ -22,6 +22,7 @@ import {
 } from "react-router";
 
 import { GridEkranu } from "~/components/GridEkranu";
+import { KategorieWezla } from "~/components/KategorieWezla";
 import { PotwierdzenieUsuniecia } from "~/components/PotwierdzenieUsuniecia";
 import { RamkaPanelu } from "~/components/RamkaPanelu";
 import {
@@ -38,11 +39,12 @@ import { apiError, parseEntityId } from "~/lib/api.server";
 import { kontekstUzytkownika, requireSameOrigin } from "~/lib/auth.server";
 import type { CatalogCategory } from "~/lib/categories.server";
 import { listCategories } from "~/lib/categories.server";
+import { tytulObiektu } from "~/lib/drzewo";
 import {
-  type WierszGridu,
+  type WezelGridu,
   liczbaWierszy,
   przypisaniaDomyslne,
-  zbudujWierszeGridu,
+  zbudujWezlyGridu,
 } from "~/lib/ekran";
 import type { CatalogObject } from "~/lib/objects.server";
 import { listObjects } from "~/lib/objects.server";
@@ -54,15 +56,19 @@ import {
   getScreen,
   listScreens,
   readScreenForm,
+  setNodeCategories,
+  updateScreen,
 } from "~/lib/screens.server";
 import type { TreeNode, UserTree } from "~/lib/tree.server";
 import { getTreeNodes, listTrees } from "~/lib/tree.server";
 
 import type { Route } from "./+types/ekrany";
 
-/** Wartości pola `intent` — po nich `action` rozróżnia dwie operacje. */
+/** Wartości pola `intent` — po nich `action` rozróżnia cztery operacje. */
 const DODAJ_EKRAN = "dodaj-ekran";
+const ZAPISZ_EKRAN = "zapisz-ekran";
 const USUN_EKRAN = "usun-ekran";
+const ZAPISZ_KATEGORIE_WEZLA = "zapisz-kategorie-wezla";
 
 /**
  * Parametr adresu z identyfikatorem wybranego ekranu. Wybór siedzi w adresie
@@ -91,7 +97,7 @@ const PARAMETR_DRZEWA = "drzewo";
 const ADRES_NOWEGO = `/ekrany?${PARAMETR_NOWEGO}`;
 
 /**
- * Nazwy pól formularza nowego ekranu — te same co `ScreenRequestFields`
+ * Nazwy pól formularza ekranu — te same co `ScreenRequestFields`
  * (`src/Api/Screens/ScreenEndpoints.cs`) i klucze `ScreenPayload`
  * (`app/lib/screens.server.ts`). Pod nimi API adresuje naruszenia
  * w `context.fields`; rozjazd nie daje błędu, tylko komunikat, który nigdy się
@@ -101,6 +107,18 @@ const POLE_NAZWY = "name";
 const POLE_DRZEWA = "treeId";
 const POLE_ZIARNA = "grainMinutes";
 const POLE_KATEGORII = "defaultCategoryIds";
+
+/**
+ * Pola zmiany kategorii jednego węzła. `categoryIds` to nazwa, pod którą
+ * `PUT /screens/{id}/nodes/{nodeId}/categories` adresuje naruszenie
+ * (`ScreenRequestFields.CategoryIds`); `nodeId` czyta wyłącznie `action`
+ * tej trasy — w API węzeł jest segmentem adresu.
+ */
+const POLE_WEZLA = "nodeId";
+const POLE_KATEGORII_WEZLA = "categoryIds";
+
+/** Komunikat błędu walidacji — ten sam tekst co w API. */
+const KOMUNIKAT_WALIDACJI = "Przesłane dane są nieprawidłowe.";
 
 /**
  * Pola formularza — lista służy rozpoznaniu, czy błąd z API dał się w całości
@@ -140,6 +158,22 @@ const OPCJE_ZIARNA: { value: Ziarno; label: string }[] = ZIARNA.map(
 /** Komunikat pustego gridu podglądu, gdy brakuje drzewa albo kategorii. */
 const TEKST_BEZ_WYBORU =
   "Wybierz drzewo i co najmniej jedną kategorię, żeby zobaczyć wiersze.";
+
+/**
+ * Ostrzeżenie w edycji, gdy lista domyślna różni się od zapisanej: zapis
+ * nadpisze nią przypisania wszystkich węzłów (PRD `## Open Questions` #3,
+ * rozstrzygnięte 2026-09-24; egzekwuje `PUT /screens/{id}`).
+ */
+const TEKST_NADPISANIA =
+  "Zapis nada tę listę wszystkim węzłom ekranu — grid poniżej pokazuje wynik.";
+
+/**
+ * Powód nieczynnego panelu kategorii węzła: przy zmienionej liście domyślnej
+ * grid pokazuje wynik nadpisania, a zapis nagłówka i tak zastąpiłby
+ * kategorie dopasowane pojedynczym węzłom.
+ */
+const TEKST_BLOKADY_WEZLA =
+  "Zapisz albo cofnij zmianę kategorii domyślnych, żeby dopasować kategorie pojedynczego węzła.";
 
 export function meta({ loaderData }: Route.MetaArgs) {
   const nazwa = loaderData?.wybrany?.name;
@@ -286,13 +320,16 @@ function widokPorazki(porazka: ApiFailure) {
 }
 
 /**
- * Jedna `action` dla dodania i usunięcia ekranu, rozgałęziona po polu
- * `intent`. Obie operacje idą nawigacją, więc sukces kończy się
- * przekierowaniem: na nowy ekran albo — po usunięciu — na
- * {@link SCREENS_ROUTE}, z którego loader wybierze pierwszy pozostały.
+ * Jedna `action` dla dodania, zmiany i usunięcia ekranu oraz zmiany kategorii
+ * jednego węzła, rozgałęziona po polu `intent`. Operacje na ekranie idą
+ * nawigacją, więc sukces kończy się przekierowaniem: na nowy albo zmieniony
+ * ekran, a po usunięciu — na {@link SCREENS_ROUTE}, z którego loader wybierze
+ * pierwszy pozostały. Kategorie węzła idą `fetcher`em (wzorzec operacji na
+ * węzłach w `routes/drzewo.tsx`), więc sukces to `null` i rewalidacja,
+ * a nie przekierowanie — stan formularza nagłówka i gridu zostaje.
  * Porażka zwraca kopertę API nietkniętą, razem ze statusem.
  *
- * Usunięcie działa na ekranie z `?ekran=` w `request.url` (wzorzec
+ * Zmiana i usunięcie działają na ekranie z `?ekran=` w `request.url` (wzorzec
  * `routes/drzewo.tsx`); czy ekran należy do konta, rozstrzyga API, które na
  * cudzy ekran odpowiada 404.
  *
@@ -324,35 +361,110 @@ export async function action({ request, context }: Route.ActionArgs) {
       : data(wynik.error, { status: wynik.status });
   }
 
-  if (intent === USUN_EKRAN) {
-    const parametr = new URL(request.url).searchParams.get(PARAMETR_EKRANU);
-    const id = parametr === null ? null : parseEntityId(parametr);
+  if (
+    intent !== ZAPISZ_EKRAN &&
+    intent !== USUN_EKRAN &&
+    intent !== ZAPISZ_KATEGORIE_WEZLA
+  ) {
+    // `validation_error`, a nie kod warstwy tras — powód przy tej samej
+    // gałęzi w `routes/obiekty.tsx`.
+    return data(
+      apiError("validation_error", "Nieznana operacja ekranu.", {
+        intent: typeof intent === "string" ? intent : null,
+      }),
+      { status: 400 },
+    );
+  }
 
-    // Kod jest kodem API (`ApiErrorCodes.NotFound`) — powód przy tej samej
-    // gałęzi w `routes/kategorie.tsx`.
-    if (id === null) {
-      return data(
-        apiError("not_found", "Nie wybrano ekranu.", {
-          [PARAMETR_EKRANU]: parametr,
-        }),
-        { status: 404 },
-      );
+  const parametr = new URL(request.url).searchParams.get(PARAMETR_EKRANU);
+  const id = parametr === null ? null : parseEntityId(parametr);
+
+  // Kod jest kodem API (`ApiErrorCodes.NotFound`) — powód przy tej samej
+  // gałęzi w `routes/kategorie.tsx`.
+  if (id === null) {
+    return data(
+      apiError("not_found", "Nie wybrano ekranu.", {
+        [PARAMETR_EKRANU]: parametr,
+      }),
+      { status: 404 },
+    );
+  }
+
+  if (intent === ZAPISZ_EKRAN) {
+    const formularz = readScreenForm(formData);
+
+    if (!formularz.ok) {
+      return data(formularz.error, { status: formularz.status });
     }
 
-    const wynik = await deleteScreen(userId, id);
+    const wynik = await updateScreen(userId, id, formularz.payload);
 
     return wynik.ok
-      ? redirect(SCREENS_ROUTE)
+      ? redirect(adresEkranu(id))
       : data(wynik.error, { status: wynik.status });
   }
 
-  // `validation_error`, a nie kod warstwy tras — powód przy tej samej
-  // gałęzi w `routes/obiekty.tsx`.
-  return data(
-    apiError("validation_error", "Nieznana operacja ekranu.", {
-      intent: typeof intent === "string" ? intent : null,
-    }),
-    { status: 400 },
+  if (intent === ZAPISZ_KATEGORIE_WEZLA) {
+    const nodeId = parseEntityId(tekstPola(formData, POLE_WEZLA));
+    const kategorieIds = formData
+      .getAll(POLE_KATEGORII_WEZLA)
+      .map((wartosc) =>
+        typeof wartosc === "string" ? parseEntityId(wartosc) : null,
+      );
+
+    // Tylko kształt identyfikatorów — powód jak w `readScreenForm`: `null`
+    // w tablicy liczb API odrzuciłoby błędem wiązania, nie komunikatem pod
+    // polem. Pustą listę i powtórzenie odrzuca API.
+    const naruszenia: Record<string, string> = {};
+
+    if (nodeId === null) {
+      naruszenia[POLE_WEZLA] = "Nieprawidłowy identyfikator węzła.";
+    }
+
+    if (kategorieIds.some((kategoria) => kategoria === null)) {
+      naruszenia[POLE_KATEGORII_WEZLA] = "Nieprawidłowy identyfikator kategorii.";
+    }
+
+    if (nodeId === null || Object.keys(naruszenia).length > 0) {
+      return data(
+        apiError("validation_error", KOMUNIKAT_WALIDACJI, {
+          fields: naruszenia,
+        }),
+        { status: 400 },
+      );
+    }
+
+    const wynik = await setNodeCategories(
+      userId,
+      id,
+      nodeId,
+      kategorieIds.filter((kategoria): kategoria is number => kategoria !== null),
+    );
+
+    return wynik.ok ? null : data(wynik.error, { status: wynik.status });
+  }
+
+  const wynik = await deleteScreen(userId, id);
+
+  return wynik.ok
+    ? redirect(SCREENS_ROUTE)
+    : data(wynik.error, { status: wynik.status });
+}
+
+/**
+ * Po zmianie kategorii węzła loader biegnie zawsze, także po odmowie 4xx,
+ * której React Router domyślnie nie rewaliduje: 404 (węzeł albo ekran
+ * usunięty w drugiej karcie) i odmowa kategorii spoza słownika znaczą, że
+ * widok pokazywał nieaktualny stan (wzorzec `shouldRevalidate`
+ * w `routes/drzewo.tsx`). Pozostałe operacje — domyślnie.
+ */
+export function shouldRevalidate({
+  formData,
+  defaultShouldRevalidate,
+}: ShouldRevalidateFunctionArgs) {
+  return (
+    formData?.get("intent") === ZAPISZ_KATEGORIE_WEZLA ||
+    defaultShouldRevalidate
   );
 }
 
@@ -383,9 +495,9 @@ const KOLUMNY_EKRANOW: readonly KolumnaSlownika<WierszListy>[] = [
  * ekranów użytkownika, pod nią panel, a pod panelem grid ekranu, który bierze
  * resztę wysokości okna.
  *
- * Panel pokazuje zapisany ekran (tylko do odczytu, z usuwaniem) albo nowy
- * ekran z podglądem wierszy na żywo. Edycja zapisanego ekranu należy do
- * `S-04`, kolumny czasowe gridu — do `S-05`.
+ * Panel pokazuje zapisany ekran (zmiana nazwy, ziarna i listy domyślnej,
+ * usuwanie, a obok gridu — kategorie wybranego węzła) albo nowy ekran
+ * z podglądem wierszy na żywo. Kolumny czasowe gridu należą do `S-05`.
  */
 export default function Ekrany({
   loaderData,
@@ -423,12 +535,12 @@ export default function Ekrany({
 
           {/*
             Jeden panel naraz, więc całe `actionData` należy do niego — jak
-            w `routes/drzewo.tsx`. `key` z identyfikatora ekranu: stan gridu
-            (zwinięcia) należy do jednego ekranu.
+            w `routes/drzewo.tsx`. `key` z wersji ekranu (`kluczEkranu`): stan
+            formularza i gridu należy do jednego ekranu w jednej wersji.
           */}
           {wybrany !== null ? (
             <ZapisanyEkran
-              key={wybrany.id}
+              key={kluczEkranu(wybrany)}
               ekran={wybrany}
               kategorie={kategorie}
               obiekty={obiekty}
@@ -461,8 +573,30 @@ export default function Ekrany({
 }
 
 /**
- * Zapisany ekran: panel tylko do odczytu (drzewo, ziarno, kategorie domyślne
- * w kolejności) z usuwaniem, a pod nim grid z przypisaniami ekranu.
+ * Zapisany ekran: karta „Edycja: <nazwa>” ze zmianą nazwy, ziarna i listy
+ * domyślnej oraz z usuwaniem, a pod nią grid ekranu. Drzewo stoi w karcie
+ * tylko do odczytu — ustala się je przy tworzeniu (FR-011).
+ *
+ * Wartości formularza trzyma stan tego komponentu, jak w {@link NowyEkran}.
+ * Grid pokazuje zapisane przypisania, dopóki lista domyślna w formularzu jest
+ * taka sama jak zapisana. Po jej zmianie pokazuje to, co zostanie po zapisie:
+ * każdy węzeł z nową listą, bo tak nadpisuje przypisania
+ * `PUT /screens/{id}`.
+ *
+ * Kategorie pojedynczego węzła (`S-04`, US-02): kliknięcie w wiersz gridu
+ * wybiera węzeł, a panel {@link KategorieWezla} po prawej pokazuje jego
+ * kategorie jako pola wyboru. Każde zaznaczenie i odznaczenie zapisuje się
+ * od razu `fetcher`em — tak jak operacje na węzłach w `routes/drzewo.tsx` —
+ * a nie przyciskiem „Zapisz zmiany”: ten dotyczy nagłówka, a jego zapis ze
+ * zmienioną listą domyślną i tak nadpisałby kategorie węzłów. Grid
+ * przebudowuje się od razu z wysyłanej listy (`fetcher.formData`), zanim
+ * rewalidacja przyniesie zapisany stan; odmowa przywraca stan z API. Dopóki
+ * lista domyślna w formularzu różni się od zapisanej, panel jest nieczynny —
+ * grid pokazuje wtedy wynik nadpisania, a nie zapisane kategorie węzłów.
+ *
+ * Wybór węzła żyje w stanie tego komponentu (jak w `BudowaDrzewa`), więc
+ * przeżywa rewalidację po zapisie kategorii — `kluczEkranu` nie zależy od
+ * przypisań. Zapis nagłówka montuje kartę od nowa i zdejmuje wybór.
  */
 function ZapisanyEkran({
   ekran,
@@ -478,7 +612,10 @@ function ZapisanyEkran({
   const wyslij = useSubmit();
   const nawigacja = useNavigation();
   const zajety = nawigacja.state !== "idle";
+  const wysylany = nawigacja.formData?.get("intent") === ZAPISZ_EKRAN;
   const usuwanie = nawigacja.formData?.get("intent") === USUN_EKRAN;
+  const fetcherWezla = useFetcher<typeof action>();
+  const zapisWezlaWToku = fetcherWezla.state !== "idle";
 
   // `Button` z `href` i ten handler — powód przy przycisku „Nowy obiekt"
   // w `routes/obiekty.tsx`: przejście działa przed hydracją, a po niej jest
@@ -487,40 +624,128 @@ function ZapisanyEkran({
     preventScrollReset: true,
   });
 
-  const wiersze = useMemo(
+  // Stan startuje z zapisanego ekranu i przeżywa nieudaną wysyłkę — jak
+  // w `NowyEkran`. Rodzic nadaje `key` z wersji ekranu (`kluczEkranu`), więc
+  // inny ekran i ekran po udanym zapisie zaczynają od zapisanych wartości.
+  const [nazwa, ustawNazwe] = useState(ekran.name);
+  const [ziarno, ustawZiarno] = useState<Ziarno>(
     () =>
-      zbudujWierszeGridu(
-        ekran.nodes,
-        obiekty,
-        kategorie,
-        new Map(
-          ekran.assignments.map((przypisanie) => [
-            przypisanie.nodeId,
-            przypisanie.categoryIds,
-          ]),
-        ),
-      ),
-    [ekran, obiekty, kategorie],
+      ZIARNA.find((minuty) => minuty === ekran.grainMinutes) ?? ZIARNO_DOMYSLNE,
+  );
+  const [kategorieIds, ustawKategorieIds] = useState<number[]>(
+    ekran.defaultCategoryIds,
   );
 
-  const opisy = useMemo(() => {
-    const poId = new Map(kategorie.map((kategoria) => [kategoria.id, kategoria]));
+  const pola = naruszeniaPol(blad);
+  const ogolny = komunikatOgolny(blad, pola);
 
-    return ekran.defaultCategoryIds
-      .map((id) => {
-        const kategoria = poId.get(id);
+  const zmienioneDomyslne =
+    kategorieIds.length !== ekran.defaultCategoryIds.length ||
+    kategorieIds.some((id, indeks) => id !== ekran.defaultCategoryIds[indeks]);
 
-        return kategoria === undefined
-          ? `#${id} (brak w słowniku)`
-          : `${kategoria.code} — ${kategoria.name}`;
-      })
-      .join(", ");
-  }, [ekran, kategorie]);
+  // Edycja bez zmiany pola nie ma czego zapisać, więc „Zapisz zmiany” czeka
+  // na pierwszą różnicę względem zapisanego ekranu (reguła wszystkich
+  // formularzy edycji). Po udanym zapisie rodzic nadaje nowy `key`
+  // (`kluczEkranu`), więc porównanie startuje od zapisanych wartości.
+  const zmieniony =
+    nazwa !== ekran.name || ziarno !== ekran.grainMinutes || zmienioneDomyslne;
+
+  const [wybranyWezelId, ustawWybranyWezelId] = useState<number | null>(null);
+  // Węzeł, którego dotyczył ostatni zapis — odmowa stoi w panelu tylko przy
+  // nim, a nie przy każdym węźle wybranym później.
+  const [wezelOstatniegoZapisu, ustawWezelOstatniegoZapisu] = useState<
+    number | null
+  >(null);
+
+  // Wysyłana lista kategorii węzła — do chwili, aż rewalidacja przyniesie
+  // zapisany stan, grid i panel pokazują ją zamiast przypisań z API.
+  // `formData` ma jedną tożsamość przez całą wysyłkę, więc memo trzyma.
+  const wysylaneKategorie = useMemo(
+    () => kategorieZWysylki(fetcherWezla.formData),
+    [fetcherWezla.formData],
+  );
+
+  const przypisania = useMemo(() => {
+    const mapa = new Map<number, readonly number[]>(
+      ekran.assignments.map((przypisanie) => [
+        przypisanie.nodeId,
+        przypisanie.categoryIds,
+      ]),
+    );
+
+    if (wysylaneKategorie !== null) {
+      mapa.set(wysylaneKategorie.wezelId, wysylaneKategorie.kategorieIds);
+    }
+
+    return mapa;
+  }, [ekran.assignments, wysylaneKategorie]);
+
+  const wiersze = useMemo<WezelGridu[]>(() => {
+    if (!zmienioneDomyslne) {
+      return zbudujWezlyGridu(ekran.nodes, obiekty, kategorie, przypisania);
+    }
+
+    return kategorieIds.length === 0
+      ? []
+      : zbudujWezlyGridu(
+          ekran.nodes,
+          obiekty,
+          kategorie,
+          przypisaniaDomyslne(ekran.nodes, kategorieIds),
+        );
+  }, [ekran, obiekty, kategorie, kategorieIds, zmienioneDomyslne, przypisania]);
+
+  // Węzeł usunięty od ostatniej rewalidacji (np. w drugiej karcie) to brak
+  // wyboru — jak zaznaczenie w `BudowaDrzewa`.
+  const wybranyWezel =
+    wybranyWezelId === null
+      ? null
+      : (ekran.nodes.find((wezel) => wezel.id === wybranyWezelId) ?? null);
+
+  const odmowa = fetcherWezla.data ?? null;
+  const odmowaWezla =
+    odmowa !== null &&
+    !zapisWezlaWToku &&
+    wybranyWezel !== null &&
+    wezelOstatniegoZapisu === wybranyWezel.id
+      ? (naruszeniaPol(odmowa)[POLE_KATEGORII_WEZLA] ?? odmowa.error.message)
+      : undefined;
+
+  function zapiszKategorieWezla(kategorieWezla: number[]) {
+    if (wybranyWezel === null || zapisWezlaWToku) {
+      return;
+    }
+
+    // `FormData`, a nie obiekt: kategorii jest kilka pod jedną nazwą pola,
+    // w kolejności wierszy węzła — `action` czyta je `getAll`.
+    const dane = new FormData();
+
+    dane.set("intent", ZAPISZ_KATEGORIE_WEZLA);
+    dane.set(POLE_WEZLA, String(wybranyWezel.id));
+
+    for (const kategoriaId of kategorieWezla) {
+      dane.append(POLE_KATEGORII_WEZLA, String(kategoriaId));
+    }
+
+    ustawWezelOstatniegoZapisu(wybranyWezel.id);
+
+    // Adres jawny, z `?ekran=` tego ekranu — z niego `action` bierze
+    // identyfikator (jak „Usuń ekran” wyżej).
+    fetcherWezla.submit(dane, {
+      method: "post",
+      action: adresEkranu(ekran.id),
+    });
+  }
+
+  const tekstPusty =
+    kategorieIds.length === 0
+      ? "Wybierz co najmniej jedną kategorię, żeby zobaczyć wiersze."
+      : "Drzewo tego ekranu nie ma jeszcze węzłów. Dodaj je w widoku „Drzewo”.";
 
   return (
     <>
       <RamkaPanelu
-        tytul={`Ekran: ${ekran.name}`}
+        tytul={`Edycja: ${ekran.name}`}
         akcja={
           <Button href={ADRES_NOWEGO} onClick={doDodania} disabled={zajety}>
             Nowy ekran
@@ -528,64 +753,119 @@ function ZapisanyEkran({
         }
       >
         {/*
-          Jedyny błąd tej karty to odmowa usunięcia (np. ekran usunięty
-          w drugiej karcie albo zgaszone API) — bez pól, więc sam baner.
+          Każdy błąd tej karty — z zapisu i z usuwania (np. ekran usunięty
+          w drugiej karcie albo zgaszone API) — trafia tu: naruszenia pól pod
+          pola, reszta do banera.
         */}
-        {blad === undefined ? null : (
-          <Alert
-            className="mb-tg-element"
-            type="error"
-            showIcon
-            title={blad.error.message}
-          />
+        {ogolny === undefined ? null : (
+          <Alert className="mb-tg-element" type="error" showIcon title={ogolny} />
         )}
 
-        <Descriptions
-          size="small"
-          column={1}
-          items={[
-            { key: "drzewo", label: "Drzewo", children: ekran.treeName },
-            {
-              key: "ziarno",
-              label: "Ziarno",
-              children: etykietaZiarna(ekran.grainMinutes),
-            },
-            { key: "kategorie", label: "Kategorie domyślne", children: opisy },
-          ]}
-        />
-
         {/*
-          Bez własnego `<form>` — potwierdzenie wysyła `intent` przez
-          `useSubmit`; adres wysyłki jawny, z `?ekran=` tego ekranu — z niego
-          `action` bierze identyfikator (jak „Usuń drzewo” w
-          `routes/drzewo.tsx`).
+          Budowa jak w `NowyEkran`. Wysyłka idzie pod bieżący adres, czyli
+          z `?ekran=` tego ekranu — z niego `action` bierze identyfikator.
         */}
-        <div className="mt-tg-element">
-          <PotwierdzenieUsuniecia
-            pytanie={`Usunąć ekran „${ekran.name}”?`}
-            etykieta="Usuń ekran"
-            wylaczone={zajety}
-            wToku={usuwanie}
-            onPotwierdz={() =>
-              wyslij(
-                { intent: USUN_EKRAN },
-                {
-                  method: "post",
-                  action: adresEkranu(ekran.id),
-                  preventScrollReset: true,
-                },
-              )
-            }
-          />
-        </div>
+        <RouterForm method="post" preventScrollReset>
+          <input type="hidden" name="intent" value={ZAPISZ_EKRAN} />
+
+          <AntForm component={false} layout="vertical" requiredMark={false}>
+            <PolaEkranu
+              prefiksId="edycja-ekranu"
+              nazwa={nazwa}
+              ustawNazwe={ustawNazwe}
+              ziarno={ziarno}
+              ustawZiarno={ustawZiarno}
+              kategorieIds={kategorieIds}
+              ustawKategorieIds={ustawKategorieIds}
+              kategorie={kategorie}
+              pola={pola}
+              uwagaKategorii={zmienioneDomyslne ? TEKST_NADPISANIA : undefined}
+              poleDrzewa={
+                <AntForm.Item
+                  label="Drzewo"
+                  htmlFor="edycja-ekranu-drzewo"
+                  extra="Drzewa zapisanego ekranu nie da się zmienić."
+                >
+                  {/* Bez `name` — drzewa nie wysyła się w zmianie ekranu. */}
+                  <Input
+                    id="edycja-ekranu-drzewo"
+                    value={ekran.treeName}
+                    disabled
+                  />
+                </AntForm.Item>
+              }
+            />
+
+            {/*
+              „Usuń ekran” stoi w rzędzie „Zapisz zmiany”, czyli wewnątrz
+              `<form>` zmiany, ale go nie wysyła — powód w
+              `PotwierdzenieUsuniecia`. Potwierdzenie wysyła `intent` przez
+              `useSubmit`; adres wysyłki jawny, z `?ekran=` tego ekranu (jak
+              „Usuń drzewo” w `routes/drzewo.tsx`).
+            */}
+            <AntForm.Item className="mb-0">
+              <div className="flex flex-wrap gap-tg-element">
+                <Button
+                  type="primary"
+                  htmlType="submit"
+                  loading={wysylany}
+                  disabled={zajety || !zmieniony}
+                >
+                  Zapisz zmiany
+                </Button>
+
+                <PotwierdzenieUsuniecia
+                  pytanie={`Usunąć ekran „${ekran.name}”?`}
+                  etykieta="Usuń ekran"
+                  wylaczone={zajety}
+                  wToku={usuwanie}
+                  onPotwierdz={() =>
+                    wyslij(
+                      { intent: USUN_EKRAN },
+                      {
+                        method: "post",
+                        action: adresEkranu(ekran.id),
+                        preventScrollReset: true,
+                      },
+                    )
+                  }
+                />
+              </div>
+            </AntForm.Item>
+          </AntForm>
+        </RouterForm>
       </RamkaPanelu>
 
-      <ObszarGridu
-        kluczGridu={`ekran-${ekran.id}`}
-        wiersze={wiersze}
-        tekstPusty="Drzewo tego ekranu nie ma jeszcze węzłów. Dodaj je w widoku „Drzewo”."
-        wczytywanie={false}
-      />
+      {/*
+        Grid i panel kategorii węzła obok siebie — minimalna wysokość budowy
+        jak w `routes/drzewo.tsx`, a grid bierze resztę szerokości.
+      */}
+      <div className="flex min-h-tg-budowa flex-1 gap-tg-sekcja">
+        <ObszarGridu
+          kluczGridu={`ekran-${ekran.id}`}
+          wiersze={wiersze}
+          tekstPusty={tekstPusty}
+          wczytywanie={false}
+          wybranyWezelId={wybranyWezel?.id ?? null}
+          onWybierzWezel={ustawWybranyWezelId}
+        />
+
+        <KategorieWezla
+          kategorie={kategorie}
+          wezel={
+            wybranyWezel === null
+              ? null
+              : {
+                  tytul: tytulWezla(wybranyWezel, obiekty),
+                  kategorieIds: przypisania.get(wybranyWezel.id) ?? [],
+                }
+          }
+          blokada={zmienioneDomyslne ? TEKST_BLOKADY_WEZLA : undefined}
+          zajete={zapisWezlaWToku || zajety}
+          odmowa={odmowaWezla}
+          onZmien={zapiszKategorieWezla}
+        />
+      </div>
     </>
   );
 }
@@ -596,11 +876,7 @@ function ZapisanyEkran({
  * Wartości formularza trzyma stan tego komponentu, a do `action` niosą je
  * ukryte pola — antd `Select` i `Segmented` nie renderują żadnego
  * `<input name>` (powód przy funkcji agregującej w `FormularzKategorii`).
- * Kategorie domyślne idą jako osobne pola `defaultCategoryIds`, po jednym na
- * kategorię, **w kolejności wyboru**: `readScreenForm` czyta je
- * `formData.getAll`, a ta kolejność jest kolejnością wierszy ekranu. antd
- * `Select mode="multiple"` dopisuje nowy wybór na koniec wartości, więc
- * zmiana kolejności to zdjęcie i ponowne dodanie kategorii.
+ * Pola wspólne z edycją rysuje {@link PolaEkranu}.
  *
  * Podgląd: wybór drzewa woła `fetcher.load()` na `?nowy&drzewo=<id>`, zamiast
  * nawigować — nawigacja przemontowałaby widok i zgubiła wpisaną nazwę.
@@ -638,14 +914,6 @@ function NowyEkran({
     () => drzewa.map((drzewo) => ({ value: drzewo.id, label: drzewo.name })),
     [drzewa],
   );
-  const opcjeKategorii = useMemo(
-    () =>
-      kategorie.map((kategoria) => ({
-        value: kategoria.id,
-        label: `${kategoria.code} — ${kategoria.name}`,
-      })),
-    [kategorie],
-  );
 
   const wczytywanie = fetcher.state !== "idle";
   const podglad = fetcher.data?.podglad ?? null;
@@ -655,11 +923,11 @@ function NowyEkran({
   const wezly =
     podglad !== null && podglad.treeId === drzewoId ? podglad.wezly : null;
 
-  const wiersze = useMemo<WierszGridu[]>(
+  const wiersze = useMemo<WezelGridu[]>(
     () =>
       wezly === null || kategorieIds.length === 0
         ? []
-        : zbudujWierszeGridu(
+        : zbudujWezlyGridu(
             wezly,
             obiekty,
             kategorie,
@@ -701,104 +969,47 @@ function NowyEkran({
         <RouterForm method="post" preventScrollReset>
           <input type="hidden" name="intent" value={DODAJ_EKRAN} />
           <input type="hidden" name={POLE_DRZEWA} value={drzewoId ?? ""} />
-          <input type="hidden" name={POLE_ZIARNA} value={ziarno} />
-          {kategorieIds.map((id) => (
-            <input key={id} type="hidden" name={POLE_KATEGORII} value={id} />
-          ))}
 
           <AntForm component={false} layout="vertical" requiredMark={false}>
-            <AntForm.Item
-              label="Nazwa"
-              htmlFor="nowy-ekran-nazwa"
-              validateStatus={pola[POLE_NAZWY] === undefined ? undefined : "error"}
-              help={pola[POLE_NAZWY]}
-            >
-              {/*
-                Bez `required` w przeglądarce: pustą nazwę odrzuca API i jego
-                komunikat ma stanąć pod polem. Granica jako licznik, a nie
-                `maxLength` — powód w `FormularzDrzewa`.
-              */}
-              <Input
-                id="nowy-ekran-nazwa"
-                name={POLE_NAZWY}
-                autoComplete="off"
-                value={nazwa}
-                onChange={(zdarzenie) => ustawNazwe(zdarzenie.target.value)}
-                count={{ max: DLUGOSC_NAZWY, show: true }}
-              />
-            </AntForm.Item>
-
-            <AntForm.Item
-              label="Drzewo"
-              htmlFor="nowy-ekran-drzewo"
-              validateStatus={pola[POLE_DRZEWA] === undefined ? undefined : "error"}
-              help={pola[POLE_DRZEWA]}
-              extra={
-                drzewa.length === 0 ? (
-                  <Link to="/drzewo" className="text-tg-akcent">
-                    Najpierw dodaj drzewo
-                  </Link>
-                ) : undefined
-              }
-            >
-              <Select<number>
-                id="nowy-ekran-drzewo"
-                placeholder="Wybierz jedno z własnych drzew"
-                options={opcjeDrzew}
-                value={drzewoId ?? undefined}
-                onChange={wybierzDrzewo}
-                allowClear
-                showSearch={{ optionFilterProp: "label" }}
-                disabled={drzewa.length === 0}
-              />
-            </AntForm.Item>
-
-            <AntForm.Item
-              label="Ziarno czasowe"
-              validateStatus={pola[POLE_ZIARNA] === undefined ? undefined : "error"}
-              help={pola[POLE_ZIARNA]}
-            >
-              <Segmented
-                aria-label="Ziarno czasowe"
-                options={OPCJE_ZIARNA}
-                value={ziarno}
-                onChange={(wartosc) => {
-                  // Strażnik, a nie rzutowanie — powód w `PrzelacznikMotywu`.
-                  const wybrane = ZIARNA.find((minuty) => minuty === wartosc);
-
-                  if (wybrane !== undefined) {
-                    ustawZiarno(wybrane);
+            <PolaEkranu
+              prefiksId="nowy-ekran"
+              nazwa={nazwa}
+              ustawNazwe={ustawNazwe}
+              ziarno={ziarno}
+              ustawZiarno={ustawZiarno}
+              kategorieIds={kategorieIds}
+              ustawKategorieIds={ustawKategorieIds}
+              kategorie={kategorie}
+              pola={pola}
+              poleDrzewa={
+                <AntForm.Item
+                  label="Drzewo"
+                  htmlFor="nowy-ekran-drzewo"
+                  validateStatus={
+                    pola[POLE_DRZEWA] === undefined ? undefined : "error"
                   }
-                }}
-              />
-            </AntForm.Item>
-
-            <AntForm.Item
-              label="Kategorie domyślne (kolejność wyboru to kolejność wierszy)"
-              htmlFor="nowy-ekran-kategorie"
-              validateStatus={
-                pola[POLE_KATEGORII] === undefined ? undefined : "error"
+                  help={pola[POLE_DRZEWA]}
+                  extra={
+                    drzewa.length === 0 ? (
+                      <Link to="/drzewo" className="text-tg-akcent">
+                        Najpierw dodaj drzewo
+                      </Link>
+                    ) : undefined
+                  }
+                >
+                  <Select<number>
+                    id="nowy-ekran-drzewo"
+                    placeholder="Wybierz jedno z własnych drzew"
+                    options={opcjeDrzew}
+                    value={drzewoId ?? undefined}
+                    onChange={wybierzDrzewo}
+                    allowClear
+                    showSearch={{ optionFilterProp: "label" }}
+                    disabled={drzewa.length === 0}
+                  />
+                </AntForm.Item>
               }
-              help={pola[POLE_KATEGORII]}
-              extra={
-                kategorie.length === 0 ? (
-                  <Link to="/kategorie" className="text-tg-akcent">
-                    Najpierw dodaj kategorię
-                  </Link>
-                ) : undefined
-              }
-            >
-              <Select<number[]>
-                id="nowy-ekran-kategorie"
-                mode="multiple"
-                placeholder="Wybierz co najmniej jedną kategorię"
-                options={opcjeKategorii}
-                value={kategorieIds}
-                onChange={ustawKategorieIds}
-                showSearch={{ optionFilterProp: "label" }}
-                disabled={kategorie.length === 0}
-              />
-            </AntForm.Item>
+            />
 
             <AntForm.Item className="mb-0">
               <Button
@@ -829,6 +1040,134 @@ function NowyEkran({
 }
 
 /**
+ * Pola wspólne nowego i zapisanego ekranu: nazwa, drzewo (slot — w nowym
+ * ekranie wybór, w edycji odczyt), ziarno i lista domyślna, razem z ukrytymi
+ * polami, które niosą ziarno i kategorie do `action`. Rysowane wewnątrz
+ * `AntForm component={false}` i `RouterForm` rodzica.
+ *
+ * Kategorie domyślne idą jako osobne pola `defaultCategoryIds`, po jednym na
+ * kategorię, **w kolejności wyboru**: `readScreenForm` czyta je
+ * `formData.getAll`, a ta kolejność jest kolejnością wierszy ekranu. antd
+ * `Select mode="multiple"` dopisuje nowy wybór na koniec wartości, więc
+ * zmiana kolejności to zdjęcie i ponowne dodanie kategorii.
+ */
+function PolaEkranu({
+  prefiksId,
+  nazwa,
+  ustawNazwe,
+  poleDrzewa,
+  ziarno,
+  ustawZiarno,
+  kategorieIds,
+  ustawKategorieIds,
+  kategorie,
+  pola,
+  uwagaKategorii,
+}: {
+  /** Przedrostek identyfikatorów pól — `htmlFor` etykiet musi być unikalny. */
+  prefiksId: string;
+  nazwa: string;
+  ustawNazwe: (nazwa: string) => void;
+  poleDrzewa: ReactNode;
+  ziarno: Ziarno;
+  ustawZiarno: (ziarno: Ziarno) => void;
+  kategorieIds: number[];
+  ustawKategorieIds: (ids: number[]) => void;
+  kategorie: CatalogCategory[];
+  pola: Record<string, string | undefined>;
+  /** Podpowiedź pod listą domyślną, gdy pole nie ma błędu. */
+  uwagaKategorii?: string;
+}) {
+  const opcjeKategorii = useMemo(
+    () =>
+      kategorie.map((kategoria) => ({
+        value: kategoria.id,
+        label: `${kategoria.code} — ${kategoria.name}`,
+      })),
+    [kategorie],
+  );
+
+  return (
+    <>
+      <input type="hidden" name={POLE_ZIARNA} value={ziarno} />
+      {kategorieIds.map((id) => (
+        <input key={id} type="hidden" name={POLE_KATEGORII} value={id} />
+      ))}
+
+      <AntForm.Item
+        label="Nazwa"
+        htmlFor={`${prefiksId}-nazwa`}
+        validateStatus={pola[POLE_NAZWY] === undefined ? undefined : "error"}
+        help={pola[POLE_NAZWY]}
+      >
+        {/*
+          Bez `required` w przeglądarce: pustą nazwę odrzuca API i jego
+          komunikat ma stanąć pod polem. Granica jako licznik, a nie
+          `maxLength` — powód w `FormularzDrzewa`.
+        */}
+        <Input
+          id={`${prefiksId}-nazwa`}
+          name={POLE_NAZWY}
+          autoComplete="off"
+          value={nazwa}
+          onChange={(zdarzenie) => ustawNazwe(zdarzenie.target.value)}
+          count={{ max: DLUGOSC_NAZWY, show: true }}
+        />
+      </AntForm.Item>
+
+      {poleDrzewa}
+
+      <AntForm.Item
+        label="Ziarno czasowe"
+        validateStatus={pola[POLE_ZIARNA] === undefined ? undefined : "error"}
+        help={pola[POLE_ZIARNA]}
+      >
+        <Segmented
+          aria-label="Ziarno czasowe"
+          options={OPCJE_ZIARNA}
+          value={ziarno}
+          onChange={(wartosc) => {
+            // Strażnik, a nie rzutowanie — powód w `PrzelacznikMotywu`.
+            const wybrane = ZIARNA.find((minuty) => minuty === wartosc);
+
+            if (wybrane !== undefined) {
+              ustawZiarno(wybrane);
+            }
+          }}
+        />
+      </AntForm.Item>
+
+      <AntForm.Item
+        label="Kategorie domyślne (kolejność wyboru to kolejność wierszy)"
+        htmlFor={`${prefiksId}-kategorie`}
+        validateStatus={pola[POLE_KATEGORII] === undefined ? undefined : "error"}
+        help={pola[POLE_KATEGORII]}
+        extra={
+          kategorie.length === 0 ? (
+            <Link to="/kategorie" className="text-tg-akcent">
+              Najpierw dodaj kategorię
+            </Link>
+          ) : (
+            uwagaKategorii
+          )
+        }
+      >
+        <Select<number[]>
+          id={`${prefiksId}-kategorie`}
+          mode="multiple"
+          placeholder="Wybierz co najmniej jedną kategorię"
+          options={opcjeKategorii}
+          value={kategorieIds}
+          onChange={ustawKategorieIds}
+          showSearch={{ optionFilterProp: "label" }}
+          disabled={kategorie.length === 0}
+        />
+      </AntForm.Item>
+    </>
+  );
+}
+
+/**
  * Grid ekranu z podpisem pod nim. Minimalna wysokość to wysokość budowy
  * z motywu (`min-h-tg-budowa`), a resztę okna grid bierze flexem — sam mierzy
  * swój kontener (`GridEkranu`), więc wysokość musi dać mu układ, nie liczba.
@@ -842,18 +1181,31 @@ function ObszarGridu({
   wiersze,
   tekstPusty,
   wczytywanie,
+  wybranyWezelId,
+  onWybierzWezel,
 }: {
   kluczGridu: string;
-  wiersze: WierszGridu[];
+  wiersze: WezelGridu[];
   tekstPusty: string;
   wczytywanie: boolean;
+  /** Wybór węzła — tylko w zapisanym ekranie; podgląd nowego go nie ma. */
+  wybranyWezelId?: number | null;
+  onWybierzWezel?: (wezelId: number) => void;
 }) {
+  // `min-w-0`: w zapisanym ekranie obszar stoi w wierszu flex obok panelu
+  // kategorii węzła i bez tego nie zwęziłby się poniżej szerokości tabeli.
   return (
     <section
       aria-label="Grid ekranu"
-      className="flex min-h-tg-budowa flex-1 flex-col gap-tg-element"
+      className="flex min-h-tg-budowa min-w-0 flex-1 flex-col gap-tg-element"
     >
-      <GridEkranu key={kluczGridu} wiersze={wiersze} tekstPusty={tekstPusty} />
+      <GridEkranu
+        key={kluczGridu}
+        wezly={wiersze}
+        tekstPusty={tekstPusty}
+        wybranyWezelId={wybranyWezelId}
+        onWybierzWezel={onWybierzWezel}
+      />
 
       <div className="flex items-center gap-tg-element">
         {wczytywanie ? <Spin size="small" /> : null}
@@ -867,6 +1219,43 @@ function ObszarGridu({
   );
 }
 
+/**
+ * Wysyłana zmiana kategorii węzła z `fetcher.formData` albo `null`, gdy
+ * żadna nie jest w toku. Czyta te same pola, które wysyła
+ * `zapiszKategorieWezla`, więc wartości są poprawnymi identyfikatorami.
+ */
+function kategorieZWysylki(
+  formData: FormData | undefined,
+): { wezelId: number; kategorieIds: number[] } | null {
+  if (formData?.get("intent") !== ZAPISZ_KATEGORIE_WEZLA) {
+    return null;
+  }
+
+  return {
+    wezelId: Number(formData.get(POLE_WEZLA)),
+    kategorieIds: formData.getAll(POLE_KATEGORII_WEZLA).map(Number),
+  };
+}
+
+/**
+ * Tytuł węzła w panelu kategorii — ten sam co w kolumnie „Węzeł” gridu,
+ * z tym samym opisem zastępczym obiektu spoza słownika (`zbudujWezlyGridu`).
+ */
+function tytulWezla(wezel: TreeNode, obiekty: readonly CatalogObject[]): string {
+  const obiekt = obiekty.find((kandydat) => kandydat.id === wezel.objectId);
+
+  return obiekt === undefined
+    ? `Obiekt ${wezel.objectId} (brak w słowniku)`
+    : tytulObiektu(obiekt);
+}
+
+/** Wartość pola formularza jako tekst; brak pola albo plik — pusty tekst. */
+function tekstPola(formData: FormData, nazwa: string): string {
+  const wartosc = formData.get(nazwa);
+
+  return typeof wartosc === "string" ? wartosc : "";
+}
+
 /** Wiersz listy z ekranu z API. */
 function doWierszaListy(ekran: UserScreen): WierszListy {
   return {
@@ -875,6 +1264,22 @@ function doWierszaListy(ekran: UserScreen): WierszListy {
     treeName: ekran.treeName,
     ziarno: etykietaZiarna(ekran.grainMinutes),
   };
+}
+
+/**
+ * Klucz karty zapisanego ekranu — zmienia się z każdym zapisanym polem
+ * nagłówka, jak `kluczPanelu` w `routes/obiekty.tsx`. Po udanym zapisie karta
+ * montuje się od nowa: formularz startuje z wartości z API (np. nazwy po
+ * obcięciu spacji), a „Zapisz zmiany” znów czeka na zmianę. Ceną jest reset
+ * zwinięć gridu po zapisie.
+ */
+function kluczEkranu(ekran: ScreenDetail): string {
+  return JSON.stringify([
+    ekran.id,
+    ekran.name,
+    ekran.grainMinutes,
+    ekran.defaultCategoryIds,
+  ]);
 }
 
 /** Ziarno jako tekst dla użytkownika: „15 min”. */
@@ -897,8 +1302,8 @@ function adresPodgladu(treeId: number) {
 }
 
 /**
- * Komunikaty pod polami z `context.fields` — emitowane przez `POST /screens`
- * i przez `readScreenForm`.
+ * Komunikaty pod polami z `context.fields` — emitowane przez `POST /screens`,
+ * `PUT /screens/{id}` i przez `readScreenForm`.
  */
 function naruszeniaPol(
   blad: ApiErrorBody | undefined,

@@ -5,6 +5,7 @@ import { type LoaderFunctionArgs, data, redirect } from "react-router";
 import { DrzewoStruktury } from "~/components/DrzewoStruktury";
 import { FormularzDrzewa } from "~/components/FormularzDrzewa";
 import { GridEkranu } from "~/components/GridEkranu";
+import { KategorieWezla } from "~/components/KategorieWezla";
 import { ListaObiektowZrodlowych } from "~/components/ListaObiektowZrodlowych";
 import { ObszarPrzewijania } from "~/components/ObszarPrzewijania";
 import { PasekBudowy } from "~/components/PasekBudowy";
@@ -27,10 +28,10 @@ import {
   wezlyZDziecmi,
 } from "~/lib/drzewo";
 import {
-  type WierszGridu,
+  type WezelGridu,
   liczbaWierszy,
   przypisaniaDomyslne,
-  zbudujWierszeGridu,
+  zbudujWezlyGridu,
 } from "~/lib/ekran";
 import { naglowekZapisu } from "~/theme/ciasteczko";
 import { jestWariantem } from "~/theme/tokeny";
@@ -49,7 +50,9 @@ import { jestWariantem } from "~/theme/tokeny";
  *
  * Sekcja „Grid ekranu” pokazuje stany `GridEkranu` na danych statycznych,
  * zanim komponent trafi do trasy (plan `zapisane-ekrany`, faza 3) — jest
- * punktem zrzutów gridu w obu motywach.
+ * punktem zrzutów gridu w obu motywach. Sekcja „Kategorie węzła” pokazuje
+ * panel `KategorieWezla` z `S-04` we wszystkich stanach, także obok gridu
+ * z wybranym węzłem, tak jak składa je zapisany ekran w `/ekrany`.
  *
  * Typy loadera z `react-router`, a nie z `./+types/wzornik`: trasa jest
  * rejestrowana tylko w trybie deweloperskim, a `react-router typegen` ładuje
@@ -246,7 +249,7 @@ const WEZLY_AB: TreeNode[] = [
   { id: 102, parentId: 101, objectId: 5, position: 0 },
 ];
 
-const WIERSZE_AB = zbudujWierszeGridu(
+const WIERSZE_AB = zbudujWezlyGridu(
   WEZLY_AB,
   OBIEKTY,
   KATEGORIE,
@@ -262,7 +265,7 @@ const WEZLY_BEZ_KATEGORII: TreeNode[] = [
   { id: 202, parentId: 201, objectId: 3, position: 0 },
 ];
 
-const WIERSZE_BEZ_KATEGORII = zbudujWierszeGridu(
+const WIERSZE_BEZ_KATEGORII = zbudujWezlyGridu(
   WEZLY_BEZ_KATEGORII,
   OBIEKTY,
   KATEGORIE,
@@ -277,7 +280,7 @@ const WEZLY_GLEBOKIE: TreeNode[] = [10, 5, 11, 6, 12, 7].map((objectId, i) => ({
   position: 0,
 }));
 
-const WIERSZE_GLEBOKIE = zbudujWierszeGridu(
+const WIERSZE_GLEBOKIE = zbudujWezlyGridu(
   WEZLY_GLEBOKIE,
   OBIEKTY,
   KATEGORIE,
@@ -303,14 +306,36 @@ const WEZLY_DUZE: TreeNode[] = Array.from({ length: 20 }, (_, korzen) => {
   ];
 }).flat();
 
-const WIERSZE_DUZE = zbudujWierszeGridu(
+const WIERSZE_DUZE = zbudujWezlyGridu(
   WEZLY_DUZE,
   OBIEKTY,
   KATEGORIE,
   przypisaniaDomyslne(WEZLY_DUZE, DOMYSLNE_QPU),
 );
 
-const BRAK_WIERSZY: WierszGridu[] = [];
+const BRAK_WIERSZY: WezelGridu[] = [];
+
+/**
+ * Przykład A/B po dopasowaniu kategorii węźle B (LN-01): zostaje mu samo
+ * U — węzeł A ma nadal [Q, P, U], razem 4 wiersze. Stan panelu „jedyna
+ * kategoria” i gridu z wybranym węzłem.
+ */
+const WIERSZE_AB_DOPASOWANE = zbudujWezlyGridu(
+  WEZLY_AB,
+  OBIEKTY,
+  KATEGORIE,
+  new Map([
+    [101, DOMYSLNE_QPU],
+    [102, [U]],
+  ]),
+);
+
+/** Odmowa zapisu kategorii węzła w brzmieniu API (kategoria spoza słownika). */
+const ODMOWA_KATEGORII_WEZLA = "Wybrana kategoria nie istnieje w słowniku.";
+
+/** Powód nieczynnego panelu — tekst z `routes/ekrany.tsx`. */
+const BLOKADA_KATEGORII_WEZLA =
+  "Zapisz albo cofnij zmianę kategorii domyślnych, żeby dopasować kategorie pojedynczego węzła.";
 
 /** Tekst pustego gridu w brzmieniu podglądu nowego ekranu (faza 4 planu). */
 const TEKST_PUSTEGO_GRIDU =
@@ -592,6 +617,10 @@ export default function Wzornik() {
             <DemoGridu wiersze={WIERSZE_GLEBOKIE} />
           </Stan>
 
+          <Stan nazwa="zagnieżdżenie z węzłem LN-02 zwiniętym (+) — kategorie węzła zostają">
+            <DemoGridu wiersze={WIERSZE_GLEBOKIE} zwiniete={["w304"]} />
+          </Stan>
+
           <Stan
             nazwa={`${WEZLY_DUZE.length} węzłów × 3 kategorie (przewijanie wirtualne), wierszy: ${liczbaWierszy(WIERSZE_DUZE)}`}
           >
@@ -600,6 +629,68 @@ export default function Wzornik() {
 
           <Stan nazwa="pusty">
             <DemoGridu wiersze={BRAK_WIERSZY} />
+          </Stan>
+        </Siatka>
+      </Grupa>
+
+      <Grupa tytul="Kategorie węzła (KategorieWezla)">
+        <Stan
+          nazwa={`obok gridu, wybrany węzeł LN-01 z jedną kategorią, wierszy: ${liczbaWierszy(WIERSZE_AB_DOPASOWANE)}`}
+        >
+          <div className="flex h-72 gap-tg-sekcja">
+            <div className="flex min-w-0 flex-1 flex-col">
+              <GridEkranu
+                wezly={WIERSZE_AB_DOPASOWANE}
+                tekstPusty={TEKST_PUSTEGO_GRIDU}
+                wybranyWezelId={102}
+                onWybierzWezel={nic}
+              />
+            </div>
+            <KategorieWezla
+              kategorie={KATEGORIE}
+              wezel={{ tytul: "LN-01 — Linia Centrum–Wschód", kategorieIds: [U] }}
+              zajete={false}
+              onZmien={nic}
+            />
+          </div>
+        </Stan>
+
+        <Siatka kolumny={3}>
+          <Stan nazwa="bez wybranego węzła">
+            <DemoKategoriiWezla wezel={null} />
+          </Stan>
+
+          <Stan nazwa="węzeł z trzema kategoriami">
+            <DemoKategoriiWezla
+              wezel={{ tytul: "ST-01 — Stacja Centrum", kategorieIds: DOMYSLNE_QPU }}
+            />
+          </Stan>
+
+          <Stan nazwa="węzeł bez kategorii (po zdjęciu kategorii ze słownika)">
+            <DemoKategoriiWezla
+              wezel={{ tytul: "EL-01 — Elektrownia Północ", kategorieIds: [] }}
+            />
+          </Stan>
+
+          <Stan nazwa="zapis w toku">
+            <DemoKategoriiWezla
+              wezel={{ tytul: "ST-01 — Stacja Centrum", kategorieIds: [Q, P] }}
+              zajete
+            />
+          </Stan>
+
+          <Stan nazwa="zmieniona lista domyślna — panel nieczynny">
+            <DemoKategoriiWezla
+              wezel={{ tytul: "ST-01 — Stacja Centrum", kategorieIds: DOMYSLNE_QPU }}
+              blokada={BLOKADA_KATEGORII_WEZLA}
+            />
+          </Stan>
+
+          <Stan nazwa="odmowa zapisu">
+            <DemoKategoriiWezla
+              wezel={{ tytul: "ST-01 — Stacja Centrum", kategorieIds: [Q, P] }}
+              odmowa={ODMOWA_KATEGORII_WEZLA}
+            />
           </Stan>
         </Siatka>
       </Grupa>
@@ -822,10 +913,50 @@ function DemoListy({
  * zmierzyć — w `/ekrany` tę wysokość da układ widoku. Wysokość z klasy — ten
  * sam wyjątek co w `DemoDrzewa`.
  */
-function DemoGridu({ wiersze }: { wiersze: WierszGridu[] }) {
+function DemoGridu({
+  wiersze,
+  zwiniete,
+}: {
+  wiersze: WezelGridu[];
+  zwiniete?: readonly string[];
+}) {
   return (
     <div className="flex h-96 flex-col">
-      <GridEkranu wiersze={wiersze} tekstPusty={TEKST_PUSTEGO_GRIDU} />
+      <GridEkranu
+        wezly={wiersze}
+        tekstPusty={TEKST_PUSTEGO_GRIDU}
+        zwinietePoczatkowo={zwiniete}
+      />
+    </div>
+  );
+}
+
+/**
+ * `KategorieWezla` w ramce o stałej wysokości — w `/ekrany` wysokość daje
+ * wiersz flex z gridem. Wysokość z klasy — ten sam wyjątek co w
+ * `DemoDrzewa`.
+ */
+function DemoKategoriiWezla({
+  wezel,
+  zajete = false,
+  blokada,
+  odmowa,
+}: {
+  wezel: { tytul: string; kategorieIds: readonly number[] } | null;
+  zajete?: boolean;
+  blokada?: string;
+  odmowa?: string;
+}) {
+  return (
+    <div className="flex h-72">
+      <KategorieWezla
+        kategorie={KATEGORIE}
+        wezel={wezel}
+        zajete={zajete}
+        blokada={blokada}
+        odmowa={odmowa}
+        onZmien={nic}
+      />
     </div>
   );
 }

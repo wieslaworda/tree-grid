@@ -1,4 +1,5 @@
 import { Alert, Button, Form as AntForm, Input } from "antd";
+import { useState } from "react";
 import { Form as RouterForm, useNavigation } from "react-router";
 
 import type { ApiErrorBody } from "~/lib/api.server";
@@ -13,6 +14,9 @@ import type { CatalogObject } from "~/lib/objects.server";
  * który nigdy się nie pokazuje.
  */
 const POLA_FORMULARZA = ["code", "name"] as const;
+
+/** Wartości pól w magazynie antd — `onValuesChange` podaje je w komplecie. */
+type WartosciObiektu = { code?: string; name?: string };
 
 type Wlasciwosci = {
   /** Edytowany obiekt albo `undefined` przy dodawaniu. */
@@ -60,6 +64,13 @@ export function FormularzObiektu({
     nawigacja.formData !== undefined &&
     nawigacja.formData.get("intent") === (intent ?? null);
 
+  // Edycja bez zmiany pola nie ma czego zapisać, więc przycisk czeka na
+  // pierwszą różnicę względem obiektu (reguła wszystkich formularzy edycji).
+  // Start `false` jest poprawny także w SSR; po udanym zapisie panel dostaje
+  // nowy `key` (`kluczPanelu` w `routes/obiekty.tsx`) i liczy od nowa.
+  const [zmieniony, ustawZmieniony] = useState(false);
+  const moznaZapisac = obiekt === undefined || zmieniony;
+
   return (
     <>
       {/*
@@ -80,7 +91,7 @@ export function FormularzObiektu({
           <input type="hidden" name="intent" value={intent} />
         )}
 
-        <AntForm
+        <AntForm<WartosciObiektu>
           component={false}
           layout="vertical"
           requiredMark={false}
@@ -88,6 +99,11 @@ export function FormularzObiektu({
           // polu: pole pod `Form.Item` z `name` jest sterowane przez antd
           // i `defaultValue` by zignorowało.
           initialValues={{ code: obiekt?.code, name: obiekt?.name }}
+          onValuesChange={(_, wartosci) =>
+            ustawZmieniony(
+              wartosci.code !== obiekt?.code || wartosci.name !== obiekt?.name,
+            )
+          }
         >
           <AntForm.Item
             label="Kod"
@@ -122,7 +138,7 @@ export function FormularzObiektu({
               type="primary"
               htmlType="submit"
               loading={wysylanyTen}
-              disabled={zajety}
+              disabled={zajety || !moznaZapisac}
             >
               {etykietaZapisu}
             </Button>

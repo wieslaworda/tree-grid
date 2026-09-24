@@ -73,6 +73,7 @@
   --spacing-tg-sekcja: var(--tg-odstepSekcji);
   --spacing-tg-element: var(--tg-odstepElementow);
   --spacing-tg-budowa: var(--tg-minWysokoscBudowy);
+  --spacing-tg-panel-wezla: var(--tg-szerokoscPaneluKategoriiWezla);
 }
 
 /* Tło i kolor tekstu dokumentu biorą się ze zmiennych, a nie z klas wariantu:
@@ -127,5 +128,92 @@ html {
     font-family: var(--font-mono);
     font-variant-numeric: tabular-nums;
     text-align: right;
+  }
+
+  /* Grubsza linia nad pierwszym wierszem węzła w gridzie ekranu — wchodzi
+     w `onCell` kolumn w `GridEkranu.tsx`. Cień wcięty, a nie `border-top`:
+     obramowanie dołożyłoby wysokości wierszowi, a tabela wirtualna i NFR
+     „25 wierszy bez przewijania” liczą na równe 24 px. Kolor to rola
+     `obramowanieKontrolki` — istniejąca, z kontrastem ≥ 3:1 w obu
+     wariantach, więc linia sekcji odróżnia się od siatki (`linia`) bez
+     nowego koloru. Grubość z `METRYKI.gruboscLiniiSekcji`. */
+  .tg-granica-sekcji {
+    box-shadow: inset 0 var(--tg-gruboscLiniiSekcji) 0
+      var(--tg-obramowanieKontrolki);
+  }
+
+  /* Linie siatki gridu ekranu — wchodzi w `className` kolumn
+     w `GridEkranu.tsx`, więc obejmuje komórki ciała i nagłówka tylko tej
+     tabeli. Rola `obramowanieKontrolki`, a nie `linia` z tokenu `Table`:
+     `linia` ma wobec tła 1,3:1 (ciemny) i 1,45:1 (jasny) i w gridzie, gdzie
+     wiersze węzła są scalone, linii prawie nie było widać. Listy słownikowe
+     zostają przy `linia` — zmiana tokenu `Table` przemalowałaby wszystkie
+     tabele. */
+  .tg-komorka-gridu {
+    border-color: var(--tg-obramowanieKontrolki);
+  }
+
+  /* Pionowy separator kolumn w nagłówku — antd rysuje go pseudoelementem
+     `::before` komórki nagłówka w kolorze `headerSplitColor` (`linia`).
+     Tu tylko kolor; bez `content` komórka ciała pseudoelementu nie dostaje. */
+  .tg-komorka-gridu::before {
+    background-color: var(--tg-obramowanieKontrolki);
+  }
+
+  /* Pionowa linia między kolumnami gridu, przez nagłówek i ciało — na
+     każdej kolumnie poza ostatnią (`GridEkranu.tsx`). Grubość jak siatka
+     antd (`METRYKI.lineWidth`); przy `box-sizing: border-box` nie zmienia
+     szerokości kolumny. */
+  .tg-granica-kolumny {
+    border-inline-end: var(--tg-gruboscLinii) solid
+      var(--tg-obramowanieKontrolki);
+  }
+
+  /* Pełna linia zastępuje krótki separator nagłówka antd — oba naraz dają
+     pogrubiony odcinek w nagłówku. Po `.tg-komorka-gridu::before`, bo ta
+     sama specyficzność rozstrzyga kolejność. */
+  .tg-granica-kolumny::before {
+    background-color: transparent;
+  }
+
+  /* Przełącznik +/− węzła w gridzie ekranu: kwadrat z ramką widoczną zawsze,
+     nie tylko po najechaniu (tak robił przełącznik antd, którego ramka to
+     `linia`). Ramka w roli `obramowanieKontrolki` (≥ 3:1 w obu wariantach),
+     kreski w kolorze tekstu. Kreska pozioma to `::before`, pionowa `::after`
+     tylko przy zwiniętym węźle — razem „+”. `calc(50% - 0.5px)` przy
+     nieparzystym wnętrzu (`METRYKI.rozmiarPrzelacznika`) kładzie kreskę na
+     pełnym pikselu. Odstęp w miejscu przełącznika u węzła bez dzieci to ta
+     sama klasa z `invisible`. */
+  .tg-przelacznik {
+    position: relative;
+    flex: none;
+    width: var(--tg-rozmiarPrzelacznika);
+    height: var(--tg-rozmiarPrzelacznika);
+    padding: 0;
+    border: 1px solid var(--tg-obramowanieKontrolki);
+    background: transparent;
+    color: var(--tg-tekst);
+    cursor: pointer;
+  }
+
+  .tg-przelacznik::before,
+  .tg-przelacznik[aria-expanded="false"]::after {
+    position: absolute;
+    background: currentColor;
+    content: "";
+  }
+
+  .tg-przelacznik::before {
+    top: calc(50% - 0.5px);
+    right: 2px;
+    left: 2px;
+    height: 1px;
+  }
+
+  .tg-przelacznik[aria-expanded="false"]::after {
+    top: 2px;
+    bottom: 2px;
+    left: calc(50% - 0.5px);
+    width: 1px;
   }
 }

@@ -196,6 +196,66 @@ public class ScreenRulesTests
         Assert.All(assignments, assignment => Assert.Equal(B, assignment.NodeId));
     }
 
+    // --- Zmiana listy domyślnej w edycji ------------------------------------
+
+    [Fact]
+    public void Same_default_list_is_not_a_change()
+    {
+        Assert.False(ScreenRules.DefaultsChanged([Q, P, U], [Q, P, U]));
+    }
+
+    [Fact]
+    public void Reordered_default_list_is_a_change()
+    {
+        // Kolejność listy to kolejność wierszy, więc przestawienie nadpisuje
+        // przypisania węzłów.
+        Assert.True(ScreenRules.DefaultsChanged([Q, P, U], [P, Q, U]));
+    }
+
+    [Theory]
+    [InlineData(new[] { Q, P, U }, new[] { Q, P })]
+    [InlineData(new[] { Q, P }, new[] { Q, P, U })]
+    [InlineData(new[] { Q }, new[] { P })]
+    public void Added_removed_or_replaced_category_is_a_change(int[] current, int[] requested)
+    {
+        Assert.True(ScreenRules.DefaultsChanged(current, requested));
+    }
+
+    // --- Kategorie jednego węzła (S-04) -------------------------------------
+
+    [Fact]
+    public void Empty_node_list_is_rejected_so_a_node_keeps_at_least_one_category()
+    {
+        Assert.False(ScreenRules.TryValidateNodeCategories([], out var message));
+        Assert.Equal("Węzeł musi mieć co najmniej jedną kategorię.", message);
+    }
+
+    [Fact]
+    public void Node_list_with_a_repeated_category_is_rejected()
+    {
+        Assert.False(ScreenRules.TryValidateNodeCategories([Q, P, Q], out var message));
+        Assert.Equal("Kategoria węzła nie może się powtarzać.", message);
+    }
+
+    [Fact]
+    public void Single_node_category_is_accepted()
+    {
+        Assert.True(ScreenRules.TryValidateNodeCategories([U], out var message));
+        Assert.Empty(message);
+    }
+
+    [Fact]
+    public void Node_categories_are_materialized_for_that_node_only_in_list_order()
+    {
+        // Kategoria dołożona węzłowi idzie na koniec jego listy — widok wysyła
+        // [P, U, Q], więc Q dostaje ostatnią pozycję.
+        var assignments = ScreenRules.Materialize([B], [P, U, Q]).ToList();
+
+        Assert.Equal(
+            [new ScreenAssignment(B, P, 0), new ScreenAssignment(B, U, 1), new ScreenAssignment(B, Q, 2)],
+            assignments);
+    }
+
     // --- Nazwy po obu stronach granicy --------------------------------------
 
     [Fact]
@@ -205,5 +265,6 @@ public class ScreenRulesTests
         Assert.Equal("treeId", ScreenRequestFields.TreeId);
         Assert.Equal("grainMinutes", ScreenRequestFields.GrainMinutes);
         Assert.Equal("defaultCategoryIds", ScreenRequestFields.DefaultCategoryIds);
+        Assert.Equal("categoryIds", ScreenRequestFields.CategoryIds);
     }
 }

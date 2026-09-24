@@ -114,6 +114,9 @@ type Metryki = {
   wciecieWezla: number;
   szerokoscKolumnyWezla: number;
   szerokoscKolumnyKategorii: number;
+  gruboscLiniiSekcji: number;
+  rozmiarPrzelacznika: number;
+  szerokoscPaneluKategoriiWezla: number;
   fontFamily: string;
   fontFamilyCode: string;
 };
@@ -199,6 +202,23 @@ export const METRYKI: Metryki = {
   // Szerokość przypiętej kolumny „Kategoria” („KOD — Nazwa” kategorii) —
   // `width` kolumny i składnik `scroll.x` w `GridEkranu.tsx`.
   szerokoscKolumnyKategorii: 200,
+  // Grubość linii nad pierwszym wierszem każdego węzła w gridzie — oddziela
+  // sekcje węzłów, których komórka „Węzeł” jest scalona. Rysowana cieniem
+  // wciętym (`.tg-granica-sekcji` w `app/app.css`), a nie obramowaniem, więc
+  // nie dokłada wysokości do 24-pikselowego wiersza.
+  gruboscLiniiSekcji: 2,
+  // Bok kwadratowego przełącznika +/− węzła w gridzie (`.tg-przelacznik`
+  // w `app/app.css`), z ramką. Nieparzysty celowo: przy ramce 1 px zostaje
+  // nieparzyste wnętrze, więc 1-pikselowe kreski „+” i „−” stoją dokładnie
+  // na środku, bez rozmycia na pół piksela.
+  rozmiarPrzelacznika: 11,
+  // Szerokość panelu „Kategorie węzła” obok gridu zapisanego ekranu
+  // (`KategorieWezla.tsx`, klasa `w-tg-panel-wezla`) — metryka układu, więc
+  // idzie do Tailwinda przez `blokWspolny`. Mieści „KOD — Nazwa” kategorii
+  // tej samej długości co kolumna „Kategoria” gridu plus pole wyboru.
+  // Stała, a nie procent: grid bierze resztę szerokości i to on przewija się
+  // w poziomie, gdy `S-05` dołoży kolumny czasowe.
+  szerokoscPaneluKategoriiWezla: 264,
   fontFamily:
     '"Inter", ui-sans-serif, system-ui, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji"',
   fontFamilyCode:

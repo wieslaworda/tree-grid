@@ -39,7 +39,7 @@ export const SCREENS_ROUTE = "/ekrany";
 /** Endpoint listy ekranów w API. */
 const SCREENS_PATH = "/screens";
 
-/** Endpoint jednego ekranu (odczyt, usunięcie). */
+/** Endpoint jednego ekranu (odczyt, zmiana nagłówka, usunięcie). */
 function screenPath(id: number): string {
   return `${SCREENS_PATH}/${id}`;
 }
@@ -114,6 +114,8 @@ export type ScreenIdResult = { ok: true; id: number } | ApiFailure;
 
 export type ScreenDeleteResult = { ok: true } | ApiFailure;
 
+export type ScreenNodeCategoriesResult = { ok: true } | ApiFailure;
+
 export type ScreenFormResult = { ok: true; payload: ScreenPayload } | ApiFailure;
 
 /**
@@ -173,6 +175,51 @@ export async function getScreen(
     : invalidResponse(path, result.status);
 }
 
+/**
+ * Zmienia nagłówek ekranu: nazwę, ziarno i listę domyślną. Drzewa nie wysyła —
+ * drzewo ekranu ustala się przy tworzeniu (`PUT /screens/{id}` go nie czyta).
+ * Zmieniona lista domyślna nadpisuje w API przypisania wszystkich węzłów,
+ * niezmieniona zostawia je bez zmian.
+ */
+export async function updateScreen(
+  userId: string,
+  id: number,
+  payload: ScreenPayload,
+): Promise<ScreenIdResult> {
+  const path = screenPath(id);
+  const { name, grainMinutes, defaultCategoryIds } = payload;
+  const result = await requestApi(
+    "PUT",
+    path,
+    { name, grainMinutes, defaultCategoryIds },
+    { userId },
+  );
+
+  return result.ok ? { ok: true, id } : result;
+}
+
+/**
+ * Zastępuje kategorie jednego węzła ekranu (`S-04`) pełną listą, w kolejności
+ * wierszy węzła. API odmawia pustej listy (węzeł musi mieć co najmniej jedną
+ * kategorię), powtórzenia i kategorii spoza słownika — pod polem
+ * `categoryIds` — a węzła spoza drzewa ekranu i cudzego ekranu 404.
+ */
+export async function setNodeCategories(
+  userId: string,
+  id: number,
+  nodeId: number,
+  categoryIds: number[],
+): Promise<ScreenNodeCategoriesResult> {
+  const result = await requestApi(
+    "PUT",
+    `${screenPath(id)}/nodes/${nodeId}/categories`,
+    { categoryIds },
+    { userId },
+  );
+
+  return result.ok ? { ok: true } : result;
+}
+
 /** Usuwa ekran razem z listą domyślną i przypisaniami. Drzewo zostaje. */
 export async function deleteScreen(
   userId: string,
@@ -186,7 +233,9 @@ export async function deleteScreen(
 }
 
 /**
- * Odczytuje treść utworzenia z formularza nowego ekranu.
+ * Odczytuje treść utworzenia albo zmiany z formularza ekranu. Formularz
+ * edycji nie ma pola drzewa, więc `treeId` wychodzi `null` —
+ * {@link updateScreen} i tak go nie wysyła.
  *
  * `defaultCategoryIds` przez `formData.getAll`, czyli w kolejności pól
  * w formularzu — ta kolejność jest kolejnością wierszy ekranu. Formularz

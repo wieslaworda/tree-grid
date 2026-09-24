@@ -61,6 +61,12 @@ function blokWspolny(): string {
     `  --tg-odstepSekcji: ${px(METRYKI.odstepSekcji)};`,
     `  --tg-odstepElementow: ${px(METRYKI.odstepElementow)};`,
     `  --tg-gruboscFokusu: ${px(METRYKI.gruboscFokusu)};`,
+    // Ta sama grubość linii co siatka antd (`lineWidth`) — dla pionowej
+    // linii między kolumnami gridu, której antd bez `bordered` nie rysuje.
+    `  --tg-gruboscLinii: ${px(METRYKI.lineWidth)};`,
+    `  --tg-gruboscLiniiSekcji: ${px(METRYKI.gruboscLiniiSekcji)};`,
+    `  --tg-rozmiarPrzelacznika: ${px(METRYKI.rozmiarPrzelacznika)};`,
+    `  --tg-szerokoscPaneluKategoriiWezla: ${px(METRYKI.szerokoscPaneluKategoriiWezla)};`,
     // Wyliczona tutaj, a nie wpisana w `METRYKI`: źródłem jest liczba wierszy
     // i wysokość wiersza, więc zmiana wiersza przesuwa ją sama.
     `  --tg-minWysokoscBudowy: ${px(METRYKI.wierszeMinimalnejBudowy * METRYKI.wysokoscWiersza)};`,

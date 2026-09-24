@@ -30,6 +30,12 @@ internal static class ScreenRules
     /// <summary>Komunikat dla listy domyślnej, na której ta sama kategoria stoi dwa razy.</summary>
     internal const string DuplicateDefaultCategoryMessage = "Kategoria domyślna nie może się powtarzać.";
 
+    /// <summary>Komunikat dla braku listy kategorii węzła i listy pustej.</summary>
+    internal const string MissingNodeCategoriesMessage = "Węzeł musi mieć co najmniej jedną kategorię.";
+
+    /// <summary>Komunikat dla listy kategorii węzła, na której ta sama kategoria stoi dwa razy.</summary>
+    internal const string DuplicateNodeCategoryMessage = "Kategoria węzła nie może się powtarzać.";
+
     /// <summary>
     /// Ziarna czasowe produktu w minutach — doba dzieli się na 288, 96 albo 24
     /// kolumny. Inne dzielniki doby (np. 30) nie są ziarnem produktu.
@@ -109,17 +115,43 @@ internal static class ScreenRules
     /// <paramref name="message"/> jest pusty.
     /// </summary>
     internal static bool TryValidateDefaultCategories(IReadOnlyList<int> categoryIds, out string message)
+        => TryValidateCategoryList(
+            categoryIds,
+            MissingDefaultCategoriesMessage,
+            DuplicateDefaultCategoryMessage,
+            out message);
+
+    /// <summary>
+    /// Sprawdza formę listy kategorii jednego węzła ekranu (<c>S-04</c>): co
+    /// najmniej jedna i bez powtórzeń — zdjęcie ostatniej kategorii jest
+    /// odmową, a nie węzłem z zerem kategorii. Ta sama forma co lista domyślna,
+    /// ale z własnymi komunikatami, bo to inne pole innego żądania. Istnienia
+    /// kategorii w słowniku reguła nie zna; kolejność listy jest kolejnością
+    /// wierszy węzła. Przy <c>true</c> <paramref name="message"/> jest pusty.
+    /// </summary>
+    internal static bool TryValidateNodeCategories(IReadOnlyList<int> categoryIds, out string message)
+        => TryValidateCategoryList(
+            categoryIds,
+            MissingNodeCategoriesMessage,
+            DuplicateNodeCategoryMessage,
+            out message);
+
+    private static bool TryValidateCategoryList(
+        IReadOnlyList<int> categoryIds,
+        string missingMessage,
+        string duplicateMessage,
+        out string message)
     {
         if (categoryIds.Count == 0)
         {
-            message = MissingDefaultCategoriesMessage;
+            message = missingMessage;
 
             return false;
         }
 
         if (categoryIds.Distinct().Count() != categoryIds.Count)
         {
-            message = DuplicateDefaultCategoryMessage;
+            message = duplicateMessage;
 
             return false;
         }
@@ -130,6 +162,16 @@ internal static class ScreenRules
     }
 
     /// <summary>
+    /// Czy zmiana ekranu zmienia listę kategorii domyślnych — tylko wtedy
+    /// przypisania wszystkich węzłów są nadpisywane nową listą (PRD
+    /// <c>## Open Questions</c> #3, rozstrzygnięte 2026-09-24). Kolejność się
+    /// liczy, bo jest kolejnością wierszy: ta sama lista w innej kolejności to
+    /// zmiana.
+    /// </summary>
+    internal static bool DefaultsChanged(IReadOnlyList<int> current, IReadOnlyList<int> requested)
+        => !current.SequenceEqual(requested);
+
+    /// <summary>
     /// Przypisania kategorii domyślnych do węzłów: każdy węzeł dostaje całą
     /// listę, a <see cref="ScreenAssignment.Position"/> jest indeksem kategorii
     /// na liście domyślnej. Kolejność wyniku: węzeł po węźle w kolejności
@@ -137,8 +179,10 @@ internal static class ScreenRules
     /// przypisań.
     /// </summary>
     /// <remarks>
-    /// Jedno źródło dla zapisu nowego ekranu (wszystkie bieżące węzły drzewa)
-    /// i dla węzła dodanego do drzewa, które ekran już wskazuje.
+    /// Jedno źródło dla zapisu nowego ekranu (wszystkie bieżące węzły drzewa),
+    /// dla węzła dodanego do drzewa, które ekran już wskazuje, i dla kategorii
+    /// dopasowanych jednemu węzłowi (<c>S-04</c>) — wtedy lista na wejściu to
+    /// lista tego węzła, a nie lista domyślna.
     /// </remarks>
     internal static IEnumerable<ScreenAssignment> Materialize(
         IEnumerable<int> nodeIds,

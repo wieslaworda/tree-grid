@@ -20,6 +20,12 @@ import {
  */
 const POLA_FORMULARZA = ["code", "name", "aggregateFunction"] as const;
 
+/**
+ * Wartości pól w magazynie antd — `onValuesChange` podaje je w komplecie.
+ * Funkcji agregującej tu nie ma: trzyma ją stan komponentu.
+ */
+type WartosciKategorii = { code?: string; name?: string };
+
 /** Opcje wyboru funkcji — stała modułu, bo lista nie zależy od renderu. */
 const OPCJE_FUNKCJI = FUNKCJE_AGREGUJACE.map((funkcja) => ({
   value: funkcja,
@@ -86,6 +92,17 @@ export function FormularzKategorii({
     nawigacja.formData !== undefined &&
     nawigacja.formData.get("intent") === intent;
 
+  // Edycja bez zmiany pola nie ma czego zapisać, więc przycisk czeka na
+  // pierwszą różnicę względem kategorii (reguła wszystkich formularzy
+  // edycji). Kod i nazwę zgłasza magazyn antd, funkcję — stan wyżej. Start
+  // `false` jest poprawny także w SSR; po udanym zapisie panel dostaje nowy
+  // `key` (`kluczPanelu` w `routes/kategorie.tsx`) i liczy od nowa.
+  const [polaZmienione, ustawPolaZmienione] = useState(false);
+  const moznaZapisac =
+    kategoria === undefined ||
+    polaZmienione ||
+    funkcja !== kategoria.aggregateFunction;
+
   return (
     <>
       {ogolny === undefined ? null : (
@@ -100,7 +117,7 @@ export function FormularzKategorii({
       <RouterForm method="post" preventScrollReset>
         <input type="hidden" name="intent" value={intent} />
 
-        <AntForm
+        <AntForm<WartosciKategorii>
           component={false}
           layout="vertical"
           requiredMark={false}
@@ -108,6 +125,12 @@ export function FormularzKategorii({
           // polu: pole pod `Form.Item` z `name` jest sterowane przez antd
           // i `defaultValue` by zignorowało.
           initialValues={{ code: kategoria?.code, name: kategoria?.name }}
+          onValuesChange={(_, wartosci) =>
+            ustawPolaZmienione(
+              wartosci.code !== kategoria?.code ||
+                wartosci.name !== kategoria?.name,
+            )
+          }
         >
           <AntForm.Item
             label="Kod"
@@ -160,7 +183,7 @@ export function FormularzKategorii({
               type="primary"
               htmlType="submit"
               loading={wysylanyTen}
-              disabled={zajety}
+              disabled={zajety || !moznaZapisac}
             >
               {etykietaZapisu}
             </Button>

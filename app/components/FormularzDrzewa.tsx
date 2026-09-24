@@ -1,4 +1,5 @@
 import { Alert, Button, Form as AntForm, Input } from "antd";
+import { useState } from "react";
 import { Form as RouterForm, useNavigation } from "react-router";
 
 import type { ApiErrorBody } from "~/lib/api.server";
@@ -72,6 +73,13 @@ export function FormularzDrzewa({
     nawigacja.formData !== undefined &&
     nawigacja.formData.get("intent") === intent;
 
+  // Zmiana nazwy bez zmiany nazwy nie ma czego zapisać, więc przycisk czeka
+  // na pierwszą różnicę względem drzewa (reguła wszystkich formularzy edycji).
+  // Start `false` jest poprawny także w SSR; po udanym zapisie panel dostaje
+  // nowy `key` (`kluczPanelu` w `routes/drzewo.tsx`) i liczy od nowa.
+  const [zmieniony, ustawZmieniony] = useState(false);
+  const moznaZapisac = drzewo === undefined || zmieniony;
+
   return (
     <>
       {ogolny === undefined ? null : (
@@ -95,6 +103,9 @@ export function FormularzDrzewa({
           // Wartość startowa przez `initialValues`, a nie `defaultValue` na
           // polu — powód w `FormularzKategorii`.
           initialValues={{ [POLE_NAZWY]: drzewo?.name }}
+          onValuesChange={(_, wartosci: Record<string, unknown>) =>
+            ustawZmieniony(wartosci[POLE_NAZWY] !== drzewo?.name)
+          }
         >
           <AntForm.Item
             label="Nazwa"
@@ -124,7 +135,7 @@ export function FormularzDrzewa({
                 type="primary"
                 htmlType="submit"
                 loading={wysylanyTen}
-                disabled={zajety}
+                disabled={zajety || !moznaZapisac}
               >
                 {etykietaZapisu}
               </Button>
