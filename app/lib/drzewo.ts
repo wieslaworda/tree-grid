@@ -265,8 +265,13 @@ export function wyliczPrzeniesienie(
   return { nodeId: przenoszony.id, parentId, position };
 }
 
-/** Węzły pogrupowane po rodzicu (`null` — najwyższy poziom), w kolejności `position`. */
-function dzieciPoRodzicu(
+/**
+ * Węzły pogrupowane po rodzicu (`null` — najwyższy poziom), w kolejności
+ * `position`. Wystawione także dla wierszy gridu ekranu (`app/lib/ekran.ts`):
+ * grid i drzewo mają stać w tej samej kolejności, więc porządek rodzeństwa ma
+ * jedno źródło.
+ */
+export function dzieciPoRodzicu(
   wezly: readonly WezelDrzewa[],
 ): Map<number | null, WezelDrzewa[]> {
   const grupy = new Map<number | null, WezelDrzewa[]>();

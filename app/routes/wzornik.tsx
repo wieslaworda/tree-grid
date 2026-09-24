@@ -4,6 +4,7 @@ import { type LoaderFunctionArgs, data, redirect } from "react-router";
 
 import { DrzewoStruktury } from "~/components/DrzewoStruktury";
 import { FormularzDrzewa } from "~/components/FormularzDrzewa";
+import { GridEkranu } from "~/components/GridEkranu";
 import { ListaObiektowZrodlowych } from "~/components/ListaObiektowZrodlowych";
 import { ObszarPrzewijania } from "~/components/ObszarPrzewijania";
 import { PasekBudowy } from "~/components/PasekBudowy";
@@ -17,6 +18,7 @@ import {
 // `routes/drzewo.tsx`. Wartości z modułów `.server` wzornik nie czyta wcale:
 // nie woła API i nie czyta sesji (`app/routes.ts`, wpis wzornika).
 import type { ApiErrorBody } from "~/lib/api.server";
+import type { CatalogCategory } from "~/lib/categories.server";
 import type { CatalogObject } from "~/lib/objects.server";
 import type { TreeNode, UserTree } from "~/lib/tree.server";
 import {
@@ -24,6 +26,12 @@ import {
   obiektyUzyteWDrzewie,
   wezlyZDziecmi,
 } from "~/lib/drzewo";
+import {
+  type WierszGridu,
+  liczbaWierszy,
+  przypisaniaDomyslne,
+  zbudujWierszeGridu,
+} from "~/lib/ekran";
 import { naglowekZapisu } from "~/theme/ciasteczko";
 import { jestWariantem } from "~/theme/tokeny";
 
@@ -38,6 +46,10 @@ import { jestWariantem } from "~/theme/tokeny";
  * (`PotwierdzenieUsuniecia`), pasek akcji budowy (`PasekBudowy`) i ramka
  * przewijania drzewa (`ObszarPrzewijania`), więc wzornik pokazuje to, co widoki naprawdę
  * składają, a nie własną kopię.
+ *
+ * Sekcja „Grid ekranu” pokazuje stany `GridEkranu` na danych statycznych,
+ * zanim komponent trafi do trasy (plan `zapisane-ekrany`, faza 3) — jest
+ * punktem zrzutów gridu w obu motywach.
  *
  * Typy loadera z `react-router`, a nie z `./+types/wzornik`: trasa jest
  * rejestrowana tylko w trybie deweloperskim, a `react-router typegen` ładuje
@@ -207,6 +219,102 @@ const ODMOWA_WALIDACJI: ApiErrorBody = {
     context: { fields: { nodeId: "Nieprawidłowy identyfikator węzła." } },
   },
 };
+
+// ─── Dane przykładowe gridu ekranu ──────────────────────────────────────────
+
+/** Słownik kategorii w kolejności API (po kodzie). */
+const KATEGORIE: CatalogCategory[] = [
+  { id: 1, code: "P", name: "Produkcja", aggregateFunction: "SUM" },
+  { id: 2, code: "Q", name: "Moc bierna", aggregateFunction: "SUM" },
+  { id: 3, code: "U", name: "Napięcie", aggregateFunction: "MAX" },
+];
+
+/** Identyfikatory kategorii z {@link KATEGORIE}, po kodzie. */
+const Q = 2;
+const P = 1;
+const U = 3;
+
+/** Lista domyślna z przykładu w planie: [Q, P, U]. */
+const DOMYSLNE_QPU = [Q, P, U];
+
+/**
+ * Przykład A/B z *Desired End State* planu `zapisane-ekrany`: węzeł A
+ * (ST-01) z dzieckiem B (LN-01), kategorie domyślne [Q, P, U] — 6 wierszy.
+ */
+const WEZLY_AB: TreeNode[] = [
+  { id: 101, parentId: null, objectId: 10, position: 0 },
+  { id: 102, parentId: 101, objectId: 5, position: 0 },
+];
+
+const WIERSZE_AB = zbudujWierszeGridu(
+  WEZLY_AB,
+  OBIEKTY,
+  KATEGORIE,
+  przypisaniaDomyslne(WEZLY_AB, DOMYSLNE_QPU),
+);
+
+/**
+ * Węzeł bez kategorii (EL-01) z dzieckiem (FW-01) o kategoriach [Q, P]:
+ * węzła nie ma w przypisaniach, tak jak API pomija go w `assignments`.
+ */
+const WEZLY_BEZ_KATEGORII: TreeNode[] = [
+  { id: 201, parentId: null, objectId: 1, position: 0 },
+  { id: 202, parentId: 201, objectId: 3, position: 0 },
+];
+
+const WIERSZE_BEZ_KATEGORII = zbudujWierszeGridu(
+  WEZLY_BEZ_KATEGORII,
+  OBIEKTY,
+  KATEGORIE,
+  new Map([[202, [Q, P]]]),
+);
+
+/** Łańcuch sześciu poziomów, każdy węzeł z kategoriami [Q, P]. */
+const WEZLY_GLEBOKIE: TreeNode[] = [10, 5, 11, 6, 12, 7].map((objectId, i) => ({
+  id: 301 + i,
+  parentId: i === 0 ? null : 300 + i,
+  objectId,
+  position: 0,
+}));
+
+const WIERSZE_GLEBOKIE = zbudujWierszeGridu(
+  WEZLY_GLEBOKIE,
+  OBIEKTY,
+  KATEGORIE,
+  przypisaniaDomyslne(WEZLY_GLEBOKIE, [Q, P]),
+);
+
+/**
+ * 80 węzłów × [Q, P, U] = 240 wierszy: 20 węzłów najwyższego poziomu, każdy
+ * z trzema dziećmi. Tyle, żeby wirtualizacja faktycznie przewijała i żeby
+ * dało się sprawdzić, że ostatnie wiersze nie są ucinane.
+ */
+const WEZLY_DUZE: TreeNode[] = Array.from({ length: 20 }, (_, korzen) => {
+  const id = 1001 + korzen * 4;
+
+  return [
+    { id, parentId: null, objectId: OBIEKTY[korzen % OBIEKTY.length].id, position: korzen },
+    ...[0, 1, 2].map((pozycja) => ({
+      id: id + 1 + pozycja,
+      parentId: id,
+      objectId: OBIEKTY[(korzen + pozycja + 1) % OBIEKTY.length].id,
+      position: pozycja,
+    })),
+  ];
+}).flat();
+
+const WIERSZE_DUZE = zbudujWierszeGridu(
+  WEZLY_DUZE,
+  OBIEKTY,
+  KATEGORIE,
+  przypisaniaDomyslne(WEZLY_DUZE, DOMYSLNE_QPU),
+);
+
+const BRAK_WIERSZY: WierszGridu[] = [];
+
+/** Tekst pustego gridu w brzmieniu podglądu nowego ekranu (faza 4 planu). */
+const TEKST_PUSTEGO_GRIDU =
+  "Wybierz drzewo i co najmniej jedną kategorię, żeby zobaczyć wiersze.";
 
 /** Wywołania zwrotne, których wzornik nie obsługuje — nie ma czego zapisać. */
 function nic() {}
@@ -463,6 +571,38 @@ export default function Wzornik() {
           </Stan>
         </Siatka>
       </Grupa>
+
+      <Grupa tytul="Grid ekranu (GridEkranu)">
+        <Siatka kolumny={2}>
+          <Stan
+            nazwa={`węzeł z trzema kategoriami i dzieckiem (A/B), wierszy: ${liczbaWierszy(WIERSZE_AB)}`}
+          >
+            <DemoGridu wiersze={WIERSZE_AB} />
+          </Stan>
+
+          <Stan
+            nazwa={`węzeł bez kategorii z dzieckiem, wierszy: ${liczbaWierszy(WIERSZE_BEZ_KATEGORII)}`}
+          >
+            <DemoGridu wiersze={WIERSZE_BEZ_KATEGORII} />
+          </Stan>
+
+          <Stan
+            nazwa={`zagnieżdżenie na 6 poziomów, wierszy: ${liczbaWierszy(WIERSZE_GLEBOKIE)}`}
+          >
+            <DemoGridu wiersze={WIERSZE_GLEBOKIE} />
+          </Stan>
+
+          <Stan
+            nazwa={`${WEZLY_DUZE.length} węzłów × 3 kategorie (przewijanie wirtualne), wierszy: ${liczbaWierszy(WIERSZE_DUZE)}`}
+          >
+            <DemoGridu wiersze={WIERSZE_DUZE} />
+          </Stan>
+
+          <Stan nazwa="pusty">
+            <DemoGridu wiersze={BRAK_WIERSZY} />
+          </Stan>
+        </Siatka>
+      </Grupa>
     </main>
   );
 }
@@ -672,6 +812,20 @@ function DemoListy({
         onUpuscWezel={nic}
         zajete={zajete}
       />
+    </div>
+  );
+}
+
+/**
+ * `GridEkranu` w kolumnie flex o stałej wysokości. Grid mierzy swój kontener
+ * (`useWysokoscTresci`), więc bez ograniczonej wysokości nie miałby czego
+ * zmierzyć — w `/ekrany` tę wysokość da układ widoku. Wysokość z klasy — ten
+ * sam wyjątek co w `DemoDrzewa`.
+ */
+function DemoGridu({ wiersze }: { wiersze: WierszGridu[] }) {
+  return (
+    <div className="flex h-96 flex-col">
+      <GridEkranu wiersze={wiersze} tekstPusty={TEKST_PUSTEGO_GRIDU} />
     </div>
   );
 }

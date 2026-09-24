@@ -111,6 +111,9 @@ type Metryki = {
   odstepElementow: number;
   wierszeMinimalnejBudowy: number;
   gruboscFokusu: number;
+  wciecieWezla: number;
+  szerokoscKolumnyWezla: number;
+  szerokoscKolumnyKategorii: number;
   fontFamily: string;
   fontFamilyCode: string;
 };
@@ -180,6 +183,22 @@ export const METRYKI: Metryki = {
   // różnią się także grubością, nie tylko barwą. Fokusu komponentów antd
   // (`lineWidthFocus`, 3 px) nie dotyczy — ten rysuje antd sam.
   gruboscFokusu: 2,
+  // ——— METRYKI GRIDU EKRANU ———
+  // Nie idą ani do motywu antd, ani do Tailwinda — czyta je wprost
+  // `app/components/GridEkranu.tsx`, jako propsy tabeli. Wspólne dla obu
+  // wariantów jak każda metryka (kontrakt 4 w `CLAUDE.md`). `S-05` dokłada
+  // kolumny czasowe **za** dwiema przypiętymi, bez zmiany tych liczb.
+  //
+  // Wcięcie jednego poziomu struktury w kolumnie „Węzeł” —
+  // `expandable.indentSize` tabeli w `GridEkranu.tsx`.
+  wciecieWezla: 12,
+  // Szerokość przypiętej kolumny „Węzeł” (tytuł „KOD — Nazwa” z wcięciem
+  // i przełącznikiem) — `width` kolumny i składnik `scroll.x`
+  // w `GridEkranu.tsx`.
+  szerokoscKolumnyWezla: 320,
+  // Szerokość przypiętej kolumny „Kategoria” („KOD — Nazwa” kategorii) —
+  // `width` kolumny i składnik `scroll.x` w `GridEkranu.tsx`.
+  szerokoscKolumnyKategorii: 200,
   fontFamily:
     '"Inter", ui-sans-serif, system-ui, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji"',
   fontFamilyCode:

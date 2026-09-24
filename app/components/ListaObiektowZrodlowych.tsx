@@ -1,5 +1,5 @@
 import { Checkbox, Input, Table, type TableColumnsType } from "antd";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 
 import { ObszarPrzewijania } from "~/components/ObszarPrzewijania";
 import {
@@ -9,7 +9,7 @@ import {
   identyfikatorZPrzeciagania,
   przeciaganyTyp,
 } from "~/lib/drzewo";
-import { METRYKI } from "~/theme/tokeny";
+import { useWysokoscTresci } from "~/lib/useWysokoscTresci";
 
 type Wlasciwosci = {
   /** Cały słownik z loadera, w kolejności API (po kodzie). */
@@ -244,52 +244,4 @@ export function ListaObiektowZrodlowych({
       </ObszarPrzewijania>
     </div>
   );
-}
-
-/**
- * Wysokość dostępna dla wierszy tabeli: wysokość kontenera minus wiersz
- * nagłówka, mierzona na nowo przy każdej zmianie rozmiaru kontenera.
- *
- * Nagłówek jest mierzony (`thead`, element HTML, a nie klasa antd), a nie
- * przyjmowany; `METRYKI.wysokoscWiersza` jest tylko wartością zapasową na
- * wypadek, gdyby tabela nie miała jeszcze nagłówka w DOM-ie — to ta sama
- * metryka, z której motyw liczy wiersz nagłówka.
- */
-function useWysokoscTresci(
-  kontener: React.RefObject<HTMLDivElement | null>,
-): number | undefined {
-  const [wysokosc, ustawWysokosc] = useState<number>();
-
-  useEffect(() => {
-    const element = kontener.current;
-
-    if (element === null) {
-      return;
-    }
-
-    const zmierz = () => {
-      const naglowek =
-        element.querySelector("thead")?.getBoundingClientRect().height ??
-        METRYKI.wysokoscWiersza;
-
-      ustawWysokosc(Math.max(0, Math.floor(element.clientHeight - naglowek)));
-    };
-
-    const obserwator = new ResizeObserver(zmierz);
-
-    obserwator.observe(element);
-
-    // Także sama tabela (jej opakowanie antd, które żyje przez cały czas
-    // komponentu): nagłówek może urosnąć po pomiarze bez zmiany rozmiaru
-    // kontenera, a kontener przycina, więc bez ponownego pomiaru ostatni
-    // wiersz schowałby się pod krawędzią. Ponowny pomiar przy tej samej
-    // wysokości nie zmienia stanu, więc nie zapętla renderowania.
-    if (element.firstElementChild !== null) {
-      obserwator.observe(element.firstElementChild);
-    }
-
-    return () => obserwator.disconnect();
-  }, [kontener]);
-
-  return wysokosc;
 }

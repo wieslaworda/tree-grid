@@ -3,9 +3,9 @@ import type { ReactNode, Ref } from "react";
 type Wlasciwosci = {
   children: ReactNode;
   /**
-   * Zwykły prop (React 19), a nie `forwardRef` — potrzebny liście obiektów,
-   * która mierzy ten kontener (`useWysokoscTresci`
-   * w `ListaObiektowZrodlowych.tsx`).
+   * Zwykły prop (React 19), a nie `forwardRef` — potrzebny liście obiektów
+   * i gridowi ekranu, które mierzą ten kontener (`useWysokoscTresci`
+   * z `app/lib/useWysokoscTresci.ts`).
    */
   ref?: Ref<HTMLDivElement>;
   /**

@@ -581,8 +581,8 @@ Trasa `/ekrany` w układzie widoku drzew: lista własnych ekranów, panel nowego
 
 #### Automated
 
-- [x] 2.1 Rozwiązanie buduje się (API zatrzymane): `dotnet build TreeGrid.sln`
-- [x] 2.2 Testy przechodzą, w tym kontrakt `tree_in_screen` i `category_sole_screen_default`: `dotnet test tests/Api.Tests`
+- [x] 2.1 Rozwiązanie buduje się (API zatrzymane): `dotnet build TreeGrid.sln` — d951ad5
+- [x] 2.2 Testy przechodzą, w tym kontrakt `tree_in_screen` i `category_sole_screen_default`: `dotnet test tests/Api.Tests` — d951ad5
 
 #### Manual
 
@@ -596,8 +596,8 @@ Trasa `/ekrany` w układzie widoku drzew: lista własnych ekranów, panel nowego
 
 #### Automated
 
-- [ ] 3.1 Typy przechodzą: `npm run typecheck`
-- [ ] 3.2 Build produkcyjny przechodzi: `npm run build`
+- [x] 3.1 Typy przechodzą: `npm run typecheck`
+- [x] 3.2 Build produkcyjny przechodzi: `npm run build`
 
 #### Manual
 
