@@ -22,10 +22,10 @@ milestone_status: open
 
 **M-1: Pierwszy własny ekran dyspozytora** — Status: open
 
-- **Intent:** Dyspozytor przechodzi pełną ścieżkę w jednej sesji — od założenia konta, przez zbudowanie własnej struktury drzewa, po zapisany ekran (drzewo, ziarno czasowe i kategorie każdego węzła) pokazany jako drzewo z gridem punktów czasowych, który odtwarza się bez zmian po ponownym zalogowaniu.
-- **Source materials:** `context/foundation/prd.md` (v1; wymagania ekranów zmienione 2026-09-24 — FR-006–FR-012, US-01, US-02) + opisy użytkownika z 2026-09-23 (kotwice `MS-01`–`MS-07` poniżej)
+- **Intent:** Dyspozytor przechodzi pełną ścieżkę w jednej sesji — od założenia konta, przez zbudowanie własnej struktury drzewa i gridu z punktami czasowymi, po zapisany ekran, który odtwarza się bez zmian po ponownym zalogowaniu.
+- **Source materials:** `context/foundation/prd.md` (v1) + opisy użytkownika z 2026-09-23 (kotwice `MS-01`–`MS-07` poniżej)
 - **Done when:** każdy `F-NN` i `S-NN` poniżej ma status `done`.
-- **Scope anchors:** FR-001–FR-012 (bez wycofanego FR-005), US-01–US-02, sekcje `Business Logic` i `Access Control`, oraz wymagania niefunkcjonalne (288 kolumn, izolacja kont, informacja zwrotna powyżej 2 s, gęstość odczytu liczb, dwa warianty motywu, kontrast i rola koloru). Spoza PRD:
+- **Scope anchors:** FR-001–FR-010, US-01, sekcje `Business Logic` i `Access Control`, oraz wymagania niefunkcjonalne (288 kolumn, izolacja kont, informacja zwrotna powyżej 2 s, gęstość odczytu liczb, dwa warianty motywu, kontrast i rola koloru). Spoza PRD:
   - MS-01: Po zalogowaniu aplikacja ma menu główne, w którym pojawiają się kolejne funkcjonalności; pierwsza pozycja to „Obiekty", a kolejne pozycje są dopisywane sukcesywnie przez następne plastry.
   - MS-02: Dyspozytor przegląda, dodaje, edytuje i usuwa kategorie danych w słowniku kategorii; kategoria składa się z kodu, nazwy i funkcji agregującej wybieranej z listy (SUM, MIN, MAX). Widok działa jak lista obiektów (tabela i formularz w jednym widoku), a „Kategorie" to kolejna pozycja menu głównego.
   - MS-03: Dyspozytor dodaje, edytuje i usuwa drzewa. Nagłówek drzewa ma wyłącznie nazwę i unikalny identyfikator w bazie; edycja drzewa to zmiana nazwy, a nazwa jest unikalna w obrębie konta. Usunięcie drzewa usuwa całą jego strukturę.
@@ -38,7 +38,7 @@ milestone_status: open
 
 Dyspozytorzy oglądają dane pomiarowe w strukturze drzewo+grid, nad którą nie mają kontroli: żeby zobaczyć inny układ obiektów albo inne kategorie danych, muszą zgłosić zmianę do innego zespołu i czekać. Każdy dyspozytor pracuje inaczej, więc jeden sztywny układ nigdy nikogo w pełni nie zadowala — to powód strukturalny, nie techniczny.
 
-TreeGrid usuwa pośrednika: dyspozytor sam składa strukturę drzewa z dostępnych obiektów, a potem buduje na tym drzewie nazwany ekran — wybiera ziarno czasowe i domyślną listę kategorii, dopasowuje kategorie poszczególnych węzłów i zapisuje całość do ponownego użycia.
+TreeGrid usuwa pośrednika: dyspozytor sam składa strukturę drzewa z dostępnych obiektów, przypisuje im kategorie danych, wybiera ziarno czasowe dla doby i zapisuje całość jako nazwany ekran do ponownego użycia.
 
 ## North star
 
@@ -49,7 +49,7 @@ TreeGrid usuwa pośrednika: dyspozytor sam składa strukturę drzewa z dostępny
 > ustawiany tak wcześnie, jak pozwalają na to zależności, bo reszta prac ma sens
 > tylko wtedy, gdy ten fragment zadziała.
 
-Przy celu sekwencjonowania `speed` to również fragment, który najtaniej odpowiada na pytanie "czy warto dalej" — zanim budżet pochłonie ekrany, grid czasowy i edycję kategorii węzłów.
+Przy celu sekwencjonowania `speed` to również fragment, który najtaniej odpowiada na pytanie "czy warto dalej" — zanim budżet pochłonie kategorie, grid i trwałość ekranów.
 
 ## At a glance
 
@@ -60,11 +60,11 @@ Przy celu sekwencjonowania `speed` to również fragment, który najtaniej odpow
 | S-01 | `konto-i-logowanie`   | założyć konto, zalogować się i wylogować; żaden widok nie jest dostępny bez logowania      | F-01          | FR-001, Access Control, NFR (izolacja kont)            | in-progress |
 | S-02 | `lista-obiektow`      | przeglądać, dodawać i edytować obiekty dostępne do budowy drzewa                           | F-01          | FR-002                                                 | in-progress |
 | S-03 | `budowa-drzewa`       | prowadzić własne nazwane drzewa i składać w wybranym drzewie strukturę; zapętlenie jest odrzucane | S-02          | FR-003, FR-004, US-01, Business Logic, Access Control, NFR (izolacja kont), MS-03, MS-04, MS-05, MS-06, MS-07 | in-progress |
+| S-04 | `kategorie-danych`    | przypisać węzłowi wybranego drzewa kategorie danych ze słownika kategorii                  | S-03, S-09    | FR-006                                                 | proposed |
+| S-05 | `grid-czasowy`        | wybrać drzewo, ziarno czasowe i dobę oraz zobaczyć grid z punktami czasowymi               | S-04          | FR-007, FR-008, US-01, NFR (288 kolumn, feedback >2 s) | proposed |
+| S-06 | `zapisane-ekrany`     | zapisać pod nazwą ekran wskazujący drzewo wraz z ziarnem i dobą, wybrać go z listy własnych i odtworzyć | S-01, S-05    | FR-009, FR-010, US-01, NFR (izolacja kont)             | proposed |
 | S-07 | `menu-glowne`         | po zalogowaniu przechodzić między funkcjami z menu głównego; pierwsza pozycja to „Obiekty" | S-01, S-02    | MS-01, FR-002, Access Control                          | in-progress |
 | S-09 | `lista-kategorii`     | przeglądać, dodawać, edytować i usuwać kategorie danych (kod, nazwa, funkcja agregująca)  | F-01, S-07    | MS-02, MS-01, FR-006                                   | in-progress |
-| S-06 | `zapisane-ekrany`     | utworzyć ekran (nazwa, własne drzewo, ziarno, domyślne kategorie), widzieć na bieżąco wiersze węzły × kategorie, zapisać go, wybrać z listy własnych ekranów i odtworzyć | S-03, S-09    | FR-009, FR-010, FR-012, FR-007, FR-008, US-01, Access Control, NFR (izolacja kont), MS-01 | proposed |
-| S-05 | `grid-czasowy`        | wybrać dobę dla ekranu i zobaczyć kolumny czasowe wynikające z ziarna (288 / 96 / 24)       | S-06, F-02    | FR-007, FR-008, US-01, NFR (288 kolumn, feedback >2 s, gęstość odczytu liczb) | proposed |
-| S-04 | `edycja-ekranu`       | w trybie edycji zapisanego ekranu dokładać i zdejmować kategorie wskazanego węzła, zmienić nazwę, ziarno i domyślne kategorie oraz usunąć ekran | S-06          | FR-006, FR-011, US-02, NFR (izolacja kont)             | proposed |
 
 ## Streams
 
@@ -72,22 +72,21 @@ Navigation aid — groups items that share a Prerequisites chain. Canonical orde
 
 | Stream | Theme                   | Chain                                               | Note                                                                                                   |
 | ------ | ----------------------- | --------------------------------------------------- | ------------------------------------------------------------------------------------------------------ |
-| A      | Kontrolka drzewo + grid | `F-01` → `S-02` → `S-03` → `S-06` → `S-05`          | Główna ścieżka rzeczy koniecznych; przy celu `speed` nic z niej nie schodzi do "Parked".                |
-| B      | Konto, menu i słowniki  | `S-01` → `S-07` → `S-09`                            | Zależy tylko od `F-01`, więc może iść równolegle do `S-02`/`S-03`; `S-07` łączy się ze strumieniem A przy `S-02`, a `S-09` dołącza do A przy `S-06` (słownik kategorii to „ograniczona lista", z której ekran bierze kategorie domyślne). |
+| A      | Kontrolka drzewo + grid | `F-01` → `S-02` → `S-03` → `S-04` → `S-05` → `S-06` | Główna ścieżka rzeczy koniecznych; przy celu `speed` nic z niej nie schodzi do "Parked".                |
+| B      | Konto, menu i słowniki  | `S-01` → `S-07` → `S-09`                            | Zależy tylko od `F-01`, więc może iść równolegle do `S-02`/`S-03`; `S-07` łączy się ze strumieniem A przy `S-02`, `S-09` dołącza do A przy `S-04` (słownik kategorii to jego „ograniczona lista"), a całość — przy `S-06`. |
 | C      | Język wizualny          | `F-02`                                              | Nie zależy od niczego, więc może iść równolegle do A i B; musi być gotowy przed `S-05`, bo grid dziedziczy po nim gęstość i krój cyfr. |
-| D      | Edycja ekranu           | `S-04`                                              | Odgałęzia się od A przy `S-06` i idzie równolegle do `S-05` — edycja kategorii węzłów nie potrzebuje kolumn czasowych. |
 
 ## Baseline
 
-What's already in place in the codebase as of `2026-09-24` (auto-researched + user-confirmed).
+What's already in place in the codebase as of `2026-09-21` (auto-researched + user-confirmed).
 Foundations below assume these are present and do NOT re-scaffold them.
 
-- **Frontend:** present — widoki „Obiekty", „Kategorie" i „Drzewo" za bramą logowania i pod powłoką z menu (`app/routes.ts`); wspólne komponenty słownikowe i drzewa w `app/components/`. Brak gridu, kolumn czasowych i wirtualizowanej tabeli — tabela występuje wyłącznie w listach słownikowych.
-- **Backend / API:** present — obszary Auth, Objects, Categories oraz Trees z operacjami na węzłach (`src/Api/Program.cs:154-191`, `src/Api/Tree/TreeEndpoints.cs:59-67`), kontrakt błędów `{ error: { code, message, context } }`.
-- **Data:** partial — plik SQLite z migracjami dla kont, obiektów, kategorii, nazwanych drzew i węzłów (`src/Api/Data/AppDbContext.cs:19-28`). Brak ekranu, przypisań kategorii do węzłów i ziarna czasowego. Usunięcie drzewa kasuje jego węzły kaskadą (`AppDbContext.cs:102-105`), więc dziś nic nie chroni drzewa przed usunięciem.
-- **Auth:** present — rejestracja, logowanie i wylogowanie z sesją po stronie aplikacji (`app/lib/session.server.ts`, `app/lib/auth.server.ts`), brama w middleware (`app/routes/chronione.tsx:31-33`), blokada konta po 5 nieudanych próbach na 15 minut.
-- **Deploy / infra:** partial — skrypty API i tunelu (`.claude/skills/run-tunel-app/scripts/`), lokalny rozruch obu procesów (`buduj_app_dev.ps1`). `Dockerfile` obejmuje tylko frontend i nie jest ścieżką wdrożenia. Brak CI — katalog `.github` nie istnieje.
-- **Observability:** absent — wyłącznie wbudowane logowanie frameworka; brak error trackingu i metryk.
+- **Frontend:** present — React Router v8 + antd 6 + Tailwind 4, kontrakty renderowania SSR wpięte (`app/root.tsx`, `app/entry.server.tsx`, `app/app.css`); jedyna trasa to starter `index` → `<Welcome />` (`app/routes.ts:3`). Zero UI produktu.
+- **Backend / API:** absent — brak plików `.csproj` / `.sln` / `Program.cs`; brak `action` i tras zasobowych w `app/`.
+- **Data:** absent — brak pliku SQLite, brak migracji, brak warstwy dostępu do danych.
+- **Auth:** absent — brak kodu rejestracji, logowania i sesji; `tech-stack.md` deklaruje `has_auth: true` jako zamiar, nie stan.
+- **Deploy / infra:** partial — ścieżka `build → react-router-serve :3000 → cloudflared` zweryfikowana end-to-end (`context/deployment/deploy-plan.md`, `.claude/skills/run-tunel-app/scripts/start-prod-tunnel.ps1`). `Dockerfile` istnieje, ale nie jest ścieżką wdrożenia (brak Dockera na maszynie). Brak CI — katalog `.github` nie istnieje.
+- **Observability:** absent — brak biblioteki logowania, brak error trackingu, brak metryk.
 
 ## Foundations
 
@@ -184,47 +183,46 @@ Foundations below assume these are present and do NOT re-scaffold them.
 - **Blockers:** —
 - **Unknowns:**
   - Gdzie i kiedy funkcja agregująca kategorii zaczyna działać na danych (np. przy przejściu między ziarnami czasowymi w `S-05`), skoro PRD odkłada agregacje danych poza zakres? — Owner: użytkownik. Block: no.
-- **Risk:** Plaster kusi skopiowaniem widoku listy obiektów w całości — tabela, filtry, stronicowanie i panel w drugim egzemplarzu zaczną dryfować przy pierwszej poprawce; czy wydzielić część wspólną, rozstrzyga plan. Drugie ryzyko: słownik nie może wyprzedzić ekranów — kategorie domyślne ekranu należą do `S-06`, dopasowanie kategorii poszczególnych węzłów do `S-04`, a funkcja agregująca jest tu wyłącznie atrybutem kategorii, nie liczeniem czegokolwiek.
+- **Risk:** Plaster kusi skopiowaniem widoku listy obiektów w całości — tabela, filtry, stronicowanie i panel w drugim egzemplarzu zaczną dryfować przy pierwszej poprawce; czy wydzielić część wspólną, rozstrzyga plan. Drugie ryzyko: słownik nie może wyprzedzić `S-04` — przypisywanie kategorii do obiektów w drzewie należy do tamtego plastra, a funkcja agregująca jest tu wyłącznie atrybutem kategorii, nie liczeniem czegokolwiek.
 - **Status:** in-progress
 
-### S-06: Nowy ekran — tworzenie, lista własnych ekranów i odtworzenie
+### S-04: Kategorie danych przypisane do obiektów
 
-- **Outcome:** Dyspozytor tworzy ekran w widoku „Ekrany" (nowa pozycja menu głównego), zbudowanym w tym samym układzie co widok drzew: lista własnych ekranów na górze, pod nią budowa wybranego ekranu. Nowy ekran to nazwa unikalna w obrębie konta, jedno z własnych drzew, ziarno czasowe (5 / 15 / 60 min) i domyślna lista kategorii ze słownika z `S-09`. Po wyborze drzewa i kategorii dyspozytor od razu widzi drzewo połączone z gridem: kolumna 1 to struktura drzewa, kolumna 2 to kategoria. Każdy węzeł ma po jednym wierszu na każdą kategorię domyślną, a zmiana drzewa albo listy kategorii przed zapisem natychmiast przebudowuje wiersze. Zapis utrwala ekran razem z kategoriami przypisanymi do każdego węzła. Ekran wybrany z listy, także po ponownym zalogowaniu, odtwarza drzewo, ziarno i kategorie węzłów bez zmian. Ekran śledzi swoje drzewo: węzeł dodany później dostaje kategorie domyślne, węzeł usunięty znika razem z przypisaniami, a drzewa wskazywanego przez jakikolwiek ekran nie da się usunąć. Cudze ekrany i cudze drzewa są niewidoczne i nieosiągalne, także z pominięciem interfejsu. Kolumny czasowe dokłada `S-05`, a edycję zapisanego ekranu — `S-04`.
-- **Change ID:** `zapisane-ekrany`
-- **PRD refs:** FR-009, FR-010, FR-012, FR-007, FR-008, US-01, sekcja `Access Control`, NFR (ekran jednego użytkownika niedostępny z innego konta), MS-01
+- **Outcome:** Dyspozytor przypisuje węzłowi wybranego drzewa jedną lub więcej kategorii danych ze słownika kategorii z `S-09` (ograniczona lista z FR-006), widzi je przy tym węźle i może je zdjąć. Przypisanie należy do drzewa, więc każdy ekran z `S-06` wskazujący to drzewo pokazuje te same kategorie.
+- **Change ID:** `kategorie-danych`
+- **PRD refs:** FR-006
 - **Prerequisites:** S-03, S-09
 - **Parallel with:** —
 - **Blockers:** —
 - **Unknowns:**
-  - Co się dzieje z przypisaniem kategorii, która zostanie usunięta ze słownika — odmowa usunięcia kategorii używanej w ekranie czy zdjęcie przypisań? (PRD `## Open Questions` #4; wcześniej pytanie z dawnego `S-04`). Tutaj po raz pierwszy coś odwołuje się do kategorii, więc usuwanie w `S-09` przestaje być bezwarunkowe. — Owner: użytkownik. Block: no.
-  - Zero kategorii na węźle i pusta lista domyślna — zob. `## Open Roadmap Questions` #1. — Owner: użytkownik. Block: no.
-- **Risk:** Plaster tworzy ekran i jednocześnie zmienia reguły dwóch plastrów w toku. Usunięcie drzewa z `S-03` (MS-03: „usuwa całą strukturę") musi dostać odmowę, gdy drzewo wskazuje jakiś ekran — dziś węzły znikają kaskadą, a nic nie chroni drzewa. Usunięcie kategorii z `S-09` przestaje być bezwarunkowe. Obie zmiany muszą zajść tutaj, bo tu powstaje pierwsze odwołanie. Drzewo z gridem powstaje w tym plastrze jeszcze bez kolumn czasowych, a `S-05` dokłada do niego 288 wirtualizowanych kolumn. Jeśli ten plaster zbuduje zwykłą tabelę, `S-05` będzie ją przepisywać, więc kształt komponentu musi rozstrzygnąć plan. Przypisania wiszą na węźle, nie na obiekcie: ten sam obiekt w dwóch gałęziach daje dwa niezależne zestawy wierszy. Izolacja kont po stronie serwera obejmuje zarówno ekran, jak i drzewo, które on wskazuje.
+  - Co się dzieje z przypisaniami, gdy kategoria zostanie usunięta ze słownika w `S-09` — odmowa usunięcia (jak `object_in_tree` dla obiektów) czy zdjęcie przypisań? — Owner: użytkownik. Block: no.
+- **Risk:** Sekwencjonowane tutaj, bo kategorie przypisuje się do węzła stojącego już w drzewie — bez `S-03` nie ma do czego ich przypiąć, a bez słownika z `S-09` nie ma z czego wybierać. Ryzykiem jest to, że ten sam obiekt może występować w wielu miejscach struktury i w wielu drzewach: przypisanie musi dotyczyć wystąpienia (węzła), a nie obiektu w słowniku, inaczej dwa miejsca struktury zaczną się nawzajem nadpisywać.
 - **Status:** proposed
 
-### S-05: Kolumny czasowe gridu dla wybranej doby
+### S-05: Grid z punktami czasowymi dla wybranego ziarna i doby
 
-- **Outcome:** Dyspozytor wybiera dobę (domyślnie dzisiejszą; doba nie jest częścią zapisanego ekranu). Za kolumną kategorii widzi wtedy punkty czasowe z losowymi wartościami, wynikające z ziarna ekranu: 5 min → 288, 15 min → 96, 60 min → 24 kolumny. Kolumny pojawiają się zarówno w zapisanym ekranie, jak i w trakcie tworzenia nowego. Wariant 288-kolumnowy przewija się płynnie razem z drzewem w kolumnie 1. Wiersz gridu (węzeł × kategoria) ma najwyżej 24 punkty, więc co najmniej 25 wierszy jest widocznych bez przewijania w pionie. Operacja dłuższa niż 2 sekundy pokazuje postęp.
+- **Outcome:** Dyspozytor wybiera jedno ze swoich drzew, ziarno czasowe (5 min / 15 min / godzina) oraz dobę i widzi grid, w którym kolumna 1 zawiera strukturę obiektów wybranego drzewa, kolumna 2 — kategorie przypisane do węzłów, a kolejne — punkty czasowe z losowymi wartościami (5 min → 288, 15 min → 96, godzina → 24 kolumny). Wariant 288-kolumnowy przewija się płynnie, mieści co najmniej 25 obiektów bez przewijania w pionie, a operacja dłuższa niż 2 sekundy pokazuje postęp.
 - **Change ID:** `grid-czasowy`
-- **PRD refs:** FR-007, FR-008, US-01, NFR (288 kolumn gotowe do pracy i płynnie przewijalne), NFR (informacja zwrotna przy operacjach powyżej 2 s), NFR (gęstość odczytu liczb)
-- **Prerequisites:** S-06, F-02
-- **Parallel with:** S-04
+- **PRD refs:** FR-007, FR-008, US-01, NFR (288 kolumn gotowe do pracy i płynnie przewijalne), NFR (informacja zwrotna przy operacjach powyżej 2 s)
+- **Prerequisites:** S-04
+- **Parallel with:** —
 - **Blockers:** —
-- **Unknowns:**
-  - Jaka największa liczba wierszy ekranu (węzły × kategorie) ma zachować płynne przewijanie w wariancie 288-kolumnowym? (PRD `## Open Questions` #5) — wiersze mnożą się przez liczbę kategorii, więc limit rozmiaru drzewa z `S-03` przestaje wprost ograniczać rozmiar gridu. — Owner: użytkownik. Block: no.
-- **Risk:** To jedyny plaster niosący wymaganie, które może wywrócić cały projekt: pełna doba z ziarnem 5 minut to 288 kolumn danych, które mają się płynnie przewijać razem z drzewem w pierwszej kolumnie. Od 2026-09-24 pionowy wymiar też rośnie, bo każdy węzeł daje tyle wierszy, ile ma kategorii. To najdroższa technicznie część i przy celu `speed` nie ma tu miejsca na drugie podejście, dlatego inwestycja idzie właśnie we frontend. Wartości w punktach czasowych są generowane losowo (PRD `## Non-Goals`), więc plaster nie zależy od żadnych systemów zewnętrznych — cała trudność leży po stronie prezentacji.
+- **Unknowns:** —
+- **Risk:** Jedyny plaster niosący wymaganie, które może wywrócić cały projekt: pełna doba z ziarnem 5 minut to 288 kolumn danych, które mają się płynnie przewijać razem z drzewem w pierwszej kolumnie. To najdroższa technicznie część i przy celu `speed` nie ma tu miejsca na drugie podejście — dlatego inwestycja idzie właśnie we frontend. Wartości w punktach czasowych są generowane losowo (PRD `## Non-Goals`), więc ten plaster nie ma żadnej zależności od systemów zewnętrznych — cała trudność siedzi po stronie prezentacji.
 - **Status:** proposed
 
-### S-04: Edycja zapisanego ekranu i kategorie poszczególnych węzłów
+### S-06: Zapisany ekran — zapis, lista i odtworzenie
 
-- **Outcome:** Dyspozytor przełącza zapisany ekran w tryb edycji. Wskazuje w nim węzeł drzewa i dokłada mu lub zdejmuje kategorie ze słownika, tak jak przy budowie drzewa wskazuje się miejsce i dokłada obiekt. Grid od razu pokazuje dla tego węzła wiersze wyłącznie jego kategorii. W tym samym trybie zmienia nazwę ekranu (nadal unikalną w obrębie konta), ziarno i domyślną listę kategorii albo usuwa ekran. Zmiana dotyczy tylko wskazanego węzła i tylko tego ekranu: inne wystąpienia tego samego obiektu oraz inne ekrany na tym samym drzewie zachowują swoje kategorie. Drzewa ekranu nie da się podmienić. Zapisane zmiany odtwarzają się po ponownym otwarciu.
-- **Change ID:** `edycja-ekranu`
-- **PRD refs:** FR-006, FR-011, US-02, NFR (ekran jednego użytkownika niedostępny z innego konta)
-- **Prerequisites:** S-06
-- **Parallel with:** S-05
+- **Outcome:** Dyspozytor zapisuje pod własną nazwą ekran, który wskazuje jedno z jego drzew z `S-03` (wraz z kategoriami przypisanymi do węzłów w `S-04`) oraz ustawienia czasu z `S-05` — ziarno i dobę. Wybiera ekran z listy własnych ekranów, a po ponownym zalogowaniu otwiera go w niezmienionej postaci. Ekrany innego konta pozostają niedostępne. Drzewo jest składnikiem wielokrotnego użytku: kilka ekranów może wskazywać to samo drzewo.
+- **Change ID:** `zapisane-ekrany`
+- **PRD refs:** FR-009, FR-010, US-01, NFR (ekran jednego użytkownika niedostępny z innego konta)
+- **Prerequisites:** S-01, S-05
+- **Parallel with:** —
 - **Blockers:** —
 - **Unknowns:**
-  - Czy zmiana domyślnej listy kategorii w edycji zapisanego ekranu nadpisuje przypisania istniejących węzłów, czy dotyczy tylko węzłów dodanych później? (PRD `## Open Questions` #3) — Owner: użytkownik. Block: no.
-- **Risk:** Identyfikator `S-04` przechodzi z dawnego „przypisania kategorii do węzła drzewa" na edycję ekranu. Przypisanie należy teraz do ekranu i węzła, więc komentarze w kodzie, które mówią o kategoriach wieszanych na węźle „w `S-04`", opisują odtąd łącznie `S-06` (kategorie domyślne) i `S-04` (zmiany per węzeł). Tryb edycji zmienia stan, który `S-06` obiecuje odtworzyć bez zmian, więc granica między oglądaniem a edycją musi być jednoznaczna. Dopóki PRD #3 nie jest rozstrzygnięte, zmiana listy domyślnej nie może po cichu nadpisać kategorii dopasowanych ręcznie.
+  - Jaki jest minimalny cykl życia ekranu — czy poza zapisem i otwarciem MVP obejmuje zmianę nazwy, usuwanie i obsługę duplikatów nazw (drzewa z `S-03` mają nazwę unikalną w obrębie konta)? — Owner: użytkownik. Block: no.
+  - Co się dzieje z ekranem, którego drzewo zostało usunięte, i jak pogodzić wymaganie „ekran odtwarza się bez zmian" z tym, że wskazane drzewo można później edytować — odmowa usunięcia drzewa używanego przez ekran, ekran oznaczony jako nieaktualny, czy kopia drzewa przy zapisie? — Owner: użytkownik. Block: no.
+- **Risk:** Domyka główne kryterium sukcesu z PRD — całą ścieżkę w jednej sesji — więc siedzi na końcu łańcucha z założenia, nie przez przeoczenie. Trzy ryzyka. Po pierwsze izolacja kont musi być egzekwowana po stronie serwera przy każdym odczycie ekranu, także dla drzewa, które ekran wskazuje (wymaganie mówi „bez wyjątków", więc ukrycie cudzych ekranów w interfejsie nie wystarczy). Po drugie zakres cyklu życia ekranu, którego PRD nie rozstrzyga — przy twardym terminie trzyma się tu minimum: zapis, lista, otwarcie. Po trzecie powiązanie ekranu z edytowalnym drzewem, które bez świadomej decyzji po cichu złamie kryterium „odtwarza się bez zmian".
 - **Status:** proposed
 
 ## Backlog Handoff
@@ -236,34 +234,27 @@ Foundations below assume these are present and do NOT re-scaffold them.
 | S-01       | `konto-i-logowanie`   | Konto i logowanie (e-mail + hasło) z bramą na wszystkich widokach    | yes                   | Plan istnieje, kod działa; zostają ręczne kroki weryfikacji  |
 | S-02       | `lista-obiektow`      | Lista obiektów do budowy drzewa (przegląd, dodawanie, edycja)        | yes                   | Plan istnieje, kod działa                                    |
 | S-03       | `budowa-drzewa`       | Własne nazwane drzewa i budowa ich struktury z blokadą zapętlenia    | yes                   | Fazy 1–3 (jedno drzewo robocze, przeciąganie) mają kod; MS-03–MS-07 wymagają dopisania faz do planu: `/10x-plan budowa-drzewa` |
+| S-04       | `kategorie-danych`    | Przypisywanie kategorii ze słownika do węzłów wybranego drzewa       | no                    | Czeka na `S-03` i `S-09`                                     |
+| S-05       | `grid-czasowy`        | Grid z punktami czasowymi dla wybranego drzewa, ziarna i doby        | no                    | Czeka na `S-04`                                              |
+| S-06       | `zapisane-ekrany`     | Zapisane ekrany wskazujące drzewo — zapis, lista, odtworzenie        | no                    | Czeka na `S-01` i `S-05`; dwa niezablokowane pytania o cykl życia i powiązanie z drzewem |
 | S-07       | `menu-glowne`         | Menu główne aplikacji po zalogowaniu (pierwsza pozycja: Obiekty)     | yes                   | Plan istnieje, kod działa                                    |
 | S-09       | `lista-kategorii`     | Słownik kategorii danych (kod, nazwa, funkcja agregująca) z pozycją w menu | yes             | Plan istnieje, kod działa                                    |
-| S-06       | `zapisane-ekrany`     | Nowy ekran: nazwa, drzewo, ziarno, domyślne kategorie; lista własnych ekranów i odtworzenie | no | Czeka na `S-03` i `S-09`; zmienia regułę usuwania drzewa (`S-03`) i kategorii (`S-09`) |
-| S-05       | `grid-czasowy`        | Kolumny czasowe gridu ekranu dla wybranej doby (288 / 96 / 24)       | no                    | Czeka na `S-06` i `F-02`                                     |
-| S-04       | `edycja-ekranu`       | Tryb edycji ekranu: kategorie wskazanego węzła, nazwa, ziarno, kategorie domyślne, usunięcie | no | Czeka na `S-06`; równolegle do `S-05`                         |
 
 This table is the clean handoff to Jira/Linear or any MCP-backed backlog. It carries one row for every `F-NN` and `S-NN` and deliberately does not duplicate the detailed roadmap body.
 
 ## Open Roadmap Questions
 
-1. **Czy węzeł ekranu może mieć zero kategorii i czy domyślna lista kategorii może być pusta? Jeśli tak — czy taki węzeł zostaje w gridzie jako sam wiersz struktury, czy znika?** (PRD `## Open Questions` #2) — Owner: użytkownik. Block: S-06, S-04 — nie blokuje planowania, ale musi zapaść w planie `S-06`, bo od niej zależy liczba wierszy już przy tworzeniu ekranu.
-
-Pozostałe pytania z PRD dotyczą jednego plastra i stoją w jego `Unknowns`: #3 → `S-04`, #4 → `S-06`, #5 → `S-05`.
+Brak otwartych pytań obejmujących wiele plastrów. Pytania dotyczące jednego plastra stoją w jego `Unknowns`.
 
 Rozstrzygnięte:
 
-- ~~**Czy budowa drzewa przez przeciąganie (drag&drop) wejdzie w zakres MVP?**~~ — Tak, w pełnym zakresie: przeciąganie z listy do drzewa, przesuwanie i zmiana kolejności węzłów, a od MS-07 także usuwanie przeciągnięciem na listę. Rozstrzygnięte 2026-09-23 w planie `budowa-drzewa` (faza 3); PRD domknął je 2026-09-24.
-- ~~**Jaki jest minimalny cykl życia ekranu?**~~ (dawne `S-06`) — Jak drzewa: dodawanie, edycja i usuwanie, nazwa unikalna w obrębie konta, drzewo ustalane przy tworzeniu (PRD FR-011, 2026-09-24).
-- ~~**Co się dzieje z ekranem, którego drzewo zmieniono albo usunięto?**~~ (dawne `S-06`) — Ekran śledzi drzewo: nowy węzeł dostaje kategorie domyślne, usunięty znika z przypisaniami, a drzewa wskazywanego przez ekran nie da się usunąć (PRD FR-012, 2026-09-24).
-- ~~**Do czego należy przypisanie kategorii — do drzewa czy do ekranu?**~~ (dawne `S-04`: „przypisanie należy do drzewa") — Do ekranu i węzła; dwa ekrany na tym samym drzewie mają niezależne przypisania (PRD FR-006, US-02, 2026-09-24).
+- ~~**Czy budowa drzewa przez przeciąganie (drag&drop) wejdzie w zakres MVP?**~~ — Tak, w pełnym zakresie: przeciąganie z listy do drzewa, przesuwanie i zmiana kolejności węzłów, a od MS-07 także usuwanie przeciągnięciem na listę. Rozstrzygnięte 2026-09-23 w planie `budowa-drzewa` (faza 3). PRD `## Open Questions` nadal wymienia to pytanie jako otwarte — do domknięcia przy następnej wersji PRD.
 
 ## Parked
 
 - **Import listy obiektów z arkuszy kalkulacyjnych** — Why parked: PRD `## Non-Goals`; obiekty powstają w aplikacji, a ścieżka importu to osobny problem z własnym parsowaniem i walidacją.
 - **Współdzielenie ekranów i drzew między użytkownikami, kopiowanie cudzych drzew, role administracyjne** — Why parked: PRD `## Non-Goals`; model pozostaje jednoosobowy, a drzewa z MS-05 są prywatne tak samo jak ekrany.
 - **Cofanie operacji w drzewie („cofnij")** — Why parked: nie wynika z PRD ani z MS-03–MS-07; przy celu `speed` zabezpieczeniem jest potwierdzenie przy „Usuń węzeł". Usuwanie przeciągnięciem (MS-07) świadomie działa bez potwierdzenia.
-- **Podmiana drzewa w zapisanym ekranie** — Why parked: odrzucona 2026-09-24 przy ustalaniu cyklu życia ekranu; PRD FR-011 ustala drzewo przy tworzeniu ekranu.
-- **Zapamiętanie doby w ekranie** — Why parked: PRD FR-007 (2026-09-24) — dobę wybiera się przy oglądaniu, zapisany ekran niesie tylko ziarno.
 - **Wykresy i agregacje danych** — Why parked: PRD `## Non-Goals`; widok pozostaje tabelaryczny.
 - **Integracja z realnym źródłem danych** — Why parked: PRD `## Non-Goals`; wartości w punktach czasowych są generowane losowo, co zdejmuje z MVP zależność od systemów zewnętrznych.
 - **Gwarancje dla ekranów mobilnych** — Why parked: wymaganie niefunkcjonalne wprost ogranicza produkt do przeglądarek desktopowych.
