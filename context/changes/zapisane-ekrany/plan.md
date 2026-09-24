@@ -565,10 +565,10 @@ Trasa `/ekrany` w układzie widoku drzew: lista własnych ekranów, panel nowego
 
 #### Automated
 
-- [ ] 1.1 Migracja `Screens` generuje się i nie zawiera operacji na `Trees.Version`: `dotnet ef migrations add Screens --project src/Api`
-- [ ] 1.2 Rozwiązanie buduje się (API zatrzymane): `dotnet build TreeGrid.sln`
-- [ ] 1.3 Testy przechodzą, w tym nowe `ScreenRulesTests`: `dotnet test tests/Api.Tests`
-- [ ] 1.4 Migracja stosuje się do bazy deweloperskiej przy starcie API w Development bez błędu
+- [x] 1.1 Migracja `Screens` generuje się i nie zawiera operacji na `Trees.Version`: `dotnet ef migrations add Screens --project src/Api`
+- [x] 1.2 Rozwiązanie buduje się (API zatrzymane): `dotnet build TreeGrid.sln`
+- [x] 1.3 Testy przechodzą, w tym nowe `ScreenRulesTests`: `dotnet test tests/Api.Tests`
+- [x] 1.4 Migracja stosuje się do bazy deweloperskiej przy starcie API w Development bez błędu
 
 #### Manual
 

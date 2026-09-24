@@ -8,7 +8,10 @@ namespace Api.Tree;
 /// Tożsamość użytkownika dla endpointów <c>/trees</c>: jedyne miejsce, które
 /// zamienia nagłówek żądania na identyfikator istniejącego konta albo na
 /// odpowiedź 401 w kontrakcie — i jedyne miejsce, w którym zapisany jest model
-/// zaufania, na którym ta zamiana stoi.
+/// zaufania, na którym ta zamiana stoi. Korzystają z niej także endpointy
+/// <c>/screens</c> (<c>Api.Screens.ScreenEndpoints</c>): ekran ma właściciela
+/// tak jak drzewo, a model zaufania jest jeden, więc klasa zostaje
+/// w <c>Api.Tree</c>, zamiast rozchodzić się na dwie kopie.
 /// </summary>
 /// <remarks>
 /// API nie ma uwierzytelniania (<c>UseAuthentication</c>) i nie ma go mieć:

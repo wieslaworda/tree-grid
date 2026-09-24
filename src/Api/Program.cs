@@ -4,6 +4,7 @@ using Api.Categories;
 using Api.Data;
 using Api.Errors;
 using Api.Objects;
+using Api.Screens;
 using Api.Tree;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.Data.Sqlite;
@@ -189,6 +190,12 @@ app.MapCategoryEndpoints();
 // a tam też model zaufania nagłówka tożsamości, na którym stoją te endpointy:
 // `TreeIdentity` mówi, które warunki infrastruktury go niosą.
 app.MapTreeEndpoints();
+
+// Nazwane ekrany użytkownika (S-06), ten sam podział — walidacja nazwy, ziarna
+// i listy kategorii domyślnych oraz wyliczenie przypisań kategorii do węzłów
+// w `Api.Screens`. Tożsamość i jej model zaufania są wspólne z drzewami
+// (`TreeIdentity`).
+app.MapScreenEndpoints();
 
 app.Run();
 return 0;

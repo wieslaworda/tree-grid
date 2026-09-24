@@ -11,10 +11,14 @@ namespace Api.Data;
 /// między obiektami. Od S-09 —
 /// słownik kategorii danych (<see cref="Category"/>), również wspólny i na razie
 /// bez relacji z czymkolwiek. Od S-03 — nazwane drzewa użytkownika
-/// (<see cref="UserTree"/>): jedyna tabela z właścicielem, dowolnie wiele drzew
+/// (<see cref="UserTree"/>): pierwsza tabela z właścicielem, dowolnie wiele drzew
 /// na konto, każde złożone z węzłów (<see cref="TreeNode"/>) — wystąpień obiektów
-/// słownika. Węzeł należy do drzewa, drzewo do konta. Nazwane ekrany (S-06)
-/// i grid dochodzą w kolejnych plastrach.
+/// słownika. Węzeł należy do drzewa, drzewo do konta. Od S-06 — nazwane ekrany
+/// użytkownika (<see cref="Screen"/>), druga tabela z właścicielem: ekran
+/// wskazuje jedno z drzew konta i niesie uporządkowaną listę kategorii
+/// domyślnych (<see cref="ScreenDefaultCategory"/>) oraz przypisania kategorii
+/// do węzłów tego drzewa (<see cref="ScreenNodeCategory"/>). Kolumny czasowe
+/// gridu dochodzą w kolejnym plastrze.
 /// </summary>
 public sealed class AppDbContext(DbContextOptions<AppDbContext> options)
     : IdentityDbContext<AppUser>(options)
@@ -26,6 +30,12 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options)
     public DbSet<UserTree> Trees => Set<UserTree>();
 
     public DbSet<TreeNode> TreeNodes => Set<TreeNode>();
+
+    public DbSet<Screen> Screens => Set<Screen>();
+
+    public DbSet<ScreenDefaultCategory> ScreenDefaultCategories => Set<ScreenDefaultCategory>();
+
+    public DbSet<ScreenNodeCategory> ScreenNodeCategories => Set<ScreenNodeCategory>();
 
     protected override void OnModelCreating(ModelBuilder builder)
     {
@@ -133,6 +143,93 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options)
             // jako różne wartości, więc nie złapałby duplikatu na najwyższym
             // poziomie. Ta reguła żyje w `TreeRules` i w transakcji endpointu.
             node.HasIndex(n => new { n.TreeId, n.ParentId, n.Position });
+        });
+
+        builder.Entity<Screen>(screen =>
+        {
+            // Kaskada od konta — z tego samego powodu co przy drzewie wyżej.
+            // Kont nie da się dziś usuwać, a zderzenie tej kaskady z `Restrict`
+            // od drzewa (niżej) nie jest projektowane w tym plastrze (plan
+            // `zapisane-ekrany`, „What We're NOT Doing").
+            screen.HasOne(s => s.User)
+                .WithMany()
+                .HasForeignKey(s => s.UserId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            // `Restrict` od drzewa: drzewa wskazywanego przez ekran nie wolno
+            // usunąć — kaskada w tym miejscu po cichu wycięłaby ekrany razem
+            // z drzewem. Klucz obcy jest drugim bezpiecznikiem za odmową
+            // w endpoincie usuwania drzewa. Nawigacji zwrotnej w `UserTree` nie
+            // ma celowo: nagłówek drzewa nie rośnie o ekrany.
+            screen.HasOne(s => s.Tree)
+                .WithMany()
+                .HasForeignKey(s => s.TreeId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            // Długości jako metadane, wiążący limit w `ScreenRules` — ten sam
+            // układ co przy drzewie.
+            screen.Property(s => s.Name).HasMaxLength(Screen.NameMaxLength);
+            screen.Property(s => s.NormalizedName).HasMaxLength(Screen.NameMaxLength);
+
+            // Unikalność nazwy w obrębie konta, po postaci znormalizowanej —
+            // jak przy drzewie. Indeks obsługuje też filtr po właścicielu, więc
+            // osobnego indeksu na `UserId` nie ma.
+            screen.HasIndex(s => new { s.UserId, s.NormalizedName }).IsUnique();
+
+            // Pod pytanie „czy któryś ekran wskazuje to drzewo" i pod
+            // sprawdzenie klucza obcego przy usuwaniu drzewa.
+            screen.HasIndex(s => s.TreeId);
+        });
+
+        builder.Entity<ScreenDefaultCategory>(entry =>
+        {
+            entry.HasKey(e => new { e.ScreenId, e.CategoryId });
+
+            // Obie kaskady na poziomie bazy: lista schodzi razem z ekranem,
+            // a pozycja listy — razem z kategorią usuniętą ze słownika.
+            entry.HasOne(e => e.Screen)
+                .WithMany(s => s.DefaultCategories)
+                .HasForeignKey(e => e.ScreenId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            entry.HasOne(e => e.Category)
+                .WithMany()
+                .HasForeignKey(e => e.CategoryId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            // Pod kaskadę od kategorii — klucz główny zaczyna się od
+            // `ScreenId`, więc jej nie obsługuje.
+            entry.HasIndex(e => e.CategoryId);
+        });
+
+        builder.Entity<ScreenNodeCategory>(assignment =>
+        {
+            assignment.HasKey(a => new { a.ScreenId, a.TreeNodeId, a.CategoryId });
+
+            // Trzy ścieżki usuwania i wszystkie kaskadą bazy. Kaskada od węzła
+            // musi działać bez śledzenia przypisań: usunięcie węzła wczytuje
+            // wyłącznie węzły drzewa, a przypisania węzła i jego potomków
+            // zdejmuje schemat. SQLite dopuszcza wiele ścieżek kaskady do jednej
+            // tabeli, a EF Core włącza na nim `foreign_keys`.
+            assignment.HasOne(a => a.Screen)
+                .WithMany(s => s.NodeCategories)
+                .HasForeignKey(a => a.ScreenId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            assignment.HasOne(a => a.Node)
+                .WithMany()
+                .HasForeignKey(a => a.TreeNodeId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            assignment.HasOne(a => a.Category)
+                .WithMany()
+                .HasForeignKey(a => a.CategoryId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            // Pod kaskady od węzła i od kategorii — klucz główny zaczyna się od
+            // `ScreenId`, więc ich nie obsługuje.
+            assignment.HasIndex(a => a.TreeNodeId);
+            assignment.HasIndex(a => a.CategoryId);
         });
     }
 

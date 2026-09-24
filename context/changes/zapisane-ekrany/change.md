@@ -1,7 +1,7 @@
 ---
 change_id: zapisane-ekrany
 title: Nowy ekran — tworzenie, lista własnych ekranów, odtworzenie i usunięcie
-status: planned
+status: implementing
 created: 2026-09-24
 updated: 2026-09-24
 archived_at: null
