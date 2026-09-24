@@ -31,6 +31,8 @@ type Wlasciwosci = {
   intent: string;
   /** Tekst przycisku wysyłki. */
   etykietaZapisu: string;
+  /** Przyciski stojące w jednym rzędzie z przyciskiem wysyłki. */
+  obokZapisu?: React.ReactNode;
 };
 
 /**
@@ -53,6 +55,7 @@ export function FormularzDrzewa({
   blad,
   intent,
   etykietaZapisu,
+  obokZapisu,
 }: Wlasciwosci) {
   const komunikatPola = naruszenieNazwy(blad);
   const ogolny =
@@ -60,9 +63,9 @@ export function FormularzDrzewa({
       ? undefined
       : blad.error.message;
 
-  // Zajęty jest cały widok, gdy trwa dowolna nawigacja — także wysyłka
-  // drugiego formularza w panelu. Kręciołek dostaje jednak tylko ten przycisk,
-  // którego formularz faktycznie wysłano, rozpoznany po `intent`.
+  // Zajęty jest cały widok, gdy trwa dowolna nawigacja — także usuwanie
+  // drzewa z przycisku obok. Kręciołek dostaje jednak tylko przycisk
+  // wysyłki tego formularza, rozpoznanej po `intent`.
   const nawigacja = useNavigation();
   const zajety = nawigacja.state !== "idle";
   const wysylanyTen =
@@ -83,9 +86,8 @@ export function FormularzDrzewa({
         <input type="hidden" name="intent" value={intent} />
 
         <AntForm
-          // Przedrostek identyfikatorów pól: w panelu drzew stoją dwa takie
-          // formularze naraz, a bez niego oba pola dostałyby `id="name"`
-          // i etykieta drugiego wskazywałaby pole pierwszego.
+          // Przedrostek identyfikatorów pól: bez niego pole dostałoby gołe
+          // `id="name"`, łatwe do zdublowania przez inny formularz w widoku.
           name={intent}
           component={false}
           layout="vertical"
@@ -117,14 +119,18 @@ export function FormularzDrzewa({
           </AntForm.Item>
 
           <AntForm.Item className="mb-0">
-            <Button
-              type="primary"
-              htmlType="submit"
-              loading={wysylanyTen}
-              disabled={zajety}
-            >
-              {etykietaZapisu}
-            </Button>
+            <div className="flex flex-wrap gap-3">
+              <Button
+                type="primary"
+                htmlType="submit"
+                loading={wysylanyTen}
+                disabled={zajety}
+              >
+                {etykietaZapisu}
+              </Button>
+
+              {obokZapisu}
+            </div>
           </AntForm.Item>
         </AntForm>
       </RouterForm>

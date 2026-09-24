@@ -5,7 +5,10 @@ import {
   type ObiektSlownika,
   type Przeniesienie,
   TYP_PRZECIAGANEGO_OBIEKTU,
+  TYP_PRZECIAGANEGO_WEZLA,
   type WezelDrzewa,
+  identyfikatorZPrzeciagania,
+  przeciaganyTyp,
   wyliczPrzeniesienie,
   zbudujDaneDrzewa,
 } from "~/lib/drzewo";
@@ -65,6 +68,11 @@ type CelUpuszczenia = number | "najwyzszy-poziom" | null;
  * zresetowałby stan i zignorował upuszczenie (`Tree.js`, `onNodeDragEnter`,
  * `onNodeDrop`). Przeciągania węzła wewnątrz drzewa te handlery nie dotykają.
  *
+ * **Przeciąganie węzła na listę obiektów** (usunięcie) zaczyna się tutaj:
+ * `onDragStart` dokłada {@link TYP_PRZECIAGANEGO_WEZLA} z identyfikatorem
+ * węzła, a upuszczenie przyjmuje lista (`ListaObiektowZrodlowych`). Poza
+ * drzewem rc-tree nie woła `onDrop`, tylko sprząta stan w `dragend`.
+ *
  * Wysokość wiersza wyłącznie z motywu (`Tree.titleHeight` ←
  * `METRYKI.wysokoscWiersza` w `app/theme/antd.ts`), kolory zaznaczenia
  * i najechania z tego samego miejsca, wyróżnienie celu upuszczenia z klas
@@ -111,7 +119,10 @@ export function DrzewoStruktury({
       zdarzenie.preventDefault();
       ustawCel(null);
 
-      const objectId = przeciaganyObiekt(zdarzenie.dataTransfer);
+      const objectId = identyfikatorZPrzeciagania(
+        zdarzenie.dataTransfer,
+        TYP_PRZECIAGANEGO_OBIEKTU,
+      );
 
       if (!zajete && objectId !== null) {
         onUpuscObiekt(objectId, parentId);
@@ -230,6 +241,13 @@ export function DrzewoStruktury({
               onWybierzWezel(klucze.length === 0 ? null : Number(klucze[0]))
             }
             onExpand={(klucze) => onRozwin(klucze.map(Number))}
+            // Węzeł niesie swój identyfikator, żeby lista obiektów mogła go
+            // przyjąć jako polecenie usunięcia. `onDragStart` antd biegnie
+            // przed `setData` rc-tree, które ustawia tylko pusty `text/plain`,
+            // więc własny typ przeżywa.
+            onDragStart={({ event, node }) => {
+              event.dataTransfer.setData(TYP_PRZECIAGANEGO_WEZLA, String(node.key));
+            }}
             onDrop={(info) => {
               const przeniesienie = wyliczPrzeniesienie(wezly, info);
 
@@ -246,16 +264,5 @@ export function DrzewoStruktury({
 
 /** Czy przeciągany jest obiekt z listy (a nie np. węzeł drzewa albo plik). */
 function zListy(zdarzenie: React.DragEvent<HTMLElement>): boolean {
-  return zdarzenie.dataTransfer.types.includes(TYP_PRZECIAGANEGO_OBIEKTU);
-}
-
-/**
- * Identyfikator obiektu z upuszczenia albo `null`, gdy wartość nie jest
- * dodatnią liczbą całkowitą — typ MIME może nadać dowolna strona, nie tylko
- * lista. Ostateczną weryfikację i tak robi akcja (`parseEntityId`) i API.
- */
-function przeciaganyObiekt(dane: DataTransfer): number | null {
-  const wartosc = dane.getData(TYP_PRZECIAGANEGO_OBIEKTU);
-
-  return /^[1-9]\d*$/.test(wartosc) ? Number(wartosc) : null;
+  return przeciaganyTyp(zdarzenie.dataTransfer, TYP_PRZECIAGANEGO_OBIEKTU);
 }

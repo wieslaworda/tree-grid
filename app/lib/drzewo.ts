@@ -1,7 +1,8 @@
 /**
  * Czyste funkcje widoku budowy drzewa: płaska lista węzłów z API i słownik
  * obiektów zamienione na dane antd `Tree`, liczba węzłów poddrzewa (do
- * potwierdzenia usunięcia), sprawdzenie, czy obiekt ma podobiekty w słowniku
+ * potwierdzenia usunięcia), węzły z dziećmi (do startowego rozwinięcia
+ * całego drzewa), sprawdzenie, czy obiekt ma podobiekty w słowniku
  * (do dialogu gałęzi), oraz przeliczenie upuszczenia węzła w drzewie na
  * przeniesienie w semantyce API.
  *
@@ -24,6 +25,34 @@ import type { Key } from "react";
  * oddaje go w `dataTransfer.types`.
  */
 export const TYP_PRZECIAGANEGO_OBIEKTU = "application/x-treegrid-object";
+
+/**
+ * Typ MIME przeciągania węzła z drzewa na listę obiektów (usunięcie węzła);
+ * wartością jest identyfikator węzła. Ustawia go `onDragStart` drzewa obok
+ * pustego `text/plain` rc-tree — po nim lista odróżnia węzeł od własnego
+ * wiersza i od pliku z pulpitu. Małymi literami — powód jak wyżej.
+ */
+export const TYP_PRZECIAGANEGO_WEZLA = "application/x-treegrid-node";
+
+/** Czy przeciągane są dane danego typu MIME (odczyt możliwy w każdej fazie). */
+export function przeciaganyTyp(dane: DataTransfer, typ: string): boolean {
+  return dane.types.includes(typ);
+}
+
+/**
+ * Identyfikator z upuszczenia pod danym typem MIME albo `null`, gdy wartość
+ * nie jest dodatnią liczbą całkowitą — typ może nadać dowolna strona, nie
+ * tylko ten widok. Ostateczną weryfikację i tak robi akcja (`parseEntityId`)
+ * i API. Wartość jest czytelna wyłącznie w `drop`.
+ */
+export function identyfikatorZPrzeciagania(
+  dane: DataTransfer,
+  typ: string,
+): number | null {
+  const wartosc = dane.getData(typ);
+
+  return /^[1-9]\d*$/.test(wartosc) ? Number(wartosc) : null;
+}
 
 /** Węzeł drzewa w kształcie `GET /tree` — tyle, ile widok potrzebuje. */
 export type WezelDrzewa = {
@@ -111,6 +140,35 @@ export function liczbaWezlowPodrzednych(
   }
 
   return liczba;
+}
+
+/**
+ * Obiekty słownika użyte w drzewie — przez węzeł na dowolnej głębokości.
+ * Do filtra „Bez obiektów drzewa” na liście obiektów.
+ */
+export function obiektyUzyteWDrzewie(
+  wezly: readonly WezelDrzewa[],
+): ReadonlySet<number> {
+  return new Set(wezly.map((wezel) => wezel.objectId));
+}
+
+/**
+ * Identyfikatory węzłów, które mają choć jedno dziecko — `expandedKeys`
+ * drzewa rozwiniętego w całości. Liście pominięte: rozwinięty liść nie
+ * zmienia widoku, a przy upuszczeniu `wyliczPrzeniesienie` czyta
+ * `node.expanded`.
+ */
+export function wezlyZDziecmi(wezly: readonly WezelDrzewa[]): number[] {
+  const istniejace = new Set(wezly.map((wezel) => wezel.id));
+  const rodzice = new Set<number>();
+
+  for (const wezel of wezly) {
+    if (wezel.parentId !== null && istniejace.has(wezel.parentId)) {
+      rodzice.add(wezel.parentId);
+    }
+  }
+
+  return [...rodzice];
 }
 
 /**

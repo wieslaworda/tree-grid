@@ -1,7 +1,13 @@
-import { Input, Table, type TableColumnsType } from "antd";
+import { Checkbox, Input, Table, type TableColumnsType } from "antd";
 import { useEffect, useMemo, useRef, useState } from "react";
 
-import { type ObiektSlownika, TYP_PRZECIAGANEGO_OBIEKTU } from "~/lib/drzewo";
+import {
+  type ObiektSlownika,
+  TYP_PRZECIAGANEGO_OBIEKTU,
+  TYP_PRZECIAGANEGO_WEZLA,
+  identyfikatorZPrzeciagania,
+  przeciaganyTyp,
+} from "~/lib/drzewo";
 import { METRYKI } from "~/theme/tokeny";
 
 type Wlasciwosci = {
@@ -10,6 +16,12 @@ type Wlasciwosci = {
   /** Obiekt zaznaczony do dodania albo `null`. Stan żyje w widoku. */
   wybranyId: number | null;
   onWybierz: (id: number) => void;
+  /** Obiekty, które już stoją w drzewie — do filtra „Bez obiektów drzewa”. */
+  uzyteObiekty: ReadonlySet<number>;
+  /** Węzeł drzewa upuszczony na listę — do usunięcia z poddrzewem. */
+  onUpuscWezel: (nodeId: number) => void;
+  /** Trwa operacja na drzewie — lista nie przyjmuje wtedy upuszczenia węzła. */
+  zajete: boolean;
 };
 
 /** Wiersz tabeli: obiekt z gotowym tekstem kolumny podobiektów. */
@@ -58,6 +70,14 @@ function pasuje(wiersz: Wiersz, fraza: string): boolean {
  * nie zmienia zaznaczenia; kliknięcie bez ruchu nie startuje przeciągania,
  * więc zaznacza jak dotąd.
  *
+ * Pole wyboru „Bez obiektów drzewa” obok filtra tekstowego chowa obiekty,
+ * które już stoją w drzewie (na dowolnej głębokości). Filtry nie zmieniają
+ * zaznaczenia — obiekt ukryty filtrem zostaje celem „Dodaj”.
+ *
+ * Lista jest też celem upuszczenia **węzła z drzewa**: upuszczony węzeł
+ * idzie do `onUpuscWezel` i widok usuwa go z poddrzewem, bez potwierdzenia
+ * (decyzja MS-07 w planie `budowa-drzewa`).
+ *
  * `size="small"` to wariant, dla którego motyw liczy wiersz 24 px
  * (`app/theme/antd.ts`). Bez stronicowania: słownik jest rzędu setek pozycji,
  * a strona przerywałaby wybór.
@@ -71,8 +91,15 @@ export function ListaObiektowZrodlowych({
   obiekty,
   wybranyId,
   onWybierz,
+  uzyteObiekty,
+  onUpuscWezel,
+  zajete,
 }: Wlasciwosci) {
   const [filtr, ustawFiltr] = useState("");
+  // Domyślnie odznaczony: lista pokazuje cały słownik, jak dotąd.
+  const [bezUzytych, ustawBezUzytych] = useState(false);
+  // Czy kursor z węzłem drzewa jest nad listą — tylko do wyróżnienia celu.
+  const [nadLista, ustawNadLista] = useState(false);
   const kontener = useRef<HTMLDivElement>(null);
   const wysokoscTresci = useWysokoscTresci(kontener);
 
@@ -86,25 +113,103 @@ export function ListaObiektowZrodlowych({
     [obiekty],
   );
 
-  const widoczne = useMemo(() => {
-    const fraza = filtr.trim().toLocaleLowerCase("pl");
+  const frazaFiltra = filtr.trim().toLocaleLowerCase("pl");
 
-    return wiersze.filter((wiersz) => pasuje(wiersz, fraza));
-  }, [wiersze, filtr]);
+  // Oba filtry naraz: fraza i — przy zaznaczonym polu — brak w drzewie.
+  const widoczne = useMemo(
+    () =>
+      wiersze.filter(
+        (wiersz) =>
+          pasuje(wiersz, frazaFiltra) &&
+          !(bezUzytych && uzyteObiekty.has(wiersz.id)),
+      ),
+    [wiersze, frazaFiltra, bezUzytych, uzyteObiekty],
+  );
+
+  // Nad listą z węzłem: przyjęcie upuszczenia (`preventDefault`)
+  // i wyróżnienie. W trakcie operacji upuszczenie nie jest przyjmowane — bez
+  // `preventDefault` przeglądarka pokaże zakaz i nie wyśle `drop`.
+  const nadCelem = (zdarzenie: React.DragEvent<HTMLElement>) => {
+    if (zajete || !przeciaganyTyp(zdarzenie.dataTransfer, TYP_PRZECIAGANEGO_WEZLA)) {
+      return;
+    }
+
+    zdarzenie.preventDefault();
+    zdarzenie.dataTransfer.dropEffect = "move";
+    ustawNadLista(true);
+  };
 
   return (
-    <div className="flex min-h-0 flex-1 flex-col gap-3">
-      <Input
-        allowClear
-        aria-label="Filtruj obiekty po kodzie lub nazwie"
-        placeholder="Filtruj po kodzie lub nazwie…"
-        value={filtr}
-        onChange={(zdarzenie) => ustawFiltr(zdarzenie.target.value)}
-      />
+    // Cały komponent — pole filtra i tabela — jest celem upuszczenia, ale
+    // wyłącznie dla węzła drzewa ({@link TYP_PRZECIAGANEGO_WEZLA}): własny
+    // wiersz listy upuszczony na listę i plik z pulpitu nie robią nic.
+    // Wyróżnienie `outline` z akcentem, jak cel upuszczenia w drzewie.
+    <div
+      className={`flex min-h-0 flex-1 flex-col gap-3 ${
+        nadLista ? "outline outline-tg-akcent" : ""
+      }`}
+      onDragEnter={nadCelem}
+      onDragOver={nadCelem}
+      onDragLeave={(zdarzenie) => {
+        const dokad = zdarzenie.relatedTarget;
 
+        // Przejście na element wewnątrz listy to nie wyjście z niej — ta sama
+        // kontrola co strefa najwyższego poziomu w `DrzewoStruktury`.
+        if (!(dokad instanceof Node && zdarzenie.currentTarget.contains(dokad))) {
+          ustawNadLista(false);
+        }
+      }}
+      onDrop={(zdarzenie) => {
+        if (!przeciaganyTyp(zdarzenie.dataTransfer, TYP_PRZECIAGANEGO_WEZLA)) {
+          return;
+        }
+
+        // Także przy `zajete`: bez tego upuszczenie na pole filtra wkleiłoby
+        // do niego pusty `text/plain` rc-tree.
+        zdarzenie.preventDefault();
+        ustawNadLista(false);
+
+        const nodeId = identyfikatorZPrzeciagania(
+          zdarzenie.dataTransfer,
+          TYP_PRZECIAGANEGO_WEZLA,
+        );
+
+        if (!zajete && nodeId !== null) {
+          onUpuscWezel(nodeId);
+        }
+      }}
+    >
+      <div className="flex items-center gap-3">
+        <Input
+          allowClear
+          aria-label="Filtruj obiekty po kodzie lub nazwie"
+          placeholder="Filtruj po kodzie lub nazwie…"
+          value={filtr}
+          onChange={(zdarzenie) => ustawFiltr(zdarzenie.target.value)}
+        />
+
+        {/* `shrink-0`: pole tekstowe oddaje miejsce, etykieta się nie łamie. */}
+        <Checkbox
+          className="shrink-0"
+          checked={bezUzytych}
+          onChange={(zdarzenie) => ustawBezUzytych(zdarzenie.target.checked)}
+        >
+          Bez obiektów drzewa
+        </Checkbox>
+      </div>
+
+      {/*
+        Przewija dokładnie jeden element. Do pierwszego pomiaru — kontener,
+        bo tabela nie ma jeszcze `scroll.y`. Po nim — wyłącznie ciało tabeli,
+        a kontener tylko przycina: przy `overflow-auto` każda nadwyżka ułamka
+        piksela (zaokrąglenia, nagłówek, który urósł po pomiarze, np. po
+        doładowaniu fontu) dokładała drugi pionowy pasek obok paska tabeli.
+      */}
       <div
         ref={kontener}
-        className="min-h-0 flex-1 overflow-auto border border-tg-obramowanie-kontrolki"
+        className={`min-h-0 flex-1 border border-tg-obramowanie-kontrolki ${
+          wysokoscTresci === undefined ? "overflow-auto" : "overflow-hidden"
+        }`}
       >
         <Table<Wiersz>
           size="small"
@@ -144,7 +249,9 @@ export function ListaObiektowZrodlowych({
             emptyText:
               obiekty.length === 0
                 ? "Słownik obiektów jest pusty — dodaj obiekty w widoku Obiekty."
-                : "Żaden obiekt nie pasuje do filtra.",
+                : bezUzytych && wiersze.some((wiersz) => pasuje(wiersz, frazaFiltra))
+                  ? "Wszystkie pasujące obiekty są już użyte w tym drzewie."
+                  : "Żaden obiekt nie pasuje do filtra.",
           }}
         />
       </div>
@@ -184,6 +291,15 @@ function useWysokoscTresci(
     const obserwator = new ResizeObserver(zmierz);
 
     obserwator.observe(element);
+
+    // Także sama tabela (jej opakowanie antd, które żyje przez cały czas
+    // komponentu): nagłówek może urosnąć po pomiarze bez zmiany rozmiaru
+    // kontenera, a kontener przycina, więc bez ponownego pomiaru ostatni
+    // wiersz schowałby się pod krawędzią. Ponowny pomiar przy tej samej
+    // wysokości nie zmienia stanu, więc nie zapętla renderowania.
+    if (element.firstElementChild !== null) {
+      obserwator.observe(element.firstElementChild);
+    }
 
     return () => obserwator.disconnect();
   }, [kontener]);

@@ -12,6 +12,7 @@ import {
   data,
   redirect,
   useFetcher,
+  useLinkClickHandler,
   useNavigation,
   useSubmit,
 } from "react-router";
@@ -36,6 +37,8 @@ import {
   type Przeniesienie,
   liczbaWezlowPodrzednych,
   maPodobiekty,
+  obiektyUzyteWDrzewie,
+  wezlyZDziecmi,
 } from "~/lib/drzewo";
 import type { CatalogObject } from "~/lib/objects.server";
 import { listObjects } from "~/lib/objects.server";
@@ -85,6 +88,16 @@ const OPERACJE_NA_WYBRANYM: ReadonlySet<string> = new Set([
 const PARAMETR_DRZEWA = "drzewo";
 
 /**
+ * Parametr adresu trybu nowego drzewa (bez wartości). Osobny, bo „bez
+ * `?drzewo=`” nie może być tym trybem jak w `/kategorie`: goły `/drzewo`
+ * przekierowuje na pierwsze drzewo (loader).
+ */
+const PARAMETR_NOWEGO = "nowe";
+
+/** Adres trybu nowego drzewa — cel przycisku „Nowe drzewo”. */
+const ADRES_NOWEGO = `/drzewo?${PARAMETR_NOWEGO}`;
+
+/**
  * Pole nazwy drzewa — ta sama nazwa co `TreeRequestFields.Name`
  * (`src/Api/Tree/TreeEndpoints.cs`) i pole w `FormularzDrzewa`.
  */
@@ -125,8 +138,9 @@ export function meta({ loaderData }: Route.MetaArgs) {
  * własne drzewo — jego węzły (tytuły węzłów to kody i nazwy ze słownika).
  *
  * Bez `?drzewo=` widok nie ma trybu „bez wyboru": przy niepustej liście
- * przekierowuje na pierwsze drzewo po nazwie (kolejność z API). Dopiero konto
- * bez drzew zostaje na gołym `/drzewo` z pustą listą i zachętą.
+ * przekierowuje na pierwsze drzewo po nazwie (kolejność z API). Na gołym
+ * `/drzewo` zostaje tylko konto bez drzew — z pustą listą i formularzem nowego
+ * drzewa. Tryb nowego drzewa przy niepustej liście to jawne `?nowe`.
  *
  * Parametr, którego nie ma na liście **własnych** drzew — cudzy, usunięty albo
  * niebędący liczbą — nie jest rzucany jako 404, tylko wraca w `nieznane`
@@ -147,7 +161,8 @@ export function meta({ loaderData }: Route.MetaArgs) {
  */
 export async function loader({ request, context }: Route.LoaderArgs) {
   const { id: userId } = context.get(kontekstUzytkownika);
-  const parametr = new URL(request.url).searchParams.get(PARAMETR_DRZEWA);
+  const parametry = new URL(request.url).searchParams;
+  const parametr = parametry.get(PARAMETR_DRZEWA);
   const [slownik, lista] = await Promise.all([
     listObjects(),
     listTrees(userId),
@@ -161,7 +176,7 @@ export async function loader({ request, context }: Route.LoaderArgs) {
     return widokPorazki(lista);
   }
 
-  if (parametr === null) {
+  if (parametr === null && !parametry.has(PARAMETR_NOWEGO)) {
     const pierwsze = lista.trees.at(0);
 
     if (pierwsze !== undefined) {
@@ -412,13 +427,13 @@ const KOLUMNY_DRZEW: readonly KolumnaSlownika<UserTree>[] = [
 ];
 
 /**
- * Widok budowy drzewa (MS-04): na górze lista drzew użytkownika z panelem
- * obok, pod nią budowa wybranego drzewa — drzewo po lewej, lista obiektów
- * słownika po prawej, każde z własnym przewijaniem.
+ * Widok budowy drzewa (MS-04): na górze lista drzew użytkownika, pod nią
+ * panel drzew, a pod panelem budowa wybranego drzewa — drzewo po lewej, lista
+ * obiektów słownika po prawej, każde z własnym przewijaniem.
  *
  * Wysokość daje układ, nie liczba: powłoka (`routes/powloka.tsx`) stawia pod
  * nagłówkiem obszar o wysokości reszty okna, a ten widok dzieli go flexem —
- * tytuł i rząd listy zajmują tyle, ile potrzebują, budowa resztę.
+ * tytuł, lista i panel zajmują tyle, ile potrzebują, budowa resztę.
  */
 export default function Drzewo({
   loaderData,
@@ -427,7 +442,11 @@ export default function Drzewo({
   const { drzewa, wybrane, nieznane, obiekty, wezly, blad } = loaderData;
 
   return (
-    <main className="flex h-full flex-col p-8">
+    // Widok mieści się w oknie: budowa dostaje resztę wysokości, a drzewo
+    // i lista obiektów przewijają się każde u siebie. `overflow-auto` to
+    // tylko zapas na niskie okno — budowa nie schodzi poniżej minimalnej
+    // wysokości i wtedy przewija się cały widok.
+    <main className="flex h-full flex-col overflow-auto p-8">
       <Typography.Title level={1}>Drzewo</Typography.Title>
 
       {/*
@@ -437,34 +456,33 @@ export default function Drzewo({
         wysłałby zapis do tego samego zgaszonego API.
       */}
       {blad === null ? (
+        // `min-h-0` jest nośne: bez niego kontener flex rośnie do pełnej
+        // wysokości treści drzewa i listy, więc zamiast ich własnych pasków
+        // przewijania przewijałaby się cała strona.
         <div className="flex min-h-0 flex-1 flex-col gap-6">
-          <div className="flex items-start gap-6">
-            <section aria-label="Lista drzew" className="min-w-0 flex-2">
-              {/*
-                `drzewa` prosto z `loaderData`: tożsamość tablicy zmienia się
-                wyłącznie po przebiegu loadera, czego wymaga przeskok tabeli
-                na stronę wybranego drzewa.
-              */}
-              <TabelaSlownika<UserTree>
-                wiersze={drzewa}
-                kolumny={KOLUMNY_DRZEW}
-                wybranyId={wybrane?.id}
-                adresWyboru={adresDrzewa}
-                naStronie={5}
-                tekstPustegoSlownika="Nie masz jeszcze żadnego drzewa. Dodaj pierwsze w panelu obok."
-                tekstBrakuTrafien="Żadne drzewo nie pasuje do filtra."
-              />
-            </section>
+          <section aria-label="Lista drzew">
+            {/*
+              `drzewa` prosto z `loaderData`: tożsamość tablicy zmienia się
+              wyłącznie po przebiegu loadera, czego wymaga przeskok tabeli
+              na stronę wybranego drzewa.
+            */}
+            <TabelaSlownika<UserTree>
+              wiersze={drzewa}
+              kolumny={KOLUMNY_DRZEW}
+              wybranyId={wybrane?.id}
+              adresWyboru={adresDrzewa}
+              naStronie={5}
+              tekstPustegoSlownika="Nie masz jeszcze żadnego drzewa. Dodaj pierwsze w panelu poniżej."
+              tekstBrakuTrafien="Żadne drzewo nie pasuje do filtra."
+            />
+          </section>
 
-            <div className="min-w-0 flex-1">
-              <PanelDrzew
-                drzewa={drzewa}
-                wybrane={wybrane}
-                liczbaWezlow={wezly.length}
-                blad={actionData ?? undefined}
-              />
-            </div>
-          </div>
+          <PanelDrzew
+            key={kluczPanelu(wybrane)}
+            wybrane={wybrane}
+            liczbaWezlow={wezly.length}
+            blad={actionData ?? undefined}
+          />
 
           {/*
             `key` z identyfikatora drzewa: zaznaczenia, rozwinięcia i otwarty
@@ -487,7 +505,7 @@ export default function Drzewo({
           ) : (
             <Empty
               image={Empty.PRESENTED_IMAGE_SIMPLE}
-              description="Dodaj drzewo w panelu powyżej, żeby zacząć budować strukturę."
+              description="Wpisz nazwę i kliknij „Dodaj drzewo”, żeby zacząć budować strukturę."
             />
           )}
         </div>
@@ -499,74 +517,43 @@ export default function Drzewo({
 }
 
 /**
- * Panel obok listy drzew: zawsze formularz nowego drzewa, a przy wybranym
- * drzewie także zmiana jego nazwy i usunięcie. „Nowe drzewo" nie jest trybem
- * „bez wyboru" jak w `/obiekty` — bez `?drzewo=` loader przekierowuje na
- * pierwsze drzewo, więc formularz dodania musi stać obok formularza
- * wybranego drzewa, a nie zamiast niego.
+ * Panel pod listą drzew — ten sam układ i zachowanie co panel kategorii
+ * (`routes/kategorie.tsx`): jeden formularz naraz. Bez wybranego drzewa
+ * (`/drzewo?nowe`, konto bez drzew, nieznany `?drzewo=`) karta „Nowe drzewo”
+ * z „Dodaj drzewo”; przy wybranym — „Edycja: <nazwa>” z przyciskiem „Nowe
+ * drzewo” w nagłówku, „Zapisz zmiany” i „Usuń drzewo”.
  *
- * Dwa formularze dzielą jedno `actionData`, a koperta błędu nie mówi, który
- * formularz ją wywołał. Panel zapamiętuje więc `intent` ostatniej wysyłki
- * i kieruje błąd tylko pod ten formularz.
+ * Jeden formularz naraz znaczy też, że całe `actionData` należy do niego —
+ * nie trzeba rozstrzygać, która wysyłka dała kopertę błędu.
  */
 function PanelDrzew({
-  drzewa,
   wybrane,
   liczbaWezlow,
   blad,
 }: {
-  drzewa: UserTree[];
   wybrane: UserTree | null;
   liczbaWezlow: number;
   blad: ApiErrorBody | undefined;
 }) {
-  const ostatniIntent = useOstatniIntent();
-  const bladDodania = ostatniIntent === DODAJ_DRZEWO ? blad : undefined;
-  const bladWybranego = ostatniIntent === DODAJ_DRZEWO ? undefined : blad;
+  if (wybrane === null) {
+    return (
+      <RamkaPanelu tytul="Nowe drzewo">
+        <FormularzDrzewa
+          blad={blad}
+          intent={DODAJ_DRZEWO}
+          etykietaZapisu="Dodaj drzewo"
+        />
+      </RamkaPanelu>
+    );
+  }
 
   return (
-    // Ramka jak `RamkaPanelu` w `routes/obiekty.tsx` (tam powód
-    // `Card size="small"` i koloru `obramowanieKontrolki`).
-    <Card size="small" className="border-tg-obramowanie-kontrolki">
-      {/*
-        Poziom 5: nagłówki sekcji stoją wewnątrz karty i nie mają być większe
-        od tytułu widoku.
-      */}
-      <Typography.Title level={5}>Nowe drzewo</Typography.Title>
-
-      {/*
-        `key` z identyfikatorów drzew: udane dodanie (i usunięcie) zmienia
-        listę, więc pole wraca puste. Przełączenie drzewa w liście listy nie
-        zmienia i wpisana nazwa zostaje; nieudane dodanie nie woła loadera,
-        więc wpisana nazwa przeżywa komunikat błędu.
-      */}
-      <FormularzDrzewa
-        key={drzewa.map((drzewo) => drzewo.id).join(",")}
-        blad={bladDodania}
-        intent={DODAJ_DRZEWO}
-        etykietaZapisu="Dodaj drzewo"
-      />
-
-      {/*
-        `key` z wyboru **i zapisanej nazwy** — powód przy panelu
-        w `routes/obiekty.tsx`: bez niego formularz zachowałby nazwę
-        poprzedniego drzewa, a po zapisie wpisaną wartość zamiast zapisanej
-        (API obcina spacje).
-      */}
-      {wybrane === null ? null : (
-        <WybraneDrzewo
-          key={JSON.stringify([wybrane.id, wybrane.name])}
-          drzewo={wybrane}
-          liczbaWezlow={liczbaWezlow}
-          blad={bladWybranego}
-        />
-      )}
-    </Card>
+    <EdycjaDrzewa drzewo={wybrane} liczbaWezlow={liczbaWezlow} blad={blad} />
   );
 }
 
-/** Sekcja wybranego drzewa w panelu: zmiana nazwy i usunięcie. */
-function WybraneDrzewo({
+/** Karta wybranego drzewa: zmiana nazwy i usunięcie. */
+function EdycjaDrzewa({
   drzewo,
   liczbaWezlow,
   blad,
@@ -580,81 +567,107 @@ function WybraneDrzewo({
   const zajety = nawigacja.state !== "idle";
   const usuwanie = nawigacja.formData?.get("intent") === USUN_DRZEWO;
 
-  return (
-    <>
-      <Typography.Title level={5} className="mt-8" ellipsis>
-        {drzewo.name}
-      </Typography.Title>
+  // `Button` z `href` i ten handler — powód przy przycisku „Nowy obiekt"
+  // w `routes/obiekty.tsx`: przejście działa przed hydracją, a po niej jest
+  // nawigacją po stronie klienta.
+  const doDodania = useLinkClickHandler<HTMLElement>(ADRES_NOWEGO, {
+    preventScrollReset: true,
+  });
 
+  return (
+    <RamkaPanelu
+      tytul={`Edycja: ${drzewo.name}`}
+      akcja={
+        <Button href={ADRES_NOWEGO} onClick={doDodania} disabled={zajety}>
+          Nowe drzewo
+        </Button>
+      }
+    >
       {/*
-        Każdy błąd tej sekcji — także z usuwania (np. drzewo usunięte
+        Każdy błąd tej karty — także z usuwania (np. drzewo usunięte
         w drugiej karcie) — idzie do formularza, który ma baner i komunikat
         pod polem.
-      */}
-      <FormularzDrzewa
-        drzewo={drzewo}
-        blad={blad}
-        intent={ZAPISZ_DRZEWO}
-        etykietaZapisu="Zapisz nazwę"
-      />
 
-      {/*
-        Bez własnego `<form>` i bez `danger` — powody przy usuwaniu obiektu
+        „Usuń drzewo” stoi w rzędzie „Zapisz zmiany”, czyli wewnątrz `<form>`
+        zmiany nazwy, ale go nie wysyła: `Button` antd ma domyślnie
+        `type="button"`. Bez `danger` — powody przy usuwaniu obiektu
         w `routes/obiekty.tsx`: potwierdzenie wysyła `intent` przez
         `useSubmit`, a czerwień palety jest w gridzie zarezerwowana dla
         wartości „spadek". Adres wysyłki jawny, z `?drzewo=` tego drzewa —
         z niego `action` bierze identyfikator.
       */}
-      <div className="mt-6">
-        <Popconfirm
-          title={pytanieOUsuniecieDrzewa(drzewo.name, liczbaWezlow)}
-          description="Tej operacji nie da się cofnąć."
-          okText="Usuń"
-          cancelText="Anuluj"
-          // Ten sam świadomy wyjątek od wypełnionych przycisków co
-          // w `routes/obiekty.tsx`: akcja bezpieczna w potwierdzeniu
-          // nieodwracalnej operacji musi wyglądać inaczej niż „Usuń".
-          cancelButtonProps={{ color: "default", variant: "outlined" }}
-          onConfirm={() =>
-            wyslij(
-              { intent: USUN_DRZEWO },
-              {
-                method: "post",
-                action: adresDrzewa(drzewo.id),
-                preventScrollReset: true,
-              },
-            )
-          }
-        >
-          <Button disabled={zajety} loading={usuwanie}>
-            Usuń drzewo
-          </Button>
-        </Popconfirm>
-      </div>
-    </>
+      <FormularzDrzewa
+        drzewo={drzewo}
+        blad={blad}
+        intent={ZAPISZ_DRZEWO}
+        etykietaZapisu="Zapisz zmiany"
+        obokZapisu={
+          <Popconfirm
+            title={pytanieOUsuniecieDrzewa(drzewo.name, liczbaWezlow)}
+            description="Tej operacji nie da się cofnąć."
+            okText="Usuń"
+            cancelText="Anuluj"
+            // Ten sam świadomy wyjątek od wypełnionych przycisków co
+            // w `routes/obiekty.tsx`: akcja bezpieczna w potwierdzeniu
+            // nieodwracalnej operacji musi wyglądać inaczej niż „Usuń".
+            cancelButtonProps={{ color: "default", variant: "outlined" }}
+            onConfirm={() =>
+              wyslij(
+                { intent: USUN_DRZEWO },
+                {
+                  method: "post",
+                  action: adresDrzewa(drzewo.id),
+                  preventScrollReset: true,
+                },
+              )
+            }
+          >
+            <Button disabled={zajety} loading={usuwanie}>
+              Usuń drzewo
+            </Button>
+          </Popconfirm>
+        }
+      />
+    </RamkaPanelu>
   );
 }
 
 /**
- * `intent` ostatniej wysyłki formularza nawigacją albo `null`, gdy w tym
- * widoku jeszcze nic nie wysłano. Odczytywany w trakcie wysyłki
- * (`navigation.formData` znika razem z nią) i trzymany po jej zakończeniu,
- * bo dopiero wtedy przychodzi `actionData` do skierowania pod formularz.
- * Wysyłki fetchera (polecenia na węzłach) tu nie trafiają — nie są
- * nawigacją.
+ * Ramka panelu pod listą — ta sama co w `routes/kategorie.tsx` (tam powód
+ * osobnej kopii) i `routes/obiekty.tsx` (tam powód `Card size="small"`
+ * i ramki `obramowanieKontrolki`).
  */
-function useOstatniIntent(): string | null {
-  const nawigacja = useNavigation();
-  const wysylany = nawigacja.formData?.get("intent");
-  const [ostatni, ustawOstatni] = useState<string | null>(null);
+function RamkaPanelu({
+  tytul,
+  akcja,
+  children,
+}: {
+  tytul: string;
+  akcja?: React.ReactNode;
+  children: React.ReactNode;
+}) {
+  return (
+    <Card
+      size="small"
+      title={tytul}
+      extra={akcja}
+      className="border-tg-obramowanie-kontrolki"
+    >
+      {children}
+    </Card>
+  );
+}
 
-  useEffect(() => {
-    if (typeof wysylany === "string") {
-      ustawOstatni(wysylany);
-    }
-  }, [wysylany]);
-
-  return ostatni;
+/**
+ * Klucz panelu: „nowe” przy dodawaniu, a przy edycji identyfikator razem
+ * z zapisaną nazwą — powód przy panelu w `routes/obiekty.tsx`: bez niego
+ * formularz zachowałby nazwę poprzedniego drzewa, a po zapisie wpisaną
+ * wartość zamiast zapisanej (API obcina spacje). Udane dodanie przechodzi
+ * na nowe drzewo, więc pole nowego drzewa wraca puste; nieudane nie woła
+ * loadera, więc wpisana nazwa przeżywa komunikat błędu.
+ */
+function kluczPanelu(drzewo: UserTree | null): string {
+  return drzewo === null ? "nowe" : JSON.stringify([drzewo.id, drzewo.name]);
 }
 
 /**
@@ -696,7 +709,13 @@ function BudowaDrzewa({
   // widokiem do udostępnienia, a oba mają przeżyć rewalidację po operacji.
   const [wybranyObiektId, ustawWybranyObiektId] = useState<number | null>(null);
   const [wybranyWezelId, ustawWybranyWezelId] = useState<number | null>(null);
-  const [rozwiniete, ustawRozwiniete] = useState<number[]>([]);
+  // Drzewo startuje rozwinięte w całości. Start, a nie stała reguła: stan
+  // żyje w komponencie z `key` = identyfikator drzewa, więc każdy wybór
+  // (i odświeżenie) rozwija wszystko od nowa, a zwinięcia użytkownika
+  // przeżywają rewalidację po operacji.
+  const [rozwiniete, ustawRozwiniete] = useState<number[]>(() =>
+    wezlyZDziecmi(wezly),
+  );
 
   // Dialog ma osobny stan otwarcia i treści: zamykany `Modal` animuje się
   // jeszcze przez chwilę i bez zapamiętanej treści mignąłby pusty.
@@ -709,6 +728,9 @@ function BudowaDrzewa({
     () => new Map(obiekty.map((obiekt) => [obiekt.id, obiekt])),
     [obiekty],
   );
+  // Liczone raz na stan drzewa: dodanie i usunięcie węzła przychodzą nową
+  // listą `wezly` z rewalidacji, więc filtr listy przelicza się sam.
+  const uzyteObiekty = useMemo(() => obiektyUzyteWDrzewie(wezly), [wezly]);
 
   // Zaznaczenie wskazujące coś, czego po rewalidacji już nie ma (usunięty
   // węzeł, obiekt usunięty ze słownika), traktowane jest jak brak zaznaczenia.
@@ -841,22 +863,46 @@ function BudowaDrzewa({
     }
   }
 
-  function usun() {
-    if (wybranyWezel === null) {
+  /**
+   * Jedyna ścieżka usunięcia węzła z poddrzewem — wspólna dla „Usuń węzeł”
+   * (po potwierdzeniu) i upuszczenia węzła na listę obiektów (bez
+   * potwierdzenia, MS-07).
+   */
+  function usunWezel(nodeId: number) {
+    if (zajete) {
       return;
     }
 
     fetcher.submit(
-      { intent: USUN, [POLE_WEZLA]: String(wybranyWezel.id) },
+      { intent: USUN, [POLE_WEZLA]: String(nodeId) },
       { method: "post", action: adresWysylki },
     );
+  }
+
+  function usun() {
+    if (wybranyWezel !== null) {
+      usunWezel(wybranyWezel.id);
+    }
+  }
+
+  function upuscWezel(nodeId: number) {
+    // Węzeł spoza bieżącego drzewa (np. z drugiej karty) nie jest celem.
+    if (!wezly.some((wezel) => wezel.id === nodeId)) {
+      return;
+    }
+
+    // Odłożone do następnego zadania: `drop` biegnie przed `dragend`, a
+    // wysyłka od razu przerenderowuje drzewo (stan zajętości, `draggable`
+    // wyłączone). rc-tree musi najpierw dokończyć `cleanDragState` na
+    // niezmienionym drzewie.
+    setTimeout(() => usunWezel(nodeId), 0);
   }
 
   const naruszenia = odmowa === null ? [] : naruszeniaPol(odmowa);
 
   return (
     <>
-      <div className="flex min-h-0 flex-1 gap-6">
+      <div className="flex min-h-60 flex-1 gap-6">
         <section
           aria-label="Drzewo użytkownika"
           className="flex min-h-0 flex-1 flex-col gap-3"
@@ -935,6 +981,9 @@ function BudowaDrzewa({
             obiekty={obiekty}
             wybranyId={wybranyObiekt?.id ?? null}
             onWybierz={ustawWybranyObiektId}
+            uzyteObiekty={uzyteObiekty}
+            onUpuscWezel={upuscWezel}
+            zajete={zajete}
           />
         </section>
       </div>
