@@ -2,9 +2,11 @@
 name: run-tunel-app
 description: >
   Wystawia aplikację publicznie przez Cloudflare Quick Tunnel w dwóch trybach:
-  deweloperskim (npm run dev na :5173, z wpisaniem wygenerowanego adresu do
-  server.allowedHosts w vite.config.ts) oraz produkcyjnym (npm run build +
-  react-router-serve na :3000, bez zmian w konfiguracji). Odczytuje adres
+  produkcyjnym (npm run build + react-router-serve na :3000, bez zmian
+  w konfiguracji; domyślny) oraz deweloperskim (npm run dev na :5173, z wpisaniem
+  wygenerowanego adresu do server.allowedHosts w vite.config.ts; domyślnie
+  wyłączony, wymaga -AllowDevTunnel). Każde uruchomienie tunelu wymaga
+  wcześniejszej, jawnej zgody użytkownika. Odczytuje adres
   *.trycloudflare.com z wyjścia cloudflared. Trigger phrases: "uruchom tunel",
   "wystaw aplikację przez tunel", "run-tunel-app", "pokaż aplikację przez
   cloudflared", "expose the dev server", "start the tunnel", "wystaw build
@@ -35,6 +37,44 @@ Są dwa tryby i **różnią się istotnie**:
 | Port | 5173 | 3000 |
 | `vite.config.ts` | **przepisywany** (`allowedHosts`) | **nietykany** |
 | HMR | tak | nie |
+| Domyślnie | **wyłączony** (`-AllowDevTunnel`) | włączony |
+
+## Bramka zgody — przed każdym uruchomieniem tunelu
+
+Uruchomienie tunelu publikuje aplikację pod adresem, który da się wyliczyć
+z publicznych logów Certificate Transparency, a Cloudflare Access na
+`trycloudflare.com` nie działa. To decyzja człowieka
+(`context/foundation/infrastructure.md`, sekcja o zatwierdzaniu), więc:
+
+1. **Zanim uruchomisz `start-tunnel.ps1` albo `start-prod-tunnel.ps1`, zapytaj
+   użytkownika wprost** (AskUserQuestion), czy aplikacja ma zostać wystawiona
+   publicznie, podając tryb i port. Fraza wyzwalająca skill („uruchom
+   wdrożenie", „wystaw aplikację") **nie jest** tą zgodą. Zgoda dotyczy jednego
+   uruchomienia — kolejny start tunelu to kolejne pytanie.
+2. Bez odpowiedzi „tak" nie uruchamiaj `cloudflared` w żaden sposób, także
+   poza skryptami.
+3. Domyślnie proponuj **tryb produkcyjny**. Tryb deweloperski tylko wtedy, gdy
+   użytkownik wprost o niego poprosi — i wtedy w pytaniu o zgodę powiedz, że
+   serwer deweloperski pokazuje stosy błędów i `/wzornik`.
+
+`-Stop` nie wymaga zgody — zatrzymanie tunelu zawsze wolno.
+
+## Dlaczego tryb deweloperski jest domyślnie wyłączony
+
+Serwer Vite serwuje pliki spod katalogu projektu **przed** handlerem React
+Routera, czyli z pominięciem bramy logowania z `chronione.tsx`. Przy domyślnym
+`server.fs` przez tunel dało się pobrać bez logowania `src/Api/db/treegrid.db`
+z hashami haseł, źródła i logi `.tunnel-run/` (TG-SEC-01,
+`context/changes/owasp-security/raport.md`). Obronę trzymają dziś dwie rzeczy:
+
+- **`server.fs` w `vite.config.ts`** — allowlista `app/` i `node_modules/` plus
+  lista `deny` dla `*.db*`, `*.sqlite*`, `src/`, `context/`, `.claude/`,
+  `.tunnel-run/` i reszty katalogów projektu. Nie poszerzaj `allow` o katalog
+  główny.
+- **Sonda w `start-tunnel.ps1`** — po starcie Vite, a przed `cloudflared`, skrypt
+  pobiera `/src/Api/appsettings.json`, `/package.json` i
+  `/context/foundation/prd.md`. Każda odpowiedź poniżej 400 zatrzymuje serwer
+  i przerywa skrypt, zanim powstanie tunel.
 
 Reszta tej sekcji opisuje tryb deweloperski; tryb produkcyjny ma własną sekcję
 niżej.
@@ -84,16 +124,20 @@ uruchomisz cokolwiek:
 .tunnel-run/
 ```
 
-### Krok 2 — uruchom skrypt
+### Krok 2 — uruchom skrypt (po zgodzie użytkownika)
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File .claude/skills/run-tunel-app/scripts/start-tunnel.ps1
+powershell -ExecutionPolicy Bypass -File .claude/skills/run-tunel-app/scripts/start-tunnel.ps1 -AllowDevTunnel
 ```
+
+Bez `-AllowDevTunnel` skrypt kończy się błędem, zanim cokolwiek uruchomi.
+Dopisuj ten przełącznik wyłącznie po jawnej zgodzie z bramki wyżej.
 
 Argumenty opcjonalne:
 
 | Argument | Znaczenie |
 |---|---|
+| `-AllowDevTunnel` | **wymagany** do startu; jawna zgoda na publiczny serwer deweloperski |
 | `-Port 5174` | inny port serwera deweloperskiego |
 | `-DevTimeoutSeconds 120` | dłuższe oczekiwanie na start Vite (zimny cache) |
 | `-Stop` | zatrzymuje oba procesy uruchomione poprzednim wywołaniem |
@@ -169,6 +213,8 @@ skill celowo wpisuje konkretny host.
   jedno z 200 miejsc limitu.
 
 ## Tryb produkcyjny
+
+Bramka zgody z początku tego pliku obowiązuje także tutaj.
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File .claude/skills/run-tunel-app/scripts/start-prod-tunnel.ps1
@@ -296,7 +342,7 @@ z poprzedniej sekcji pozostaje jedynym zabezpieczeniem przed tym cichym fałszem
 
 | Port | Proces | Skrypt | Tunelowany |
 |---|---|---|---|
-| 5173 | Vite (serwer deweloperski) | `start-tunnel.ps1` | tak, w trybie deweloperskim |
+| 5173 | Vite (serwer deweloperski) | `start-tunnel.ps1` | tylko z `-AllowDevTunnel` |
 | 3000 | `react-router-serve` | `start-prod-tunnel.ps1` | **tak — jedyny tunelowany** |
 | 5180 | Kestrel (API .NET) | `start-api.ps1` | **nie, nigdy** |
 

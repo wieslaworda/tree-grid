@@ -252,6 +252,14 @@ domyślnie w `Production` (czyli z odmową startu na niezmigrowanej bazie). Skry
 zamienia cichy dryf na losowy port w głośny `EADDRINUSE`, drugie ogranicza
 nasłuch do pętli zwrotnej, więc jedyną drogą do aplikacji jest tunel.
 
+Tunel na serwer deweloperski (`start-tunnel.ps1`, :5173) jest **domyślnie
+wyłączony** (`-AllowDevTunnel`), a każdy start tunelu wymaga zgody użytkownika.
+Vite serwuje pliki projektu z pominięciem bramy logowania, więc przed
+publicznym pobraniem bazy z `src/Api/db/` chroni wyłącznie `server.fs`
+w `vite.config.ts` (allowlista `app/` i `node_modules/` plus `deny`, TG-SEC-01).
+Poszerzenie `allow` o katalog główny nie wywali niczego — po prostu znów
+wystawi dysk.
+
 `@Dockerfile` zostaje jako kontrakt na przyszłość, ale **nie jest dziś ścieżką
 wdrożenia** — Docker nie jest na maszynie deweloperskiej zainstalowany i
 Dockerfile nie obejmuje jeszcze API .NET ani wolumenu na plik bazy.

@@ -13,6 +13,17 @@
 .PARAMETER Port
   Port serwera deweloperskiego. Domyslnie 5173.
 
+  Tryb jest domyslnie WYLACZONY (TG-SEC-01, context/changes/owasp-security/raport.md):
+  serwer deweloperski serwuje pliki spod katalogu projektu z pominieciem bramy
+  logowania, wiec publiczny tunel na niego to publiczny dostep do dysku.
+  Uruchomienie wymaga -AllowDevTunnel, a tunel startuje dopiero wtedy, gdy
+  sonda potwierdzi, ze server.fs w vite.config.ts odcina pliki spoza app/.
+  Do pokazania aplikacji uzywaj start-prod-tunnel.ps1.
+
+.PARAMETER AllowDevTunnel
+  Jawna zgoda na publiczne wystawienie serwera deweloperskiego. Bez niej skrypt
+  konczy sie bledem, zanim cokolwiek uruchomi.
+
 .PARAMETER Stop
   Zatrzymuje procesy uruchomione poprzednim wywolaniem i konczy dzialanie.
 
@@ -25,6 +36,7 @@ param(
     [string]$ProjectRoot = (Get-Location).Path,
     [int]$DevTimeoutSeconds = 90,
     [int]$TunnelTimeoutSeconds = 60,
+    [switch]$AllowDevTunnel,
     [switch]$Stop,
     [switch]$Restore
 )
@@ -53,6 +65,27 @@ function Stop-ProcessTree {
     param([int]$ProcessId)
     $null = & taskkill.exe /PID $ProcessId /T /F 2>&1
     return ($LASTEXITCODE -eq 0)
+}
+
+function Get-HttpStatus {
+    # Kod odpowiedzi bez podazania za przekierowaniem albo $null, gdy serwer nie odpowiada.
+    param([string]$Url)
+    try {
+        $request = [System.Net.HttpWebRequest]::Create($Url)
+        $request.AllowAutoRedirect = $false
+        $request.Timeout = 10000
+        $response = $request.GetResponse()
+        $status = [int]$response.StatusCode
+        $response.Close()
+        return $status
+    } catch [System.Net.WebException] {
+        if ($_.Exception.Response) {
+            $status = [int]$_.Exception.Response.StatusCode
+            $_.Exception.Response.Close()
+            return $status
+        }
+        return $null
+    }
 }
 
 function Stop-TrackedProcesses {
@@ -115,6 +148,13 @@ if ($Stop) {
 }
 
 # ---------------------------------------------------------------- preflight --
+
+if (-not $AllowDevTunnel) {
+    throw ("Tryb deweloperski tunelu jest domyslnie wylaczony: serwer Vite serwuje pliki " +
+           "projektu z pominieciem logowania (TG-SEC-01). Do pokazania aplikacji uzyj " +
+           "start-prod-tunnel.ps1. Jesli swiadomie chcesz wystawic serwer deweloperski, " +
+           "uruchom ponownie z -AllowDevTunnel.")
+}
 
 if (-not (Test-Path (Join-Path $ProjectRoot 'package.json'))) {
     throw "Nie znaleziono package.json w '$ProjectRoot'. Uruchom skrypt z katalogu glownego projektu albo podaj -ProjectRoot."
@@ -180,6 +220,23 @@ if (-not $devReady) {
     throw "Serwer deweloperski nie zaczal nasluchiwac na porcie $Port w ciagu $DevTimeoutSeconds s. Logi: $DevOut, $DevErr"
 }
 Write-Host "Serwer deweloperski nasluchuje na http://localhost:$Port"
+
+# ------------------------------------------------ sonda izolacji plikow --
+
+# Tunel startuje dopiero, gdy serwer odmawia plikow spoza app/. Sprawdzamy
+# zachowanie, a nie tresc vite.config.ts: cofniety albo poszerzony server.fs
+# nie wywala startu Vite, tylko po cichu znow wystawia dysk (TG-SEC-01).
+# Kazda odpowiedz 2xx/3xx - albo brak odpowiedzi - zatrzymuje skrypt.
+$probePaths = @('/src/Api/appsettings.json', '/package.json', '/context/foundation/prd.md')
+foreach ($probe in $probePaths) {
+    $status = Get-HttpStatus -Url "http://localhost:$Port$probe"
+    if (-not $status -or $status -lt 400) {
+        Stop-ProcessTree -ProcessId $devProc.Id | Out-Null
+        throw ("Serwer deweloperski zwrocil '{0}' dla {1} - pliki projektu sa dostepne. " +
+               "Sprawdz server.fs w vite.config.ts. Tunel NIE zostal uruchomiony.") -f $status, $probe
+    }
+}
+Write-Host ("Sonda izolacji: pliki spoza app/ odrzucone ({0})." -f ($probePaths -join ', '))
 
 # -------------------------------------------------------------------- tunel --
 
