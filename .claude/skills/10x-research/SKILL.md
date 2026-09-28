@@ -22,6 +22,8 @@ Answer the user's research question with current, source-backed findings. Keep
 implementation, product decisions and lifecycle changes outside the research
 scope unless separately requested.
 
+Opis kolejnych kroków pytania i odpowiedzi mają być w języku polskim
+
 ## Start from the supplied request
 
 If a question, change-id or file was supplied, begin with that context; do not ask
