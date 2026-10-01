@@ -6,7 +6,7 @@
 >
 > Refresh: re-run `/10x-test-plan --refresh` when stale (see §8).
 >
-> Last updated: 2026-09-28
+> Last updated: 2026-10-01
 
 ## 1. Strategy
 
@@ -48,7 +48,7 @@ nigdy konkretny plik jako „miejsce awarii" (patrz §1 zasada 3).
 
 | Risk | What would prove protection | Must challenge | Context `/10x-research` must ground | Likely cheapest layer | Anti-pattern to avoid |
 |---|---|---|---|---|---|
-| #1 | Odrzucona operacja nie zmienia zapisanej struktury (stan po = stan przed); przyjęta zapisuje się w całości; widok po odrzuceniu pokazuje stan z API i komunikat | „Reguła ma testy jednostkowe, więc API odrzuca"; „kod 4xx oznacza brak zapisu" | ścieżka HTTP operacji na węzłach, granice transakcji, kontrola wersji drzewa, sposób odtwarzania stanu w widoku po błędzie | integracja API na prawdziwym SQLite; jedna ścieżka odrzucenia w e2e | asercja wyłącznie na statusie bez odczytu stanu; oczekiwana ścieżka pętli przepisana z implementacji |
+| #1 | Odrzucona operacja nie zmienia zapisanej struktury (stan po = stan przed); przyjęta zapisuje się w całości; widok po odrzuceniu pokazuje stan z API i komunikat | „Reguła ma testy jednostkowe, więc API odrzuca"; „kod 4xx oznacza brak zapisu" | ścieżka HTTP operacji na węzłach, granice transakcji i współbieżność (kontroli wersji drzewa nie ma — por. §7 „Brakujące zabezpieczenia”), sposób odtwarzania stanu w widoku po błędzie | integracja API na prawdziwym SQLite; jedna ścieżka odrzucenia w e2e | asercja wyłącznie na statusie bez odczytu stanu; oczekiwana ścieżka pętli przepisana z implementacji |
 | #2 | Usunięcie węzła zdejmuje przypisania tylko jemu; inne wystąpienia obiektu zachowują kategorie; nowy węzeł dostaje domyślne kategorie każdego ekranu; dwa ekrany na jednym drzewie są niezależne; drzewa użytego w ekranie nie da się usunąć; zapis → odczyt zwraca to samo | „Kaskada FK w bazie = poprawne zachowanie biznesowe"; „materializacja wierszy przetestowana jednostkowo = kaskady działają" | gdzie żyją kaskady (baza czy kod), transakcje, rozstrzygnięcia PRD Open Questions 2–4, rozjazd planu `zapisane-ekrany` z późniejszą zmianą „zmiana drzewa ekranu" | integracja API na prawdziwym SQLite | provider EF InMemory (nie egzekwuje FK); wyrocznia wzięta z kodu zamiast z FR-012 / US-02 |
 | #3 | Po buildzie produkcyjnym style antd są w `<head>` i w warstwie; wiersz drzewa i gridu ≤24 px w obu wariantach; przełączenie wariantu nie zmienia wymiarów; 1–3 kluczowe ekrany spójne wizualnie | „Typecheck przeszedł = wygląd OK"; „serwer dev = produkcja" | kontrakty 1, 2 i 4 z CLAUDE.md, lista ekranów krytycznych, brak mignięcia przy ciasteczku motywu | deterministyczna kontrola HTML z buildu + pomiar wymiarów w przeglądarce; visual diff; model wizyjny tylko opcjonalnie | snapshot całego HTML bez znaczenia; model wizyjny zamiast deterministycznego pomiaru |
 | #4 | Tożsamość B pytająca o zasób A dostaje 404 we wszystkich metodach, a stan A się nie zmienia; każda trasa widoku bez sesji przekierowuje do logowania | „Lista pokazuje tylko moje, więc szczegół i zapis też sprawdzają właściciela"; „ręczne sondy były zielone" | pełna lista endpointów zasobowych, wyprowadzanie tożsamości, rejestr tras wewnątrz bramy | integracja API parametryzowana po endpointach | test tylko GET bez PUT/DELETE; jeden zasób zamiast wszystkich |
@@ -63,8 +63,8 @@ wraz z pojawianiem się artefaktów na dysku.
 
 | # | Phase name | Goal (one line) | Risks covered | Test types | Status | Change folder |
 |---|---|---|---|---|---|---|
-| 1 | Integracja API: drzewo i ekrany | Udowodnić atomowość operacji na drzewie i poprawność kaskad ekranu na prawdziwym SQLite | #1, #2 | integracja (xUnit + WebApplicationFactory) | change opened | context/changes/testing-integracja-api/ |
-| 2 | Granice dostępu | Udowodnić izolację kont, skuteczność blokady logowania i kontrolę originu za tunelem | #4, #5, #6 | integracja API + unit TS (pierwszy runner frontendu) | not started | — |
+| 1 | Integracja API: drzewo i ekrany | Udowodnić atomowość operacji na drzewie i poprawność kaskad ekranu na prawdziwym SQLite | #1, #2 | integracja (xUnit + WebApplicationFactory) | complete | context/changes/testing-integracja-api/ |
+| 2 | Granice dostępu | Udowodnić izolację kont, skuteczność blokady logowania i kontrolę originu za tunelem | #4, #5, #6 | integracja API + unit TS (pierwszy runner frontendu) | change opened | context/changes/testing-granice-dostepu/ |
 | 3 | Przepływ krytyczny e2e | Udowodnić, że odrzucona pętla nie zmienia drzewa w widoku i że struktura przeżywa reload | #1 | e2e (Playwright) | planned | context/changes/testy-procesowe-playwright/ |
 | 4 | Wygląd i motyw | Udowodnić, że zmiana widoku nie łamie warstwy stylów, wysokości wiersza ani wymiarów przy zmianie wariantu | #3 | kontrola HTML z buildu, pomiar w przeglądarce, visual diff, opcjonalnie review wizyjne | not started | — |
 | 5 | Bramki jakości | Zablokować poziom z faz 1–4 w jednej bramce i zalecanym hooku po edycji | cross-cutting | gates, post-edit hook | not started | — |
@@ -74,7 +74,7 @@ wraz z pojawianiem się artefaktów na dysku.
 | Layer | Tool | Version | Notes |
 |---|---|---|---|
 | unit (.NET) | xUnit | 2.9.3 | istnieje: reguły domenowe i koperty błędów w `tests/Api.Tests/` |
-| integracja API | Microsoft.AspNetCore.Mvc.Testing (WebApplicationFactory) + SQLite | 10.x (zgodnie z SDK .NET 10) | none yet — see Phase 1; prawdziwy SQLite, nie provider InMemory |
+| integracja API | Microsoft.AspNetCore.Mvc.Testing (WebApplicationFactory) + SQLite | 10.0.12 | istnieje od Phase 1: `TestApiFactory` + `IntegrationSeed`, klasy `*IntegrationTests` w `tests/Api.Tests/`, plik SQLite w `%TEMP%` na klasę (nie provider InMemory); wzorce w §6.2 |
 | unit (TS) | Vitest | do ustalenia w Phase 2 | none yet — see Phase 2; `createRoutesStub` nie nadaje się do tras z typami `Route.*` |
 | e2e | @playwright/test | do ustalenia w Phase 3 | none yet — plan w `testy-procesowe-playwright`; Chromium, `workers: 1` |
 | visual diff | Playwright screenshot comparison | jak e2e | none yet — see Phase 4; 1–3 ekrany, oba warianty |
