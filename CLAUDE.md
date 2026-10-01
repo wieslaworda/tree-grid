@@ -78,9 +78,11 @@ dotnet ef database update --project src/Api
 
 Automatyczna weryfikacja to `npm run typecheck` i `dotnet test`. Testy .NET
 pokrywają **reguły domenowe i kształt kontraktu błędów** (`*RulesTests`,
-`*ErrorContractTests`) oraz **potok HTTP drzew i ekranów na prawdziwym SQLite**
-(`*IntegrationTests`: host z `TestApiFactory`, własny plik bazy tymczasowy na
-klasę, baza deweloperska nietknięta) — bez widoku i bez izolacji kont. Frontend
+`*ErrorContractTests`) oraz **potok HTTP drzew, ekranów i kaskady usunięcia
+kategorii na prawdziwym SQLite** (`*IntegrationTests`: host z `TestApiFactory`,
+własny plik bazy tymczasowy na klasę, baza deweloperska nietknięta) — bez
+widoku i bez izolacji kont (poza kontrolą właściciela drzewa przy
+`PUT /screens`). Frontend
 nie ma żadnych testów. Lintera i CI nie ma. Przejście obu komend nie znaczy, że
 działa zmiana w widoku albo w endpointach spoza drzew i ekranów. Jak dodać
 kolejny test integracyjny — `context/foundation/test-plan.md` §6.2.
@@ -284,7 +286,8 @@ Nie traktuj ich jako błędów do naprawienia przy okazji — to zaległa praca:
   testów stoi w roadmapie w sekcji *Parked* — nie rozbudowuj zestawu na zapas.
 - Testy integracyjne API (`*IntegrationTests`) pokrywają wyłącznie drzewa
   i ekrany. Uwierzytelnianie (logowanie, rejestracja, blokada konta), izolacja
-  kont (IDOR) oraz endpointy kategorii i obiektów poza kaskadami ekranu są
+  kont (IDOR) poza kontrolą właściciela drzewa przy `PUT /screens` oraz
+  endpointy kategorii i obiektów poza kaskadami ekranu są
   nadal weryfikowane ręcznie; dwa pierwsze to Faza 2 rolloutu
   (`context/foundation/test-plan.md` §3).
 - Brak lintera i pipeline'u CI.

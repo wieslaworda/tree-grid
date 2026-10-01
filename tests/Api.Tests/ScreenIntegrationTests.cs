@@ -179,7 +179,7 @@ public class ScreenIntegrationTests(TestApiFactory factory) : IClassFixture<Test
 
         var response = await client.DeleteAsync($"/trees/{arranged.TreeId}");
 
-        await AssertRefusedAsync(response, HttpStatusCode.Conflict, ApiErrorCodes.TreeInScreen);
+        await IntegrationSeed.AssertRefusedAsync(response, HttpStatusCode.Conflict, ApiErrorCodes.TreeInScreen);
         Assert.Equal(treeBefore, await IntegrationSeed.ReadTreeAsync(factory, arranged.TreeId));
         Assert.Equal(screenBefore, await IntegrationSeed.ReadScreenAsync(factory, screenId));
     }
@@ -273,7 +273,7 @@ public class ScreenIntegrationTests(TestApiFactory factory) : IClassFixture<Test
 
         var response = await client.DeleteAsync($"/categories/{k0}");
 
-        await AssertRefusedAsync(response, HttpStatusCode.Conflict, ApiErrorCodes.CategorySoleScreenDefault);
+        await IntegrationSeed.AssertRefusedAsync(response, HttpStatusCode.Conflict, ApiErrorCodes.CategorySoleScreenDefault);
         Assert.True(await CategoryExistsAsync(k0));
         Assert.Equal(s1Before, await IntegrationSeed.ReadScreenAsync(factory, s1));
         Assert.Equal(s2Before, await IntegrationSeed.ReadScreenAsync(factory, s2));
@@ -342,7 +342,7 @@ public class ScreenIntegrationTests(TestApiFactory factory) : IClassFixture<Test
 
         var response = await UpdateScreenAsync(client, screenId, ScreenName, strangerTree, Grain, k0, k1);
 
-        var error = await AssertRefusedAsync(response, HttpStatusCode.BadRequest, ApiErrorCodes.ValidationError);
+        var error = await IntegrationSeed.AssertRefusedAsync(response, HttpStatusCode.BadRequest, ApiErrorCodes.ValidationError);
         Assert.True(
             error.Context.GetProperty(ApiErrorContextKeys.Fields).TryGetProperty(ScreenRequestFields.TreeId, out _),
             $"Odmowa bez błędu pola '{ScreenRequestFields.TreeId}': {error.Context}");
@@ -481,20 +481,6 @@ public class ScreenIntegrationTests(TestApiFactory factory) : IClassFixture<Test
         using var document = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
 
         return document.RootElement.GetProperty("id").GetInt32();
-    }
-
-    /// <summary>Status i <c>error.code</c> odmowy; zwraca kopertę do dalszych asercji.</summary>
-    private static async Task<ErrorEnvelope> AssertRefusedAsync(
-        HttpResponseMessage response,
-        HttpStatusCode expectedStatus,
-        string expectedCode)
-    {
-        Assert.Equal(expectedStatus, response.StatusCode);
-
-        var error = await IntegrationSeed.ReadErrorAsync(response);
-        Assert.Equal(expectedCode, error.Code);
-
-        return error;
     }
 
     /// <summary>

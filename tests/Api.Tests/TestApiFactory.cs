@@ -7,6 +7,7 @@ using Microsoft.AspNetCore.TestHost;
 using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Hosting;
 
 namespace Api.Tests;
 
@@ -53,6 +54,8 @@ public class TestApiFactory : WebApplicationFactory<Program>
 
     private bool _filesDeleted;
 
+    private string? _hostConnectionString;
+
     public TestApiFactory()
     {
         var directory = Path.Combine(Path.GetTempPath(), "treegrid-tests");
@@ -61,7 +64,16 @@ public class TestApiFactory : WebApplicationFactory<Program>
         DatabasePath = Path.GetFullPath(Path.Combine(directory, $"{Guid.NewGuid():N}.db"));
         ConnectionString = new SqliteConnectionStringBuilder { DataSource = DatabasePath }.ToString();
 
-        InitializeDatabaseFile();
+        // Gdy konstruktor rzuci, xUnit nie zwolni fixture — sprzątanie tutaj.
+        try
+        {
+            InitializeDatabaseFile();
+        }
+        catch
+        {
+            DeleteDatabaseFiles();
+            throw;
+        }
     }
 
     /// <summary>Bezwzględna ścieżka pliku bazy tej instancji.</summary>
@@ -103,6 +115,44 @@ public class TestApiFactory : WebApplicationFactory<Program>
     /// </summary>
     protected virtual void ConfigureAppDbContext(DbContextOptionsBuilder options)
     {
+    }
+
+    /// <summary>
+    /// Zapamiętuje connection string, którego faktycznie używa host —
+    /// <c>Program.cs</c> przebudowuje go przez <c>SqliteConnectionStringBuilder</c>,
+    /// więc klucz puli hosta nie musi być identyczny z <see cref="ConnectionString"/>.
+    /// Odczyt teraz, bo przy sprzątaniu usługi hosta są już zwolnione.
+    ///
+    /// Przy okazji fabryka odmawia startu, gdy host pracuje na innym pliku niż
+    /// jej własny — np. gdy <c>UseSetting</c> przestałby docierać przed
+    /// <c>Build()</c> i wrócił domyślny <c>db/treegrid.db</c>. Szpica
+    /// w <c>ApiHostIntegrationTests</c> wykryłaby to dopiero równolegle
+    /// z klasami, które już seedują bazę deweloperską.
+    /// </summary>
+    protected override IHost CreateHost(IHostBuilder builder)
+    {
+        var host = base.CreateHost(builder);
+
+        using (var scope = host.Services.CreateScope())
+        {
+            _hostConnectionString = scope.ServiceProvider
+                .GetRequiredService<AppDbContext>()
+                .Database
+                .GetConnectionString();
+        }
+
+        var hostDataSource = new SqliteConnectionStringBuilder(_hostConnectionString).DataSource;
+
+        if (!string.Equals(Path.GetFullPath(hostDataSource), DatabasePath, StringComparison.OrdinalIgnoreCase))
+        {
+            host.Dispose();
+
+            throw new InvalidOperationException(
+                $"Host testowy pracuje na '{hostDataSource}' zamiast na pliku fabryki '{DatabasePath}'. " +
+                "Odmowa startu, żeby żaden test nie zapisał do tej bazy.");
+        }
+
+        return host;
     }
 
     public override async ValueTask DisposeAsync()
@@ -148,7 +198,11 @@ public class TestApiFactory : WebApplicationFactory<Program>
     /// <summary>
     /// Usuwa plik bazy razem z plikami WAL. Pula połączeń trzyma na Windows
     /// otwarte uchwyty, więc najpierw jest czyszczona — inaczej usunięcie
-    /// kończy się wyjątkiem „plik jest używany".
+    /// kończy się wyjątkiem „plik jest używany". Czyszczone są wyłącznie pule
+    /// tej instancji: <c>ClearAllPools</c> zamykałby też połączenia klas
+    /// biegnących równolegle, a SQLite przy zamknięciu ostatniego połączenia
+    /// usuwa i potem odtwarza <c>-wal</c>/<c>-shm</c> — pod obciążeniem na
+    /// Windows to źródło przypadkowych błędów I/O w niezwiązanym teście.
     /// </summary>
     private void DeleteDatabaseFiles()
     {
@@ -157,14 +211,49 @@ public class TestApiFactory : WebApplicationFactory<Program>
             return;
         }
 
-        SqliteConnection.ClearAllPools();
+        foreach (var connectionString in new[] { ConnectionString, _hostConnectionString })
+        {
+            if (connectionString is not null)
+            {
+                using var connection = new SqliteConnection(connectionString);
+                SqliteConnection.ClearPool(connection);
+            }
+        }
 
         foreach (var suffix in new[] { string.Empty, "-wal", "-shm" })
         {
-            File.Delete(DatabasePath + suffix);
+            TryDeleteFile(DatabasePath + suffix);
         }
 
         _filesDeleted = true;
+    }
+
+    /// <summary>
+    /// Usunięcie bez wyjątku: na Windows antywirus albo indekser potrafi
+    /// chwilowo trzymać świeży plik w <c>%TEMP%</c>. Wyjątek z <c>Dispose</c>
+    /// xUnit policzyłby jako niezaliczony test, choć żaden test nie padł —
+    /// najwyżej zostaje plik w katalogu tymczasowym.
+    /// </summary>
+    private static void TryDeleteFile(string path)
+    {
+        const int attempts = 5;
+
+        for (var attempt = 1; attempt <= attempts; attempt++)
+        {
+            try
+            {
+                File.Delete(path);
+
+                return;
+            }
+            catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
+            {
+                if (attempt < attempts)
+                {
+                    Thread.Sleep(100);
+                }
+            }
+        }
     }
 
     private static string RandomSecret(int length)

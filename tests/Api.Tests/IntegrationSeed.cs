@@ -1,3 +1,4 @@
+using System.Net;
 using System.Text;
 using System.Text.Json;
 using Api.Data;
@@ -370,6 +371,20 @@ internal static class IntegrationSeed
         Assert.Equal(JsonValueKind.Object, context.ValueKind);
 
         return new ErrorEnvelope(code.GetString()!, message.GetString()!, context.Clone());
+    }
+
+    /// <summary>Status i <c>error.code</c> odmowy; zwraca kopertę do dalszych asercji.</summary>
+    public static async Task<ErrorEnvelope> AssertRefusedAsync(
+        HttpResponseMessage response,
+        HttpStatusCode expectedStatus,
+        string expectedCode)
+    {
+        Assert.Equal(expectedStatus, response.StatusCode);
+
+        var error = await ReadErrorAsync(response);
+        Assert.Equal(expectedCode, error.Code);
+
+        return error;
     }
 }
 

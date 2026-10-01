@@ -151,8 +151,9 @@ odpowiednia faza rolloutu zostanie wdrożona.
 1. **Host.** `public class <Obszar>IntegrationTests(TestApiFactory factory) : IClassFixture<TestApiFactory>`.
    `TestApiFactory` daje każdej klasie własny host w środowisku `Testing`
    i własny, zmigrowany plik SQLite w `%TEMP%/treegrid-tests/`, z sekretami
-   losowanymi w pamięci na przebieg; po klasie plik znika, baza deweloperska
-   `src/Api/db/treegrid.db` nie jest dotykana. Klasy biegną równolegle, testy
+   losowanymi w pamięci na klasę; po klasie plik znika, baza deweloperska
+   `src/Api/db/treegrid.db` nie jest dotykana — fabryka odmawia startu, gdy
+   host pracuje na innym pliku niż jej własny. Klasy biegną równolegle, testy
    w klasie — po kolei na wspólnym pliku. Ścieżka bazy jedzie przez
    `UseSetting`, nigdy przez zmienną środowiskową (wspólna dla procesu). Gdy
    ruszasz fabrykę, najpierw uruchom szpicę `ApiHostIntegrationTests` (plik
@@ -194,7 +195,9 @@ odpowiednia faza rolloutu zostanie wdrożona.
   wprost, po węzłach we **wszystkich** ekranach (`ReadAssignmentsOfNodesAsync`),
   i sprawdzaj obie strony: wiersze usuniętego zniknęły, pozostałe są takie jak
   przed. Porównuj kolejność (`AssignmentOrder`, `DefaultOrder`), nie surowe
-  `Position` — kaskada zostawia luki. `GET` jest wyrocznią tylko tam, gdzie
+  `Position` — kaskada zostawia luki. Te trzy helpery są prywatne
+  w `ScreenIntegrationTests`, nie w `IntegrationSeed` — przy drugim użyciu
+  w innej klasie przenieś je do `IntegrationSeed`. `GET` jest wyrocznią tylko tam, gdzie
   zachowaniem jest sam odczyt (`Saved_screen_reads_back_the_adjusted_node_in_its_order_and_the_defaults_on_other_nodes`).
 - **Wstrzyknięta awaria zapisu** — `ScreenWriteFailureIntegrationTests`:
   fabryka pochodna `FailingSaveChangesApiFactory : TestApiFactory` nadpisuje

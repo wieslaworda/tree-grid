@@ -1,7 +1,7 @@
 ---
 change_id: testing-integracja-api
 title: Testy integracyjne API — atomowość operacji na drzewie i kaskady ekranów
-status: implemented
+status: impl_reviewed
 created: 2026-09-28
 updated: 2026-10-01
 archived_at: null
@@ -17,3 +17,5 @@ Risk response intent:
 After creating the folder, follow the downstream continuation rule.
 
 Faza 1 (wynik szpicy): `public partial class Program;` nie był potrzebny — SDK .NET 10 generuje publiczny `Program` (`src/Api/Program.cs` nietknięty); `UseSetting("ConnectionStrings:Default", …)` w `ConfigureWebHost` wystarczyło — connection string jest widoczny przed `builder.Build()`.
+
+Faza 2 (odstępstwo od planu): wiersz „przeniesienie pod rodzica z innego drzewa” zakładał 404 `not_found`. Rzeczywistość ma dwie drogi i obie są przypięte w `TreeIntegrationTests`: przez adres drzewa źródłowego rodzic spoza drzewa to 400 `validation_error` z polem `parentId` (zgodnie z `research.md:126-127`), a przez adres drugiego drzewa węzeł spoza niego to 404 `not_found`. W obu migawki obu drzew są bez zmian.

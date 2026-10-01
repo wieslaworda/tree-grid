@@ -59,7 +59,7 @@ public class TreeIntegrationTests(TestApiFactory factory) : IClassFixture<TestAp
 
         var response = await AddAsync(client, arranged.TreeId, arranged.Objects[A], parentId: underA[0]);
 
-        var error = await AssertRefusedAsync(response, HttpStatusCode.Conflict, ApiErrorCodes.TreeCycle);
+        var error = await IntegrationSeed.AssertRefusedAsync(response, HttpStatusCode.Conflict, ApiErrorCodes.TreeCycle);
         Assert.Contains(arranged.Code(A), PathCodes(error));
         Assert.Equal(before, await IntegrationSeed.ReadTreeAsync(factory, arranged.TreeId));
     }
@@ -84,7 +84,7 @@ public class TreeIntegrationTests(TestApiFactory factory) : IClassFixture<TestAp
 
         var response = await MoveAsync(client, arranged.TreeId, top[1], parentId: underA[0], position: 0);
 
-        var error = await AssertRefusedAsync(response, HttpStatusCode.Conflict, ApiErrorCodes.TreeCycle);
+        var error = await IntegrationSeed.AssertRefusedAsync(response, HttpStatusCode.Conflict, ApiErrorCodes.TreeCycle);
         Assert.Contains(arranged.Code(A), PathCodes(error));
         Assert.Equal(before, await IntegrationSeed.ReadTreeAsync(factory, arranged.TreeId));
     }
@@ -105,7 +105,7 @@ public class TreeIntegrationTests(TestApiFactory factory) : IClassFixture<TestAp
 
         var response = await MoveAsync(client, arranged.TreeId, top[0], parentId: underA[0], position: 0);
 
-        var error = await AssertRefusedAsync(response, HttpStatusCode.Conflict, ApiErrorCodes.TreeCycle);
+        var error = await IntegrationSeed.AssertRefusedAsync(response, HttpStatusCode.Conflict, ApiErrorCodes.TreeCycle);
         Assert.Contains(arranged.Code(A), PathCodes(error));
         Assert.Equal(before, await IntegrationSeed.ReadTreeAsync(factory, arranged.TreeId));
     }
@@ -126,7 +126,7 @@ public class TreeIntegrationTests(TestApiFactory factory) : IClassFixture<TestAp
 
         var response = await AddAsync(client, arranged.TreeId, arranged.Objects[A], parentId: top[0]);
 
-        await AssertRefusedAsync(response, HttpStatusCode.Conflict, ApiErrorCodes.TreeDuplicateSibling);
+        await IntegrationSeed.AssertRefusedAsync(response, HttpStatusCode.Conflict, ApiErrorCodes.TreeDuplicateSibling);
         Assert.Equal(before, await IntegrationSeed.ReadTreeAsync(factory, arranged.TreeId));
     }
 
@@ -143,7 +143,7 @@ public class TreeIntegrationTests(TestApiFactory factory) : IClassFixture<TestAp
 
         var response = await AddAsync(client, arranged.TreeId, arranged.Objects[A], parentId: null);
 
-        await AssertRefusedAsync(response, HttpStatusCode.Conflict, ApiErrorCodes.TreeDuplicateSibling);
+        await IntegrationSeed.AssertRefusedAsync(response, HttpStatusCode.Conflict, ApiErrorCodes.TreeDuplicateSibling);
         Assert.Equal(before, await IntegrationSeed.ReadTreeAsync(factory, arranged.TreeId));
     }
 
@@ -162,7 +162,7 @@ public class TreeIntegrationTests(TestApiFactory factory) : IClassFixture<TestAp
 
         var response = await MoveAsync(client, arranged.TreeId, underP[0], parentId: null, position: 0);
 
-        await AssertRefusedAsync(response, HttpStatusCode.Conflict, ApiErrorCodes.TreeDuplicateSibling);
+        await IntegrationSeed.AssertRefusedAsync(response, HttpStatusCode.Conflict, ApiErrorCodes.TreeDuplicateSibling);
         Assert.Equal(before, await IntegrationSeed.ReadTreeAsync(factory, arranged.TreeId));
     }
 
@@ -198,7 +198,7 @@ public class TreeIntegrationTests(TestApiFactory factory) : IClassFixture<TestAp
 
         var response = await AddAsync(client, arranged.TreeId, arranged.Objects[NodeLimit], parentId: null);
 
-        await AssertRefusedAsync(response, HttpStatusCode.Conflict, ApiErrorCodes.TreeTooLarge);
+        await IntegrationSeed.AssertRefusedAsync(response, HttpStatusCode.Conflict, ApiErrorCodes.TreeTooLarge);
 
         var after = await IntegrationSeed.ReadTreeAsync(factory, arranged.TreeId);
         Assert.Equal(NodeLimit, after.Nodes.Count);
@@ -274,7 +274,7 @@ public class TreeIntegrationTests(TestApiFactory factory) : IClassFixture<TestAp
 
         var response = await MoveAsync(client, arranged.TreeId, top[1], parentId: otherTop[0], position: 0);
 
-        var error = await AssertRefusedAsync(response, HttpStatusCode.BadRequest, ApiErrorCodes.ValidationError);
+        var error = await IntegrationSeed.AssertRefusedAsync(response, HttpStatusCode.BadRequest, ApiErrorCodes.ValidationError);
         Assert.True(
             error.Context.GetProperty(ApiErrorContextKeys.Fields).TryGetProperty(TreeRequestFields.ParentId, out _),
             $"Odmowa bez błędu pola '{TreeRequestFields.ParentId}': {error.Context}");
@@ -300,7 +300,7 @@ public class TreeIntegrationTests(TestApiFactory factory) : IClassFixture<TestAp
 
         var response = await MoveAsync(client, otherTreeId, top[1], parentId: otherTop[0], position: 0);
 
-        await AssertRefusedAsync(response, HttpStatusCode.NotFound, ApiErrorCodes.NotFound);
+        await IntegrationSeed.AssertRefusedAsync(response, HttpStatusCode.NotFound, ApiErrorCodes.NotFound);
         Assert.Equal(before, await IntegrationSeed.ReadTreeAsync(factory, arranged.TreeId));
         Assert.Equal(otherBefore, await IntegrationSeed.ReadTreeAsync(factory, otherTreeId));
     }
@@ -463,20 +463,6 @@ public class TreeIntegrationTests(TestApiFactory factory) : IClassFixture<TestAp
         int? parentId,
         int position)
         => client.PutAsJsonAsync($"/trees/{treeId}/nodes/{nodeId}", new { parentId, position });
-
-    /// <summary>Status i <c>error.code</c> odmowy; zwraca kopertę do dalszych asercji.</summary>
-    private static async Task<ErrorEnvelope> AssertRefusedAsync(
-        HttpResponseMessage response,
-        HttpStatusCode expectedStatus,
-        string expectedCode)
-    {
-        Assert.Equal(expectedStatus, response.StatusCode);
-
-        var error = await IntegrationSeed.ReadErrorAsync(response);
-        Assert.Equal(expectedCode, error.Code);
-
-        return error;
-    }
 
     /// <summary>
     /// Kody z <c>context.path</c> odmowy zapętlenia. Test sprawdza wyłącznie,
