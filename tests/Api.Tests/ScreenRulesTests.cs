@@ -266,5 +266,6 @@ public class ScreenRulesTests
         Assert.Equal("grainMinutes", ScreenRequestFields.GrainMinutes);
         Assert.Equal("defaultCategoryIds", ScreenRequestFields.DefaultCategoryIds);
         Assert.Equal("categoryIds", ScreenRequestFields.CategoryIds);
+        Assert.Equal("day", ScreenRequestFields.Day);
     }
 }

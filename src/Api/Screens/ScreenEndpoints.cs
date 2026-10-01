@@ -683,7 +683,12 @@ internal static class ScreenEndpoints
             .FirstOrDefaultAsync(cancellationToken);
     }
 
-    private static IResult ScreenNotFound(int id)
+    /// <summary>
+    /// Ekran, którego nie ma albo który należy do innego konta. Wspólny
+    /// z <see cref="ScreenValuesEndpoints"/> — jeden komunikat dla każdej
+    /// ścieżki <c>/screens/{id}</c>.
+    /// </summary>
+    internal static IResult ScreenNotFound(int id)
         => Results.Json(
             ApiError.Create(ApiErrorCodes.NotFound, $"Nie znaleziono ekranu o identyfikatorze {id}."),
             statusCode: StatusCodes.Status404NotFound);
@@ -698,7 +703,11 @@ internal static class ScreenEndpoints
             ApiError.Create(ApiErrorCodes.NotFound, $"Nie znaleziono węzła drzewa o identyfikatorze {nodeId}."),
             statusCode: StatusCodes.Status404NotFound);
 
-    private static IResult ValidationFailure(IReadOnlyDictionary<string, string> fields)
+    /// <summary>
+    /// 400 <c>validation_error</c> z mapą naruszeń pól. Wspólny
+    /// z <see cref="ScreenValuesEndpoints"/>.
+    /// </summary>
+    internal static IResult ValidationFailure(IReadOnlyDictionary<string, string> fields)
         => Results.Json(
             ApiError.Validation(ValidationMessage, fields),
             statusCode: StatusCodes.Status400BadRequest);
@@ -715,7 +724,8 @@ internal static class ScreenEndpoints
 /// <summary>
 /// Nazwy pól w mapie naruszeń (<c>context.fields</c>) — te same co pola ciała
 /// żądań <c>POST /screens</c>, <c>PUT /screens/{id}</c>
-/// i <c>PUT /screens/{id}/nodes/{nodeId}/categories</c>.
+/// i <c>PUT /screens/{id}/nodes/{nodeId}/categories</c> oraz parametr adresu
+/// <c>GET /screens/{id}/values</c>.
 /// </summary>
 /// <remarks>
 /// Muszą być identyczne z nazwami, pod którymi formularz nowego ekranu po
@@ -747,6 +757,12 @@ internal static class ScreenRequestFields
     /// ma w słowniku.
     /// </summary>
     public const string CategoryIds = "categoryIds";
+
+    /// <summary>
+    /// Doba wartości ekranu (<c>GET /screens/{id}/values?day=</c>): brak
+    /// parametru, zły format albo data, której nie ma w kalendarzu.
+    /// </summary>
+    public const string Day = "day";
 }
 
 /// <summary>

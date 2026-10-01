@@ -197,6 +197,11 @@ app.MapTreeEndpoints();
 // (`TreeIdentity`).
 app.MapScreenEndpoints();
 
+// Wartości ekranu dla doby (S-05) — oś czasu rzeczywistej doby Europe/Warsaw
+// i powtarzalne wartości w `Api.Screens.ScreenValuesRules`; tożsamość
+// i kontrola właściciela jak w odczycie ekranu.
+app.MapScreenValuesEndpoints();
+
 app.Run();
 return 0;
 

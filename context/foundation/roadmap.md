@@ -3,7 +3,7 @@ project: TreeGrid
 version: 1
 status: draft
 created: 2026-09-21
-updated: 2026-09-24
+updated: 2026-10-01
 prd_version: 1
 main_goal: speed
 top_blocker: time
@@ -63,7 +63,7 @@ Przy celu sekwencjonowania `speed` to również fragment, który najtaniej odpow
 | S-07 | `menu-glowne`         | po zalogowaniu przechodzić między funkcjami z menu głównego; pierwsza pozycja to „Obiekty" | S-01, S-02    | MS-01, FR-002, Access Control                          | in-progress |
 | S-09 | `lista-kategorii`     | przeglądać, dodawać, edytować i usuwać kategorie danych (kod, nazwa, funkcja agregująca)  | F-01, S-07    | MS-02, MS-01, FR-006                                   | in-progress |
 | S-06 | `zapisane-ekrany`     | utworzyć ekran (nazwa, własne drzewo, ziarno, domyślne kategorie), widzieć na bieżąco wiersze węzły × kategorie, zapisać go, wybrać z listy własnych ekranów, odtworzyć i usunąć | S-03, S-09    | FR-009, FR-010, FR-012, FR-007, FR-008, US-01, Access Control, NFR (izolacja kont), MS-01 | in-progress |
-| S-05 | `grid-czasowy`        | wybrać dobę dla ekranu i zobaczyć kolumny czasowe wynikające z ziarna (288 / 96 / 24)       | S-06, F-02    | FR-007, FR-008, US-01, NFR (288 kolumn, feedback >2 s, gęstość odczytu liczb) | proposed |
+| S-05 | `prezentacja-ekranu`  | wybrać dobę dla ekranu i zobaczyć kolumny czasowe wynikające z ziarna (288 / 96 / 24)       | S-06, F-02    | FR-007, FR-008, US-01, NFR (288 kolumn, feedback >2 s, gęstość odczytu liczb) | in-progress |
 | S-04 | `edycja-ekranu`       | w trybie edycji zapisanego ekranu dokładać i zdejmować kategorie wskazanego węzła, zmienić nazwę, ziarno i domyślne kategorie | S-06          | FR-006, FR-011, US-02, NFR (izolacja kont)             | proposed |
 
 ## Streams
@@ -201,10 +201,14 @@ Foundations below assume these are present and do NOT re-scaffold them.
 - **Risk:** Plaster tworzy ekran i jednocześnie zmienia reguły dwóch plastrów w toku. Usunięcie drzewa z `S-03` (MS-03: „usuwa całą strukturę") musi dostać odmowę, gdy drzewo wskazuje jakiś ekran — dziś węzły znikają kaskadą, a nic nie chroni drzewa. Usunięcie kategorii z `S-09` przestaje być bezwarunkowe. Obie zmiany muszą zajść tutaj, bo tu powstaje pierwsze odwołanie. Drzewo z gridem powstaje w tym plastrze jeszcze bez kolumn czasowych, a `S-05` dokłada do niego 288 wirtualizowanych kolumn. Jeśli ten plaster zbuduje zwykłą tabelę, `S-05` będzie ją przepisywać, więc kształt komponentu musi rozstrzygnąć plan. Przypisania wiszą na węźle, nie na obiekcie: ten sam obiekt w dwóch gałęziach daje dwa niezależne zestawy wierszy. Izolacja kont po stronie serwera obejmuje zarówno ekran, jak i drzewo, które on wskazuje.
 - **Status:** in-progress
 
-### S-05: Kolumny czasowe gridu dla wybranej doby
+### S-05: Kolumny czasowe gridu dla wybranej doby i ekranu
 
-- **Outcome:** Dyspozytor wybiera dobę (domyślnie dzisiejszą; doba nie jest częścią zapisanego ekranu). Za kolumną kategorii widzi wtedy punkty czasowe z losowymi wartościami, wynikające z ziarna ekranu: 5 min → 288, 15 min → 96, 60 min → 24 kolumny. Kolumny pojawiają się zarówno w zapisanym ekranie, jak i w trakcie tworzenia nowego. Wariant 288-kolumnowy przewija się płynnie razem z drzewem w kolumnie 1. Wiersz gridu (węzeł × kategoria) ma najwyżej 24 punkty, więc co najmniej 25 wierszy jest widocznych bez przewijania w pionie. Operacja dłuższa niż 2 sekundy pokazuje postęp.
-- **Change ID:** `grid-czasowy`
+- **Outcome:** Dyspozytor wybiera dobę (domyślnie dzisiejszą ).  NAstępnie wybiera ekran ( z listy dostępnych ekranów). Na podstawie wybranego doby i ekranu pod spodem generuje się grid w której piersze 2 kolumny są identyczne jak kolumny drzewa z definicji ekranu 
+  Za kolumną kategorii widzi klumny punktów czasowych wygenerowane na podstawie ziarna z definicji ekranu , 5 min → 288, 15 min → 96, 60 min → 24 kolumny. 
+   Wariant 288-kolumnowy przewija się płynnie razem z drzewem w kolumnie 1. Ilość wierszy wynika z definicji ekranu (obiekty drzewa x przypisane kategorie).  Operacja dłuższa niż 2 sekundy pokazuje postęp.
+   Etykiety kolumn czasowych generowane sa na podstawie ziarna w wybranego ekranu z etykietami w hormacie gg:mm. Dane gridu od 3 kolumny i drugiego wiersza  mają białe tło.
+   Funkcja uruchamia się z ostatniej pozycji menu "Prezentacja ekranu"
+- **Change ID:** `prezentacja-ekranu`
 - **PRD refs:** FR-007, FR-008, US-01, NFR (288 kolumn gotowe do pracy i płynnie przewijalne), NFR (informacja zwrotna przy operacjach powyżej 2 s), NFR (gęstość odczytu liczb)
 - **Prerequisites:** S-06, F-02
 - **Parallel with:** S-04
@@ -212,7 +216,7 @@ Foundations below assume these are present and do NOT re-scaffold them.
 - **Unknowns:**
   - Jaka największa liczba wierszy ekranu (węzły × kategorie) ma zachować płynne przewijanie w wariancie 288-kolumnowym? (PRD `## Open Questions` #5) — wiersze mnożą się przez liczbę kategorii, więc limit rozmiaru drzewa z `S-03` przestaje wprost ograniczać rozmiar gridu. — Owner: użytkownik. Block: no.
 - **Risk:** To jedyny plaster niosący wymaganie, które może wywrócić cały projekt: pełna doba z ziarnem 5 minut to 288 kolumn danych, które mają się płynnie przewijać razem z drzewem w pierwszej kolumnie. Od 2026-09-24 pionowy wymiar też rośnie, bo każdy węzeł daje tyle wierszy, ile ma kategorii. To najdroższa technicznie część i przy celu `speed` nie ma tu miejsca na drugie podejście, dlatego inwestycja idzie właśnie we frontend. Wartości w punktach czasowych są generowane losowo (PRD `## Non-Goals`), więc plaster nie zależy od żadnych systemów zewnętrznych — cała trudność leży po stronie prezentacji.
-- **Status:** proposed
+- **Status:** in-progress
 
 ### S-04: Edycja zapisanego ekranu i kategorie poszczególnych węzłów
 
@@ -239,7 +243,7 @@ Foundations below assume these are present and do NOT re-scaffold them.
 | S-07       | `menu-glowne`         | Menu główne aplikacji po zalogowaniu (pierwsza pozycja: Obiekty)     | yes                   | Plan istnieje, kod działa                                    |
 | S-09       | `lista-kategorii`     | Słownik kategorii danych (kod, nazwa, funkcja agregująca) z pozycją w menu | yes             | Plan istnieje, kod działa                                    |
 | S-06       | `zapisane-ekrany`     | Nowy ekran: nazwa, drzewo, ziarno, domyślne kategorie; lista własnych ekranów i odtworzenie | no | Czeka na `S-03` i `S-09`; zmienia regułę usuwania drzewa (`S-03`) i kategorii (`S-09`) |
-| S-05       | `grid-czasowy`        | Kolumny czasowe gridu ekranu dla wybranej doby (288 / 96 / 24)       | no                    | Czeka na `S-06` i `F-02`                                     |
+| S-05       | `prezentacja-ekranu`  | Kolumny czasowe gridu ekranu dla wybranej doby (288 / 96 / 24)       | no                    | Czeka na `S-06` i `F-02`                                     |
 | S-04       | `edycja-ekranu`       | Tryb edycji ekranu: kategorie wskazanego węzła, nazwa, ziarno, kategorie domyślne | no | Czeka na `S-06`; równolegle do `S-05`                         |
 
 This table is the clean handoff to Jira/Linear or any MCP-backed backlog. It carries one row for every `F-NN` and `S-NN` and deliberately does not duplicate the detailed roadmap body.
