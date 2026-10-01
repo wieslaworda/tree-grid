@@ -14,8 +14,6 @@ argument-hint: "[path ...] | --status | --refresh"
 
 This skill writes and manages `context/foundation/test-plan.md` as a **phased rollout strategy**, then launches one rollout phase at a time into the 10x change/research/plan/implement chain. The guide starts as the *blueprint* of phases — each phase eventually opens its own `context/changes/<change-id>/` folder and fills in the cookbook sections (§6) as it ships. The skill is **stateful**: every invocation re-derives the current state by checking which artifacts exist, and resumes from the next pending rollout phase. It does **not** force a return to `/10x-test-plan` after every downstream stage. Once a rollout change is opened, the established process is research → plan → implement: after each major phase, suggest the next natural command unless there is a clear blocker, correction, or decision that belongs back in `/10x-test-plan`.
 
-Całą komunikacje odpowiedzi i pytania realizuj w języku polskim
-
 `$ARGUMENTS`:
 
 - **empty** → derive state and act on the next pending step.
