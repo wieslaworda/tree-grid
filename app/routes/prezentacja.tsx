@@ -1,6 +1,14 @@
-import { Alert, DatePicker, Empty, Select, Spin, Typography } from "antd";
+import {
+  Alert,
+  DatePicker,
+  Empty,
+  type GetRef,
+  Select,
+  Spin,
+  Typography,
+} from "antd";
 import dayjs, { type Dayjs } from "dayjs";
-import { useEffect, useMemo } from "react";
+import { type RefObject, useEffect, useMemo, useRef, useState } from "react";
 import {
   Link,
   data,
@@ -344,6 +352,19 @@ function PasekWyboru({
   doba: string;
 }) {
   const nawiguj = useNavigate();
+  const poleDoby = useRef<GetRef<typeof DatePicker>>(null);
+  const szerokoscDoby = useSzerokoscElementu(poleDoby);
+
+  // Pole ekranu co najmniej tak szerokie jak pole doby — szerokość doby
+  // zmierzona, a nie wpisana: wynika z formatu, czcionki i ikony antd,
+  // więc liczba w widoku rozjechałaby się z nią po cichu
+  // (`context/foundation/lessons.md`, „Kolory i metryki nie mieszkają
+  // w plikach tras”). Do pomiaru (render serwerowy) — szerokość z treści.
+  const stylEkranu = useMemo(
+    () =>
+      szerokoscDoby === undefined ? undefined : { minWidth: szerokoscDoby },
+    [szerokoscDoby],
+  );
 
   const opcjeEkranow = useMemo(
     () => ekrany.map((ekran) => ({ value: ekran.id, label: ekran.name })),
@@ -375,6 +396,7 @@ function PasekWyboru({
         <label htmlFor="prezentacja-doba">Doba</label>
         {/* Bez czyszczenia: widok zawsze pokazuje jakąś dobę. */}
         <DatePicker
+          ref={poleDoby}
           id="prezentacja-doba"
           value={wartoscDoby}
           format={FORMAT_DOBY}
@@ -396,12 +418,42 @@ function PasekWyboru({
           options={opcjeEkranow}
           value={wybranyId}
           onChange={wybierzEkran}
+          style={stylEkranu}
           popupMatchSelectWidth={false}
           showSearch={{ optionFilterProp: "label" }}
         />
       </div>
     </section>
   );
+}
+
+/**
+ * Szerokość zewnętrzna (z ramką) elementu kontrolki antd z `nativeElement`
+ * (`DatePicker`), mierzona na nowo przy każdej zmianie jej rozmiaru — także
+ * po wczytaniu czcionki, które ją poszerza. Do pierwszego pomiaru — przed
+ * hydracją — `undefined`.
+ */
+function useSzerokoscElementu(
+  kontrolka: RefObject<{ nativeElement: HTMLElement } | null>,
+): number | undefined {
+  const [szerokosc, ustawSzerokosc] = useState<number>();
+
+  useEffect(() => {
+    const element = kontrolka.current?.nativeElement;
+
+    if (element === undefined) {
+      return;
+    }
+
+    const zmierz = () => ustawSzerokosc(element.offsetWidth);
+    const obserwator = new ResizeObserver(zmierz);
+
+    obserwator.observe(element);
+
+    return () => obserwator.disconnect();
+  }, [kontrolka]);
+
+  return szerokosc;
 }
 
 /**
