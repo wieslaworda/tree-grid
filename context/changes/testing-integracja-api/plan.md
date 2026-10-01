@@ -559,11 +559,11 @@ nie ubijaj procesów spoza sesji bez pytania.
 
 #### Automated
 
-- [x] 4.1 `grep -n "IntegrationTests" CLAUDE.md` zwraca wpis w bloku komend
-- [x] 4.2 `grep -n "nie podnoszą hosta" CLAUDE.md` nic nie zwraca
-- [x] 4.3 `grep -nE "TBD.{0,3}see §3 Phase 1" context/foundation/test-plan.md` nic nie zwraca
-- [x] 4.4 Pełny zestaw nadal przechodzi: `dotnet test tests/Api.Tests`
+- [x] 4.1 `grep -n "IntegrationTests" CLAUDE.md` zwraca wpis w bloku komend — 5eb8ecf
+- [x] 4.2 `grep -n "nie podnoszą hosta" CLAUDE.md` nic nie zwraca — 5eb8ecf
+- [x] 4.3 `grep -nE "TBD.{0,3}see §3 Phase 1" context/foundation/test-plan.md` nic nie zwraca — 5eb8ecf
+- [x] 4.4 Pełny zestaw nadal przechodzi: `dotnet test tests/Api.Tests` — 5eb8ecf
 
 #### Manual
 
-- [x] 4.5 §6.2 test-planu czyta się jako instrukcja: nowa osoba wie, gdzie dodać test, jak zaseedować dane, co asertować i jak go uruchomić
+- [x] 4.5 §6.2 test-planu czyta się jako instrukcja: nowa osoba wie, gdzie dodać test, jak zaseedować dane, co asertować i jak go uruchomić — 5eb8ecf
