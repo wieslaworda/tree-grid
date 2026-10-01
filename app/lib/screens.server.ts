@@ -44,6 +44,11 @@ function screenPath(id: number): string {
   return `${SCREENS_PATH}/${id}`;
 }
 
+/** Endpoint wartości ekranu dla doby (`S-05`, `ScreenValuesEndpoints.cs`). */
+function screenValuesPath(id: number, day: string): string {
+  return `${screenPath(id)}/values?${POLE_DOBY}=${encodeURIComponent(day)}`;
+}
+
 /**
  * Nazwy pól formularza nowego ekranu — te same co `ScreenRequestFields`
  * (`src/Api/Screens/ScreenEndpoints.cs`) i klucze {@link ScreenPayload}. Pod
@@ -56,6 +61,13 @@ const POLE_NAZWY = "name";
 const POLE_DRZEWA = "treeId";
 const POLE_ZIARNA = "grainMinutes";
 const POLE_KATEGORII = "defaultCategoryIds";
+
+/**
+ * Parametr doby wartości ekranu — ten sam co `ScreenRequestFields.Day`. Pod
+ * nim `GET /screens/{id}/values` czyta dobę i adresuje jej odmowę
+ * w `context.fields` (przypięte testem literałów w `ScreenRulesTests`).
+ */
+const POLE_DOBY = "day";
 
 /** Komunikat błędu walidacji — ten sam tekst co w API. */
 const KOMUNIKAT_WALIDACJI = "Przesłane dane są nieprawidłowe.";
@@ -106,6 +118,42 @@ export type ScreenPayload = {
   defaultCategoryIds: number[];
 };
 
+/**
+ * Punkt osi czasu doby — element `points` z `GET /screens/{id}/values`.
+ * `label` to koniec przedziału (GG:MI, `24:00` na końcu doby), `repeated` —
+ * etykieta, która w tej dobie już wystąpiła (październikowa zmiana czasu).
+ * Kształt `PunktCzasowy` z `app/components/GridEkranu.tsx`.
+ */
+export type ScreenValuesPoint = {
+  label: string;
+  repeated: boolean;
+  utcOffsetMinutes: number;
+};
+
+/**
+ * Seria wartości jednej pary obiekt × kategoria — `values` ma tyle liczb
+ * (`0.0`–`999.9`), ile jest punktów, w ich kolejności.
+ */
+export type ScreenValuesSeries = {
+  objectId: number;
+  categoryId: number;
+  values: number[];
+};
+
+/**
+ * Wartości ekranu dla doby — dokładnie kształt `GET /screens/{id}/values`.
+ * `screenId` i `day` niosą parę, której dotyczy odpowiedź: widok porównuje je
+ * z bieżącym wyborem, zanim pokaże dane. Jedna seria na **różną** parę obiekt
+ * × kategoria, więc ten sam obiekt w dwóch gałęziach ma jedną serię.
+ */
+export type ScreenValues = {
+  screenId: number;
+  day: string;
+  grainMinutes: number;
+  points: ScreenValuesPoint[];
+  series: ScreenValuesSeries[];
+};
+
 export type ScreenListResult = { ok: true; screens: UserScreen[] } | ApiFailure;
 
 export type ScreenResult = { ok: true; screen: ScreenDetail } | ApiFailure;
@@ -117,6 +165,8 @@ export type ScreenDeleteResult = { ok: true } | ApiFailure;
 export type ScreenNodeCategoriesResult = { ok: true } | ApiFailure;
 
 export type ScreenFormResult = { ok: true; payload: ScreenPayload } | ApiFailure;
+
+export type ScreenValuesResult = { ok: true; values: ScreenValues } | ApiFailure;
 
 /**
  * Ekrany użytkownika, posortowane przez API po nazwie znormalizowanej, a przy
@@ -172,6 +222,29 @@ export async function getScreen(
 
   return isScreenDetail(result.body)
     ? { ok: true, screen: result.body }
+    : invalidResponse(path, result.status);
+}
+
+/**
+ * Oś czasu doby `day` (`RRRR-MM-DD`) dla ziarna ekranu i serie wartości —
+ * jedno żądanie na (ekran, dobę). Doby nie sprawdza tutaj nic: zły format
+ * albo data spoza kalendarza wraca z API jako `validation_error` pod polem
+ * {@link POLE_DOBY}, a cudzy ekran — jako 404.
+ */
+export async function getScreenValues(
+  userId: string,
+  id: number,
+  day: string,
+): Promise<ScreenValuesResult> {
+  const path = screenValuesPath(id, day);
+  const result = await requestApi("GET", path, undefined, { userId });
+
+  if (!result.ok) {
+    return result;
+  }
+
+  return isScreenValues(result.body)
+    ? { ok: true, values: result.body }
     : invalidResponse(path, result.status);
 }
 
@@ -329,5 +402,72 @@ function isScreenDetail(value: unknown): value is ScreenDetail {
     candidate.nodes.every(isTreeNode) &&
     Array.isArray(candidate.assignments) &&
     candidate.assignments.every(isScreenAssignment)
+  );
+}
+
+function isScreenValuesPoint(value: unknown): value is ScreenValuesPoint {
+  if (typeof value !== "object" || value === null) {
+    return false;
+  }
+
+  const candidate = value as Partial<Record<keyof ScreenValuesPoint, unknown>>;
+
+  return (
+    typeof candidate.label === "string" &&
+    typeof candidate.repeated === "boolean" &&
+    Number.isInteger(candidate.utcOffsetMinutes)
+  );
+}
+
+/**
+ * Seria w kształcie kontraktu i z tyloma wartościami, ile jest punktów —
+ * krótsza seria dałaby w gridzie puste komórki na końcu doby, które
+ * wyglądałyby na brak danych, a nie na błąd API.
+ */
+function isScreenValuesSeries(
+  value: unknown,
+  pointCount: number,
+): value is ScreenValuesSeries {
+  if (typeof value !== "object" || value === null) {
+    return false;
+  }
+
+  const candidate = value as Partial<Record<keyof ScreenValuesSeries, unknown>>;
+
+  return (
+    Number.isInteger(candidate.objectId) &&
+    Number.isInteger(candidate.categoryId) &&
+    Array.isArray(candidate.values) &&
+    candidate.values.length === pointCount &&
+    candidate.values.every((item) => Number.isFinite(item))
+  );
+}
+
+/**
+ * Sprawdza kształt wartości ekranu. Widok buduje z punktów kolumny,
+ * a z serii teksty komórek — element w innym kształcie wywróciłby render.
+ */
+function isScreenValues(value: unknown): value is ScreenValues {
+  if (typeof value !== "object" || value === null) {
+    return false;
+  }
+
+  const candidate = value as Partial<Record<keyof ScreenValues, unknown>>;
+
+  if (
+    !Number.isInteger(candidate.screenId) ||
+    typeof candidate.day !== "string" ||
+    !Number.isInteger(candidate.grainMinutes) ||
+    !Array.isArray(candidate.points) ||
+    !candidate.points.every(isScreenValuesPoint) ||
+    !Array.isArray(candidate.series)
+  ) {
+    return false;
+  }
+
+  const pointCount = candidate.points.length;
+
+  return candidate.series.every((series) =>
+    isScreenValuesSeries(series, pointCount),
   );
 }

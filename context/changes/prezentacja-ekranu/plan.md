@@ -344,8 +344,8 @@ Brak zmian schematu bazy — wartości nie są przechowywane.
 
 #### Automated
 
-- [x] 2.1 Typy przechodzą: `npm run typecheck`
-- [x] 2.2 Build produkcyjny przechodzi: `npm run build`
+- [x] 2.1 Typy przechodzą: `npm run typecheck` — e0a47f3
+- [x] 2.2 Build produkcyjny przechodzi: `npm run build` — e0a47f3
 
 #### Manual
 
@@ -359,9 +359,9 @@ Brak zmian schematu bazy — wartości nie są przechowywane.
 
 #### Automated
 
-- [ ] 3.1 Typy przechodzą (w tym typegen nowej trasy): `npm run typecheck`
-- [ ] 3.2 Build produkcyjny przechodzi: `npm run build`
-- [ ] 3.3 Testy API nadal przechodzą: `dotnet test tests/Api.Tests`
+- [x] 3.1 Typy przechodzą (w tym typegen nowej trasy): `npm run typecheck`
+- [x] 3.2 Build produkcyjny przechodzi: `npm run build`
+- [x] 3.3 Testy API nadal przechodzą: `dotnet test tests/Api.Tests`
 - [ ] 3.4 Kontrakty renderowania nienaruszone: po `npm run build` i `npm run start` wynik `curl -s http://localhost:3000/prezentacja?ekran=<id>&doba=2026-10-01` (z ciasteczkiem sesji) zawiera `@layer antd`, a offset ostatniego `data-css-hash` jest mniejszy niż offset `</head>`
 
 #### Manual

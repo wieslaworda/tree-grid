@@ -65,6 +65,7 @@ Przy celu sekwencjonowania `speed` to również fragment, który najtaniej odpow
 | S-06 | `zapisane-ekrany`     | utworzyć ekran (nazwa, własne drzewo, ziarno, domyślne kategorie), widzieć na bieżąco wiersze węzły × kategorie, zapisać go, wybrać z listy własnych ekranów, odtworzyć i usunąć | S-03, S-09    | FR-009, FR-010, FR-012, FR-007, FR-008, US-01, Access Control, NFR (izolacja kont), MS-01 | in-progress |
 | S-05 | `prezentacja-ekranu`  | wybrać dobę dla ekranu i zobaczyć kolumny czasowe wynikające z ziarna (288 / 96 / 24)       | S-06, F-02    | FR-007, FR-008, US-01, NFR (288 kolumn, feedback >2 s, gęstość odczytu liczb) | in-progress |
 | S-04 | `edycja-ekranu`       | w trybie edycji zapisanego ekranu dokładać i zdejmować kategorie wskazanego węzła, zmienić nazwę, ziarno i domyślne kategorie | S-06          | FR-006, FR-011, US-02, NFR (izolacja kont)             | proposed |
+| S-10 | `doczytywanie-okna-wierszy` | w „Prezentacji ekranu” oglądać dobę dużego ekranu, dla którego dane dochodzą tylko dla widocznego okna wierszy | S-05          | NFR (288 kolumn, feedback >2 s), PRD `## Open Questions` #5 | proposed |
 
 ## Streams
 
@@ -231,6 +232,19 @@ Foundations below assume these are present and do NOT re-scaffold them.
 - **Risk:** Identyfikator `S-04` przechodzi z dawnego „przypisania kategorii do węzła drzewa" na edycję ekranu. Przypisanie należy teraz do ekranu i węzła, więc komentarze w kodzie, które mówią o kategoriach wieszanych na węźle „w `S-04`", opisują odtąd łącznie `S-06` (kategorie domyślne) i `S-04` (zmiany per węzeł). Tryb edycji zmienia stan, który `S-06` obiecuje odtworzyć bez zmian, więc granica między oglądaniem a edycją musi być jednoznaczna. Dopóki PRD #3 nie jest rozstrzygnięte, zmiana listy domyślnej nie może po cichu nadpisać kategorii dopasowanych ręcznie.
 - **Status:** proposed
 
+### S-10: Doczytywanie danych doby tylko dla widocznego okna wierszy
+
+- **Outcome:** Dyspozytor otwiera w „Prezentacji ekranu” dobę ekranu o dowolnej liczbie wierszy, a wartości dochodzą wyłącznie dla wierszy widocznych w gridzie (z zapasem) i dla tych, do których przewinie. Czas od wyboru doby i ekranu do pierwszych danych oraz rozmiar pojedynczej odpowiedzi nie rosną już z rozmiarem ekranu. W trakcie doczytywania widać postęp, a dane poprzedniego wyboru nie mieszają się z bieżącym.
+- **Change ID:** `doczytywanie-okna-wierszy`
+- **PRD refs:** NFR (288 kolumn gotowe do pracy i płynnie przewijalne), NFR (informacja zwrotna przy operacjach powyżej 2 s), PRD `## Open Questions` #5
+- **Prerequisites:** S-05
+- **Parallel with:** S-04
+- **Blockers:** —
+- **Unknowns:**
+  - Od jakiej liczby wierszy pobranie całej doby jednym żądaniem przestaje wystarczać? Punktem wyjścia jest pomiar z `S-05` w `context/changes/prezentacja-ekranu/plan.md`, sekcja *Performance Considerations* (rozmiar odpowiedzi największego ekranu 5 min, wynik przewijania syntetycznego gridu 288 × 300 we wzorniku i czas od wyboru do danych w widoku). — Owner: użytkownik. Block: no.
+- **Risk:** Decyzja użytkownika z planu `prezentacja-ekranu` (*What We're NOT Doing*): `S-05` pobiera całą dobę ekranu jednym żądaniem i bez limitu wierszy, a doczytywanie okna przychodzi osobno. Plaster zmienia regułę „jedno żądanie na ekran, nie na kolumnę ani wiersz” (`context/foundation/infrastructure.md`), więc przy ciągłym przewijaniu żądania okien trzeba łączyć i odrzucać spóźnione — inaczej limit 200 równoległych żądań tunelu i dane z okna, które już zniknęło, wracają jako błędy widoczne dla użytkownika. Kontrakt `GET /screens/{id}/values` dostaje zakres wierszy; jego nazwy pól wchodzą razem z endpointem, który je emituje (`context/foundation/lessons.md`, „Kontrakt API nie wyprzedza emitenta”).
+- **Status:** proposed
+
 ## Backlog Handoff
 
 | Roadmap ID | Change ID             | Suggested issue title                                                | Ready for `/10x-plan` | Notes                                                        |
@@ -245,6 +259,7 @@ Foundations below assume these are present and do NOT re-scaffold them.
 | S-06       | `zapisane-ekrany`     | Nowy ekran: nazwa, drzewo, ziarno, domyślne kategorie; lista własnych ekranów i odtworzenie | no | Czeka na `S-03` i `S-09`; zmienia regułę usuwania drzewa (`S-03`) i kategorii (`S-09`) |
 | S-05       | `prezentacja-ekranu`  | Kolumny czasowe gridu ekranu dla wybranej doby (288 / 96 / 24)       | no                    | Czeka na `S-06` i `F-02`                                     |
 | S-04       | `edycja-ekranu`       | Tryb edycji ekranu: kategorie wskazanego węzła, nazwa, ziarno, kategorie domyślne | no | Czeka na `S-06`; równolegle do `S-05`                         |
+| S-10       | `doczytywanie-okna-wierszy` | Doczytywanie danych doby tylko dla widocznego okna wierszy w „Prezentacji ekranu” | no | Czeka na `S-05`; punkt wyjścia — pomiary w `context/changes/prezentacja-ekranu/plan.md` (*Performance Considerations*) |
 
 This table is the clean handoff to Jira/Linear or any MCP-backed backlog. It carries one row for every `F-NN` and `S-NN` and deliberately does not duplicate the detailed roadmap body.
 

@@ -18,6 +18,7 @@ export const POZYCJE_MENU: { sciezka: string; etykieta: string }[] = [
   { sciezka: "/kategorie", etykieta: "Kategorie" },
   { sciezka: "/drzewo", etykieta: "Drzewo" },
   { sciezka: "/ekrany", etykieta: "Ekrany" },
+  { sciezka: "/prezentacja", etykieta: "Prezentacja ekranu" },
 ];
 
 /**

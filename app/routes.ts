@@ -82,6 +82,13 @@ export default [
       // `?nowy`; bez nich widok otwiera pierwszy ekran. Podgląd nowego
       // ekranu pobiera węzły drzewa `fetcher.load()` z tej samej trasy.
       route("ekrany", "routes/ekrany.tsx"),
+
+      // Prezentacja ekranu — jedna trasa tylko do odczytu: pasek wyboru doby
+      // i ekranu, pod nim grid ekranu z kolumnami czasowymi doby. Wybór niesie
+      // parametry `?ekran=` i `?doba=`; bez nich widok otwiera pierwszy ekran
+      // i dzisiejszą dobę. Wartości doby pobiera `fetcher.load()` z tej samej
+      // trasy pod `?dane`, więc nie jadą w HTML-u z SSR.
+      route("prezentacja", "routes/prezentacja.tsx"),
     ]),
   ]),
 ] satisfies RouteConfig;
