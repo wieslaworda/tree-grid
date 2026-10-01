@@ -534,26 +534,26 @@ nie ubijaj procesów spoza sesji bez pytania.
 
 #### Automated
 
-- [x] 2.1 Klasa przechodzi: `dotnet test tests/Api.Tests --filter "FullyQualifiedName~TreeIntegrationTests"`
-- [x] 2.2 Pełny zestaw przechodzi: `dotnet test tests/Api.Tests`
-- [x] 2.3 Trzy kolejne przebiegi `dotnet test tests/Api.Tests --filter "FullyQualifiedName~TreeIntegrationTests"` przechodzą bez zmian w kodzie (stabilność testu wyścigu)
+- [x] 2.1 Klasa przechodzi: `dotnet test tests/Api.Tests --filter "FullyQualifiedName~TreeIntegrationTests"` — 74a8157
+- [x] 2.2 Pełny zestaw przechodzi: `dotnet test tests/Api.Tests` — 74a8157
+- [x] 2.3 Trzy kolejne przebiegi `dotnet test tests/Api.Tests --filter "FullyQualifiedName~TreeIntegrationTests"` przechodzą bez zmian w kodzie (stabilność testu wyścigu) — 74a8157
 
 #### Manual
 
-- [x] 2.4 Po tymczasowym wyłączeniu odmowy zapętlenia w `src/Api/Tree/TreeRules.cs` (lokalnie, bez commitu) testy `tree_cycle` padają na asercji migawki, a po przywróceniu kodu przechodzą
-- [x] 2.5 Po tymczasowej zmianie warunku limitu z `>=` na `>` (lokalnie, bez commitu) test granicy limitu pada, a po przywróceniu przechodzi
+- [x] 2.4 Po tymczasowym wyłączeniu odmowy zapętlenia w `src/Api/Tree/TreeRules.cs` (lokalnie, bez commitu) testy `tree_cycle` padają na asercji migawki, a po przywróceniu kodu przechodzą — 74a8157
+- [x] 2.5 Po tymczasowej zmianie warunku limitu z `>=` na `>` (lokalnie, bez commitu) test granicy limitu pada, a po przywróceniu przechodzi — 74a8157
 
 ### Phase 3: Ryzyko #2 — kaskady ekranu i awaria zapisu
 
 #### Automated
 
-- [ ] 3.1 Klasy przechodzą: `dotnet test tests/Api.Tests --filter "FullyQualifiedName~ScreenIntegrationTests|FullyQualifiedName~ScreenWriteFailureIntegrationTests"`
-- [ ] 3.2 Pełny zestaw przechodzi: `dotnet test tests/Api.Tests`
+- [x] 3.1 Klasy przechodzą: `dotnet test tests/Api.Tests --filter "FullyQualifiedName~ScreenIntegrationTests|FullyQualifiedName~ScreenWriteFailureIntegrationTests"`
+- [x] 3.2 Pełny zestaw przechodzi: `dotnet test tests/Api.Tests`
 
 #### Manual
 
-- [ ] 3.3 Po tymczasowym wyjęciu `PUT /screens/{id}` z transakcji w `src/Api/Screens/ScreenEndpoints.cs` (lokalnie, bez commitu) testy awarii zmiany listy i zmiany drzewa padają na migawce, a po przywróceniu przechodzą
-- [ ] 3.4 Po tymczasowym usunięciu `ExecuteDeleteAsync` przypisań przy zmianie drzewa (lokalnie, bez commitu) test zmiany drzewa pada na osieroconych wierszach, a po przywróceniu przechodzi
+- [x] 3.3 Po tymczasowym wyjęciu `PUT /screens/{id}` z transakcji w `src/Api/Screens/ScreenEndpoints.cs` (lokalnie, bez commitu) testy awarii zmiany listy i zmiany drzewa padają na migawce, a po przywróceniu przechodzą
+- [x] 3.4 Po tymczasowym usunięciu `ExecuteDeleteAsync` przypisań przy zmianie drzewa (lokalnie, bez commitu) test zmiany drzewa pada na osieroconych wierszach, a po przywróceniu przechodzi
 
 ### Phase 4: Dokumentacja i cookbook
 

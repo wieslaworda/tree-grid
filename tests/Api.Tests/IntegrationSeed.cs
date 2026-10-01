@@ -1,6 +1,7 @@
 using System.Text;
 using System.Text.Json;
 using Api.Data;
+using Api.Screens;
 using Api.Tree;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
@@ -164,6 +165,94 @@ internal static class IntegrationSeed
         }
     }
 
+    /// <summary>
+    /// Zakłada ekran konta na drzewie <paramref name="treeId"/> z listą
+    /// domyślną w podanej kolejności i — tak jak zapis nowego ekranu (FR-009) —
+    /// przypisuje tę listę każdemu bieżącemu węzłowi drzewa, z pozycjami
+    /// ciągłymi od 0. Stan jest wypisany ręcznie, a nie przez
+    /// <c>ScreenRules.Materialize</c>: seed nie może dziedziczyć błędu reguły,
+    /// którą testy mają złapać.
+    /// </summary>
+    public static async Task<int> SeedScreenAsync(
+        TestApiFactory factory,
+        string userId,
+        int treeId,
+        string name,
+        int grainMinutes,
+        IReadOnlyList<int> defaultCategoryIds)
+    {
+        await using (factory.CreateDbScope(out var db))
+        {
+            var nodeIds = await db.TreeNodes
+                .AsNoTracking()
+                .Where(node => node.TreeId == treeId)
+                .OrderBy(node => node.Id)
+                .Select(node => node.Id)
+                .ToListAsync();
+
+            var screen = new Screen
+            {
+                UserId = userId,
+                TreeId = treeId,
+                Name = name,
+                NormalizedName = ScreenRules.Normalize(name),
+                GrainMinutes = grainMinutes,
+                DefaultCategories =
+                [
+                    .. defaultCategoryIds.Select((categoryId, position) => new ScreenDefaultCategory
+                    {
+                        CategoryId = categoryId,
+                        Position = position,
+                    }),
+                ],
+                NodeCategories =
+                [
+                    .. nodeIds.SelectMany(nodeId => defaultCategoryIds.Select((categoryId, position) =>
+                        new ScreenNodeCategory
+                        {
+                            TreeNodeId = nodeId,
+                            CategoryId = categoryId,
+                            Position = position,
+                        })),
+                ],
+            };
+
+            db.Screens.Add(screen);
+            await db.SaveChangesAsync();
+
+            return screen.Id;
+        }
+    }
+
+    /// <summary>
+    /// Zastępuje kategorie jednego węzła w jednym ekranie listą w podanej
+    /// kolejności (pozycje od 0) — dopasowanie węzła (S-04, US-02) zapisane
+    /// wprost w tabeli, bez potoku HTTP.
+    /// </summary>
+    public static async Task SetNodeCategoriesAsync(
+        TestApiFactory factory,
+        int screenId,
+        int nodeId,
+        IReadOnlyList<int> categoryIds)
+    {
+        await using (factory.CreateDbScope(out var db))
+        {
+            await db.ScreenNodeCategories
+                .Where(row => row.ScreenId == screenId && row.TreeNodeId == nodeId)
+                .ExecuteDeleteAsync();
+
+            db.ScreenNodeCategories.AddRange(categoryIds.Select((categoryId, position) => new ScreenNodeCategory
+            {
+                ScreenId = screenId,
+                TreeNodeId = nodeId,
+                CategoryId = categoryId,
+                Position = position,
+            }));
+
+            await db.SaveChangesAsync();
+        }
+    }
+
     // --- Migawki ------------------------------------------------------------
 
     /// <summary>
@@ -247,6 +336,16 @@ internal static class IntegrationSeed
         }
     }
 
+    /// <summary>
+    /// Pełny stan jednego ekranu w bazie: nagłówek, lista domyślna
+    /// i przypisania — do porównań „stan po == stan przed".
+    /// </summary>
+    public static async Task<ScreenStateSnapshot> ReadScreenAsync(TestApiFactory factory, int screenId)
+        => new(
+            await ReadScreenHeaderAsync(factory, screenId),
+            await ReadDefaultCategoriesAsync(factory, screenId),
+            await ReadAssignmentsAsync(factory, screenId));
+
     // --- Koperta błędu ------------------------------------------------------
 
     /// <summary>
@@ -310,6 +409,34 @@ internal sealed record TreeStateSnapshot(string? Name, IReadOnlyList<NodeRow> No
     private bool PrintMembers(StringBuilder builder)
     {
         builder.Append($"Name = {Name}, Nodes = [{string.Join(", ", Nodes)}]");
+
+        return true;
+    }
+}
+
+/// <summary>
+/// Migawka ekranu: nagłówek (<c>null</c>, gdy ekranu nie ma), lista domyślna
+/// i przypisania. Równość porównuje listy element po elemencie — z tego samego
+/// powodu co w <see cref="TreeStateSnapshot"/>.
+/// </summary>
+internal sealed record ScreenStateSnapshot(
+    ScreenHeaderRow? Header,
+    IReadOnlyList<DefaultCategoryRow> Defaults,
+    IReadOnlyList<AssignmentRow> Assignments)
+{
+    public bool Equals(ScreenStateSnapshot? other)
+        => other is not null
+            && Header == other.Header
+            && Defaults.SequenceEqual(other.Defaults)
+            && Assignments.SequenceEqual(other.Assignments);
+
+    public override int GetHashCode() => HashCode.Combine(Header, Defaults.Count, Assignments.Count);
+
+    private bool PrintMembers(StringBuilder builder)
+    {
+        builder.Append(
+            $"Header = {Header}, Defaults = [{string.Join(", ", Defaults)}], " +
+            $"Assignments = [{string.Join(", ", Assignments)}]");
 
         return true;
     }
