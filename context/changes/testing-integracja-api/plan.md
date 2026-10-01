@@ -521,27 +521,27 @@ nie ubijaj procesów spoza sesji bez pytania.
 
 #### Automated
 
-- [x] 1.1 Build i dotychczasowe testy przechodzą: `dotnet test tests/Api.Tests`
-- [x] 1.2 Szpica przechodzi: `dotnet test tests/Api.Tests --filter "FullyQualifiedName~ApiHostIntegrationTests"`
-- [x] 1.3 Po przebiegu w `%TEMP%/treegrid-tests/` nie zostaje żaden plik `.db`, `.db-wal`, `.db-shm`
+- [x] 1.1 Build i dotychczasowe testy przechodzą: `dotnet test tests/Api.Tests` — b62ee10
+- [x] 1.2 Szpica przechodzi: `dotnet test tests/Api.Tests --filter "FullyQualifiedName~ApiHostIntegrationTests"` — b62ee10
+- [x] 1.3 Po przebiegu w `%TEMP%/treegrid-tests/` nie zostaje żaden plik `.db`, `.db-wal`, `.db-shm` — b62ee10
 
 #### Manual
 
-- [x] 1.4 Czas modyfikacji `src/Api/db/treegrid.db` (i `-wal`, jeśli istnieje) jest taki sam przed i po `dotnet test tests/Api.Tests`
-- [x] 1.5 W Progress odnotowano, czy `public partial class Program;` był potrzebny i czy `UseSetting` wystarczyło
+- [x] 1.4 Czas modyfikacji `src/Api/db/treegrid.db` (i `-wal`, jeśli istnieje) jest taki sam przed i po `dotnet test tests/Api.Tests` — b62ee10
+- [x] 1.5 W Progress odnotowano, czy `public partial class Program;` był potrzebny i czy `UseSetting` wystarczyło — b62ee10
 
 ### Phase 2: Ryzyko #1 — atomowość operacji na drzewie
 
 #### Automated
 
-- [ ] 2.1 Klasa przechodzi: `dotnet test tests/Api.Tests --filter "FullyQualifiedName~TreeIntegrationTests"`
-- [ ] 2.2 Pełny zestaw przechodzi: `dotnet test tests/Api.Tests`
-- [ ] 2.3 Trzy kolejne przebiegi `dotnet test tests/Api.Tests --filter "FullyQualifiedName~TreeIntegrationTests"` przechodzą bez zmian w kodzie (stabilność testu wyścigu)
+- [x] 2.1 Klasa przechodzi: `dotnet test tests/Api.Tests --filter "FullyQualifiedName~TreeIntegrationTests"`
+- [x] 2.2 Pełny zestaw przechodzi: `dotnet test tests/Api.Tests`
+- [x] 2.3 Trzy kolejne przebiegi `dotnet test tests/Api.Tests --filter "FullyQualifiedName~TreeIntegrationTests"` przechodzą bez zmian w kodzie (stabilność testu wyścigu)
 
 #### Manual
 
-- [ ] 2.4 Po tymczasowym wyłączeniu odmowy zapętlenia w `src/Api/Tree/TreeRules.cs` (lokalnie, bez commitu) testy `tree_cycle` padają na asercji migawki, a po przywróceniu kodu przechodzą
-- [ ] 2.5 Po tymczasowej zmianie warunku limitu z `>=` na `>` (lokalnie, bez commitu) test granicy limitu pada, a po przywróceniu przechodzi
+- [x] 2.4 Po tymczasowym wyłączeniu odmowy zapętlenia w `src/Api/Tree/TreeRules.cs` (lokalnie, bez commitu) testy `tree_cycle` padają na asercji migawki, a po przywróceniu kodu przechodzą
+- [x] 2.5 Po tymczasowej zmianie warunku limitu z `>=` na `>` (lokalnie, bez commitu) test granicy limitu pada, a po przywróceniu przechodzi
 
 ### Phase 3: Ryzyko #2 — kaskady ekranu i awaria zapisu
 
