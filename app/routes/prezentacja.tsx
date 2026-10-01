@@ -470,6 +470,7 @@ function GridDoby({
           wezly={wezly}
           tekstPusty={TEKST_PUSTY}
           kolumnyCzasowe={kolumnyCzasowe}
+          tylkoNazwaKategorii
         />
 
         <div className="flex items-center gap-tg-element">

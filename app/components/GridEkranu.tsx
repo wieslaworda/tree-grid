@@ -8,6 +8,7 @@ import {
   kluczSerii,
   wierszeTabeli,
 } from "~/lib/ekran";
+import { useSzerokoscTekstu } from "~/lib/useSzerokoscTekstu";
 import { useWysokoscTresci } from "~/lib/useWysokoscTresci";
 import { METRYKI } from "~/theme/tokeny";
 
@@ -64,6 +65,13 @@ type Wlasciwosci = {
    * zmianie tablicy tekstów jego serii, więc rodzic trzyma wszystko stabilne.
    */
   kolumnyCzasowe?: KolumnyCzasowe;
+  /**
+   * Kolumna „Kategoria” pokazuje samą nazwę kategorii (bez kodu), a jej
+   * szerokość dopasowuje się do najdłuższej nazwy w drzewie
+   * (`useSzerokoscTekstu`) — widok „Prezentacja ekranu”. Bez tej flagi
+   * kolumna ma „KOD — Nazwa” i stałą `METRYKI.szerokoscKolumnyKategorii`.
+   */
+  tylkoNazwaKategorii?: boolean;
 };
 
 /**
@@ -160,18 +168,49 @@ function wlasciwosciNaglowka() {
   return WLASCIWOSCI_NAGLOWKA;
 }
 
+/** Tytuł kolumny kategorii — także tekst mierzony przy jej dopasowaniu. */
+const TYTUL_KATEGORII = "Kategoria";
+
+/**
+ * Dodatek do zmierzonej szerokości tekstu kolumny „Kategoria”: odstęp komórki
+ * z obu stron i pionowa linia `.tg-granica-kolumny`, która przy
+ * `box-sizing: border-box` zabiera miejsce treści.
+ */
+const OPRAWA_KOMORKI = 2 * METRYKI.odstepKomorkiGridu + METRYKI.lineWidth;
+
 /**
  * Szerokość dwóch kolumn przypiętych — tabela wirtualna przyjmuje jako
  * `scroll.x` wyłącznie liczbę (`@rc-component/table`,
- * `VirtualTable/index.js`). Czyta te same metryki co kolumny, a pełna
- * szerokość treści dokłada do niej szerokość kolumny danych (`liczba punktów
- * × METRYKI.szerokoscKolumnyCzasowej`). Suma musi się zgadzać co do piksela:
- * gdy `scroll.x` przekracza sumę `width` kolumn, tabela rozciąga
- * proporcjonalnie **wszystkie** kolumny, także przypięte
+ * `VirtualTable/index.js`). Liczona z tych samych szerokości co kolumny,
+ * a pełna szerokość treści dokłada do niej szerokość kolumny danych
+ * (`liczba punktów × METRYKI.szerokoscKolumnyCzasowej`). Suma musi się
+ * zgadzać co do piksela: gdy `scroll.x` przekracza sumę `width` kolumn,
+ * tabela rozciąga proporcjonalnie **wszystkie** kolumny, także przypięte
  * (`hooks/useColumns/useWidthColumns.js`).
  */
-const SZEROKOSC_PRZYPIETYCH =
-  METRYKI.szerokoscKolumnyWezla + METRYKI.szerokoscKolumnyKategorii;
+function szerokoscPrzypietych(szerokoscKategorii: number) {
+  return METRYKI.szerokoscKolumnyWezla + szerokoscKategorii;
+}
+
+/**
+ * Nazwy wszystkich kategorii drzewa, bez powtórzeń — także w gałęziach
+ * zwiniętych, żeby zwinięcie nie zmieniało szerokości kolumny.
+ */
+function nazwyKategorii(wezly: readonly WezelGridu[]): string[] {
+  const nazwy = new Set<string>();
+
+  const zbierz = (wezel: WezelGridu) => {
+    for (const kategoria of wezel.kategorie) {
+      nazwy.add(kategoria.name);
+    }
+
+    wezel.dzieci.forEach(zbierz);
+  };
+
+  wezly.forEach(zbierz);
+
+  return [...nazwy];
+}
 
 /**
  * Wysokość ciała do pierwszego pomiaru kontenera (render serwerowy, przed
@@ -271,6 +310,7 @@ export function GridEkranu({
   wybranyWezelId = null,
   onWybierzWezel,
   kolumnyCzasowe,
+  tylkoNazwaKategorii = false,
 }: Wlasciwosci) {
   const punkty = kolumnyCzasowe?.punkty;
   const wartosci = kolumnyCzasowe?.wartosci;
@@ -278,6 +318,19 @@ export function GridEkranu({
   const zKolumnamiCzasowymi = liczbaPunktow > 0;
   const kontener = useRef<HTMLDivElement>(null);
   const wysokoscTresci = useWysokoscTresci(kontener);
+
+  // Szerokość „Kategorii” dopasowana do najdłuższej nazwy — tylko przy
+  // samych nazwach. Do pomiaru (i bez `tylkoNazwaKategorii`) zostaje
+  // metryka, więc render serwerowy i hydracja mają tę samą szerokość.
+  const mierzoneNazwy = useMemo(
+    () => (tylkoNazwaKategorii ? nazwyKategorii(wezly) : null),
+    [tylkoNazwaKategorii, wezly],
+  );
+  const szerokoscNazw = useSzerokoscTekstu(mierzoneNazwy, TYTUL_KATEGORII);
+  const szerokoscKategorii =
+    szerokoscNazw === undefined
+      ? METRYKI.szerokoscKolumnyKategorii
+      : szerokoscNazw + OPRAWA_KOMORKI;
   const [zwiniete, ustawZwiniete] = useState<ReadonlySet<string>>(
     () => new Set(zwinietePoczatkowo),
   );
@@ -316,9 +369,10 @@ export function GridEkranu({
     [wybranyWezelId, onWybierzWezel],
   );
 
-  // Kolumny przypięte zależą od `przelacz` (stały), od wyboru węzła i od
-  // tego, czy za nimi stoją kolumny czasowe, więc powstają od nowa wyłącznie
-  // przy zmianie wyboru — antd porównuje kolumny po referencji.
+  // Kolumny przypięte zależą od `przelacz` (stały), od wyboru węzła, od
+  // tego, czy za nimi stoją kolumny czasowe, i od szerokości „Kategorii”,
+  // więc powstają od nowa wyłącznie przy zmianie wyboru albo po pomiarze
+  // nazw — antd porównuje kolumny po referencji.
   //
   // Obie z przycięciem tekstu: tekst zawinięty do drugiej linii zmieniłby
   // wysokość wiersza, a tabela wirtualna liczy przewijanie z wysokości
@@ -348,18 +402,20 @@ export function GridEkranu({
         ),
       },
       {
-        title: "Kategoria",
+        title: TYTUL_KATEGORII,
         onHeaderCell: wlasciwosciNaglowka,
         key: "kategoria",
         className: zKolumnamiCzasowymi ? KLASA_KOLUMNY_Z_GRANICA : KLASA_KOMORKI,
         fixed: "left",
-        width: METRYKI.szerokoscKolumnyKategorii,
+        width: szerokoscKategorii,
         ellipsis: true,
         onCell: wlasciwosciKomorki,
         render: (_, wiersz) =>
           wiersz.kategoria === null
             ? null
-            : `${wiersz.kategoria.code} — ${wiersz.kategoria.name}`,
+            : tylkoNazwaKategorii
+              ? wiersz.kategoria.name
+              : `${wiersz.kategoria.code} — ${wiersz.kategoria.name}`,
       },
     ],
     [
@@ -368,6 +424,8 @@ export function GridEkranu({
       onWybierzWezel,
       wybranyWezelId,
       zKolumnamiCzasowymi,
+      szerokoscKategorii,
+      tylkoNazwaKategorii,
     ],
   );
 
@@ -416,11 +474,11 @@ export function GridEkranu({
   const przewijanie = useMemo(
     () => ({
       x:
-        SZEROKOSC_PRZYPIETYCH +
+        szerokoscPrzypietych(szerokoscKategorii) +
         liczbaPunktow * METRYKI.szerokoscKolumnyCzasowej,
       y: wysokoscTresci ?? WYSOKOSC_PRZED_POMIAREM,
     }),
-    [wysokoscTresci, liczbaPunktow],
+    [wysokoscTresci, liczbaPunktow, szerokoscKategorii],
   );
 
   const tekstyTabeli = useMemo(

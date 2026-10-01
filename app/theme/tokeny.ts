@@ -242,7 +242,9 @@ export const METRYKI: Metryki = {
   // w `GridEkranu.tsx`.
   szerokoscKolumnyWezla: 320,
   // Szerokość przypiętej kolumny „Kategoria” („KOD — Nazwa” kategorii) —
-  // `width` kolumny i składnik `scroll.x` w `GridEkranu.tsx`.
+  // `width` kolumny i składnik `scroll.x` w `GridEkranu.tsx`. W „Prezentacji
+  // ekranu” kolumna ma samą nazwę i szerokość mierzoną z najdłuższej nazwy
+  // (`tylkoNazwaKategorii`); ta liczba jest tam tylko wartością do pomiaru.
   szerokoscKolumnyKategorii: 200,
   // Szerokość jednej kolumny czasowej (`S-05`) za przypiętymi — `width`
   // kolumny i składnik `scroll.x` (`liczba punktów × ta wartość`)
