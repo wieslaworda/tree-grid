@@ -13,8 +13,9 @@ namespace Api.Tests;
 ///
 /// Wzorem <see cref="ObjectRulesTests"/> testy nie podnoszą hosta ani bazy.
 /// Reguły są czystymi funkcjami (<see cref="TreeRules"/>) właśnie po to, żeby
-/// dało się je sprawdzić na danych w pamięci; transakcja, klucze obce, odczyt
-/// nagłówka i pełna ścieżka HTTP mają weryfikację ręczną.
+/// dało się je sprawdzić na danych w pamięci. Transakcję i pełną ścieżkę HTTP
+/// operacji na węzłach przypina <see cref="TreeIntegrationTests"/>, a klucze
+/// obce i odczyt nagłówka tożsamości — <see cref="ApiHostIntegrationTests"/>.
 /// </summary>
 public class TreeRulesTests
 {

@@ -108,14 +108,121 @@ odpowiednia faza rolloutu zostanie wdrożona.
 
 ### 6.1 Test reguły domenowej (.NET, unit)
 
-- **Location**: `tests/Api.Tests/`, plik `<Obszar>RulesTests.cs`.
+- **Location**: `tests/Api.Tests/`, plik `<Obszar>RulesTests.cs`; płaski folder,
+  namespace `Api.Tests`.
 - **Reference test**: `tests/Api.Tests/TreeRulesTests.cs`.
 - **Run locally**: `dotnet test tests/Api.Tests --filter "FullyQualifiedName~TreeRulesTests"`.
-- Wzorzec pełny (nazewnictwo, wyrocznia z PRD) — TBD, see §3 Phase 1.
+- **Zakres**: czyste funkcje z `src/Api/<Obszar>/*Rules.cs` i kształt kopert
+  odmów, na danych w pamięci — bez hosta i bazy. Transakcja, kaskada albo
+  zachowanie endpointu to już §6.2.
+- **Nazewnictwo** (także §6.2): nazwa metody to angielskie zdanie
+  o zachowaniu, słowa rozdzielone `_` (`Tree_at_the_limit_accepts_no_more_nodes`),
+  nie nazwa testowanej funkcji. Klasa ma polski komentarz XML: co przypina,
+  skąd wyrocznia, co jest asercją. Komentarz w Arrange rysuje stan wyjściowy
+  (`// A → B → C oraz D obok`). Pomocnicy prywatni na dole klasy, za
+  `// --- Pomocnicze ---`.
+- **Wyrocznia z PRD/planu, nie z kodu** (także §6.2): oczekiwana wartość jest
+  wpisana w teście, a jej źródło nazwane w komentarzu (`prd.md` FR-xxx,
+  `context/changes/<id>/plan.md`). Nie licz oczekiwanego wyniku funkcją pod
+  testem ani sąsiednią regułą (`TreeRules`, `ScreenRules.Materialize`) i nie
+  kopiuj progu biznesowego ze stałej w kodzie — wzór: `NodeLimit = 2000`
+  w `TreeIntegrationTests` z odwołaniem do `budowa-drzewa/plan.md`, celowo nie
+  `TreeNode.MaxNodesPerTree` (test jednostkowy porównania może podać stałą;
+  wartość progu przypina test integracyjny). Nazwy kontraktu (`ApiErrorCodes.*`,
+  klucze `context`, pola żądań) bierz ze stałych — to nazwy, nie wyrocznia;
+  ich literały przypina osobny test (`Request_field_names_match_the_react_router_client`).
 
 ### 6.2 Test integracyjny endpointu API
 
-- TBD — see §3 Phase 1: wzorzec „odrzucona operacja nie zmienia stanu" i „kaskada ekranu po usunięciu węzła/kategorii".
+- **Location**: `tests/Api.Tests/`, plik `<Obszar>IntegrationTests.cs`. Sufiks
+  `IntegrationTests` jest nośny — wybiera go filtr poniżej.
+- **Reference tests** (`tests/Api.Tests/`): `TreeIntegrationTests.cs` (drzewo),
+  `ScreenIntegrationTests.cs` (kaskady ekranu),
+  `ScreenWriteFailureIntegrationTests.cs` (awaria zapisu),
+  `ApiHostIntegrationTests.cs` (szpica hosta).
+- **Run locally**:
+  - `dotnet test tests/Api.Tests --filter "FullyQualifiedName~IntegrationTests"` — wszystkie klasy integracyjne;
+  - `dotnet test tests/Api.Tests --filter "FullyQualifiedName~TreeIntegrationTests"` — jedna klasa;
+  - `dotnet test tests/Api.Tests` — cały zestaw, rząd sekund. Działające
+    `Api.exe` blokuje build (`MSB3021`/`MSB3027`) — patrz `CLAUDE.md`.
+
+**Przepis:**
+
+1. **Host.** `public class <Obszar>IntegrationTests(TestApiFactory factory) : IClassFixture<TestApiFactory>`.
+   `TestApiFactory` daje każdej klasie własny host w środowisku `Testing`
+   i własny, zmigrowany plik SQLite w `%TEMP%/treegrid-tests/`, z sekretami
+   losowanymi w pamięci na przebieg; po klasie plik znika, baza deweloperska
+   `src/Api/db/treegrid.db` nie jest dotykana. Klasy biegną równolegle, testy
+   w klasie — po kolei na wspólnym pliku. Ścieżka bazy jedzie przez
+   `UseSetting`, nigdy przez zmienną środowiskową (wspólna dla procesu). Gdy
+   ruszasz fabrykę, najpierw uruchom szpicę `ApiHostIntegrationTests` (plik
+   tymczasowy, `PRAGMA foreign_keys = 1`, 401/200 nagłówka tożsamości).
+2. **Arrange przez `IntegrationSeed`, nie przez HTTP.** `CreateAccountAsync` →
+   `TestAccount(Id, Client)`, klient z nagłówkiem tożsamości; `NewPrefix()`
+   + `SeedObjectsAsync` / `SeedCategoriesAsync` — słowniki są wspólne dla kont,
+   więc każdy test ma własny prefiks i zawęża asercje do własnych
+   identyfikatorów; `SeedTreeAsync`, `SeedNodesAsync` (jednym `SaveChanges`,
+   także 2000 węzłów), `SeedScreenAsync`, `SetNodeCategoriesAsync`. Seed omija
+   reguły — stan wyjściowy ma być stanem, który API mogłoby przyjąć. Zbierz
+   seed w prywatnym `ArrangeAsync` klasy, jak w klasach wzorcowych.
+3. **Act** — jedno żądanie pod testem, klientem konta (`account.Client`).
+4. **Assert dwutorowo.** (a) Status i koperta: `IntegrationSeed.ReadErrorAsync`
+   sprawdza kształt `{ error: { code, message, context } }`, kod porównuj ze
+   stałą `ApiErrorCodes.*`. (b) **Stan bazy** z migawek `ReadTreeAsync`,
+   `ReadScreenAsync` (nagłówek + lista domyślna + przypisania),
+   `ReadAssignmentsAsync`, `ReadDefaultCategoriesAsync` — każda nowym scope,
+   `AsNoTracking`. Migawki porównują listy element po elemencie, więc
+   `Assert.Equal(before, after)` działa i drukuje różnicę. Własny odczyt
+   tabeli: `factory.CreateDbScope(out var db)` + `AsNoTracking`.
+
+**Trzy wzorce:**
+
+- **Odrzucona operacja nie zmienia stanu** — `TreeIntegrationTests`, np.
+  `Adding_an_object_under_its_own_deeper_occurrence_is_refused_as_a_cycle_and_leaves_the_tree_unchanged`:
+  migawka przed → żądanie → status + `error.code` → `Assert.Equal(before, after)`.
+  Sam 4xx niczego nie dowodzi — endpoint mógł zapisać część zmiany i dopiero
+  potem odmówić. Gdy operacja dotyka dwóch zasobów, migawka obu
+  (`Moving_a_node_under_a_parent_from_another_own_tree_is_refused_and_leaves_both_trees_unchanged`).
+  Operację przyjętą porównuj z ręcznie wypisanym stanem oczekiwanym
+  (`Accepted_subtree_move_lands_whole_under_the_new_parent_with_contiguous_sibling_positions`),
+  nie z `GET`. Z `context` odmowy sprawdzaj tylko to, co wynika z wymagania
+  (ścieżka zawiera kod zapętlonego obiektu), nie postać zapisu.
+- **Kaskada przez bezpośredni odczyt tabeli** — `ScreenIntegrationTests`, np.
+  `Deleting_a_node_removes_its_subtree_assignments_in_every_screen_and_keeps_the_other_occurrence_of_the_object`:
+  `GET /screens/{id}` wypisuje przypisania wyłącznie bieżących węzłów, więc
+  osierocone wiersze (brak kaskady) są przez niego niewidoczne. Czytaj tabelę
+  wprost, po węzłach we **wszystkich** ekranach (`ReadAssignmentsOfNodesAsync`),
+  i sprawdzaj obie strony: wiersze usuniętego zniknęły, pozostałe są takie jak
+  przed. Porównuj kolejność (`AssignmentOrder`, `DefaultOrder`), nie surowe
+  `Position` — kaskada zostawia luki. `GET` jest wyrocznią tylko tam, gdzie
+  zachowaniem jest sam odczyt (`Saved_screen_reads_back_the_adjusted_node_in_its_order_and_the_defaults_on_other_nodes`).
+- **Wstrzyknięta awaria zapisu** — `ScreenWriteFailureIntegrationTests`:
+  fabryka pochodna `FailingSaveChangesApiFactory : TestApiFactory` nadpisuje
+  `ConfigureAppDbContext` i dokłada jednorazowo uzbrajany
+  `SaveChangesInterceptor`; opcje z `Program.cs` (plik,
+  `SqliteBusyTimeoutInterceptor`) zostają. Seed przed `Arm()` (interceptor
+  obejmuje każdy kontekst hosta), `Disarm()` w `finally`. Asercje: interceptor
+  odpalił dokładnie raz, 500 `internal_error` z `context.requestId`, brak
+  treści wyjątku w odpowiedzi, migawka po == przed. Do pary kontrola sensu:
+  ten sam zapis bez uzbrojenia zmienia stan
+  (`Same_write_without_injected_failure_succeeds_and_changes_the_screen`).
+  Stosuj tam, gdzie coś trafia do bazy przed `SaveChanges` (np.
+  `ExecuteDelete`); endpoint z jednym `SaveChanges` tuż przed `Commit`
+  testowałby głównie EF.
+
+**Współbieżność** — wzór `Parallel_adds_to_a_tree_one_below_the_limit_admit_exactly_one_node`:
+równoległe żądania przez `Task.WhenAll`, asercja na dokładnej liczbie przyjęć
+i na stanie bazy, bez ponowień. 500 (`SQLITE_BUSY`) albo przekroczony limit to
+znalezisko o kodzie produkcyjnym, nie niestabilność testu.
+
+**Dowód, że test coś łapie** — przed commitem zepsuj lokalnie chroniony kod
+(wyłącz regułę zapętlenia, zmień `>=` na `>` w limicie, wyjmij zapis ekranu
+z transakcji): test ma paść na asercji stanu. Potem przywróć
+(`git diff --stat src/` pusty).
+
+**Nie rób:** providera EF InMemory (nie egzekwuje FK), seedu przez
+`ScreenRules.Materialize` (seed odziedziczyłby błąd reguły), asercji
+wyłącznie na statusie, danych współdzielonych między testami.
 
 ### 6.3 Test izolacji kont i blokady logowania
 

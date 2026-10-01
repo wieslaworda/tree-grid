@@ -67,6 +67,7 @@ npm run typecheck  # react-router typegen && tsc
 dotnet build TreeGrid.sln
 dotnet test tests/Api.Tests                                         # xUnit
 dotnet test tests/Api.Tests --filter "FullyQualifiedName~TreeRulesTests"   # jedna klasa
+dotnet test tests/Api.Tests --filter "FullyQualifiedName~IntegrationTests" # tylko testy integracyjne (host + SQLite)
 dotnet tool restore                                                  # dotnet-ef z .config/
 dotnet ef migrations add <Nazwa> --project src/Api
 dotnet ef database update --project src/Api
@@ -77,9 +78,12 @@ dotnet ef database update --project src/Api
 
 Automatyczna weryfikacja to `npm run typecheck` i `dotnet test`. Testy .NET
 pokrywają **reguły domenowe i kształt kontraktu błędów** (`*RulesTests`,
-`*ErrorContractTests`) — nie podnoszą hosta ani potoku HTTP, a frontend nie ma
-żadnych testów. Lintera i CI nie ma. Przejście obu komend nie znaczy, że
-zmiana w widoku albo w potoku HTTP działa.
+`*ErrorContractTests`) oraz **potok HTTP drzew i ekranów na prawdziwym SQLite**
+(`*IntegrationTests`: host z `TestApiFactory`, własny plik bazy tymczasowy na
+klasę, baza deweloperska nietknięta) — bez widoku i bez izolacji kont. Frontend
+nie ma żadnych testów. Lintera i CI nie ma. Przejście obu komend nie znaczy, że
+działa zmiana w widoku albo w endpointach spoza drzew i ekranów. Jak dodać
+kolejny test integracyjny — `context/foundation/test-plan.md` §6.2.
 
 Działające API trzyma `src/Api/bin/Debug/net10.0/Api.exe`, więc `dotnet build`
 i `dotnet test` kończą się `MSB3021`/`MSB3027` („file is locked by Api"),
@@ -278,8 +282,11 @@ Nie traktuj ich jako błędów do naprawienia przy okazji — to zaległa praca:
 - Brak testów frontendu i testów procesowych (E2E). Pierwszy test Playwright
   jest zaplanowany w `context/changes/testy-procesowe-playwright/`, a runner
   testów stoi w roadmapie w sekcji *Parked* — nie rozbudowuj zestawu na zapas.
-- Testy .NET nie podnoszą hosta (`WebApplicationFactory`), więc potok HTTP
-  i endpointy są weryfikowane ręcznie.
+- Testy integracyjne API (`*IntegrationTests`) pokrywają wyłącznie drzewa
+  i ekrany. Uwierzytelnianie (logowanie, rejestracja, blokada konta), izolacja
+  kont (IDOR) oraz endpointy kategorii i obiektów poza kaskadami ekranu są
+  nadal weryfikowane ręcznie; dwa pierwsze to Faza 2 rolloutu
+  (`context/foundation/test-plan.md` §3).
 - Brak lintera i pipeline'u CI.
 <!-- BEGIN @przeprogramowani/10x-cli -->
 

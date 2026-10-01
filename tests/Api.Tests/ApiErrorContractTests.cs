@@ -10,7 +10,11 @@ namespace Api.Tests;
 /// Sprawdzany jest kształt po serializacji, a nie właściwości typu w C# —
 /// kontraktem jest JSON, który widzi klient, a nie nazwy pól w kodzie. Test
 /// celowo nie podnosi hosta (`WebApplicationFactory`): pilnuje kształtu, a nie
-/// potoku HTTP, a ten drugi weryfikowany jest ręcznie w ramach fazy.
+/// potoku HTTP. Kopertę z prawdziwego potoku — 401 bez tożsamości, odmowy
+/// drzewa i ekranu, 500 z <c>context.requestId</c> — sprawdzają klasy
+/// integracyjne (m.in. <see cref="ApiHostIntegrationTests"/>,
+/// <see cref="ScreenWriteFailureIntegrationTests"/>) przez
+/// <c>IntegrationSeed.ReadErrorAsync</c>.
 /// </summary>
 public class ApiErrorContractTests
 {

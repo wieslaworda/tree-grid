@@ -547,23 +547,23 @@ nie ubijaj procesów spoza sesji bez pytania.
 
 #### Automated
 
-- [x] 3.1 Klasy przechodzą: `dotnet test tests/Api.Tests --filter "FullyQualifiedName~ScreenIntegrationTests|FullyQualifiedName~ScreenWriteFailureIntegrationTests"`
-- [x] 3.2 Pełny zestaw przechodzi: `dotnet test tests/Api.Tests`
+- [x] 3.1 Klasy przechodzą: `dotnet test tests/Api.Tests --filter "FullyQualifiedName~ScreenIntegrationTests|FullyQualifiedName~ScreenWriteFailureIntegrationTests"` — 53186ab
+- [x] 3.2 Pełny zestaw przechodzi: `dotnet test tests/Api.Tests` — 53186ab
 
 #### Manual
 
-- [x] 3.3 Po tymczasowym wyjęciu `PUT /screens/{id}` z transakcji w `src/Api/Screens/ScreenEndpoints.cs` (lokalnie, bez commitu) testy awarii zmiany listy i zmiany drzewa padają na migawce, a po przywróceniu przechodzą
-- [x] 3.4 Po tymczasowym usunięciu `ExecuteDeleteAsync` przypisań przy zmianie drzewa (lokalnie, bez commitu) test zmiany drzewa pada na osieroconych wierszach, a po przywróceniu przechodzi
+- [x] 3.3 Po tymczasowym wyjęciu `PUT /screens/{id}` z transakcji w `src/Api/Screens/ScreenEndpoints.cs` (lokalnie, bez commitu) testy awarii zmiany listy i zmiany drzewa padają na migawce, a po przywróceniu przechodzą — 53186ab
+- [x] 3.4 Po tymczasowym usunięciu `ExecuteDeleteAsync` przypisań przy zmianie drzewa (lokalnie, bez commitu) test zmiany drzewa pada na osieroconych wierszach, a po przywróceniu przechodzi — 53186ab
 
 ### Phase 4: Dokumentacja i cookbook
 
 #### Automated
 
-- [ ] 4.1 `grep -n "IntegrationTests" CLAUDE.md` zwraca wpis w bloku komend
-- [ ] 4.2 `grep -n "nie podnoszą hosta" CLAUDE.md` nic nie zwraca
-- [ ] 4.3 `grep -nE "TBD.{0,3}see §3 Phase 1" context/foundation/test-plan.md` nic nie zwraca
-- [ ] 4.4 Pełny zestaw nadal przechodzi: `dotnet test tests/Api.Tests`
+- [x] 4.1 `grep -n "IntegrationTests" CLAUDE.md` zwraca wpis w bloku komend
+- [x] 4.2 `grep -n "nie podnoszą hosta" CLAUDE.md` nic nie zwraca
+- [x] 4.3 `grep -nE "TBD.{0,3}see §3 Phase 1" context/foundation/test-plan.md` nic nie zwraca
+- [x] 4.4 Pełny zestaw nadal przechodzi: `dotnet test tests/Api.Tests`
 
 #### Manual
 
-- [ ] 4.5 §6.2 test-planu czyta się jako instrukcja: nowa osoba wie, gdzie dodać test, jak zaseedować dane, co asertować i jak go uruchomić
+- [x] 4.5 §6.2 test-planu czyta się jako instrukcja: nowa osoba wie, gdzie dodać test, jak zaseedować dane, co asertować i jak go uruchomić
