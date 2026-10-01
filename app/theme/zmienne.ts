@@ -69,6 +69,7 @@ function blokWspolny(): string {
     // komórkami antd, więc szerokość i odstęp kolumny czasowej czytają z CSS.
     `  --tg-szerokoscKolumnyCzasowej: ${px(METRYKI.szerokoscKolumnyCzasowej)};`,
     `  --tg-odstepKomorkiGridu: ${px(METRYKI.odstepKomorkiGridu)};`,
+    `  --tg-gruboscSuwakaPrzewijania: ${px(METRYKI.gruboscSuwakaPrzewijania)};`,
     `  --tg-rozmiarPrzelacznika: ${px(METRYKI.rozmiarPrzelacznika)};`,
     `  --tg-promienPolaWyboru: ${px(METRYKI.promienPolaWyboru)};`,
     `  --tg-szerokoscPaneluKategoriiWezla: ${px(METRYKI.szerokoscPaneluKategoriiWezla)};`,

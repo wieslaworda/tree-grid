@@ -203,6 +203,35 @@ html {
     white-space: nowrap;
   }
 
+  /* Paski przewijania gridu ekranu (`className` tabeli w `GridEkranu.tsx`).
+     Tabela wirtualna nie ma natywnych pasków — rysuje je
+     `@rc-component/virtual-list` (`ScrollBar.js`) jako `div` ze stylem
+     inline: grubość 8 px, kciuk w zmiennej `--rc-virtual-list-scrollbar-bg`,
+     którą antd ustawia na `colorSplit`, i chowanie po chwili bezczynności.
+     Na tle drzewa ginęły.
+
+     Kolor kciuka ustawia `GridEkranu.tsx` stylem inline tabeli — to
+     `colorPrimary` antd, ten sam token co aktywna pozycja menu głównego
+     (`itemSelectedColor`), czyli kolor **przeliczony** z ziarna `akcent`, a
+     nie sam heks (kontrakt 4 w `CLAUDE.md`). Grubość i widoczność stoją
+     w stylu inline paska, więc tylko `!important` je przebija — to jedyne
+     miejsce, gdzie ta klasa sięga do klas antd, i robi to po klasach
+     z prefiksem (`ant-table-tbody-virtual-scrollbar-*`), nie po
+     hashowanych. Pasek renderuje się tylko, gdy treść się nie mieści, więc
+     stała widoczność nie pokaże pustego paska. Grubość
+     `METRYKI.gruboscSuwakaPrzewijania`. */
+  .tg-grid-ekranu .ant-table-tbody-virtual-scrollbar {
+    visibility: visible !important;
+  }
+
+  .tg-grid-ekranu .ant-table-tbody-virtual-scrollbar-horizontal {
+    height: var(--tg-gruboscSuwakaPrzewijania) !important;
+  }
+
+  .tg-grid-ekranu .ant-table-tbody-virtual-scrollbar-vertical {
+    width: var(--tg-gruboscSuwakaPrzewijania) !important;
+  }
+
   /* Krótki separator między etykietami punktów w nagłówku — ten sam, który
      antd rysuje `::before` między komórkami nagłówka (`1.6em`, wyśrodkowany),
      w kolorze `.tg-komorka-gridu::before`. Etykiety nie są komórkami antd,

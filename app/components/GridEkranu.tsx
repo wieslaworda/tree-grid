@@ -1,5 +1,12 @@
-import { Empty, Table, type TableColumnsType } from "antd";
-import { memo, useCallback, useMemo, useRef, useState } from "react";
+import { Empty, Table, type TableColumnsType, theme } from "antd";
+import {
+  type CSSProperties,
+  memo,
+  useCallback,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 
 import { ObszarPrzewijania } from "~/components/ObszarPrzewijania";
 import {
@@ -481,6 +488,21 @@ export function GridEkranu({
     [wysokoscTresci, liczbaPunktow, szerokoscKategorii],
   );
 
+  // Kciuk pasków przewijania w kolorze aktywnej pozycji menu głównego:
+  // `colorPrimary` przeliczony przez algorytm antd z ziarna `akcent` (menu
+  // bierze go jako `itemSelectedColor`), a nie heks z palety — ten sam heks
+  // dałby inny odcień niż menu (kontrakt 4 w `CLAUDE.md`). Zmienną czyta
+  // styl inline paska listy wirtualnej; grubość i widoczność — `app/app.css`
+  // (`.tg-grid-ekranu`).
+  const { token } = theme.useToken();
+  const stylTabeli = useMemo(
+    () =>
+      ({
+        "--rc-virtual-list-scrollbar-bg": token.colorPrimary,
+      }) as CSSProperties,
+    [token.colorPrimary],
+  );
+
   const tekstyTabeli = useMemo(
     () => ({
       emptyText: (
@@ -492,7 +514,11 @@ export function GridEkranu({
 
   return (
     <ObszarPrzewijania ref={kontener} przycinanie>
+      {/* `tg-grid-ekranu` — grubsze i widoczne paski przewijania listy
+          wirtualnej (`app/app.css`); ich kolor niesie `stylTabeli`. */}
       <Table<WierszTabeli>
+        className="tg-grid-ekranu"
+        style={stylTabeli}
         virtual
         size="small"
         rowKey="key"

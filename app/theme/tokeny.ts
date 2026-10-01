@@ -127,6 +127,7 @@ type Metryki = {
   szerokoscKolumnyCzasowej: number;
   odstepKomorkiGridu: number;
   gruboscLiniiSekcji: number;
+  gruboscSuwakaPrzewijania: number;
   rozmiarPrzelacznika: number;
   szerokoscPaneluKategoriiWezla: number;
   fontFamily: string;
@@ -268,6 +269,11 @@ export const METRYKI: Metryki = {
   // wciętym (`.tg-granica-sekcji` w `app/app.css`), a nie obramowaniem, więc
   // nie dokłada wysokości do 24-pikselowego wiersza.
   gruboscLiniiSekcji: 2,
+  // Grubość pasków przewijania gridu ekranu (`.tg-grid-ekranu` w
+  // `app/app.css`) — poziomego i pionowego. Domyślne 8 px tabeli wirtualnej
+  // ginęło na tle drzewa. Pasek leży **na** treści, nie obok niej, więc
+  // grubszy zasłania więcej ostatniego wiersza i ostatniej kolumny.
+  gruboscSuwakaPrzewijania: 12,
   // Bok kwadratowego przełącznika +/− węzła w gridzie (`.tg-przelacznik`
   // w `app/app.css`), z ramką. Nieparzysty celowo: przy ramce 1 px zostaje
   // nieparzyste wnętrze, więc 1-pikselowe kreski „+” i „−” stoją dokładnie
