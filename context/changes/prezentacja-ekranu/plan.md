@@ -330,10 +330,10 @@ Brak zmian schematu bazy — wartości nie są przechowywane.
 
 #### Automated
 
-- [x] 1.1 Rozwiązanie buduje się (API zatrzymane): `dotnet build TreeGrid.sln`
-- [x] 1.2 Testy reguł przechodzą: `dotnet test tests/Api.Tests --filter "FullyQualifiedName~ScreenValuesRulesTests"`
-- [x] 1.3 Testy integracyjne przechodzą: `dotnet test tests/Api.Tests --filter "FullyQualifiedName~ScreenValuesIntegrationTests"`
-- [x] 1.4 Cały zestaw testów przechodzi: `dotnet test tests/Api.Tests`
+- [x] 1.1 Rozwiązanie buduje się (API zatrzymane): `dotnet build TreeGrid.sln` — 330a6e3
+- [x] 1.2 Testy reguł przechodzą: `dotnet test tests/Api.Tests --filter "FullyQualifiedName~ScreenValuesRulesTests"` — 330a6e3
+- [x] 1.3 Testy integracyjne przechodzą: `dotnet test tests/Api.Tests --filter "FullyQualifiedName~ScreenValuesIntegrationTests"` — 330a6e3
+- [x] 1.4 Cały zestaw testów przechodzi: `dotnet test tests/Api.Tests` — 330a6e3
 
 #### Manual
 
@@ -344,8 +344,8 @@ Brak zmian schematu bazy — wartości nie są przechowywane.
 
 #### Automated
 
-- [ ] 2.1 Typy przechodzą: `npm run typecheck`
-- [ ] 2.2 Build produkcyjny przechodzi: `npm run build`
+- [x] 2.1 Typy przechodzą: `npm run typecheck`
+- [x] 2.2 Build produkcyjny przechodzi: `npm run build`
 
 #### Manual
 

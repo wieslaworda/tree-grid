@@ -4,7 +4,11 @@ import { type LoaderFunctionArgs, data, redirect } from "react-router";
 
 import { DrzewoStruktury } from "~/components/DrzewoStruktury";
 import { FormularzDrzewa } from "~/components/FormularzDrzewa";
-import { GridEkranu } from "~/components/GridEkranu";
+import {
+  GridEkranu,
+  type KolumnyCzasowe,
+  type PunktCzasowy,
+} from "~/components/GridEkranu";
 import { KategorieWezla } from "~/components/KategorieWezla";
 import { ListaObiektowZrodlowych } from "~/components/ListaObiektowZrodlowych";
 import { ObszarPrzewijania } from "~/components/ObszarPrzewijania";
@@ -29,6 +33,7 @@ import {
 } from "~/lib/drzewo";
 import {
   type WezelGridu,
+  kluczSerii,
   liczbaWierszy,
   przypisaniaDomyslne,
   zbudujWezlyGridu,
@@ -52,7 +57,10 @@ import { jestWariantem } from "~/theme/tokeny";
  * zanim komponent trafi do trasy (plan `zapisane-ekrany`, faza 3) — jest
  * punktem zrzutów gridu w obu motywach. Sekcja „Kategorie węzła” pokazuje
  * panel `KategorieWezla` z `S-04` we wszystkich stanach, także obok gridu
- * z wybranym węzłem, tak jak składa je zapisany ekran w `/ekrany`.
+ * z wybranym węzłem, tak jak składa je zapisany ekran w `/ekrany`. Sekcja
+ * „Grid ekranu z kolumnami czasowymi” to bramka wydajności `S-05` (plan
+ * `prezentacja-ekranu`, faza 2): syntetyczny grid 288 × 300 z wartościami
+ * liczonymi w tym module, bez API, i mały przypadek 24 kolumn.
  *
  * Typy loadera z `react-router`, a nie z `./+types/wzornik`: trasa jest
  * rejestrowana tylko w trybie deweloperskim, a `react-router typegen` ładuje
@@ -329,6 +337,187 @@ const WIERSZE_AB_DOPASOWANE = zbudujWezlyGridu(
     [102, [U]],
   ]),
 );
+
+// ─── Dane przykładowe kolumn czasowych (S-05) ───────────────────────────────
+
+/** Przesunięcia strefy produktu w minutach — czas letni (CEST) i zimowy (CET). */
+const CEST = 120;
+const CET = 60;
+
+/** Etykieta GG:MI końca przedziału `minuty` od północy (`24:00` na końcu doby). */
+function etykietaPunktu(minuty: number): string {
+  const godziny = String(Math.floor(minuty / 60)).padStart(2, "0");
+
+  return `${godziny}:${String(minuty % 60).padStart(2, "0")}`;
+}
+
+/**
+ * 24 punkty zwykłej doby z ziarnem 1 h (`01:00` … `24:00`, CEST) — mały
+ * przypadek do oceny wzrokiem.
+ */
+const PUNKTY_24: PunktCzasowy[] = Array.from({ length: 24 }, (_, i) => ({
+  label: etykietaPunktu((i + 1) * 60),
+  repeated: false,
+  utcOffsetMinutes: CEST,
+}));
+
+/**
+ * 288 punktów z ziarnem 5 min, z których dwa udają powtórzenie z dnia
+ * październikowej zmiany czasu: po `03:00` (CEST) stoją `02:55*` i `03:00*`
+ * (CET), a dalej zwykłe etykiety w CET. Oś jest **syntetyczna** — prawdziwą
+ * dobę 25 h liczy API (`ScreenValuesRules`); tu liczą się liczba kolumn
+ * i wygląd nagłówka, więc ostatnie dwa punkty doby (`23:55`, `24:00`)
+ * wypadają i kolumn jest dokładnie 288.
+ */
+const PUNKTY_288: PunktCzasowy[] = [
+  ...Array.from({ length: 36 }, (_, i) => ({
+    label: etykietaPunktu((i + 1) * 5),
+    repeated: false,
+    utcOffsetMinutes: CEST,
+  })),
+  ...[175, 180].map((minuty) => ({
+    label: etykietaPunktu(minuty),
+    repeated: true,
+    utcOffsetMinutes: CET,
+  })),
+  ...Array.from({ length: 250 }, (_, i) => ({
+    label: etykietaPunktu(185 + i * 5),
+    repeated: false,
+    utcOffsetMinutes: CET,
+  })),
+];
+
+/**
+ * Format wartości jak w widoku: polski przecinek, jedno miejsce po
+ * przecinku. Raz na moduł — `Intl.NumberFormat` jest drogi w budowie.
+ */
+const FORMAT_WARTOSCI = new Intl.NumberFormat("pl-PL", {
+  minimumFractionDigits: 1,
+  maximumFractionDigits: 1,
+  useGrouping: false,
+});
+
+/**
+ * Wartość `0,0`–`999,9` z trójki obiekt × kategoria × punkt — liczona
+ * lokalnie, bez API. Mieszanie całkowite, a nie `Math.random`: ta sama trójka
+ * daje zawsze tę samą liczbę, więc zrzuty są powtarzalne, a ten sam obiekt
+ * w dwóch gałęziach pokazuje te same wartości, jak w widoku.
+ */
+function wartoscPrzykladowa(
+  obiektId: number,
+  kategoriaId: number,
+  indeks: number,
+): number {
+  let skrot =
+    Math.imul(obiektId, 0x9e3779b1) ^
+    Math.imul(kategoriaId, 0x85ebca6b) ^
+    Math.imul(indeks + 1, 0xc2b2ae35);
+  skrot = Math.imul(skrot ^ (skrot >>> 16), 0x7feb352d);
+  skrot = Math.imul(skrot ^ (skrot >>> 15), 0x846ca68b);
+  skrot ^= skrot >>> 16;
+
+  return ((skrot >>> 0) % 10000) / 10;
+}
+
+/**
+ * Teksty wartości w kształcie `kolumnyCzasowe.wartosci`: jedna seria na
+ * różną parę obiekt × kategoria w drzewie (jak `series` z API), już
+ * sformatowana.
+ */
+function wartosciPrzykladowe(
+  wezly: readonly WezelGridu[],
+  punkty: readonly PunktCzasowy[],
+): Map<string, string[]> {
+  const serie = new Map<string, string[]>();
+
+  const dodaj = (wezel: WezelGridu) => {
+    for (const kategoria of wezel.kategorie) {
+      const klucz = kluczSerii(wezel.obiektId, kategoria.id);
+
+      if (!serie.has(klucz)) {
+        serie.set(
+          klucz,
+          punkty.map((_, indeks) =>
+            FORMAT_WARTOSCI.format(
+              wartoscPrzykladowa(wezel.obiektId, kategoria.id, indeks),
+            ),
+          ),
+        );
+      }
+    }
+
+    wezel.dzieci.forEach(dodaj);
+  };
+
+  wezly.forEach(dodaj);
+
+  return serie;
+}
+
+/**
+ * Mały przypadek: drzewo z sekcji „Drzewo struktury” ({@link WEZLY}, obiekt
+ * ST-01 w dwóch gałęziach), każdy węzeł z [Q, P] poza EL-01, który nie ma
+ * kategorii — jego wiersz ma puste komórki czasowe.
+ */
+const WIERSZE_24 = zbudujWezlyGridu(
+  WEZLY,
+  OBIEKTY,
+  KATEGORIE,
+  new Map(
+    WEZLY.filter((wezel) => wezel.id !== 6).map((wezel) => [wezel.id, [Q, P]]),
+  ),
+);
+
+// Stałe modułu, bo grid przebudowuje kolumny czasowe po referencji
+// `punkty` i `wartosci`.
+const KOLUMNY_24: KolumnyCzasowe = {
+  punkty: PUNKTY_24,
+  wartosci: wartosciPrzykladowe(WIERSZE_24, PUNKTY_24),
+};
+
+/**
+ * Bramka wydajności (plan `prezentacja-ekranu`, faza 2): 100 węzłów na trzech
+ * poziomach — 10 węzłów najwyższego poziomu, każdy z trzema dziećmi, każde
+ * dziecko z dwoma wnukami — × [Q, P, U] = 300 wierszy.
+ */
+const WEZLY_WYDAJNOSCI: TreeNode[] = Array.from({ length: 10 }, (_, korzen) => {
+  const id = 5001 + korzen * 10;
+  const obiekt = (n: number) => OBIEKTY[n % OBIEKTY.length].id;
+
+  return [
+    { id, parentId: null, objectId: obiekt(korzen), position: korzen },
+    ...[0, 1, 2].flatMap((pozycja) => {
+      const idDziecka = id + 1 + pozycja * 3;
+
+      return [
+        {
+          id: idDziecka,
+          parentId: id,
+          objectId: obiekt(korzen + pozycja + 1),
+          position: pozycja,
+        },
+        ...[0, 1].map((wnuk) => ({
+          id: idDziecka + 1 + wnuk,
+          parentId: idDziecka,
+          objectId: obiekt(korzen + pozycja + wnuk + 5),
+          position: wnuk,
+        })),
+      ];
+    }),
+  ];
+}).flat();
+
+const WIERSZE_WYDAJNOSCI = zbudujWezlyGridu(
+  WEZLY_WYDAJNOSCI,
+  OBIEKTY,
+  KATEGORIE,
+  przypisaniaDomyslne(WEZLY_WYDAJNOSCI, DOMYSLNE_QPU),
+);
+
+const KOLUMNY_288: KolumnyCzasowe = {
+  punkty: PUNKTY_288,
+  wartosci: wartosciPrzykladowe(WIERSZE_WYDAJNOSCI, PUNKTY_288),
+};
 
 /** Odmowa zapisu kategorii węzła w brzmieniu API (kategoria spoza słownika). */
 const ODMOWA_KATEGORII_WEZLA = "Wybrana kategoria nie istnieje w słowniku.";
@@ -633,6 +822,28 @@ export default function Wzornik() {
         </Siatka>
       </Grupa>
 
+      {/*
+        Pełna szerokość, nie `Siatka`: kolumny czasowe mają się przewijać pod
+        przypiętymi, a pomiar płynności (DevTools *Performance*) robi się na
+        przypadku 288 × 300. Oba warianty motywu — przez `?motyw=`.
+      */}
+      <Grupa tytul="Grid ekranu z kolumnami czasowymi (GridEkranu, S-05)">
+        <Stan
+          nazwa={`${PUNKTY_24.length} kolumny (ziarno 1 h), EL-01 bez kategorii, ST-01 w dwóch gałęziach z tymi samymi wartościami, wierszy: ${liczbaWierszy(WIERSZE_24)}`}
+        >
+          <DemoGridu wiersze={WIERSZE_24} kolumnyCzasowe={KOLUMNY_24} />
+        </Stan>
+
+        <Stan
+          nazwa={`${WEZLY_WYDAJNOSCI.length} węzłów × 3 kategorie × ${PUNKTY_288.length} kolumn (dwie powtórzone etykiety *), wierszy: ${liczbaWierszy(WIERSZE_WYDAJNOSCI)}`}
+        >
+          <DemoGridu
+            wiersze={WIERSZE_WYDAJNOSCI}
+            kolumnyCzasowe={KOLUMNY_288}
+          />
+        </Stan>
+      </Grupa>
+
       <Grupa tytul="Kategorie węzła (KategorieWezla)">
         <Stan
           nazwa={`obok gridu, wybrany węzeł LN-01 z jedną kategorią, wierszy: ${liczbaWierszy(WIERSZE_AB_DOPASOWANE)}`}
@@ -916,9 +1127,11 @@ function DemoListy({
 function DemoGridu({
   wiersze,
   zwiniete,
+  kolumnyCzasowe,
 }: {
   wiersze: WezelGridu[];
   zwiniete?: readonly string[];
+  kolumnyCzasowe?: KolumnyCzasowe;
 }) {
   return (
     <div className="flex h-96 flex-col">
@@ -926,6 +1139,7 @@ function DemoGridu({
         wezly={wiersze}
         tekstPusty={TEKST_PUSTEGO_GRIDU}
         zwinietePoczatkowo={zwiniete}
+        kolumnyCzasowe={kolumnyCzasowe}
       />
     </div>
   );

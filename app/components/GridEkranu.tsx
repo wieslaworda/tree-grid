@@ -2,9 +2,38 @@ import { Empty, Table, type TableColumnsType } from "antd";
 import { useCallback, useMemo, useRef, useState } from "react";
 
 import { ObszarPrzewijania } from "~/components/ObszarPrzewijania";
-import { type WezelGridu, type WierszTabeli, wierszeTabeli } from "~/lib/ekran";
+import {
+  type WezelGridu,
+  type WierszTabeli,
+  kluczSerii,
+  wierszeTabeli,
+} from "~/lib/ekran";
 import { useWysokoscTresci } from "~/lib/useWysokoscTresci";
 import { METRYKI } from "~/theme/tokeny";
+
+/**
+ * Punkt osi czasu doby — dokładnie w kształcie elementu `points`
+ * z `GET /screens/{id}/values` (`src/Api/Screens/ScreenValuesEndpoints.cs`).
+ * `label` to koniec przedziału (GG:MI, `24:00` na końcu doby), `repeated`
+ * — etykieta, która w tej dobie już wystąpiła (październikowa zmiana czasu).
+ */
+export type PunktCzasowy = {
+  label: string;
+  repeated: boolean;
+  utcOffsetMinutes: number;
+};
+
+/**
+ * Kolumny czasowe gridu (`S-05`): punkty doby w kolejności kolumn i teksty
+ * wartości per seria. Klucz mapy to {@link kluczSerii} (`obiektId:kategoriaId`),
+ * a każda tablica ma tyle tekstów, ile jest punktów, **już sformatowanych**
+ * — grid ich nie formatuje, bo koszt komórki mnoży się przez liczbę kolumn
+ * i widocznych wierszy przy każdym przewinięciu.
+ */
+export type KolumnyCzasowe = {
+  punkty: readonly PunktCzasowy[];
+  wartosci: ReadonlyMap<string, readonly string[]>;
+};
 
 type Wlasciwosci = {
   /** Drzewo węzłów z `zbudujWezlyGridu` (`app/lib/ekran.ts`). */
@@ -27,6 +56,13 @@ type Wlasciwosci = {
    * podgląd nowego ekranu — i wierszy nie da się wybrać.
    */
   onWybierzWezel?: (wezelId: number) => void;
+  /**
+   * Kolumny czasowe za „Kategorią” — jedna na punkt doby. Bez nich grid ma
+   * wyłącznie dwie kolumny przypięte (widok „Ekrany”). Kolumny powstają od
+   * nowa tylko przy zmianie `punkty` albo `wartosci` (po referencji), więc
+   * rodzic trzyma obie stabilne.
+   */
+  kolumnyCzasowe?: KolumnyCzasowe;
 };
 
 /**
@@ -44,10 +80,66 @@ const KLASA_KOMORKI = "tg-komorka-gridu";
 
 /**
  * Klasa kolumny, za którą stoi następna — pionowa linia między kolumnami
- * (`app/app.css`). `S-05` dokłada kolumny czasowe za „Kategorią”, więc
- * dostanie ją wtedy także „Kategoria”.
+ * (`app/app.css`). „Kategoria” dostaje ją tylko wtedy, gdy za nią stoją
+ * kolumny czasowe — linia oddziela wtedy przypiętą strukturę od danych.
  */
 const KLASA_KOLUMNY_Z_GRANICA = `${KLASA_KOMORKI} tg-granica-kolumny`;
+
+/**
+ * Klasa kolumny czasowej, na komórkach ciała **i** nagłówka (`className`
+ * kolumny): linie siatki gridu i krój cyfr `.tg-liczba` (mono, `tabular-nums`,
+ * do prawej), więc etykieta punktu stoi w jednej linii z wartościami pod nią.
+ * Tło danych nie może tu stać — trafiłoby też do nagłówka, który ma rolę
+ * `naglowekGridu` jak pozostałe.
+ */
+const KLASA_KOLUMNY_CZASOWEJ = `${KLASA_KOMORKI} tg-liczba`;
+
+/**
+ * Tło i tekst komórek danych — role `tloDanych` i `tekstDanych` (biały blok
+ * danych w obu wariantach, uzasadnienie przy `PALETY`). Klasa narzędziowa
+ * wygrywa z tłem wiersza i najechania antd dzięki kolejności warstw
+ * (kontrakt 1 w `CLAUDE.md`).
+ */
+const KLASA_DANYCH = "bg-tg-tlo-danych text-tg-tekst-danych";
+
+/**
+ * Dwa **stałe** obiekty `onCell` komórek czasowych — z linią sekcji (pierwszy
+ * wiersz węzła) i bez. Bez linii sekcji na komórkach czasowych urwałaby się
+ * ona za „Kategorią” (powód przy {@link KLASA_SEKCJI}). Stałe, bo komórek
+ * czasowych jest do ~290 na widoczny wiersz i każda alokacja w `onCell`
+ * mnoży się przez nie przy każdym przewinięciu (plan `prezentacja-ekranu`,
+ * *Critical Implementation Details*). Bez wyboru węzła i bez kursora: grid
+ * z danymi jest tylko do oglądania.
+ */
+const KOMORKA_CZASOWA = { className: KLASA_DANYCH };
+const KOMORKA_CZASOWA_SEKCJI = { className: `${KLASA_SEKCJI} ${KLASA_DANYCH}` };
+
+function wlasciwosciKomorkiCzasowej(wiersz: WierszTabeli) {
+  return wiersz.poczatekSekcji ? KOMORKA_CZASOWA_SEKCJI : KOMORKA_CZASOWA;
+}
+
+/**
+ * Nazwy przesunięć strefy produktu (Europe/Warsaw) do podpowiedzi nagłówka.
+ * API podaje wyłącznie minuty (`utcOffsetMinutes`); przesunięcie spoza tej
+ * mapy dostaje sam zapis UTC.
+ */
+const NAZWY_PRZESUNIEC: ReadonlyMap<number, string> = new Map([
+  [60, "CET"],
+  [120, "CEST"],
+]);
+
+/** Podpowiedź nagłówka kolumny czasowej: „CEST, UTC+2”, „CET, UTC+1”. */
+function opisPrzesuniecia(minuty: number): string {
+  const bezwzgledne = Math.abs(minuty);
+  const godziny = Math.floor(bezwzgledne / 60);
+  const reszta = bezwzgledne % 60;
+  const utc = `UTC${minuty < 0 ? "-" : "+"}${godziny}${
+    reszta === 0 ? "" : `:${String(reszta).padStart(2, "0")}`
+  }`;
+  const nazwa = NAZWY_PRZESUNIEC.get(minuty);
+
+  return nazwa === undefined ? utc : `${nazwa}, ${utc}`;
+}
 
 /**
  * Tło i tekst nagłówka kolumn — rola `naglowekGridu`, ciemniejsza od
@@ -67,11 +159,16 @@ function wlasciwosciNaglowka() {
 }
 
 /**
- * Szerokość treści w poziomie — tabela wirtualna przyjmuje wyłącznie liczbę
- * (`@rc-component/table`, `VirtualTable/index.js`). Suma szerokości kolumn,
- * więc czyta te same metryki co kolumny.
+ * Szerokość dwóch kolumn przypiętych — tabela wirtualna przyjmuje jako
+ * `scroll.x` wyłącznie liczbę (`@rc-component/table`,
+ * `VirtualTable/index.js`). Czyta te same metryki co kolumny, a pełna
+ * szerokość treści dokłada do niej `liczba punktów ×
+ * METRYKI.szerokoscKolumnyCzasowej`. Suma musi się zgadzać co do piksela:
+ * gdy `scroll.x` przekracza sumę `width` kolumn, tabela rozciąga
+ * proporcjonalnie **wszystkie** kolumny, także przypięte
+ * (`hooks/useColumns/useWidthColumns.js`).
  */
-const SZEROKOSC_TRESCI =
+const SZEROKOSC_PRZYPIETYCH =
   METRYKI.szerokoscKolumnyWezla + METRYKI.szerokoscKolumnyKategorii;
 
 /**
@@ -116,8 +213,12 @@ function klasyKomorki(
  * poziom, przełącznik +/− i tytuł wyśrodkowany w pionie. Kolumna „Kategoria”
  * niesie kategorię wiersza („KOD — Nazwa”, pusta dla węzła bez kategorii).
  * Nad pierwszym wierszem każdego węzła stoi grubsza linia sekcji. Obie
- * kolumny są przypięte z lewej: `S-05` dokłada **za nimi** kolumny czasowe
- * (do 288), które przewijają się w poziomie pod przypiętymi.
+ * kolumny są przypięte z lewej: opcjonalne `kolumnyCzasowe` (`S-05`) dokładają
+ * **za nimi** jedną kolumnę na punkt doby (do 300), które przewijają się
+ * w poziomie pod przypiętymi. Komórka czasowa to wyłącznie odczyt gotowego
+ * tekstu z serii pary obiekt × kategoria wiersza (pusta dla węzła bez
+ * kategorii) — antd wirtualizuje tylko wiersze, więc każdy widoczny wiersz
+ * renderuje wszystkie kolumny.
  *
  * Rozwijanie jest własne, a nie z `expandable` antd: przełącznik należy się
  * wyłącznie węzłom z węzłami podrzędnymi, a zwinięcie chowa samo poddrzewo —
@@ -158,7 +259,12 @@ export function GridEkranu({
   zwinietePoczatkowo,
   wybranyWezelId = null,
   onWybierzWezel,
+  kolumnyCzasowe,
 }: Wlasciwosci) {
+  const punkty = kolumnyCzasowe?.punkty;
+  const wartosci = kolumnyCzasowe?.wartosci;
+  const liczbaPunktow = punkty?.length ?? 0;
+  const zKolumnamiCzasowymi = liczbaPunktow > 0;
   const kontener = useRef<HTMLDivElement>(null);
   const wysokoscTresci = useWysokoscTresci(kontener);
   const [zwiniete, ustawZwiniete] = useState<ReadonlySet<string>>(
@@ -199,16 +305,16 @@ export function GridEkranu({
     [wybranyWezelId, onWybierzWezel],
   );
 
-  // Kolumny zależą od `przelacz` (stały) oraz od wyboru węzła, więc powstają
-  // od nowa wyłącznie przy zmianie wyboru — antd porównuje kolumny po
-  // referencji.
+  // Kolumny przypięte zależą od `przelacz` (stały), od wyboru węzła i od
+  // tego, czy za nimi stoją kolumny czasowe, więc powstają od nowa wyłącznie
+  // przy zmianie wyboru — antd porównuje kolumny po referencji.
   //
   // Obie z przycięciem tekstu: tekst zawinięty do drugiej linii zmieniłby
   // wysokość wiersza, a tabela wirtualna liczy przewijanie z wysokości
   // wiersza (plan `zapisane-ekrany`, *Critical Implementation Details*).
   // Kolumna „Węzeł” przycina sama (`truncate`), bo `ellipsis` antd działa na
   // całej komórce, a tu treścią jest układ flex z wcięciem i przełącznikiem.
-  const kolumny = useMemo<TableColumnsType<WierszTabeli>>(
+  const kolumnyPrzypiete = useMemo<TableColumnsType<WierszTabeli>>(
     () => [
       {
         title: "Węzeł",
@@ -234,7 +340,7 @@ export function GridEkranu({
         title: "Kategoria",
         onHeaderCell: wlasciwosciNaglowka,
         key: "kategoria",
-        className: KLASA_KOMORKI,
+        className: zKolumnamiCzasowymi ? KLASA_KOLUMNY_Z_GRANICA : KLASA_KOMORKI,
         fixed: "left",
         width: METRYKI.szerokoscKolumnyKategorii,
         ellipsis: true,
@@ -245,15 +351,80 @@ export function GridEkranu({
             : `${wiersz.kategoria.code} — ${wiersz.kategoria.name}`,
       },
     ],
-    [przelacz, wlasciwosciKomorki, onWybierzWezel, wybranyWezelId],
+    [
+      przelacz,
+      wlasciwosciKomorki,
+      onWybierzWezel,
+      wybranyWezelId,
+      zKolumnamiCzasowymi,
+    ],
+  );
+
+  // Kolumny czasowe w osobnym `useMemo`, zależnym wyłącznie od punktów
+  // i wartości: wybór węzła albo zwinięcie gałęzi nie przebudowuje ~290
+  // obiektów kolumn. Seria wiersza jest szukana raz na wiersz — pierwsza
+  // komórka zapamiętuje ją w `WeakMap` po obiekcie wiersza, a pozostałe
+  // czytają już tylko tablicę po indeksie punktu. Pamięć żyje tyle co
+  // `wartosci`, a wiersze odrzucone po zwinięciu zbiera GC.
+  const kolumnyDanych = useMemo<TableColumnsType<WierszTabeli>>(() => {
+    if (punkty === undefined || wartosci === undefined) {
+      return [];
+    }
+
+    const seriePoWierszu = new WeakMap<WierszTabeli, readonly string[] | null>();
+
+    const seriaWiersza = (wiersz: WierszTabeli) => {
+      let seria = seriePoWierszu.get(wiersz);
+
+      if (seria === undefined) {
+        seria =
+          wiersz.kategoria === null
+            ? null
+            : (wartosci.get(kluczSerii(wiersz.obiektId, wiersz.kategoria.id)) ??
+              null);
+        seriePoWierszu.set(wiersz, seria);
+      }
+
+      return seria;
+    };
+
+    return punkty.map((punkt, indeks) => {
+      // Stały obiekt na kolumnę — nagłówek w tej samej roli `naglowekGridu`
+      // co przypięte, z podpowiedzią przesunięcia strefy tego punktu.
+      const naglowek = {
+        className: WLASCIWOSCI_NAGLOWKA.className,
+        title: opisPrzesuniecia(punkt.utcOffsetMinutes),
+      };
+
+      return {
+        title: punkt.repeated ? `${punkt.label}*` : punkt.label,
+        onHeaderCell: () => naglowek,
+        key: `t${indeks}`,
+        className: KLASA_KOLUMNY_CZASOWEJ,
+        width: METRYKI.szerokoscKolumnyCzasowej,
+        onCell: wlasciwosciKomorkiCzasowej,
+        render: (_: unknown, wiersz: WierszTabeli) =>
+          seriaWiersza(wiersz)?.[indeks] ?? null,
+      };
+    });
+  }, [punkty, wartosci]);
+
+  const kolumny = useMemo(
+    () =>
+      kolumnyDanych.length === 0
+        ? kolumnyPrzypiete
+        : [...kolumnyPrzypiete, ...kolumnyDanych],
+    [kolumnyPrzypiete, kolumnyDanych],
   );
 
   const przewijanie = useMemo(
     () => ({
-      x: SZEROKOSC_TRESCI,
+      x:
+        SZEROKOSC_PRZYPIETYCH +
+        liczbaPunktow * METRYKI.szerokoscKolumnyCzasowej,
       y: wysokoscTresci ?? WYSOKOSC_PRZED_POMIAREM,
     }),
-    [wysokoscTresci],
+    [wysokoscTresci, liczbaPunktow],
   );
 
   const tekstyTabeli = useMemo(

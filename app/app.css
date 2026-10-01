@@ -68,6 +68,8 @@
   --color-tg-hover-wiersza: var(--tg-hoverWiersza);
   --color-tg-zaznaczenie-wiersza: var(--tg-zaznaczenieWiersza);
   --color-tg-naglowek-gridu: var(--tg-naglowekGridu);
+  --color-tg-tlo-danych: var(--tg-tloDanych);
+  --color-tg-tekst-danych: var(--tg-tekstDanych);
   --color-tg-fokus: var(--tg-fokus);
 
   --spacing-tg-strona: var(--tg-odstepStrony);
@@ -113,8 +115,9 @@ html {
 }
 
 @layer utilities {
-  /* Klasa dla komórek liczbowych gridu — wchodzi w `column.className`
-     w `S-05`.
+  /* Klasa dla komórek liczbowych gridu — `className` kolumn czasowych
+     w `GridEkranu.tsx` (`S-05`), więc obejmuje też ich nagłówki: etykieta
+     punktu stoi tym samym krojem i w tej samej linii co wartości pod nią.
 
      Działa na komórce antd bez `!important`, bo warstwa `utilities` stoi nad
      warstwą `antd` w deklaracji na górze tego pliku. Dlatego nie ma tu

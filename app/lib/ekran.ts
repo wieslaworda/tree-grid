@@ -2,8 +2,9 @@
  * Czyste funkcje gridu ekranu: płaska lista węzłów, słowniki obiektów
  * i kategorii oraz przypisania kategorii do węzłów zamienione na drzewo
  * węzłów gridu, spłaszczenie tego drzewa do wierszy tabeli (`GridEkranu`)
- * ze scaloną komórką węzła, przypisania domyślne podglądu nowego ekranu
- * i liczba wierszy przy pełnym rozwinięciu.
+ * ze scaloną komórką węzła, przypisania domyślne podglądu nowego ekranu,
+ * liczba wierszy przy pełnym rozwinięciu i klucz serii wartości kolumn
+ * czasowych.
  *
  * Moduł świadomie **bez** sufiksu `.server` i bez żadnego importu z modułów
  * `.server` — także bez `import type` — z tego samego powodu co
@@ -39,6 +40,11 @@ export type KategoriaSlownika = {
 export type WezelGridu = {
   key: string;
   wezelId: number;
+  /**
+   * Obiekt węzła (`objectId`) — wartości kolumn czasowych są per obiekt ×
+   * kategoria, więc ten sam obiekt w dwóch gałęziach ma te same wartości.
+   */
+  obiektId: number;
   tytul: string;
   kategorie: KategoriaSlownika[];
   dzieci: WezelGridu[];
@@ -58,6 +64,8 @@ export type WierszTabeli = {
   kluczWezla: string;
   /** Identyfikator węzła — to jego wybiera kliknięcie w wiersz. */
   wezelId: number;
+  /** Obiekt węzła — z nim i z kategorią wiersza grid szuka serii wartości. */
+  obiektId: number;
   /** Poziom węzła w drzewie, od zera — z niego wcięcie. */
   poziom: number;
   tytulWezla: string;
@@ -113,6 +121,7 @@ export function zbudujWezlyGridu(
       return {
         key: `w${wezel.id}`,
         wezelId: wezel.id,
+        obiektId: wezel.objectId,
         tytul:
           obiekt === undefined
             ? `Obiekt ${wezel.objectId} (brak w słowniku)`
@@ -155,6 +164,7 @@ export function wierszeTabeli(
             : `${wezel.key}k${kategoria.id}`,
         kluczWezla: wezel.key,
         wezelId: wezel.wezelId,
+        obiektId: wezel.obiektId,
         poziom,
         tytulWezla: wezel.tytul,
         kategoria,
@@ -227,4 +237,15 @@ export function liczbaWierszy(wezly: readonly WezelGridu[]): number {
       suma + Math.max(1, wezel.kategorie.length) + liczbaWierszy(wezel.dzieci),
     0,
   );
+}
+
+/**
+ * Klucz serii wartości kolumn czasowych (`kolumnyCzasowe.wartosci`
+ * w `GridEkranu`): `obiektId:kategoriaId`, bo API wysyła jedną serię na parę
+ * obiekt × kategoria, a nie na wiersz. Jedna funkcja dla tego, kto mapę
+ * buduje, i dla gridu, który z niej czyta — format wpisany w dwóch miejscach
+ * rozjechałby się po cichu w puste komórki.
+ */
+export function kluczSerii(obiektId: number, kategoriaId: number): string {
+  return `${obiektId}:${kategoriaId}`;
 }

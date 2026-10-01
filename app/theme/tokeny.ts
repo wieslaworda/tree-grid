@@ -83,6 +83,8 @@ type RolaKoloru =
   | "hoverWiersza"
   | "zaznaczenieWiersza"
   | "naglowekGridu"
+  | "tloDanych"
+  | "tekstDanych"
   | "fokus";
 
 /**
@@ -122,6 +124,7 @@ type Metryki = {
   wciecieWezla: number;
   szerokoscKolumnyWezla: number;
   szerokoscKolumnyKategorii: number;
+  szerokoscKolumnyCzasowej: number;
   gruboscLiniiSekcji: number;
   rozmiarPrzelacznika: number;
   szerokoscPaneluKategoriiWezla: number;
@@ -240,6 +243,15 @@ export const METRYKI: Metryki = {
   // Szerokość przypiętej kolumny „Kategoria” („KOD — Nazwa” kategorii) —
   // `width` kolumny i składnik `scroll.x` w `GridEkranu.tsx`.
   szerokoscKolumnyKategorii: 200,
+  // Szerokość jednej kolumny czasowej (`S-05`) za przypiętymi — `width`
+  // kolumny i składnik `scroll.x` (`liczba punktów × ta wartość`)
+  // w `GridEkranu.tsx`. Mieści bez zawinięcia najdłuższą etykietę `03:00*`
+  // i wartość `999,9` cyframi mono (`.tg-liczba`): 6 znaków × 0,6 em
+  // JetBrains Mono przy `fontSize: 12` = 43,2 px plus 2 × 6 px
+  // `cellPaddingInlineSM` z `app/theme/antd.ts` = 55,2 px. Ta sama dla
+  // każdego ziarna, więc 288 kolumn to 288 × tyle — do potwierdzenia na
+  // zrzucie wzornika (plan `prezentacja-ekranu`, faza 2).
+  szerokoscKolumnyCzasowej: 56,
   // Grubość linii nad pierwszym wierszem każdego węzła w gridzie — oddziela
   // sekcje węzłów, których komórka „Węzeł” jest scalona. Rysowana cieniem
   // wciętym (`.tg-granica-sekcji` w `app/app.css`), a nie obramowaniem, więc
@@ -331,6 +343,17 @@ export const METRYKI: Metryki = {
  *   bo neutral/base-300 wprost (1,03–1,08:1 od najechania) zlewały się
  *   z podświetlonym wierszem. Tekst nagłówka na nim to `tekst` (6,38:1
  *   i 7,35:1) — `tekstDrugorzedny` spadłby poniżej 4,5:1.
+ * - `tloDanych` i `tekstDanych` — komórki danych gridu, czyli kolumny
+ *   czasowe `S-05` (`GridEkranu`, klasy `bg-tg-tlo-danych`
+ *   i `text-tg-tekst-danych`). **Te same heksy w obu wariantach** (decyzja
+ *   użytkownika z planu `prezentacja-ekranu`): białe tło i ciemny tekst
+ *   (`tekst` z `nord`, `#2E3440`, 12,5:1 na bieli). W ciemnym wariancie biały
+ *   blok danych obok ciemnych kolumn przypiętych jest **świadomy** — to nie
+ *   jest zapomniane rozgałęzienie, i nie należy go „poprawiać” na `panel`.
+ *   Osobne role, a nie `tekst` jasnego wariantu wpisany w ciemny: zmiana
+ *   tekstu `nord` nie ma po cichu przemalować danych. Linia sekcji i siatki
+ *   (`obramowanieKontrolki`) ma na bieli 5,95:1 (ciemny) i 3,65:1 (jasny),
+ *   więc zostaje widoczna także w bloku danych.
  *
  * `fokus` (obrys `:focus-visible` z `app/app.css`) ma dokładnie heks `tekst`
  * wariantu, ale jest osobną rolą: to, że dziś się pokrywają, jest decyzją,
@@ -363,6 +386,9 @@ export const PALETY: Record<Wariant, Paleta> = {
     hoverWiersza: "#192336",
     zaznaczenieWiersza: "#1B3752",
     naglowekGridu: "#334155",
+    // Biały blok danych także w ciemnym wariancie — świadomie, powód wyżej.
+    tloDanych: "#FFFFFF",
+    tekstDanych: "#2E3440",
     fokus: "#C9CBD0",
   },
   jasny: {
@@ -382,6 +408,8 @@ export const PALETY: Record<Wariant, Paleta> = {
     hoverWiersza: "#DCE1EB",
     zaznaczenieWiersza: "#DBE4EC",
     naglowekGridu: "#C0C7D4",
+    tloDanych: "#FFFFFF",
+    tekstDanych: "#2E3440",
     fokus: "#2E3440",
   },
 };
