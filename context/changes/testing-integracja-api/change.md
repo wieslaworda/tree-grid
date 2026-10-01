@@ -1,9 +1,9 @@
 ---
 change_id: testing-integracja-api
 title: Testy integracyjne API — atomowość operacji na drzewie i kaskady ekranów
-status: preparing
+status: implementing
 created: 2026-09-28
-updated: 2026-09-28
+updated: 2026-10-01
 archived_at: null
 ---
 
@@ -15,3 +15,5 @@ Risk response intent:
 - #1: odrzucona operacja (zapętlenie, duplikat, limit, błąd API) nie zmienia zapisanej struktury (stan po = stan przed), a przyjęta zapisuje się w całości; nie wystarczy asercja na kodzie 4xx.
 - #2: usunięcie węzła zdejmuje przypisania tylko jemu, inne wystąpienia obiektu zachowują kategorie, nowy węzeł dostaje domyślne kategorie każdego ekranu, dwa ekrany na jednym drzewie są niezależne, drzewa użytego w ekranie nie da się usunąć, zapis → odczyt zwraca to samo; wyrocznia z PRD FR-012 / US-02, nie z kodu.
 After creating the folder, follow the downstream continuation rule.
+
+Faza 1 (wynik szpicy): `public partial class Program;` nie był potrzebny — SDK .NET 10 generuje publiczny `Program` (`src/Api/Program.cs` nietknięty); `UseSetting("ConnectionStrings:Default", …)` w `ConfigureWebHost` wystarczyło — connection string jest widoczny przed `builder.Build()`.
