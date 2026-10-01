@@ -218,7 +218,7 @@ function zbudujMotyw(wariant: Wariant): ThemeConfig {
         // i rozjechałby się z naszym `zaznaczenieWiersza`.
         rowSelectedHoverBg: paleta.zaznaczenieWiersza,
         cellPaddingBlockSM: 1,
-        cellPaddingInlineSM: 6,
+        cellPaddingInlineSM: METRYKI.odstepKomorkiGridu,
         cellFontSizeSM: METRYKI.fontSize,
         // 0, bo nagłówek gridu nie jest kartą — zaokrąglony róg przy
         // przyklejonym nagłówku zostawia prześwit na przewijanej treści.

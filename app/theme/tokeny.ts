@@ -125,6 +125,7 @@ type Metryki = {
   szerokoscKolumnyWezla: number;
   szerokoscKolumnyKategorii: number;
   szerokoscKolumnyCzasowej: number;
+  odstepKomorkiGridu: number;
   gruboscLiniiSekcji: number;
   rozmiarPrzelacznika: number;
   szerokoscPaneluKategoriiWezla: number;
@@ -247,11 +248,19 @@ export const METRYKI: Metryki = {
   // kolumny i składnik `scroll.x` (`liczba punktów × ta wartość`)
   // w `GridEkranu.tsx`. Mieści bez zawinięcia najdłuższą etykietę `03:00*`
   // i wartość `999,9` cyframi mono (`.tg-liczba`): 6 znaków × 0,6 em
-  // JetBrains Mono przy `fontSize: 12` = 43,2 px plus 2 × 6 px
-  // `cellPaddingInlineSM` z `app/theme/antd.ts` = 55,2 px. Ta sama dla
-  // każdego ziarna, więc 288 kolumn to 288 × tyle — do potwierdzenia na
-  // zrzucie wzornika (plan `prezentacja-ekranu`, faza 2).
+  // JetBrains Mono przy `fontSize: 12` = 43,2 px plus 2 ×
+  // `odstepKomorkiGridu` = 55,2 px. Ta sama dla każdego ziarna, więc 288
+  // kolumn to 288 × tyle — do potwierdzenia na zrzucie wzornika (plan
+  // `prezentacja-ekranu`, faza 2). Kolumny czasowe to jeden pas komórek
+  // w jednej kolumnie tabeli (`PasDanych` w `GridEkranu.tsx`), więc ta
+  // liczba trafia też do CSS jako `--tg-szerokoscKolumnyCzasowej`.
   szerokoscKolumnyCzasowej: 56,
+  // Poziomy odstęp treści komórki gridu — `cellPaddingInlineSM` tabeli
+  // w `app/theme/antd.ts` i ten sam odstęp komórek pasa danych
+  // (`--tg-odstepKomorkiGridu`), które nie są komórkami antd. Jedna liczba,
+  // żeby etykieta punktu i wartość pod nią stały w tej samej linii co tekst
+  // kolumn przypiętych.
+  odstepKomorkiGridu: 6,
   // Grubość linii nad pierwszym wierszem każdego węzła w gridzie — oddziela
   // sekcje węzłów, których komórka „Węzeł” jest scalona. Rysowana cieniem
   // wciętym (`.tg-granica-sekcji` w `app/app.css`), a nie obramowaniem, więc

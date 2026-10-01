@@ -67,6 +67,8 @@ Po stronie widoku `GridEkranu` dostaje opcjonalny prop kolumn czasowych; bez nie
 
 **Wydajność: koszt jednej komórki czasowej jest mnożony przez ~290 × widoczne wiersze przy każdym przewinięciu.** Render komórki czasowej to wyłącznie odczyt gotowego tekstu z tablicy; `onCell` kolumn czasowych zwraca jeden z dwóch stałych obiektów (z linią sekcji albo bez), a tablica kolumn powstaje w `useMemo` tylko przy zmianie punktów albo danych. Jeśli pomiar w fazie 2 (kryterium 2.6) nie przejdzie, **zatrzymaj implementację i wróć do planowania** — kolejnym krokiem jest wirtualizacja kolumn, która zmienia kształt komponentu.
 
+> **Korekta po fazie 3 (2026-10-01).** Kryterium nie przeszło: widok przewijał się bardzo wolno. Tania komórka nie wystarcza, bo lista wirtualna antd przy **każdym** kroku przewijania renderuje od nowa wszystkie komórki widocznych wierszy (szczegóły w *Performance Considerations*). Kolumny czasowe są odtąd jednym pasem komórek w jednej kolumnie tabeli (`PasDanych` i `PasNaglowka` w `app/components/GridEkranu.tsx`, opakowane w `memo`), a nie kolumną antd na punkt. Wirtualizacja wierszy zostaje. Wzór `scroll.x` się nie zmienia — szerokość kolumny danych to `n × szerokoscKolumnyCzasowej`.
+
 **Dane doby należą do jednej pary (ekran, doba).** Odpowiedź `fetcher`a dla poprzedniego wyboru nie może pokazać się pod nowym — widok porównuje `screenId` i `day` z odpowiedzi z bieżącym wyborem (wzorzec `podglad.treeId` w `ekrany.tsx:1070-1081`).
 
 ## Phase 1: API — oś czasu i wartości ekranu
@@ -306,6 +308,12 @@ Klient API wartości, trasa `/prezentacja` z paskiem wyboru doby i ekranu, wczyt
 ## Performance Considerations
 
 - DOM: ~290 komórek na widoczny wiersz plus linia nakładki na każdy wiersz ze scaloną komórką węzła (antd nie wirtualizuje kolumn). Budżet: brak długich zadań > 100 ms przy ciągłym przewijaniu gridu 288 × 300.
+- **Przyczyna spowolnienia (2026-10-01, z lektury kodu `@rc-component/table` 1.11.1 i `@rc-component/virtual-list` 1.5.1, bez profilu).** Pierwsza wersja z kolumną antd na każdy punkt przewijała się bardzo wolno. Dla porównania komponent `C:\dev\TreeGridReact` jest szybki, bo nie wirtualizuje wcale: DOM powstaje raz, a natywny scroll przeglądarki nie uruchamia Reacta. Przy `virtual` jest odwrotnie:
+  - lista wirtualna trzyma przewinięcie (pionowe i poziome) w stanie Reacta, więc każdy krok przewijania to render (`List.js`, `Filler.js`);
+  - `hooks/useChildren.js` daje każdemu wierszowi nowy obiekt `style`, więc `memo` wiersza (`BodyLine`) nie działa;
+  - wiersz renderuje `VirtualCell` → `Cell` dla każdej kolumny, a nowe `additionalProps` przebijają `React.memo` komórki — ~290 × ~30 widocznych wierszy ≈ 9 tys. komórek antd na krok;
+  - każdy wiersz ze scaloną komórką węzła renderuje się drugi raz w warstwie `extraRender` (`VirtualTable/BodyGrid.js`), ze wszystkimi komórkami ukrytymi przez `visibility: hidden`, a pętle tej warstwy wołają `onCell` każdej kolumny dla wierszy z zakresu.
+- **Poprawka.** Jedna kolumna danych z pasem komórek (`PasDanych`, `memo` po tablicy tekstów serii) i pas etykiet w nagłówku (`PasNaglowka`). Na krok przewijania antd renderuje 3 komórki na wiersz, a pas pomija render, dopóki nie przyjdą nowe dane doby. Szerokość i odstęp komórki pasa czytają z `METRYKI` przez `--tg-szerokoscKolumnyCzasowej` i `--tg-odstepKomorkiGridu` (`app/theme/zmienne.ts`). Płynność potwierdzona ręcznie przez użytkownika 2026-10-01; liczby z nagrania DevTools nadal do wpisania niżej.
 - Transfer: ~6 B na wartość, więc 300 wierszy × 288 punktów ≈ 0,5 MB; bez limitu wierszy 2000 węzłów × 3 kategorie dałoby kilka MB — świadomie przyjęte do czasu plastra doczytywania okna.
 - Wyniki pomiarów (uzupełnia implementacja): rozmiar odpowiedzi największego ekranu 5 min — _do wpisania w fazie 1_; najdłuższe zadanie i liczba komórek w DOM we wzorniku — _do wpisania w fazie 2_; czas od wyboru do danych w widoku — _do wpisania w fazie 3_.
 
@@ -352,7 +360,7 @@ Brak zmian schematu bazy — wartości nie są przechowywane.
 - [ ] 2.3 We wzorniku (`npm run dev`, `/wzornik`) kolumny czasowe stoją za dwiema przypiętymi, które zostają na miejscu przy przewijaniu w poziomie; szerokości kolumn przypiętych są takie same jak w przypadku bez kolumn czasowych
 - [ ] 2.4 Każdy wiersz ma 24 px (DevTools), także z kolumnami czasowymi; linia sekcji węzła biegnie przez całą szerokość wiersza, a etykiety i wartości nie zawijają się
 - [ ] 2.5 Komórki danych mają białe tło i ciemne cyfry o stałej szerokości w obu wariantach; nagłówek kolumn czasowych ma tło `naglowekGridu`, a powtórzona etykieta ma `*` i podpowiedź z przesunięciem
-- [ ] 2.6 Grid 288 × 300 przewija się płynnie w pionie i w poziomie: w nagraniu DevTools *Performance* przy ciągłym przewijaniu brak długich zadań powyżej 100 ms, a wynik (najdłuższe zadanie, liczba komórek w DOM) jest dopisany do *Performance Considerations*
+- [ ] 2.6 Grid 288 × 300 przewija się płynnie w pionie i w poziomie: w nagraniu DevTools *Performance* przy ciągłym przewijaniu brak długich zadań powyżej 100 ms, a wynik (najdłuższe zadanie, liczba komórek w DOM) jest dopisany do *Performance Considerations* — pierwsza wersja nie przeszła; po przejściu na pas komórek płynność potwierdzona ręcznie, liczby z DevTools nadal do wpisania
 - [ ] 2.7 Zrzuty sekcji w wariancie ciemnym i jasnym zapisane w `context/changes/prezentacja-ekranu/zrzuty/`; przełączenie motywu zmienia wyłącznie kolory
 
 ### Phase 3: Widok „Prezentacja ekranu”
@@ -371,5 +379,5 @@ Brak zmian schematu bazy — wartości nie są przechowywane.
 - [ ] 3.7 Zmiana doby albo ekranu pokazuje postęp i podmienia dane bez mieszania z poprzednim wyborem; odświeżenie strony daje te same liczby
 - [ ] 3.8 Ten sam obiekt w dwóch gałęziach drzewa pokazuje w tej samej kategorii te same wartości
 - [ ] 3.9 Wpisanie `?ekran=<id>` ekranu innego użytkownika daje ostrzeżenie „nieznany ekran”, bez danych
-- [ ] 3.10 Ekran z ziarnem 5 min na największym dostępnym drzewie przewija się płynnie, a czas od wyboru do danych jest zapisany w *Performance Considerations*
+- [ ] 3.10 Ekran z ziarnem 5 min na największym dostępnym drzewie przewija się płynnie, a czas od wyboru do danych jest zapisany w *Performance Considerations* — płynność potwierdzona ręcznie 2026-10-01 po przejściu na pas komórek; czas od wyboru do danych nadal do wpisania
 - [ ] 3.11 Przebieg przez tunel produkcyjny (`start-prod-tunnel.ps1`, po zgodzie użytkownika): widok wczytuje dane doby pod adresem `*.trycloudflare.com`

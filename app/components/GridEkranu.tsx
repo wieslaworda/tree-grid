@@ -1,5 +1,5 @@
 import { Empty, Table, type TableColumnsType } from "antd";
-import { useCallback, useMemo, useRef, useState } from "react";
+import { memo, useCallback, useMemo, useRef, useState } from "react";
 
 import { ObszarPrzewijania } from "~/components/ObszarPrzewijania";
 import {
@@ -57,10 +57,11 @@ type Wlasciwosci = {
    */
   onWybierzWezel?: (wezelId: number) => void;
   /**
-   * Kolumny czasowe za „Kategorią” — jedna na punkt doby. Bez nich grid ma
-   * wyłącznie dwie kolumny przypięte (widok „Ekrany”). Kolumny powstają od
-   * nowa tylko przy zmianie `punkty` albo `wartosci` (po referencji), więc
-   * rodzic trzyma obie stabilne.
+   * Kolumny czasowe za „Kategorią” — jedna na punkt doby, rysowane jako pas
+   * w jednej kolumnie tabeli. Bez nich grid ma wyłącznie dwie kolumny
+   * przypięte (widok „Ekrany”). Kolumna danych powstaje od nowa tylko przy
+   * zmianie `punkty` albo `wartosci` (po referencji), a pas wiersza — przy
+   * zmianie tablicy tekstów jego serii, więc rodzic trzyma wszystko stabilne.
    */
   kolumnyCzasowe?: KolumnyCzasowe;
 };
@@ -86,13 +87,15 @@ const KLASA_KOMORKI = "tg-komorka-gridu";
 const KLASA_KOLUMNY_Z_GRANICA = `${KLASA_KOMORKI} tg-granica-kolumny`;
 
 /**
- * Klasa kolumny czasowej, na komórkach ciała **i** nagłówka (`className`
- * kolumny): linie siatki gridu i krój cyfr `.tg-liczba` (mono, `tabular-nums`,
- * do prawej), więc etykieta punktu stoi w jednej linii z wartościami pod nią.
- * Tło danych nie może tu stać — trafiłoby też do nagłówka, który ma rolę
- * `naglowekGridu` jak pozostałe.
+ * Klasa kolumny danych (pasa kolumn czasowych), na komórce ciała **i**
+ * nagłówka (`className` kolumny): linie siatki gridu i krój cyfr `.tg-liczba`
+ * (mono, `tabular-nums`, do prawej), więc etykieta punktu stoi w jednej linii
+ * z wartościami pod nią. `px-0`, bo poziomy odstęp ma każda komórka pasa
+ * (`.tg-pas-danych` w `app/app.css`), a pionowy zostaje antd — od niego
+ * zależy wiersz 24 px. Tło danych nie może tu stać — trafiłoby też do
+ * nagłówka, który ma rolę `naglowekGridu` jak pozostałe.
  */
-const KLASA_KOLUMNY_CZASOWEJ = `${KLASA_KOMORKI} tg-liczba`;
+const KLASA_KOLUMNY_DANYCH = `${KLASA_KOMORKI} tg-liczba px-0`;
 
 /**
  * Tło i tekst komórek danych — role `tloDanych` i `tekstDanych` (biały blok
@@ -103,13 +106,12 @@ const KLASA_KOLUMNY_CZASOWEJ = `${KLASA_KOMORKI} tg-liczba`;
 const KLASA_DANYCH = "bg-tg-tlo-danych text-tg-tekst-danych";
 
 /**
- * Dwa **stałe** obiekty `onCell` komórek czasowych — z linią sekcji (pierwszy
- * wiersz węzła) i bez. Bez linii sekcji na komórkach czasowych urwałaby się
- * ona za „Kategorią” (powód przy {@link KLASA_SEKCJI}). Stałe, bo komórek
- * czasowych jest do ~290 na widoczny wiersz i każda alokacja w `onCell`
- * mnoży się przez nie przy każdym przewinięciu (plan `prezentacja-ekranu`,
- * *Critical Implementation Details*). Bez wyboru węzła i bez kursora: grid
- * z danymi jest tylko do oglądania.
+ * Dwa **stałe** obiekty `onCell` komórki danych — z linią sekcji (pierwszy
+ * wiersz węzła) i bez. Bez linii sekcji na komórce danych urwałaby się ona
+ * za „Kategorią” (powód przy {@link KLASA_SEKCJI}). Stałe, bo tabela
+ * wirtualna woła `onCell` przy każdym kroku przewijania, także w pętlach
+ * szukających scalonych komórek (`VirtualTable/BodyGrid.js`, `extraRender`).
+ * Bez wyboru węzła i bez kursora: grid z danymi jest tylko do oglądania.
  */
 const KOMORKA_CZASOWA = { className: KLASA_DANYCH };
 const KOMORKA_CZASOWA_SEKCJI = { className: `${KLASA_SEKCJI} ${KLASA_DANYCH}` };
@@ -162,8 +164,8 @@ function wlasciwosciNaglowka() {
  * Szerokość dwóch kolumn przypiętych — tabela wirtualna przyjmuje jako
  * `scroll.x` wyłącznie liczbę (`@rc-component/table`,
  * `VirtualTable/index.js`). Czyta te same metryki co kolumny, a pełna
- * szerokość treści dokłada do niej `liczba punktów ×
- * METRYKI.szerokoscKolumnyCzasowej`. Suma musi się zgadzać co do piksela:
+ * szerokość treści dokłada do niej szerokość kolumny danych (`liczba punktów
+ * × METRYKI.szerokoscKolumnyCzasowej`). Suma musi się zgadzać co do piksela:
  * gdy `scroll.x` przekracza sumę `width` kolumn, tabela rozciąga
  * proporcjonalnie **wszystkie** kolumny, także przypięte
  * (`hooks/useColumns/useWidthColumns.js`).
@@ -214,11 +216,20 @@ function klasyKomorki(
  * niesie kategorię wiersza („KOD — Nazwa”, pusta dla węzła bez kategorii).
  * Nad pierwszym wierszem każdego węzła stoi grubsza linia sekcji. Obie
  * kolumny są przypięte z lewej: opcjonalne `kolumnyCzasowe` (`S-05`) dokładają
- * **za nimi** jedną kolumnę na punkt doby (do 300), które przewijają się
- * w poziomie pod przypiętymi. Komórka czasowa to wyłącznie odczyt gotowego
- * tekstu z serii pary obiekt × kategoria wiersza (pusta dla węzła bez
- * kategorii) — antd wirtualizuje tylko wiersze, więc każdy widoczny wiersz
- * renderuje wszystkie kolumny.
+ * **za nimi** jedną kolumnę danych, która przewija się w poziomie pod
+ * przypiętymi. Wszystkie punkty doby (do 300) są komórkami **wewnątrz** niej
+ * — pas ({@link PasDanych}) z gotowymi tekstami serii pary obiekt × kategoria
+ * wiersza (pusty dla węzła bez kategorii), a w nagłówku pas etykiet
+ * ({@link PasNaglowka}).
+ *
+ * Pas zamiast kolumny na punkt, bo antd wirtualizuje tylko wiersze, a lista
+ * wirtualna trzyma przewinięcie w stanie Reacta: każdy krok przewijania, także
+ * poziomego, renderuje od nowa każdą komórkę tabeli w widocznych wierszach
+ * (`@rc-component/virtual-list`, `hooks/useChildren.js` daje wierszom nowy
+ * `style`, więc `memo` wiersza nie działa), a scalone komórki węzłów
+ * renderują swój wiersz drugi raz osobną warstwą. Przy ~290 kolumnach to
+ * ~9 tys. komórek antd na krok. Z pasem komórek tabeli są trzy na wiersz,
+ * a pas przy niezmienionej serii pomija render (`memo`).
  *
  * Rozwijanie jest własne, a nie z `expandable` antd: przełącznik należy się
  * wyłącznie węzłom z węzłami podrzędnymi, a zwinięcie chowa samo poddrzewo —
@@ -360,53 +371,38 @@ export function GridEkranu({
     ],
   );
 
-  // Kolumny czasowe w osobnym `useMemo`, zależnym wyłącznie od punktów
-  // i wartości: wybór węzła albo zwinięcie gałęzi nie przebudowuje ~290
-  // obiektów kolumn. Seria wiersza jest szukana raz na wiersz — pierwsza
-  // komórka zapamiętuje ją w `WeakMap` po obiekcie wiersza, a pozostałe
-  // czytają już tylko tablicę po indeksie punktu. Pamięć żyje tyle co
-  // `wartosci`, a wiersze odrzucone po zwinięciu zbiera GC.
+  // Kolumna danych w osobnym `useMemo`, zależnym wyłącznie od punktów
+  // i wartości: wybór węzła albo zwinięcie gałęzi jej nie przebudowuje.
+  // Komórka wiersza szuka serii raz na render wiersza (jedno `get` mapy)
+  // i oddaje ją pasowi; ta sama tablica tekstów przy kolejnym kroku
+  // przewijania pozwala pasowi pominąć render.
   const kolumnyDanych = useMemo<TableColumnsType<WierszTabeli>>(() => {
-    if (punkty === undefined || wartosci === undefined) {
+    if (
+      punkty === undefined ||
+      wartosci === undefined ||
+      punkty.length === 0
+    ) {
       return [];
     }
 
-    const seriePoWierszu = new WeakMap<WierszTabeli, readonly string[] | null>();
-
-    const seriaWiersza = (wiersz: WierszTabeli) => {
-      let seria = seriePoWierszu.get(wiersz);
-
-      if (seria === undefined) {
-        seria =
-          wiersz.kategoria === null
-            ? null
-            : (wartosci.get(kluczSerii(wiersz.obiektId, wiersz.kategoria.id)) ??
-              null);
-        seriePoWierszu.set(wiersz, seria);
-      }
-
-      return seria;
-    };
-
-    return punkty.map((punkt, indeks) => {
-      // Stały obiekt na kolumnę — nagłówek w tej samej roli `naglowekGridu`
-      // co przypięte, z podpowiedzią przesunięcia strefy tego punktu.
-      const naglowek = {
-        className: WLASCIWOSCI_NAGLOWKA.className,
-        title: opisPrzesuniecia(punkt.utcOffsetMinutes),
-      };
-
-      return {
-        title: punkt.repeated ? `${punkt.label}*` : punkt.label,
-        onHeaderCell: () => naglowek,
-        key: `t${indeks}`,
-        className: KLASA_KOLUMNY_CZASOWEJ,
-        width: METRYKI.szerokoscKolumnyCzasowej,
+    return [
+      {
+        title: <PasNaglowka punkty={punkty} />,
+        onHeaderCell: wlasciwosciNaglowka,
+        key: "dane",
+        className: KLASA_KOLUMNY_DANYCH,
+        width: punkty.length * METRYKI.szerokoscKolumnyCzasowej,
         onCell: wlasciwosciKomorkiCzasowej,
-        render: (_: unknown, wiersz: WierszTabeli) =>
-          seriaWiersza(wiersz)?.[indeks] ?? null,
-      };
-    });
+        render: (_: unknown, wiersz: WierszTabeli) => {
+          const seria =
+            wiersz.kategoria === null
+              ? undefined
+              : wartosci.get(kluczSerii(wiersz.obiektId, wiersz.kategoria.id));
+
+          return seria === undefined ? null : <PasDanych teksty={seria} />;
+        },
+      },
+    ];
   }, [punkty, wartosci]);
 
   const kolumny = useMemo(
@@ -451,6 +447,52 @@ export function GridEkranu({
     </ObszarPrzewijania>
   );
 }
+
+/**
+ * Wartości jednego wiersza we wszystkich punktach doby — po jednej komórce
+ * o szerokości kolumny czasowej (`.tg-pas-danych` w `app/app.css`). Indeks
+ * jako klucz, bo pozycja w pasie **jest** tożsamością punktu.
+ *
+ * `memo` jest nośny: tabela wirtualna renderuje komórkę danych przy każdym
+ * kroku przewijania, a tablica `teksty` ma tożsamość odpowiedzi API
+ * (`kolumnyDoby` w `app/lib/prezentacja.ts`), więc pas przerysowuje się
+ * wyłącznie przy nowych danych doby.
+ */
+const PasDanych = memo(function PasDanych({
+  teksty,
+}: {
+  teksty: readonly string[];
+}) {
+  return (
+    <div className="tg-pas-danych">
+      {teksty.map((tekst, indeks) => (
+        <span key={indeks}>{tekst}</span>
+      ))}
+    </div>
+  );
+});
+
+/**
+ * Etykiety punktów doby w nagłówku kolumny danych, w tych samych
+ * szerokościach co {@link PasDanych}: powtórzona etykieta (październikowa
+ * zmiana czasu) ma `*`, a podpowiedź każdej podaje przesunięcie strefy tego
+ * punktu.
+ */
+const PasNaglowka = memo(function PasNaglowka({
+  punkty,
+}: {
+  punkty: readonly PunktCzasowy[];
+}) {
+  return (
+    <div className="tg-pas-danych tg-pas-naglowka">
+      {punkty.map((punkt, indeks) => (
+        <span key={indeks} title={opisPrzesuniecia(punkt.utcOffsetMinutes)}>
+          {punkt.repeated ? `${punkt.label}*` : punkt.label}
+        </span>
+      ))}
+    </div>
+  );
+});
 
 /**
  * Treść scalonej komórki węzła: wcięcie poziomu, przełącznik +/− (albo

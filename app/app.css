@@ -180,6 +180,48 @@ html {
     background-color: transparent;
   }
 
+  /* Pas danych gridu ekranu — wszystkie kolumny czasowe jednego wiersza
+     (i etykiety punktów w nagłówku) jako komórki w jednej komórce tabeli
+     (`PasDanych` w `GridEkranu.tsx`). Tabela wirtualna antd wirtualizuje
+     tylko wiersze i przy każdym kroku przewijania renderuje od nowa każdą
+     komórkę widocznych wierszy; jedna kolumna zamiast ~290 sprowadza to do
+     kilku komórek na wiersz, a pas pomija render przez `memo`.
+
+     Szerokość i odstęp z `METRYKI` (`--tg-szerokoscKolumnyCzasowej`,
+     `--tg-odstepKomorkiGridu`), więc suma pasa zgadza się co do piksela
+     z `scroll.x` i z `width` kolumny. Bez zawijania: tekst w drugiej linii
+     zmieniłby wysokość wiersza, z której tabela wirtualna liczy
+     przewijanie. Krój i wyrównanie daje `.tg-liczba` na komórce tabeli. */
+  .tg-pas-danych {
+    display: flex;
+  }
+
+  .tg-pas-danych > span {
+    flex: 0 0 var(--tg-szerokoscKolumnyCzasowej);
+    padding-inline: var(--tg-odstepKomorkiGridu);
+    overflow: hidden;
+    white-space: nowrap;
+  }
+
+  /* Krótki separator między etykietami punktów w nagłówku — ten sam, który
+     antd rysuje `::before` między komórkami nagłówka (`1.6em`, wyśrodkowany),
+     w kolorze `.tg-komorka-gridu::before`. Etykiety nie są komórkami antd,
+     więc separator rysuje pas. */
+  .tg-pas-naglowka > span {
+    position: relative;
+  }
+
+  .tg-pas-naglowka > span:not(:last-child)::after {
+    content: "";
+    position: absolute;
+    inset-inline-end: 0;
+    top: 50%;
+    width: var(--tg-gruboscLinii);
+    height: 1.6em;
+    translate: 0 -50%;
+    background-color: var(--tg-obramowanieKontrolki);
+  }
+
   /* Przełącznik +/− węzła w gridzie ekranu: kwadrat z ramką widoczną zawsze,
      nie tylko po najechaniu (tak robił przełącznik antd, którego ramka to
      `linia`). Ramka w roli `obramowanieKontrolki` (≥ 3:1 w obu wariantach),

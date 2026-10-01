@@ -65,6 +65,10 @@ function blokWspolny(): string {
     // linii między kolumnami gridu, której antd bez `bordered` nie rysuje.
     `  --tg-gruboscLinii: ${px(METRYKI.lineWidth)};`,
     `  --tg-gruboscLiniiSekcji: ${px(METRYKI.gruboscLiniiSekcji)};`,
+    // Komórki pasa danych gridu (`.tg-pas-danych` w `app/app.css`) nie są
+    // komórkami antd, więc szerokość i odstęp kolumny czasowej czytają z CSS.
+    `  --tg-szerokoscKolumnyCzasowej: ${px(METRYKI.szerokoscKolumnyCzasowej)};`,
+    `  --tg-odstepKomorkiGridu: ${px(METRYKI.odstepKomorkiGridu)};`,
     `  --tg-rozmiarPrzelacznika: ${px(METRYKI.rozmiarPrzelacznika)};`,
     `  --tg-promienPolaWyboru: ${px(METRYKI.promienPolaWyboru)};`,
     `  --tg-szerokoscPaneluKategoriiWezla: ${px(METRYKI.szerokoscPaneluKategoriiWezla)};`,
