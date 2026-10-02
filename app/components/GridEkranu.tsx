@@ -464,7 +464,9 @@ export function GridEkranu({
               ? undefined
               : wartosci.get(kluczSerii(wiersz.obiektId, wiersz.kategoria.id));
 
-          return seria === undefined ? null : <PasDanych teksty={seria} />;
+          return seria === undefined ? null : (
+            <PasDanych teksty={seria} kolor={wiersz.kategoria?.color ?? null} />
+          );
         },
       },
     ];
@@ -541,14 +543,25 @@ export function GridEkranu({
  * kroku przewijania, a tablica `teksty` ma tożsamość odpowiedzi API
  * (`kolumnyDoby` w `app/lib/prezentacja.ts`), więc pas przerysowuje się
  * wyłącznie przy nowych danych doby.
+ *
+ * Tekst wartości ma kolor kategorii wiersza (`kolor`, `#RRGGBB` ze słownika
+ * kategorii) — styl inline, bo kolor jest daną użytkownika, a nie rolą
+ * motywu. Przykrywa `text-tg-tekst-danych` komórki dziedziczeniem; bez koloru
+ * (kategoria spoza słownika) zostaje rola motywu. Tło danych jest białe
+ * w obu wariantach (`tloDanych`), więc kolor kategorii wygląda w obu tak samo.
  */
 const PasDanych = memo(function PasDanych({
   teksty,
+  kolor,
 }: {
   teksty: readonly string[];
+  kolor: string | null;
 }) {
   return (
-    <div className="tg-pas-danych">
+    <div
+      className="tg-pas-danych"
+      style={kolor === null ? undefined : { color: kolor }}
+    >
       {teksty.map((tekst, indeks) => (
         <span key={indeks}>{tekst}</span>
       ))}

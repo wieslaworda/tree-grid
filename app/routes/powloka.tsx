@@ -1,5 +1,5 @@
 import { Button } from "antd";
-import { Form, Link, Outlet } from "react-router";
+import { Form, NavLink, Outlet } from "react-router";
 
 import { MenuGlowne } from "~/components/MenuGlowne";
 // Wartość z modułu `.server` wolno tu zaimportować tylko dlatego, że czyta ją
@@ -11,7 +11,7 @@ import { kontekstUzytkownika } from "~/lib/auth.server";
 import type { Route } from "./+types/powloka";
 
 /**
- * Powłoka: nagłówek z nazwą aplikacji, menu głównym, e-mailem i wylogowaniem
+ * Powłoka: nagłówek z linkiem „Prezentacja ekranu”, menu głównym, e-mailem i wylogowaniem
  * nad każdym widokiem produktu. Layout bez segmentu ścieżki, zagnieżdżony
  * w `app/routes.ts` **pod** bramą.
  *
@@ -66,12 +66,21 @@ export default function Powloka({ loaderData }: Route.ComponentProps) {
         albo jego pozycji wymaga poprawienia tej klasy.
       */}
       <header className="flex shrink-0 items-center gap-4 border-b border-tg-linia bg-tg-panel pr-36 pl-3">
-        <Link
-          to="/"
-          className="font-semibold text-tg-tekst hover:text-tg-akcent"
+        {/*
+          Miejsce nazwy aplikacji zajmuje „Prezentacja ekranu” — widok, który
+          zalogowany dostaje na starcie (`HOME_ROUTE`). Poza menu głównym, więc
+          aktywną trasę zaznacza tu `NavLink`, a nie `selectedKeys` menu.
+        */}
+        <NavLink
+          to="/prezentacja"
+          className={({ isActive }) =>
+            `font-semibold hover:text-tg-akcent ${
+              isActive ? "text-tg-akcent" : "text-tg-tekst"
+            }`
+          }
         >
-          TreeGrid
-        </Link>
+          Prezentacja ekranu
+        </NavLink>
 
         <MenuGlowne />
 

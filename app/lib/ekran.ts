@@ -25,6 +25,12 @@ export type KategoriaSlownika = {
   id: number;
   code: string;
   name: string;
+  /**
+   * Kolor kategorii (`#RRGGBB`) — kolor tekstu wartości jej wierszy
+   * w kolumnach czasowych. `null` przy kategorii spoza słownika: jej
+   * wartości zostają w kolorze `tekstDanych`.
+   */
+  color: string | null;
 };
 
 /**
@@ -110,8 +116,13 @@ export function zbudujWezlyGridu(
     const kategoria = kategoriePoId.get(id);
 
     return kategoria === undefined
-      ? { id, code: `#${id}`, name: "brak w słowniku" }
-      : { id, code: kategoria.code, name: kategoria.name };
+      ? { id, code: `#${id}`, name: "brak w słowniku", color: null }
+      : {
+          id,
+          code: kategoria.code,
+          name: kategoria.name,
+          color: kategoria.color,
+        };
   };
 
   const zbuduj = (rodzic: number | null): WezelGridu[] =>

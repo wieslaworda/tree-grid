@@ -34,8 +34,11 @@ export type { SessionUser };
  */
 export const LOGIN_ROUTE = "/logowanie";
 
-/** Adres, pod który trafia zalogowany. Dziś jedyny widok produktu. */
-export const HOME_ROUTE = "/";
+/**
+ * Adres, pod który trafia zalogowany — „Prezentacja ekranu”. Tu prowadzi też
+ * `/` (`routes/home.tsx`), więc zakładka na stronę główną otwiera ten sam widok.
+ */
+export const HOME_ROUTE = "/prezentacja";
 
 /** Endpointy uwierzytelniania API (`src/Api/Auth/AuthEndpoints.cs`). */
 export const AUTH_LOGIN_PATH = "/auth/login";

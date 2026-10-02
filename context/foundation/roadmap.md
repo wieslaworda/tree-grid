@@ -3,7 +3,7 @@ project: TreeGrid
 version: 1
 status: draft
 created: 2026-09-21
-updated: 2026-10-01
+updated: 2026-10-02
 prd_version: 1
 main_goal: speed
 top_blocker: time
@@ -27,7 +27,7 @@ milestone_status: open
 - **Done when:** każdy `F-NN` i `S-NN` poniżej ma status `done`.
 - **Scope anchors:** FR-001–FR-012 (bez wycofanego FR-005), US-01–US-02, sekcje `Business Logic` i `Access Control`, oraz wymagania niefunkcjonalne (288 kolumn, izolacja kont, informacja zwrotna powyżej 2 s, gęstość odczytu liczb, dwa warianty motywu, kontrast i rola koloru). Spoza PRD:
   - MS-01: Po zalogowaniu aplikacja ma menu główne, w którym pojawiają się kolejne funkcjonalności; pierwsza pozycja to „Obiekty", a kolejne pozycje są dopisywane sukcesywnie przez następne plastry.
-  - MS-02: Dyspozytor przegląda, dodaje, edytuje i usuwa kategorie danych w słowniku kategorii; kategoria składa się z kodu, nazwy i funkcji agregującej wybieranej z listy (SUM, MIN, MAX). Widok działa jak lista obiektów (tabela i formularz w jednym widoku), a „Kategorie" to kolejna pozycja menu głównego.
+  - MS-02: Dyspozytor przegląda, dodaje, edytuje i usuwa kategorie danych w słowniku kategorii; kategoria składa się z kodu, nazwy, funkcji agregującej wybieranej z listy (SUM, MIN, MAX) i koloru (`#RRGGBB`), którym `S-05` pisze wartości jej wierszy. Widok działa jak lista obiektów (tabela i formularz w jednym widoku), a „Kategorie" to kolejna pozycja menu głównego.
   - MS-03: Dyspozytor dodaje, edytuje i usuwa drzewa. Nagłówek drzewa ma wyłącznie nazwę i unikalny identyfikator w bazie; edycja drzewa to zmiana nazwy, a nazwa jest unikalna w obrębie konta. Usunięcie drzewa usuwa całą jego strukturę.
   - MS-04: Na górze widoku budowy stoi lista drzew do wyboru — w tym samym układzie co lista obiektów — z dodawaniem, edycją i usuwaniem wybranego drzewa. Budowa struktury zawsze działa na drzewie wybranym z tej listy. Bez żadnego drzewa lista jest pusta z zachętą „Dodaj drzewo", a budowa struktury jest nieaktywna.
   - MS-05: Lista drzew jest powiązana z użytkownikiem — każdy widzi, wybiera i zmienia wyłącznie własne drzewa.
@@ -177,7 +177,7 @@ Foundations below assume these are present and do NOT re-scaffold them.
 
 ### S-09: Słownik kategorii danych
 
-- **Outcome:** Dyspozytor przegląda słownik kategorii danych, dodaje nowe, edytuje i usuwa istniejące — każda kategoria ma unikalny kod, nazwę i funkcję agregującą wybraną z listy (SUM, MIN, MAX); słownik jest dostępny z pozycji „Kategorie" w menu głównym, w tym samym układzie co lista obiektów.
+- **Outcome:** Dyspozytor przegląda słownik kategorii danych, dodaje nowe, edytuje i usuwa istniejące — każda kategoria ma unikalny kod, nazwę, funkcję agregującą wybraną z listy (SUM, MIN, MAX) i kolor; słownik jest dostępny z pozycji „Kategorie" w menu głównym, w tym samym układzie co lista obiektów.
 - **Change ID:** `lista-kategorii`
 - **PRD refs:** MS-02, MS-01, FR-006
 - **Prerequisites:** F-01, S-07
@@ -208,6 +208,7 @@ Foundations below assume these are present and do NOT re-scaffold them.
   Za kolumną kategorii widzi klumny punktów czasowych wygenerowane na podstawie ziarna z definicji ekranu , 5 min → 288, 15 min → 96, 60 min → 24 kolumny. 
    Wariant 288-kolumnowy przewija się płynnie razem z drzewem w kolumnie 1. Ilość wierszy wynika z definicji ekranu (obiekty drzewa x przypisane kategorie).  Operacja dłuższa niż 2 sekundy pokazuje postęp.
    Etykiety kolumn czasowych generowane sa na podstawie ziarna w wybranego ekranu z etykietami w hormacie gg:mm. Dane gridu od 3 kolumny i drugiego wiersza  mają białe tło.
+   Wartości danych od 3 kolumny są pisane kolorem kategorii wiersza — kolorem przypisanym kategorii w słowniku (`S-09`); kategoria spoza słownika zostaje w domyślnym kolorze tekstu danych (zmiana 2026-10-02, FR-008).
    Funkcja uruchamia się z ostatniej pozycji menu "Prezentacja ekranu"
 - **Change ID:** `prezentacja-ekranu`
 - **PRD refs:** FR-007, FR-008, US-01, NFR (288 kolumn gotowe do pracy i płynnie przewijalne), NFR (informacja zwrotna przy operacjach powyżej 2 s), NFR (gęstość odczytu liczb)
@@ -216,6 +217,7 @@ Foundations below assume these are present and do NOT re-scaffold them.
 - **Blockers:** —
 - **Unknowns:**
   - Jaka największa liczba wierszy ekranu (węzły × kategorie) ma zachować płynne przewijanie w wariancie 288-kolumnowym? (PRD `## Open Questions` #5) — wiersze mnożą się przez liczbę kategorii, więc limit rozmiaru drzewa z `S-03` przestaje wprost ograniczać rozmiar gridu. — Owner: użytkownik. Block: no.
+  - Czy kolor kategorii, którym są pisane wartości, ma spełniać kontrast WCAG AA na białym tle danych? (PRD `## Open Questions` #6) — kolor wybiera dyspozytor w słowniku `S-09`, a jasny kolor łamie NFR kontrastu tekstu. — Owner: użytkownik. Block: no.
 - **Risk:** To jedyny plaster niosący wymaganie, które może wywrócić cały projekt: pełna doba z ziarnem 5 minut to 288 kolumn danych, które mają się płynnie przewijać razem z drzewem w pierwszej kolumnie. Od 2026-09-24 pionowy wymiar też rośnie, bo każdy węzeł daje tyle wierszy, ile ma kategorii. To najdroższa technicznie część i przy celu `speed` nie ma tu miejsca na drugie podejście, dlatego inwestycja idzie właśnie we frontend. Wartości w punktach czasowych są generowane losowo (PRD `## Non-Goals`), więc plaster nie zależy od żadnych systemów zewnętrznych — cała trudność leży po stronie prezentacji.
 - **Status:** in-progress
 
@@ -267,7 +269,7 @@ This table is the clean handoff to Jira/Linear or any MCP-backed backlog. It car
 
 Brak otwartych pytań na poziomie roadmapy.
 
-Pozostałe pytania z PRD dotyczą jednego plastra i stoją w jego `Unknowns`: #3 → `S-04`, #5 → `S-05`; #4 (`S-06`) rozstrzygnął plan `zapisane-ekrany`.
+Pozostałe pytania z PRD dotyczą jednego plastra i stoją w jego `Unknowns`: #3 → `S-04`, #5 i #6 → `S-05`; #4 (`S-06`) rozstrzygnął plan `zapisane-ekrany`.
 
 Rozstrzygnięte:
 

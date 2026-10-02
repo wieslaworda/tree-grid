@@ -86,6 +86,7 @@ Każdy dyspozytor ma inne potrzeby operacyjne, więc jeden uniwersalny, sztywny 
   > Zmienione 2026-09-24: doba nie jest częścią zapisanego ekranu.
 - FR-008: Użytkownik widzi całą strukturę drzewa w gridzie: kol. 1 — struktura drzewa, kol. 2 — kategoria (atrybut), kol. 3+ — punkty czasowe z danymi; każdy węzeł ma po jednym wierszu na każdą przypisaną mu kategorię. Priority: must-have
   > Socrates: Rozważone kontrargumenty: "grid z ~288 kolumnami jest nieczytelny bez agregacji lub wykresu" oraz "dane losowe uniemożliwiają ocenę użyteczności widoku". Rozstrzygnięcie: FR zostaje — prezentacja drzewa z gridem jest dowodem działania produktu.
+  > Zmienione 2026-10-02: wartości w kol. 3+ są pisane kolorem kategorii wiersza — kolorem przypisanym kategorii w słowniku kategorii. Kategoria spoza słownika zostaje w domyślnym kolorze tekstu danych. Tło danych jest białe w obu wariantach motywu, więc kolor kategorii wygląda w obu tak samo.
 
 ### Ekrany (trwałość)
 - FR-009: Użytkownik może utworzyć nazwany ekran: podać nazwę, wskazać jedno z własnych drzew, ziarno czasowe i domyślną listę kategorii. Każdy węzeł drzewa dostaje na starcie kategorie domyślne, a wiersze gridu powstają na bieżąco przy wyborze drzewa i kategorii. Zapis przechowuje ekran razem z kategoriami przypisanymi do każdego węzła. Priority: must-have
@@ -133,3 +134,4 @@ Logowanie e-mail + hasło. Model płaski — każdy zalogowany użytkownik ma te
 3. **Czy zmiana domyślnej listy kategorii w edycji zapisanego ekranu nadpisuje przypisania istniejących węzłów, czy dotyczy tylko węzłów dodanych później?** — Owner: użytkownik. Block: no.
 4. **Co się dzieje z przypisaniem kategorii, która zostanie usunięta ze słownika — odmowa usunięcia kategorii używanej w ekranie czy zdjęcie przypisań?** — Owner: użytkownik. Block: no.
 5. **Jaka największa liczba wierszy ekranu (węzły × kategorie) ma zachować płynne przewijanie w wariancie 288-kolumnowym?** Wiersze mnożą się przez liczbę kategorii, więc limit rozmiaru drzewa przestaje wprost ograniczać rozmiar gridu. — Owner: użytkownik. Block: no.
+6. **Czy kolor kategorii ma spełniać kontrast WCAG AA (4,5:1) na białym tle danych?** Od 2026-10-02 wartości w kolumnach czasowych są pisane kolorem kategorii (FR-008), który dyspozytor wybiera dowolnie w słowniku. Jasny kolor (np. `#FA8C16`) nie spełnia wymagania kontrastu tekstu z `## Non-Functional Requirements`. Do wyboru: walidacja kontrastu przy zapisie kategorii, przyciemnianie koloru w widoku albo wyjątek od wymagania dla koloru wybranego przez użytkownika. — Owner: użytkownik. Block: no.

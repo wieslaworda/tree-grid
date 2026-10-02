@@ -12,13 +12,15 @@ import { Link, useLocation } from "react-router";
  * Adresy są dosłowne, a nie ze stałych `*_ROUTE`: te mieszkają w modułach
  * `.server`, a ten komponent renderuje się także w przeglądarce — import
  * stamtąd wywaliłby build (nagłówek `app/lib/objects.server.ts`).
+ *
+ * „Prezentacji ekranu” tu nie ma: stoi w nagłówku powłoki na miejscu nazwy
+ * aplikacji (`routes/powloka.tsx`), jako widok startowy po zalogowaniu.
  */
 export const POZYCJE_MENU: { sciezka: string; etykieta: string }[] = [
   { sciezka: "/obiekty", etykieta: "Obiekty" },
   { sciezka: "/kategorie", etykieta: "Kategorie" },
   { sciezka: "/drzewo", etykieta: "Drzewo" },
   { sciezka: "/ekrany", etykieta: "Ekrany" },
-  { sciezka: "/prezentacja", etykieta: "Prezentacja ekranu" },
 ];
 
 /**
@@ -40,9 +42,9 @@ const ELEMENTY: MenuProps["items"] = POZYCJE_MENU.map(
  * Pozycja aktywna dla bieżącej ścieżki. Prefiks z ukośnikiem, a nie sam
  * `startsWith(sciezka)`: dzięki temu pozycja świeci się także na trasach
  * zagnieżdżonych pod swoją ścieżką, ale „Obiekty" nie świeci się na przyszłym
- * `/obiektywy`. Na `/` nie pasuje nic,
- * i tak ma być — strona główna nie jest pozycją menu, prowadzi do niej nazwa
- * aplikacji w nagłówku.
+ * `/obiektywy`. Na `/prezentacja` nie pasuje nic, i tak ma być — widok
+ * startowy nie jest pozycją menu, prowadzi do niego link na miejscu nazwy
+ * aplikacji w nagłówku, który sam zaznacza się jako aktywny.
  */
 function aktywnaPozycja(pathname: string): string[] {
   const pozycja = POZYCJE_MENU.find(

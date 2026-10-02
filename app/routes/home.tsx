@@ -1,28 +1,23 @@
-import type { Route } from "./+types/home";
+import { redirect } from "react-router";
 
-export function meta({}: Route.MetaArgs) {
-  return [
-    { title: "TreeGrid" },
-    {
-      name: "description",
-      content:
-        "TreeGrid — drzewo obiektów połączone z gridem punktów czasowych.",
-    },
-  ];
-}
+// Wartość z modułu `.server` czyta wyłącznie `loader`, więc znika z bundla
+// klienckiego razem z nim (ten sam powód co w `routes/powloka.tsx`).
+import { HOME_ROUTE } from "~/lib/auth.server";
 
 /**
- * Strona główna jest świadomie pusta: wszystko, co na niej było — tytuł,
- * treść zastępcza, link „Obiekty" i wylogowanie — daje dziś nagłówek powłoki
- * (`routes/powloka.tsx`), a powtarzanie tego pod nim tylko zaśmiecało ekran
- * (decyzja użytkownika przy S-07). Trasa zostaje, bo na `/` trafia się po
- * zalogowaniu (`HOME_ROUTE`). Lista zapisanych ekranów z S-06 mieszka pod
- * `/ekrany` (`routes/ekrany.tsx`), a nie tutaj.
+ * Strona główna nie ma własnego widoku: przekierowuje na widok startowy
+ * (`HOME_ROUTE`, „Prezentacja ekranu”), który zalogowany dostaje też prosto
+ * po zalogowaniu i rejestracji. Trasa zostaje, żeby `/` — stary adres
+ * startowy i zakładki — nie kończył się 404.
  *
- * Ścieżka SSR z warstwą `antd` (CLAUDE.md, kontrakty 1 i 2) jest na tej
- * trasie nadal realnie ćwiczona — przez menu i przycisk wylogowania
- * w nagłówku powłoki, a nie przez treść tego widoku.
+ * Przekierowanie stoi za bramą (`routes/chronione.tsx`): bez sesji `/` nadal
+ * odsyła na `/logowanie`, więc wykrywanie gotowości w `start-prod-tunnel.ps1`
+ * (żądanie `/` z oczekiwanym 200 po przekierowaniach) działa jak dotąd.
  */
+export function loader() {
+  throw redirect(HOME_ROUTE);
+}
+
 export default function Home() {
   return null;
 }
