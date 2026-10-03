@@ -41,3 +41,13 @@ obj/
 # --- SQLite (pliki poboczne trybu WAL) ---
 *.db-wal
 *.db-shm
+
+# --- Playwright (E2E) ---
+playwright/.auth/
+test-results/
+playwright-report/
+blob-report/
+playwright/.cache/
+.playwright-cli/
+# Baza SQLite stawiana na nowo przy każdym uruchomieniu E2E (playwright.config.ts)
+.e2e/
