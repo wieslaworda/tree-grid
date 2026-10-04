@@ -296,11 +296,11 @@ ani skrypt dla `api_unreachable` nie czyta.
 
 #### Automated
 
-- [x] 1.1 Spec `npm run test:node` jest czerwony przed zmianą produkcyjną (cztery testy na asercji `context`, health także na linii logu)
-- [x] 1.2 Spec `npm run test:node` jest zielony po zmianie produkcyjnej
-- [x] 1.3 Celowe usunięcie wywołania `logApiFailure` w `requestApi` daje czerwony test `requestApi`; przywrócenie — zielony
-- [x] 1.4 Type checking przechodzi: `npm run typecheck`
-- [x] 1.5 `grep -rn "describeCause\|reason:" app` nie zwraca nic
+- [x] 1.1 Spec `npm run test:node` jest czerwony przed zmianą produkcyjną (cztery testy na asercji `context`, health także na linii logu) — adc926f
+- [x] 1.2 Spec `npm run test:node` jest zielony po zmianie produkcyjnej — adc926f
+- [x] 1.3 Celowe usunięcie wywołania `logApiFailure` w `requestApi` daje czerwony test `requestApi`; przywrócenie — zielony — adc926f
+- [x] 1.4 Type checking przechodzi: `npm run typecheck` — adc926f
+- [x] 1.5 `grep -rn "describeCause\|reason:" app` nie zwraca nic — adc926f
 
 #### Manual
 
