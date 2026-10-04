@@ -20,7 +20,6 @@ import {
   API_BASE_URL,
   ROUTE_ERROR_CODES,
   apiError,
-  describeCause,
   isApiErrorBody,
   readJson,
 } from "~/lib/api.server";
@@ -167,7 +166,7 @@ async function fetchSigningKey(): Promise<string> {
       cause,
     });
 
-    throw unreachable(describeCause(cause));
+    throw unreachable();
   }
 
   const body = await readJson(response);
@@ -218,15 +217,15 @@ function logSigningKeyFailure(
 }
 
 /**
- * 502 z kodem `api_unreachable`. Ścieżka techniczna idzie do `context`, ale
- * sama wartość klucza — nigdy: `context` bywa pokazywany użytkownikowi.
+ * 502 z kodem `api_unreachable` i pustym `context`. Ścieżka endpointu klucza
+ * i przyczyna porażki są wyłącznie w linii logu: `context` trafia do
+ * przeglądarki, a ścieżka zdradza, gdzie API wydaje klucz podpisu.
  */
-function unreachable(reason: string): Response {
+function unreachable(): Response {
   return Response.json(
     apiError(
       ROUTE_ERROR_CODES.ApiUnreachable,
       "Nie udało się połączyć z API aplikacji.",
-      { path: SIGNING_KEY_PATH, reason },
     ),
     { status: 502 },
   );

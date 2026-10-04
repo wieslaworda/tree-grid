@@ -10,8 +10,13 @@
  * React Routera nie ma trwałości (`tech-stack.md`).
  *
  * Linię zapisuje miejsce, w którym porażka zamienia się w kopertę
- * (`requestApi`, `invalidResponse`, `requestAccount`, `fetchSigningKey`) —
- * nigdy klient zasobu ani trasa, bo to dałoby dwie linie na jedną awarię.
+ * (`requestApi`, `invalidResponse`, `requestAccount`, `fetchSigningKey`,
+ * loader `/api/health`) — nigdy klient zasobu ani trasa, bo to dałoby dwie
+ * linie na jedną awarię.
+ *
+ * Przy zgaszonym API ta linia jest **jedynym** miejscem z przyczyną
+ * (`ECONNREFUSED`) i ścieżką API: koperta `api_unreachable` trafia do
+ * przeglądarki, więc ma pusty `context` (`tests/node/porazka-api.spec.ts`).
  *
  * Do linii trafia **kształt** ciała odpowiedzi, nigdy jego wartości: ciało
  * `/internal/session-signing-key` niesie klucz podpisu sesji, a odpowiedź

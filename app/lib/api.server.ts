@@ -106,23 +106,6 @@ export async function readJson(response: Response): Promise<unknown> {
 }
 
 /**
- * `fetch` w Node zgłasza lakoniczne „fetch failed", a właściwy powód
- * (np. `ECONNREFUSED`) siedzi w `cause`. Bez rozwinięcia kontekst błędu nie
- * niósłby nic użytecznego.
- */
-export function describeCause(cause: unknown): string {
-  if (!(cause instanceof Error)) {
-    return String(cause);
-  }
-
-  const inner = cause.cause;
-
-  return inner instanceof Error
-    ? `${cause.message}: ${inner.message}`
-    : cause.message;
-}
-
-/**
  * Porażka niesie gotową kopertę razem ze statusem, bo trasa nie ma czego do
  * niej dopisać — komunikaty dla użytkownika układa API, które jako jedyne zna
  * reguły słownika i drzewa (duplikat kodu, zapętlenie, odmowa usunięcia).
@@ -169,6 +152,8 @@ export type ApiRequestOptions = { userId?: string };
  *
  * Porażki, które są awarią, a nie wynikiem, zostawiają linię w logu
  * (`log.server.ts`): zgaszone API, treść spoza kontraktu, 5xx i 401 z API.
+ * Przy zgaszonym API przyczyna i ścieżka API są wyłącznie w tej linii —
+ * koperta wraca z pustym `context`, bo trafia do przeglądarki.
  * Pozostałe 4xx (zapętlenie, duplikat, walidacja, 404) to odmowy domenowe
  * pokazywane użytkownikowi — w logu zakryłyby prawdziwe awarie. Klient zasobu
  * zwraca porażkę stąd bez zmian i niczego nie dopisuje do logu.
@@ -213,7 +198,6 @@ export async function requestApi(
       error: apiError(
         ROUTE_ERROR_CODES.ApiUnreachable,
         "Nie udało się połączyć z API aplikacji.",
-        { path, reason: describeCause(cause) },
       ),
     };
   }

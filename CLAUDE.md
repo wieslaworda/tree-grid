@@ -62,6 +62,7 @@ npm run dev        # serwer deweloperski, http://localhost:5173
 npm run build      # build produkcyjny do build/
 npm run start      # serwowanie zbudowanej aplikacji, http://localhost:3000
 npm run typecheck  # react-router typegen && tsc
+npm run test:node  # spece Node z tests/node/ — Playwright bez przeglądarki i bez stosu (sekundy)
 
 # backend (ASP.NET Core, .NET 10 przypięty w global.json)
 dotnet build TreeGrid.sln
@@ -76,15 +77,18 @@ dotnet ef database update --project src/Api
 .\buduj_app_dev.ps1          # -Stop zatrzymuje oba
 ```
 
-Automatyczna weryfikacja to `npm run typecheck` i `dotnet test`. Testy .NET
+Automatyczna weryfikacja to `npm run typecheck`, `npm run test:node`
+i `dotnet test`. Testy .NET
 pokrywają **reguły domenowe i kształt kontraktu błędów** (`*RulesTests`,
 `*ErrorContractTests`) oraz **potok HTTP drzew, ekranów i kaskady usunięcia
 kategorii na prawdziwym SQLite i zapis błędu 500 do pliku logu**
 (`*IntegrationTests`: host z `TestApiFactory`, własny plik bazy i katalog logu
 tymczasowe na klasę, baza i log deweloperskie nietknięte) — bez
 widoku i bez izolacji kont (poza kontrolą właściciela drzewa przy
-`PUT /screens`). Frontend
-nie ma żadnych testów. Lintera i CI nie ma. Przejście obu komend nie znaczy, że
+`PUT /screens`). Frontend ma jedynie spec Node `tests/node/porazka-api.spec.ts`
+(koperta i linia logu przy zgaszonym API, z podstawionym `fetch`; osobny
+`playwright.node.config.ts`, bo główny config zawsze stawia API i build)
+oraz E2E w `tests/e2e/`. Lintera i CI nie ma. Przejście tych komend nie znaczy, że
 działa zmiana w widoku albo w endpointach spoza drzew i ekranów. Jak dodać
 kolejny test integracyjny — `context/foundation/test-plan.md` §6.2.
 
@@ -183,7 +187,9 @@ przeglądarka ──► react-router-serve :3000 ──(loader/action, fetch)─
   `event:"api_failure"` na stderr serwera React Routera
   (`.tunnel-run/prod.err.log`, poprzednie przebiegi jako
   `prod.err.<yyyyMMdd-HHmmss>.log`), łączone z wpisem API przez `requestId`
-  (`app/lib/log.server.ts`).
+  (`app/lib/log.server.ts`). Przyczyna zgaszonego API (`ECONNREFUSED`)
+  i ścieżka API są **tylko** w tej linii — koperta `api_unreachable` dla
+  przeglądarki ma pusty `context`, także na publicznym `/api/health`.
 - **Reguła zapętlenia drzewa** (sprawdzenie ścieżki przodków), duplikat
   rodzeństwa i limit węzłów mieszkają w `src/Api/Tree/TreeRules.cs`,
   unikalność nazwy drzewa w `TreeNameRules.cs` — egzekwuje je API, nie widok.
@@ -295,9 +301,10 @@ i blokada konta po nieudanych próbach. Nie osłabiaj żadnego z nich „na chwi
 
 Nie traktuj ich jako błędów do naprawienia przy okazji — to zaległa praca:
 
-- Brak testów frontendu i testów procesowych (E2E). Pierwszy test Playwright
-  jest zaplanowany w `context/changes/testy-procesowe-playwright/`, a runner
-  testów stoi w roadmapie w sekcji *Parked* — nie rozbudowuj zestawu na zapas.
+- Brak testów jednostkowych frontendu poza jednym specem Node
+  (`tests/node/`) i nieliczne testy procesowe (E2E) z
+  `context/changes/testy-procesowe-playwright/`. Runner testów jednostkowych
+  stoi w roadmapie w sekcji *Parked* — nie rozbudowuj zestawu na zapas.
 - Testy integracyjne API (`*IntegrationTests`) pokrywają wyłącznie drzewa
   i ekrany. Uwierzytelnianie (logowanie, rejestracja, blokada konta), izolacja
   kont (IDOR) poza kontrolą właściciela drzewa przy `PUT /screens` oraz

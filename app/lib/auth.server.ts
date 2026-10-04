@@ -16,7 +16,6 @@ import {
   type ApiErrorBody,
   ROUTE_ERROR_CODES,
   apiError,
-  describeCause,
   isApiErrorBody,
   readJson,
 } from "~/lib/api.server";
@@ -223,7 +222,6 @@ export async function requestAccount(
       error: apiError(
         ROUTE_ERROR_CODES.ApiUnreachable,
         "Nie udało się połączyć z API aplikacji.",
-        { path, reason: describeCause(cause) },
       ),
     };
   }

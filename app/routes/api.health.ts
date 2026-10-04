@@ -2,10 +2,10 @@ import {
   API_BASE_URL,
   ROUTE_ERROR_CODES,
   apiError,
-  describeCause,
   isApiErrorBody,
   readJson,
 } from "~/lib/api.server";
+import { logApiFailure } from "~/lib/log.server";
 
 import type { Route } from "./+types/api.health";
 
@@ -32,12 +32,21 @@ export async function loader() {
   } catch (cause) {
     // Zgaszone API to najczęstszy stan tej trasy przy dwóch procesach
     // uruchamianych osobno — ma być diagnozowalny, a nie wyglądać jak awaria
-    // frontendu. Szczegół techniczny idzie do `context`, nie do `message`.
+    // frontendu. Przyczyna idzie do logu, nie do odpowiedzi: trasa jest
+    // publiczna, a przyczyna zdradza adres i port API.
+    logApiFailure({
+      code: ROUTE_ERROR_CODES.ApiUnreachable,
+      status: 502,
+      method: "GET",
+      path: HEALTH_PATH,
+      cause,
+    });
+
     return errorResponse(
       502,
       ROUTE_ERROR_CODES.ApiUnreachable,
       "Nie udało się połączyć z API aplikacji.",
-      { path: HEALTH_PATH, reason: describeCause(cause) },
+      {},
     );
   }
 
