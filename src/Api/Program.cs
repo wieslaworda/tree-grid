@@ -1,4 +1,5 @@
 using System.Data.Common;
+using System.Text;
 using Api.Auth;
 using Api.Categories;
 using Api.Data;
@@ -10,6 +11,8 @@ using Microsoft.AspNetCore.Identity;
 using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Diagnostics;
+using Serilog;
+using Serilog.Core;
 
 // Limit oczekiwania na zajętą bazę, w milisekundach. Musi być niezerowy: WAL
 // pozwala czytać w trakcie zapisu, ale dwa zapisy nadal się wykluczają i bez
@@ -17,6 +20,20 @@ using Microsoft.EntityFrameworkCore.Diagnostics;
 const int busyTimeoutMilliseconds = 5000;
 
 var builder = WebApplication.CreateBuilder(args);
+
+// Błędy API trafiają dodatkowo do pliku w katalogu z `FileLogging:Directory`
+// (PRD, NFR o logowaniu błędów). Serilog jest tu jednym dostawcą więcej obok
+// konsoli, a nie zamiennikiem potoku logowania — konsola zostaje z poziomami
+// i formatem z sekcji `Logging`. Plik dostaje wyłącznie Error i wyżej, bo PRD
+// wymaga zapisu błędów, a nie dziennika ruchu: wpisy informacyjne (w tym
+// każde zapytanie SQL w Development) zasypałyby plik i wydłużyły szukanie
+// konkretnego wyjątku.
+//
+// Rejestrowana jest instancja, nie statyczny `Log.Logger`: w procesie testów
+// żyje naraz kilka hostów, każdy z własnym katalogiem logu. `dispose: true`
+// oddaje zamknięcie pliku hostowi — zwalnia go razem z kontenerem usług.
+var fileLogger = CreateFileLogger(builder.Configuration, builder.Environment.ContentRootPath);
+builder.Logging.AddSerilog(fileLogger, dispose: true);
 
 // Add services to the container.
 // Learn more about configuring OpenAPI at https://aka.ms/aspnet/openapi
@@ -239,6 +256,59 @@ static string InitializeDatabaseFile(string connectionString, string contentRoot
     pragma.ExecuteScalar();
 
     return parsed.ConnectionString;
+}
+
+// Buduje logger plikowy błędów API: jeden plik na dobę `api-YYYYMMDD.log`,
+// 31 najnowszych zostaje.
+//
+// Ścieżka względna jest rozwiązywana względem katalogu treści, tak jak plik bazy
+// w `InitializeDatabaseFile` — domyślne `Log` ląduje w `src/Api/Log/`, obok
+// `src/Api/db/`, niezależnie od katalogu roboczego procesu. Brak klucza jest
+// błędem konfiguracji, a nie powodem, żeby po cichu pisać w dowolne miejsce.
+//
+// `RequestId` i `RequestPath` nie są dopisywane przez nas: to właściwości zakresu
+// logowania, który hosting ASP.NET Core otwiera dla każdego żądania, a dostawca
+// Serilog przenosi je do wpisu. `RequestId` to `HttpContext.TraceIdentifier`,
+// czyli ta sama wartość, którą odpowiedź 500 oddaje jako `context.requestId`
+// (`ApiErrorHandling`) — po niej zgłoszenie łączy się z wyjątkiem w pliku.
+// Wpis spoza żądania (np. ze startu) ma oba pola puste.
+//
+// Tryb współdzielony, bo bez niego pierwszy proces API trzyma plik na
+// wyłączność, a drugi (np. przypadkowy drugi start) traci swój wpis po cichu —
+// Serilog zgłasza błąd zapisu wyłącznie do `SelfLog`. Limit rozmiaru chroni
+// dysk przed pętlą błędów; po jego przekroczeniu powstaje kolejny plik tej doby,
+// liczony do tych samych 31.
+static Logger CreateFileLogger(IConfiguration configuration, string contentRootPath)
+{
+    const string directoryKey = "FileLogging:Directory";
+
+    var directory = configuration[directoryKey];
+
+    if (string.IsNullOrWhiteSpace(directory))
+    {
+        throw new InvalidOperationException(
+            $"Brak katalogu logu '{directoryKey}' w konfiguracji.");
+    }
+
+    if (!Path.IsPathRooted(directory))
+    {
+        directory = Path.GetFullPath(Path.Combine(contentRootPath, directory));
+    }
+
+    return new LoggerConfiguration()
+        .MinimumLevel.Error()
+        .WriteTo.File(
+            Path.Combine(directory, "api-.log"),
+            outputTemplate:
+                "{Timestamp:yyyy-MM-dd HH:mm:ss.fff zzz} [{Level:u3}] {SourceContext} " +
+                "RequestId={RequestId} {RequestPath}{NewLine}{Message:lj}{NewLine}{Exception}",
+            rollingInterval: RollingInterval.Day,
+            retainedFileCountLimit: 31,
+            fileSizeLimitBytes: 50 * 1024 * 1024,
+            rollOnFileSizeLimit: true,
+            shared: true,
+            encoding: new UTF8Encoding(encoderShouldEmitUTF8Identifier: false))
+        .CreateLogger();
 }
 
 /// <summary>

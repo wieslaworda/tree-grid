@@ -389,11 +389,11 @@ zostawia katalog, który można usunąć ręcznie.
 
 #### Automated
 
-- [ ] 1.1 Build przechodzi (API zatrzymane): `dotnet build TreeGrid.sln`
-- [ ] 1.2 Nowe testy przechodzą: `dotnet test tests/Api.Tests --filter "FullyQualifiedName~FileLoggingIntegrationTests"`
-- [ ] 1.3 Cały zestaw przechodzi: `dotnet test tests/Api.Tests`
-- [ ] 1.4 Po `dotnet test` żaden plik w `src/Api/Log/` nie zawiera `injected-savechanges-failure`
-- [ ] 1.5 Katalog logu jest ignorowany: `git check-ignore src/Api/Log/api-20261004.log`
+- [x] 1.1 Build przechodzi (API zatrzymane): `dotnet build TreeGrid.sln`
+- [x] 1.2 Nowe testy przechodzą: `dotnet test tests/Api.Tests --filter "FullyQualifiedName~FileLoggingIntegrationTests"`
+- [x] 1.3 Cały zestaw przechodzi: `dotnet test tests/Api.Tests`
+- [x] 1.4 Po `dotnet test` żaden plik w `src/Api/Log/` nie zawiera `injected-savechanges-failure`
+- [x] 1.5 Katalog logu jest ignorowany: `git check-ignore src/Api/Log/api-20261004.log`
 
 #### Manual
 

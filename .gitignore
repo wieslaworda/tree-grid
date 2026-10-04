@@ -38,6 +38,11 @@ Thumbs.db
 bin/
 obj/
 
+# --- Log błędów API (FileLogging:Directory w src/Api/appsettings.json) ---
+# Jawnie, a nie tylko przez *.log wyżej: plik logu niesie stosy wyjątków
+# i ścieżki, a nie może zależeć od tego, jakie rozszerzenie dostanie.
+src/Api/Log/
+
 # --- SQLite (pliki poboczne trybu WAL) ---
 *.db-wal
 *.db-shm

@@ -35,6 +35,13 @@ namespace Api.Tests;
 ///
 /// Sekrety są losowane na każdą instancję i żyją wyłącznie w pamięci: nie ma
 /// ich w repozytorium ani w logu (lekcja „Sekrety: konfiguracja .NET…").
+///
+/// Katalog logu błędów (<c>FileLogging:Directory</c>) też jest własny dla
+/// instancji i jedzie przez <c>UseSetting</c> z tego samego powodu co baza:
+/// logger plikowy powstaje w <c>Program.cs</c> zaraz po
+/// <c>WebApplication.CreateBuilder</c>. Bez tego każdy celowy błąd 500 z testów
+/// lądowałby w deweloperskim <c>src/Api/Log/</c>. Host zamyka plik logu przy
+/// zwolnieniu, więc katalog jest usuwany po <c>base.Dispose</c>, razem z bazą.
 /// </remarks>
 public class TestApiFactory : WebApplicationFactory<Program>
 {
@@ -61,8 +68,11 @@ public class TestApiFactory : WebApplicationFactory<Program>
         var directory = Path.Combine(Path.GetTempPath(), "treegrid-tests");
         Directory.CreateDirectory(directory);
 
-        DatabasePath = Path.GetFullPath(Path.Combine(directory, $"{Guid.NewGuid():N}.db"));
+        var instanceId = Guid.NewGuid().ToString("N");
+
+        DatabasePath = Path.GetFullPath(Path.Combine(directory, $"{instanceId}.db"));
         ConnectionString = new SqliteConnectionStringBuilder { DataSource = DatabasePath }.ToString();
+        LogDirectory = Path.GetFullPath(Path.Combine(directory, $"{instanceId}-log"));
 
         // Gdy konstruktor rzuci, xUnit nie zwolni fixture — sprzątanie tutaj.
         try
@@ -71,7 +81,7 @@ public class TestApiFactory : WebApplicationFactory<Program>
         }
         catch
         {
-            DeleteDatabaseFiles();
+            DeleteTemporaryFiles();
             throw;
         }
     }
@@ -81,6 +91,13 @@ public class TestApiFactory : WebApplicationFactory<Program>
 
     /// <summary>Connection string podawany hostowi przez <c>UseSetting</c>.</summary>
     public string ConnectionString { get; }
+
+    /// <summary>
+    /// Bezwzględny katalog logu błędów tej instancji, podawany hostowi jako
+    /// <c>FileLogging:Directory</c>. Logger tworzy go dopiero przy pierwszym
+    /// wpisie, więc do tego czasu może nie istnieć.
+    /// </summary>
+    public string LogDirectory { get; }
 
     /// <summary>
     /// Nowy scope usług hosta razem z jego <see cref="AppDbContext"/>. Każdy
@@ -101,6 +118,7 @@ public class TestApiFactory : WebApplicationFactory<Program>
         builder.UseSetting("ConnectionStrings:Default", ConnectionString);
         builder.UseSetting(AuthSecrets.RegistrationCodeKey, _registrationCode);
         builder.UseSetting(AuthSecrets.SessionSigningKeyKey, _sessionSigningKey);
+        builder.UseSetting("FileLogging:Directory", LogDirectory);
 
         // Opcje kontekstu z `Program.cs` (plik, interceptor busy_timeout) zostają;
         // klasa pochodna może do nich jedynie dołożyć, np. własny interceptor.
@@ -158,7 +176,7 @@ public class TestApiFactory : WebApplicationFactory<Program>
     public override async ValueTask DisposeAsync()
     {
         await base.DisposeAsync();
-        DeleteDatabaseFiles();
+        DeleteTemporaryFiles();
     }
 
     protected override void Dispose(bool disposing)
@@ -167,7 +185,7 @@ public class TestApiFactory : WebApplicationFactory<Program>
 
         if (disposing)
         {
-            DeleteDatabaseFiles();
+            DeleteTemporaryFiles();
         }
     }
 
@@ -196,15 +214,16 @@ public class TestApiFactory : WebApplicationFactory<Program>
     }
 
     /// <summary>
-    /// Usuwa plik bazy razem z plikami WAL. Pula połączeń trzyma na Windows
-    /// otwarte uchwyty, więc najpierw jest czyszczona — inaczej usunięcie
-    /// kończy się wyjątkiem „plik jest używany". Czyszczone są wyłącznie pule
-    /// tej instancji: <c>ClearAllPools</c> zamykałby też połączenia klas
-    /// biegnących równolegle, a SQLite przy zamknięciu ostatniego połączenia
-    /// usuwa i potem odtwarza <c>-wal</c>/<c>-shm</c> — pod obciążeniem na
-    /// Windows to źródło przypadkowych błędów I/O w niezwiązanym teście.
+    /// Usuwa plik bazy razem z plikami WAL oraz katalog logu. Pula połączeń
+    /// trzyma na Windows otwarte uchwyty, więc najpierw jest czyszczona —
+    /// inaczej usunięcie kończy się wyjątkiem „plik jest używany". Czyszczone
+    /// są wyłącznie pule tej instancji: <c>ClearAllPools</c> zamykałby też
+    /// połączenia klas biegnących równolegle, a SQLite przy zamknięciu
+    /// ostatniego połączenia usuwa i potem odtwarza <c>-wal</c>/<c>-shm</c> —
+    /// pod obciążeniem na Windows to źródło przypadkowych błędów I/O
+    /// w niezwiązanym teście. Plik logu zamyka już zwolniony host.
     /// </summary>
-    private void DeleteDatabaseFiles()
+    private void DeleteTemporaryFiles()
     {
         if (_filesDeleted)
         {
@@ -225,6 +244,8 @@ public class TestApiFactory : WebApplicationFactory<Program>
             TryDeleteFile(DatabasePath + suffix);
         }
 
+        TryDeleteDirectory(LogDirectory);
+
         _filesDeleted = true;
     }
 
@@ -243,6 +264,36 @@ public class TestApiFactory : WebApplicationFactory<Program>
             try
             {
                 File.Delete(path);
+
+                return;
+            }
+            catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
+            {
+                if (attempt < attempts)
+                {
+                    Thread.Sleep(100);
+                }
+            }
+        }
+    }
+
+    /// <summary>
+    /// Usunięcie katalogu z zawartością bez wyjątku, z tych samych powodów co
+    /// <see cref="TryDeleteFile"/>. Katalogu może nie być — logger zakłada go
+    /// dopiero przy pierwszym błędzie.
+    /// </summary>
+    private static void TryDeleteDirectory(string path)
+    {
+        const int attempts = 5;
+
+        for (var attempt = 1; attempt <= attempts; attempt++)
+        {
+            try
+            {
+                if (Directory.Exists(path))
+                {
+                    Directory.Delete(path, recursive: true);
+                }
 
                 return;
             }

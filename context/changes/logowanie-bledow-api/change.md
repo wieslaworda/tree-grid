@@ -1,7 +1,7 @@
 ---
 change_id: logowanie-bledow-api
 title: Logowanie błędów API do plików w katalogu Log
-status: planned
+status: implementing
 created: 2026-10-04
 updated: 2026-10-04
 archived_at: null
