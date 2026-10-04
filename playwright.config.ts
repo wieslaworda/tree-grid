@@ -71,6 +71,8 @@ export default defineConfig({
         ConnectionStrings__Default: `Data Source=${DB_FILE}`,
         Auth__RegistrationCode: process.env.E2E_REGISTRATION_CODE!,
         Auth__SessionSigningKey: process.env.E2E_SESSION_SIGNING_KEY!,
+        // Log błędów API obok bazy E2E, a nie w deweloperskim `src/Api/Log/`.
+        FileLogging__Directory: join(DB_DIR, "Log"),
       },
     },
     {

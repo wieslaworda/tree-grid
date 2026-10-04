@@ -389,11 +389,11 @@ zostawia katalog, który można usunąć ręcznie.
 
 #### Automated
 
-- [x] 1.1 Build przechodzi (API zatrzymane): `dotnet build TreeGrid.sln`
-- [x] 1.2 Nowe testy przechodzą: `dotnet test tests/Api.Tests --filter "FullyQualifiedName~FileLoggingIntegrationTests"`
-- [x] 1.3 Cały zestaw przechodzi: `dotnet test tests/Api.Tests`
-- [x] 1.4 Po `dotnet test` żaden plik w `src/Api/Log/` nie zawiera `injected-savechanges-failure`
-- [x] 1.5 Katalog logu jest ignorowany: `git check-ignore src/Api/Log/api-20261004.log`
+- [x] 1.1 Build przechodzi (API zatrzymane): `dotnet build TreeGrid.sln` — 82197c4
+- [x] 1.2 Nowe testy przechodzą: `dotnet test tests/Api.Tests --filter "FullyQualifiedName~FileLoggingIntegrationTests"` — 82197c4
+- [x] 1.3 Cały zestaw przechodzi: `dotnet test tests/Api.Tests` — 82197c4
+- [x] 1.4 Po `dotnet test` żaden plik w `src/Api/Log/` nie zawiera `injected-savechanges-failure` — 82197c4
+- [x] 1.5 Katalog logu jest ignorowany: `git check-ignore src/Api/Log/api-20261004.log` — 82197c4
 
 #### Manual
 
@@ -404,10 +404,10 @@ zostawia katalog, który można usunąć ręcznie.
 
 #### Automated
 
-- [ ] 2.1 Build przechodzi (API zatrzymane): `dotnet build TreeGrid.sln`
-- [ ] 2.2 Cały zestaw testów przechodzi: `dotnet test tests/Api.Tests`
-- [ ] 2.3 `dotnet ef migrations list --project src/Api` działa i nie dopisuje wpisu `[FTL]` do `src/Api/Log/`
-- [ ] 2.4 E2E przechodzi: `npx playwright test`
+- [x] 2.1 Build przechodzi (API zatrzymane): `dotnet build TreeGrid.sln`
+- [x] 2.2 Cały zestaw testów przechodzi: `dotnet test tests/Api.Tests`
+- [x] 2.3 `dotnet ef migrations list --project src/Api` działa i nie dopisuje wpisu `[FTL]` do `src/Api/Log/`
+- [x] 2.4 E2E przechodzi: `npx playwright test`
 
 #### Manual
 

@@ -79,8 +79,9 @@ dotnet ef database update --project src/Api
 Automatyczna weryfikacja to `npm run typecheck` i `dotnet test`. Testy .NET
 pokrywają **reguły domenowe i kształt kontraktu błędów** (`*RulesTests`,
 `*ErrorContractTests`) oraz **potok HTTP drzew, ekranów i kaskady usunięcia
-kategorii na prawdziwym SQLite** (`*IntegrationTests`: host z `TestApiFactory`,
-własny plik bazy tymczasowy na klasę, baza deweloperska nietknięta) — bez
+kategorii na prawdziwym SQLite i zapis błędu 500 do pliku logu**
+(`*IntegrationTests`: host z `TestApiFactory`, własny plik bazy i katalog logu
+tymczasowe na klasę, baza i log deweloperskie nietknięte) — bez
 widoku i bez izolacji kont (poza kontrolą właściciela drzewa przy
 `PUT /screens`). Frontend
 nie ma żadnych testów. Lintera i CI nie ma. Przejście obu komend nie znaczy, że
@@ -170,6 +171,13 @@ przeglądarka ──► react-router-serve :3000 ──(loader/action, fetch)─
   sekrety ustawia się przez `dotnet user-secrets --project src/Api`
   (polecenia w `src/Api/Auth/AuthSecrets.cs`) — nie proś o ich wartości i nie
   zapisuj ich w repo.
+- **Błędy API są w pliku** `src/Api/Log/api-YYYYMMDD.log` — wyłącznie Error
+  i wyżej: nieobsłużone wyjątki żądań (odpowiedź 500), obie odmowy startu
+  i wyjątek startu. Katalog ustawia `FileLogging:Directory`
+  w `src/Api/appsettings.json`, zostaje 31 plików. Wpis łączy się z odpowiedzią
+  500 przez `requestId` (`grep <requestId> src/Api/Log/*.log`). Testy .NET
+  piszą do katalogu tymczasowego `TestApiFactory`, E2E do `.e2e/Log/` — nie
+  szukaj tam błędów z pętli deweloperskiej i odwrotnie.
 - **Reguła zapętlenia drzewa** (sprawdzenie ścieżki przodków), duplikat
   rodzeństwa i limit węzłów mieszkają w `src/Api/Tree/TreeRules.cs`,
   unikalność nazwy drzewa w `TreeNameRules.cs` — egzekwuje je API, nie widok.
