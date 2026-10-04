@@ -234,6 +234,9 @@ Przebieg: `npm run build` → `react-router-serve` na `127.0.0.1:3000` →
 `cloudflared` → odczyt adresu. Stan w `.tunnel-run/prod-pids.json`, logi w
 `prod.{out,err}.log` i `cf-prod.{out,err}.log` — osobne od deweloperskich, więc
 oba tryby da się prowadzić równolegle, a `-Stop` jednego nie rusza drugiego.
+Każdy skrypt startowy przed startem procesu przenosi niepusty log poprzedniego
+przebiegu do `<nazwa>.<yyyyMMdd-HHmmss>.log` (10 najnowszych na strumień), więc
+proces startuje na pustym pliku, a ślad po restarcie zostaje; `-Stop` nie rotuje.
 
 ### Trzy decyzje wbudowane w ten tryb
 
