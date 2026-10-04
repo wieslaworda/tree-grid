@@ -313,17 +313,17 @@ starcie po zmianie. Katalog jest w `.gitignore` (`:35`).
 
 #### Automated
 
-- [x] 1.1 `npm run typecheck` przechodzi
-- [x] 1.2 `grep -rn "invalidResponse(" app/lib` nie pokazuje wywołania z dwoma argumentami
-- [x] 1.3 `dotnet test tests/Api.Tests` przechodzi bez zmian (API nietknięte)
+- [x] 1.1 `npm run typecheck` przechodzi — 37b0e31
+- [x] 1.2 `grep -rn "invalidResponse(" app/lib` nie pokazuje wywołania z dwoma argumentami — 37b0e31
+- [x] 1.3 `dotnet test tests/Api.Tests` przechodzi bez zmian (API nietknięte) — 37b0e31
 
 #### Manual
 
-- [x] 1.4 Build produkcyjny przy zatrzymanym API: `/drzewo` zostawia jedną linię `api_unreachable` z `ECONNREFUSED` na wywołanie, baner bez zmian
-- [x] 1.5 Odmowy 409 (zapętlenie, zajęta nazwa) nie zostawiają żadnej linii
-- [x] 1.6 Wymuszony 500 zostawia linię z `requestId`, który `grep` znajduje też w `src/Api/Log/`
-- [x] 1.7 Zepsuty lokalnie strażnik daje linię `api_invalid_response` z kształtem bez wartości
-- [x] 1.8 Złe hasło bez linii; porażka klucza sesji zostawia linię bez wartości klucza
-- [x] 1.9 `buduj_app_dev.ps1` zachowuje plik poprzedniego przebiegu i trzyma 10 najnowszych
-- [ ] 1.10 `start-prod-tunnel.ps1` odczytuje nowy adres tunelu i zachowuje poprzednie logi
-- [ ] 1.11 Skrypty z `.claude/` w osobnym commicie niż kod aplikacji
+- [x] 1.4 Build produkcyjny przy zatrzymanym API: `/drzewo` zostawia jedną linię `api_unreachable` z `ECONNREFUSED` na wywołanie, baner bez zmian — 37b0e31
+- [x] 1.5 Odmowy 409 (zapętlenie, zajęta nazwa) nie zostawiają żadnej linii — 37b0e31
+- [x] 1.6 Wymuszony 500 zostawia linię z `requestId`, który `grep` znajduje też w `src/Api/Log/` — 37b0e31
+- [x] 1.7 Zepsuty lokalnie strażnik daje linię `api_invalid_response` z kształtem bez wartości — 37b0e31
+- [x] 1.8 Złe hasło bez linii; porażka klucza sesji zostawia linię bez wartości klucza — 37b0e31
+- [x] 1.9 `buduj_app_dev.ps1` zachowuje plik poprzedniego przebiegu i trzyma 10 najnowszych — 37b0e31
+- [x] 1.10 `start-prod-tunnel.ps1` odczytuje nowy adres tunelu i zachowuje poprzednie logi — 6f380b6
+- [x] 1.11 Skrypty z `.claude/` w osobnym commicie niż kod aplikacji — 6f380b6

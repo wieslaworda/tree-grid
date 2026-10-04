@@ -1,7 +1,7 @@
 ---
 change_id: logowanie-porazek-node
 title: Log porażek API po stronie Node i rotacja logów procesów zamiast czyszczenia
-status: implementing
+status: implemented
 created: 2026-10-04
 updated: 2026-10-04
 archived_at: null
