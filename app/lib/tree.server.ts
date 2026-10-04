@@ -133,7 +133,7 @@ export async function listTrees(userId: string): Promise<TreeListResult> {
 
   return Array.isArray(items) && items.every(isUserTree)
     ? { ok: true, trees: items }
-    : invalidResponse(TREES_PATH, result.status);
+    : invalidResponse(TREES_PATH, result.status, result.body);
 }
 
 /** Zakłada puste drzewo. Zwraca jego identyfikator. */
@@ -189,7 +189,7 @@ export async function getTreeNodes(
 
   return Array.isArray(nodes) && nodes.every(isTreeNode)
     ? { ok: true, nodes }
-    : invalidResponse(path, result.status);
+    : invalidResponse(path, result.status, result.body);
 }
 
 /**
@@ -243,7 +243,7 @@ function toIdResult(path: string, result: ApiResult): TreeIdResult {
 
   return typeof id === "number" && Number.isInteger(id)
     ? { ok: true, id }
-    : invalidResponse(path, result.status);
+    : invalidResponse(path, result.status, result.body);
 }
 
 /**

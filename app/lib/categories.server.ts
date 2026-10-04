@@ -78,7 +78,7 @@ export async function listCategories(): Promise<CategoryListResult> {
 
   return Array.isArray(items) && items.every(isCatalogCategory)
     ? { ok: true, categories: items }
-    : invalidResponse(CATEGORIES_PATH, result.status);
+    : invalidResponse(CATEGORIES_PATH, result.status, result.body);
 }
 
 export async function createCategory(
@@ -154,7 +154,7 @@ function toCategoryResult(path: string, result: ApiResult): CategoryResult {
 
   return isCatalogCategory(result.body)
     ? { ok: true, category: result.body }
-    : invalidResponse(path, result.status);
+    : invalidResponse(path, result.status, result.body);
 }
 
 /**

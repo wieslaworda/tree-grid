@@ -184,7 +184,7 @@ export async function listScreens(userId: string): Promise<ScreenListResult> {
 
   return Array.isArray(items) && items.every(isUserScreen)
     ? { ok: true, screens: items }
-    : invalidResponse(SCREENS_PATH, result.status);
+    : invalidResponse(SCREENS_PATH, result.status, result.body);
 }
 
 /**
@@ -205,7 +205,7 @@ export async function createScreen(
 
   return typeof id === "number" && Number.isInteger(id)
     ? { ok: true, id }
-    : invalidResponse(SCREENS_PATH, result.status);
+    : invalidResponse(SCREENS_PATH, result.status, result.body);
 }
 
 /** Zapisany ekran z węzłami drzewa i przypisaniami kategorii. */
@@ -222,7 +222,7 @@ export async function getScreen(
 
   return isScreenDetail(result.body)
     ? { ok: true, screen: result.body }
-    : invalidResponse(path, result.status);
+    : invalidResponse(path, result.status, result.body);
 }
 
 /**
@@ -245,7 +245,7 @@ export async function getScreenValues(
 
   return isScreenValues(result.body)
     ? { ok: true, values: result.body }
-    : invalidResponse(path, result.status);
+    : invalidResponse(path, result.status, result.body);
 }
 
 /**

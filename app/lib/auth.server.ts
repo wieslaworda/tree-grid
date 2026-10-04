@@ -20,6 +20,7 @@ import {
   isApiErrorBody,
   readJson,
 } from "~/lib/api.server";
+import { describeShape, logApiFailure, requestIdOf } from "~/lib/log.server";
 import {
   findSessionStorage,
   requireSessionStorage,
@@ -189,6 +190,11 @@ export function requireSameOrigin(request: Request): void {
  * Odpytuje endpoint uwierzytelniania po stronie serwera, wzorem
  * `app/routes/api.health.ts`: każda ścieżka — także ta, w której API w ogóle
  * nie odpowiada — kończy się kopertą `{ error: { code, message, context } }`.
+ *
+ * Do logu (`log.server.ts`) trafiają zgaszone API, 5xx i treść spoza
+ * kontraktu — tak jak w `requestApi`. Każde 4xx, łącznie z 401, to tutaj
+ * zwykły wynik (złe hasło, blokada konta, odmowa rejestracji) i linii nie
+ * zostawia. `payload` niesie e-mail i hasło, więc do logu nie trafia nigdy.
  */
 export async function requestAccount(
   path: string,
@@ -203,6 +209,14 @@ export async function requestAccount(
       body: JSON.stringify(payload),
     });
   } catch (cause) {
+    logApiFailure({
+      code: ROUTE_ERROR_CODES.ApiUnreachable,
+      status: 502,
+      method: "POST",
+      path,
+      cause,
+    });
+
     return {
       ok: false,
       status: 502,
@@ -219,17 +233,48 @@ export async function requestAccount(
   // Błąd API leci dalej w oryginale: to on niesie `code`, po którym rozgałęzia
   // się widok, i mapę naruszeń pól w `context`. Przepakowanie zgubiłoby oba.
   if (!response.ok) {
-    return isApiErrorBody(body)
-      ? { ok: false, status: response.status, error: body }
-      : invalidResponse(path, response.status);
+    if (!isApiErrorBody(body)) {
+      return invalidResponse(path, response.status, body);
+    }
+
+    if (response.status >= 500) {
+      logApiFailure({
+        code: body.error.code,
+        status: response.status,
+        apiStatus: response.status,
+        method: "POST",
+        path,
+        requestId: requestIdOf(body),
+      });
+    }
+
+    return { ok: false, status: response.status, error: body };
   }
 
   return isSessionUser(body)
     ? { ok: true, user: body }
-    : invalidResponse(path, response.status);
+    : invalidResponse(path, response.status, body);
 }
 
-function invalidResponse(path: string, apiStatus: number): AccountResult {
+/**
+ * Kopia `invalidResponse` z `api.server.ts` dla typu {@link AccountResult},
+ * z tym samym efektem ubocznym: linia w logu z kształtem treści, nigdy z jej
+ * wartościami (udana odpowiedź niesie e-mail). Raz na porażkę.
+ */
+function invalidResponse(
+  path: string,
+  apiStatus: number,
+  body: unknown,
+): AccountResult {
+  logApiFailure({
+    code: ROUTE_ERROR_CODES.ApiInvalidResponse,
+    status: 502,
+    apiStatus,
+    method: "POST",
+    path,
+    shape: describeShape(body),
+  });
+
   return {
     ok: false,
     status: 502,

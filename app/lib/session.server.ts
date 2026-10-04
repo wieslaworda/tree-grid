@@ -24,6 +24,12 @@ import {
   isApiErrorBody,
   readJson,
 } from "~/lib/api.server";
+import {
+  type ApiFailureLog,
+  describeShape,
+  logApiFailure,
+  requestIdOf,
+} from "~/lib/log.server";
 
 /**
  * Endpoint wydający klucz podpisu (`src/Api/Auth/AuthEndpoints.cs`). Jest
@@ -141,31 +147,74 @@ async function createStorage(): Promise<TreeGridSessionStorage> {
   });
 }
 
-/** Pobiera klucz podpisu z API. Każda porażka wychodzi jako kontrakt błędu. */
+/**
+ * Pobiera klucz podpisu z API. Każda porażka wychodzi jako kontrakt błędu.
+ *
+ * Każda porażka zostawia też linię w logu (`log.server.ts`) przed rzuceniem:
+ * {@link findSessionStorage} połyka wyjątek, więc bez tej linii zgaszone API
+ * przy restarcie Node dawałoby wyłącznie ciche przekierowanie na logowanie.
+ * Treść odpowiedzi trafia do logu wyłącznie jako kształt — niesie klucz.
+ */
 async function fetchSigningKey(): Promise<string> {
   let response: Response;
 
   try {
     response = await fetch(`${API_BASE_URL}${SIGNING_KEY_PATH}`);
   } catch (cause) {
+    logSigningKeyFailure({
+      code: ROUTE_ERROR_CODES.ApiUnreachable,
+      status: 502,
+      cause,
+    });
+
     throw unreachable(describeCause(cause));
   }
 
   const body = await readJson(response);
 
   if (!response.ok) {
-    throw isApiErrorBody(body)
-      ? Response.json(body, { status: response.status })
-      : invalidResponse(response.status);
+    if (isApiErrorBody(body)) {
+      logSigningKeyFailure({
+        code: body.error.code,
+        status: response.status,
+        apiStatus: response.status,
+        requestId: requestIdOf(body),
+      });
+
+      throw Response.json(body, { status: response.status });
+    }
+
+    logSigningKeyFailure({
+      code: ROUTE_ERROR_CODES.ApiInvalidResponse,
+      status: 502,
+      apiStatus: response.status,
+      shape: describeShape(body),
+    });
+
+    throw invalidResponse(response.status);
   }
 
   const key = (body as { key?: unknown } | undefined)?.key;
 
   if (typeof key !== "string" || key.length === 0) {
+    logSigningKeyFailure({
+      code: ROUTE_ERROR_CODES.ApiInvalidResponse,
+      status: 502,
+      apiStatus: response.status,
+      shape: describeShape(body),
+    });
+
     throw invalidResponse(response.status);
   }
 
   return key;
+}
+
+/** Linia w logu o porażce pobrania klucza — metoda i ścieżka są tu stałe. */
+function logSigningKeyFailure(
+  failure: Omit<ApiFailureLog, "method" | "path">,
+): void {
+  logApiFailure({ ...failure, method: "GET", path: SIGNING_KEY_PATH });
 }
 
 /**

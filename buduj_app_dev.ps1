@@ -65,6 +65,41 @@ function Write-Utf8NoBom {
     [System.IO.File]::WriteAllText($Path, $Content, $encoding)
 }
 
+function Move-PreviousLog {
+    # Zamiast zerowania: niepusty log poprzedniego przebiegu zostaje jako
+    # <nazwa>.<yyyyMMdd-HHmmss>.log w tym samym katalogu, wiec restart po
+    # incydencie nie kasuje jego sladu. Przeniesienie, a nie dopisywanie -
+    # nowy proces startuje na pustym pliku, bo odczyt adresu tunelu w skryptach
+    # run-tunel-app czyta CALA tresc pliku i wzialby adres poprzedniego tunelu.
+    # Zostaje $Keep najnowszych kopii na strumien. Wolac PRZED utworzeniem
+    # pustego pliku i przed Start-Process.
+    param([string]$Path, [int]$Keep = 10)
+    $dir = Split-Path $Path -Parent
+    $base = [System.IO.Path]::GetFileNameWithoutExtension($Path)
+    $item = Get-Item -LiteralPath $Path -ErrorAction SilentlyContinue
+    if ($item -and $item.Length -gt 0) {
+        $stamp = Get-Date -Format 'yyyyMMdd-HHmmss'
+        $target = Join-Path $dir ('{0}.{1}.log' -f $base, $stamp)
+        $n = 1
+        while (Test-Path -LiteralPath $target) {
+            $target = Join-Path $dir ('{0}.{1}-{2}.log' -f $base, $stamp, $n)
+            $n++
+        }
+        try {
+            Move-Item -LiteralPath $Path -Destination $target -ErrorAction Stop
+        } catch {
+            # Plik trzymany przez obcy proces - zostaje dotychczasowe zerowanie.
+            Write-Warning ("Nie udalo sie zachowac '{0}': {1}" -f $Path, $_.Exception.Message)
+        }
+    }
+    $pattern = '^' + [regex]::Escape($base) + '\.\d{8}-\d{6}(-\d+)?\.log$'
+    Get-ChildItem -LiteralPath $dir -File -ErrorAction SilentlyContinue |
+        Where-Object { $_.Name -match $pattern } |
+        Sort-Object LastWriteTime -Descending |
+        Select-Object -Skip $Keep |
+        Remove-Item -Force -ErrorAction SilentlyContinue
+}
+
 function Write-Step {
     param([string]$Text)
     Write-Host ''
@@ -273,7 +308,10 @@ try {
     & $ApiScript -Environment Development -SkipBuild -Port $ApiPort -ProjectRoot $ProjectRoot
 
     Write-Step "Start GUI (npm run dev) na porcie $DevPort"
-    foreach ($log in @($DevOut, $DevErr)) { Write-Utf8NoBom -Path $log -Content '' }
+    foreach ($log in @($DevOut, $DevErr)) {
+        Move-PreviousLog -Path $log
+        Write-Utf8NoBom -Path $log -Content ''
+    }
     $devProc = Start-Process -FilePath $npm.Source `
         -ArgumentList 'run', 'dev', '--', '--port', "$DevPort", '--strictPort' `
         -WorkingDirectory $ProjectRoot `

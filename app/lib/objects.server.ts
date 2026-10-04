@@ -74,7 +74,7 @@ export async function listObjects(): Promise<ObjectListResult> {
 
   return Array.isArray(items) && items.every(isCatalogObject)
     ? { ok: true, objects: items }
-    : invalidResponse(OBJECTS_PATH, result.status);
+    : invalidResponse(OBJECTS_PATH, result.status, result.body);
 }
 
 export async function createObject(payload: ObjectPayload): Promise<ObjectResult> {
@@ -121,7 +121,7 @@ function toObjectResult(path: string, result: ApiResult): ObjectResult {
 
   return isCatalogObject(result.body)
     ? { ok: true, object: result.body }
-    : invalidResponse(path, result.status);
+    : invalidResponse(path, result.status, result.body);
 }
 
 /**

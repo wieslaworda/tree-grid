@@ -178,6 +178,12 @@ przeglądarka ──► react-router-serve :3000 ──(loader/action, fetch)─
   500 przez `requestId` (`grep <requestId> src/Api/Log/*.log`). Testy .NET
   piszą do katalogu tymczasowego `TestApiFactory`, E2E do `.e2e/Log/` — nie
   szukaj tam błędów z pętli deweloperskiej i odwrotnie.
+- **Porażki wywołań API po stronie Node** (zgaszone API, treść spoza
+  kontraktu, 5xx i 401 z API, porażka klucza sesji) to linie JSON
+  `event:"api_failure"` na stderr serwera React Routera
+  (`.tunnel-run/prod.err.log`, poprzednie przebiegi jako
+  `prod.err.<yyyyMMdd-HHmmss>.log`), łączone z wpisem API przez `requestId`
+  (`app/lib/log.server.ts`).
 - **Reguła zapętlenia drzewa** (sprawdzenie ścieżki przodków), duplikat
   rodzeństwa i limit węzłów mieszkają w `src/Api/Tree/TreeRules.cs`,
   unikalność nazwy drzewa w `TreeNameRules.cs` — egzekwuje je API, nie widok.

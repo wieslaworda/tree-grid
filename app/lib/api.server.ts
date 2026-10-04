@@ -9,6 +9,8 @@
  * nazwy na `api.ts`.
  */
 
+import { describeShape, logApiFailure, requestIdOf } from "~/lib/log.server";
+
 /**
  * Adres API. Pętla zwrotna i port 5180 pochodzą z
  * `src/Api/appsettings.json` (`Kestrel:Endpoints:Http:Url`) — quick tunnel
@@ -164,6 +166,12 @@ export type ApiRequestOptions = { userId?: string };
  * leci dalej w oryginale. `requestAccount` świadomie z tego helpera nie
  * korzysta — kod uwierzytelniania ma otwarte ręczne kroki weryfikacji i zmiany
  * słowników go nie ruszają.
+ *
+ * Porażki, które są awarią, a nie wynikiem, zostawiają linię w logu
+ * (`log.server.ts`): zgaszone API, treść spoza kontraktu, 5xx i 401 z API.
+ * Pozostałe 4xx (zapętlenie, duplikat, walidacja, 404) to odmowy domenowe
+ * pokazywane użytkownikowi — w logu zakryłyby prawdziwe awarie. Klient zasobu
+ * zwraca porażkę stąd bez zmian i niczego nie dopisuje do logu.
  */
 export async function requestApi(
   method: "GET" | "POST" | "PUT" | "DELETE",
@@ -190,6 +198,15 @@ export async function requestApi(
       body: payload === undefined ? undefined : JSON.stringify(payload),
     });
   } catch (cause) {
+    logApiFailure({
+      code: ROUTE_ERROR_CODES.ApiUnreachable,
+      status: 502,
+      method,
+      path,
+      userId: options?.userId,
+      cause,
+    });
+
     return {
       ok: false,
       status: 502,
@@ -213,9 +230,28 @@ export async function requestApi(
   // Błąd API leci dalej w oryginale: to on niesie `code`, po którym rozgałęzia
   // się widok (`object_in_tree`), i mapę naruszeń pól w `context`.
   if (!response.ok) {
-    return isApiErrorBody(body)
-      ? { ok: false, status: response.status, error: body }
-      : invalidResponse(path, response.status);
+    if (!isApiErrorBody(body)) {
+      return invalidResponse(path, response.status, body, {
+        method,
+        userId: options?.userId,
+      });
+    }
+
+    // 401 to rozjazd nagłówka tożsamości między Node a API, a nie odmowa,
+    // którą widok umie pokazać — dlatego trafia do logu obok 5xx.
+    if (response.status >= 500 || response.status === 401) {
+      logApiFailure({
+        code: body.error.code,
+        status: response.status,
+        apiStatus: response.status,
+        method,
+        path,
+        userId: options?.userId,
+        requestId: requestIdOf(body),
+      });
+    }
+
+    return { ok: false, status: response.status, error: body };
   }
 
   return { ok: true, status: response.status, body };
@@ -224,8 +260,33 @@ export async function requestApi(
 /**
  * Porażka dla odpowiedzi, której treść nie jest kontraktem — status 502, bo
  * zawiodło API, a nie wywołujący. Status z API jedzie w `context`.
+ *
+ * **Ma efekt uboczny:** zapisuje linię w logu (`log.server.ts`) z kształtem
+ * odrzuconej treści — bez jej wartości. Wolno ją więc wołać tylko raz na
+ * porażkę i tylko tam, gdzie porażka powstaje: w `requestApi` albo w kliencie
+ * zasobu, którego strażnik typu odrzucił odpowiedź 2xx. Porażki zwróconej
+ * przez `requestApi` nie przepuszcza się przez nią ponownie.
+ *
+ * `body` jest wymagane, żeby nowe wywołanie bez treści nie przeszło
+ * typechecku. `request` niesie metodę i konto, gdy wywołujący je zna — klient
+ * zasobu ich nie podaje.
  */
-export function invalidResponse(path: string, apiStatus: number): ApiFailure {
+export function invalidResponse(
+  path: string,
+  apiStatus: number,
+  body: unknown,
+  request?: { method?: string; userId?: string },
+): ApiFailure {
+  logApiFailure({
+    code: ROUTE_ERROR_CODES.ApiInvalidResponse,
+    status: 502,
+    apiStatus,
+    method: request?.method,
+    path,
+    userId: request?.userId,
+    shape: describeShape(body),
+  });
+
   return {
     ok: false,
     status: 502,
