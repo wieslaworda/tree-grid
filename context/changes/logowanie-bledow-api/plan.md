@@ -404,10 +404,10 @@ zostawia katalog, który można usunąć ręcznie.
 
 #### Automated
 
-- [x] 2.1 Build przechodzi (API zatrzymane): `dotnet build TreeGrid.sln`
-- [x] 2.2 Cały zestaw testów przechodzi: `dotnet test tests/Api.Tests`
-- [x] 2.3 `dotnet ef migrations list --project src/Api` działa i nie dopisuje wpisu `[FTL]` do `src/Api/Log/`
-- [x] 2.4 E2E przechodzi: `npx playwright test`
+- [x] 2.1 Build przechodzi (API zatrzymane): `dotnet build TreeGrid.sln` — d056b20
+- [x] 2.2 Cały zestaw testów przechodzi: `dotnet test tests/Api.Tests` — d056b20
+- [x] 2.3 `dotnet ef migrations list --project src/Api` działa i nie dopisuje wpisu `[FTL]` do `src/Api/Log/` — d056b20
+- [x] 2.4 E2E przechodzi: `npx playwright test` — d056b20
 
 #### Manual
 

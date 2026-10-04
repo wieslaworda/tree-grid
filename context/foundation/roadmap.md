@@ -66,7 +66,7 @@ Przy celu sekwencjonowania `speed` to również fragment, który najtaniej odpow
 | S-05 | `prezentacja-ekranu`  | wybrać dobę dla ekranu i zobaczyć kolumny czasowe wynikające z ziarna (288 / 96 / 24)       | S-06, F-02    | FR-007, FR-008, US-01, NFR (288 kolumn, feedback >2 s, gęstość odczytu liczb) | in-progress |
 | S-04 | `edycja-ekranu`       | w trybie edycji zapisanego ekranu dokładać i zdejmować kategorie wskazanego węzła, zmienić nazwę, ziarno i domyślne kategorie | S-06          | FR-006, FR-011, US-02, NFR (izolacja kont)             | proposed |
 | S-10 | `doczytywanie-okna-wierszy` | w „Prezentacji ekranu” oglądać dobę dużego ekranu, dla którego dane dochodzą tylko dla widocznego okna wierszy | S-05          | NFR (288 kolumn, feedback >2 s), PRD `## Open Questions` #5 | proposed |
-| S-11 | `logowanie-bledow-api` | (operacyjne) odnaleźć każdy błąd API w pliku logu w katalogu `Log`, także po restarcie API | F-01          | NFR (logowanie błędów backendu do plików)              | planning |
+| S-11 | `logowanie-bledow-api` | (operacyjne) odnaleźć każdy błąd API w pliku logu w katalogu `Log`, także po restarcie API | F-01          | NFR (logowanie błędów backendu do plików)              | in-progress |
 
 ## Streams
 
@@ -263,7 +263,7 @@ Foundations below assume these are present and do NOT re-scaffold them.
   - Czy poziom Error dotyczy wyłącznie pliku, czy całego logowania? Dziś konsola (przekierowana do `.tunnel-run/api.out.log`) loguje od Information, a w Development także każde zapytanie SQL. — Owner: użytkownik. Block: no.
   - Jak plik się dzieli i ile plików zostaje (np. jeden plik na dobę, retencja)? — Owner: użytkownik. Block: no.
 - **Risk:** Wpis błędu musi dać się połączyć ze zgłoszeniem użytkownika. Odpowiedź 500 oddaje klientowi `context.requestId` (`src/Api/Errors/ApiErrorHandling.cs`), ale identyfikator żądania żyje w zakresie logowania (scope), którego domyślny zapis konsolowy nie wypisuje. Jeśli plik też go pominie, plaster dostarczy log, w którym konkretnego błędu nie da się znaleźć. Drugie ryzyko: log nie może stać się wyciekiem. Do pliku nie może trafić wartość sekretu (`context/foundation/lessons.md`, „Sekrety…”) ani pełna treść żądania. Katalog `Log` ma być poza repozytorium (`.gitignore`) i poza tym, co serwuje Vite (`server.fs` w `vite.config.ts`). Trzecie: poziom Error nie obejmuje odmów domenowych 4xx (zapętlenie, duplikat, limit) ani nieudanych logowań — to zamierzone. Logowanie zdarzeń bezpieczeństwa to osobna decyzja, nie ten plaster.
-- **Status:** planning
+- **Status:** in-progress
 
 ## Backlog Handoff
 
