@@ -3,7 +3,7 @@ project: TreeGrid
 version: 1
 status: draft
 created: 2026-09-21
-updated: 2026-10-02
+updated: 2026-10-04
 prd_version: 1
 main_goal: speed
 top_blocker: time
@@ -25,7 +25,7 @@ milestone_status: open
 - **Intent:** Dyspozytor przechodzi pełną ścieżkę w jednej sesji — od założenia konta, przez zbudowanie własnej struktury drzewa, po zapisany ekran (drzewo, ziarno czasowe i kategorie każdego węzła) pokazany jako drzewo z gridem punktów czasowych, który odtwarza się bez zmian po ponownym zalogowaniu.
 - **Source materials:** `context/foundation/prd.md` (v1; wymagania ekranów zmienione 2026-09-24 — FR-006–FR-012, US-01, US-02) + opisy użytkownika z 2026-09-23 (kotwice `MS-01`–`MS-07` poniżej)
 - **Done when:** każdy `F-NN` i `S-NN` poniżej ma status `done`.
-- **Scope anchors:** FR-001–FR-012 (bez wycofanego FR-005), US-01–US-02, sekcje `Business Logic` i `Access Control`, oraz wymagania niefunkcjonalne (288 kolumn, izolacja kont, informacja zwrotna powyżej 2 s, gęstość odczytu liczb, dwa warianty motywu, kontrast i rola koloru). Spoza PRD:
+- **Scope anchors:** FR-001–FR-012 (bez wycofanego FR-005), US-01–US-02, sekcje `Business Logic` i `Access Control`, oraz wymagania niefunkcjonalne (288 kolumn, izolacja kont, informacja zwrotna powyżej 2 s, gęstość odczytu liczb, dwa warianty motywu, kontrast i rola koloru, logowanie błędów backendu do plików — dodane 2026-10-04). Spoza PRD:
   - MS-01: Po zalogowaniu aplikacja ma menu główne, w którym pojawiają się kolejne funkcjonalności; pierwsza pozycja to „Obiekty", a kolejne pozycje są dopisywane sukcesywnie przez następne plastry.
   - MS-02: Dyspozytor przegląda, dodaje, edytuje i usuwa kategorie danych w słowniku kategorii; kategoria składa się z kodu, nazwy, funkcji agregującej wybieranej z listy (SUM, MIN, MAX) i koloru (`#RRGGBB`), którym `S-05` pisze wartości jej wierszy. Widok działa jak lista obiektów (tabela i formularz w jednym widoku), a „Kategorie" to kolejna pozycja menu głównego.
   - MS-03: Dyspozytor dodaje, edytuje i usuwa drzewa. Nagłówek drzewa ma wyłącznie nazwę i unikalny identyfikator w bazie; edycja drzewa to zmiana nazwy, a nazwa jest unikalna w obrębie konta. Usunięcie drzewa usuwa całą jego strukturę.
@@ -66,6 +66,7 @@ Przy celu sekwencjonowania `speed` to również fragment, który najtaniej odpow
 | S-05 | `prezentacja-ekranu`  | wybrać dobę dla ekranu i zobaczyć kolumny czasowe wynikające z ziarna (288 / 96 / 24)       | S-06, F-02    | FR-007, FR-008, US-01, NFR (288 kolumn, feedback >2 s, gęstość odczytu liczb) | in-progress |
 | S-04 | `edycja-ekranu`       | w trybie edycji zapisanego ekranu dokładać i zdejmować kategorie wskazanego węzła, zmienić nazwę, ziarno i domyślne kategorie | S-06          | FR-006, FR-011, US-02, NFR (izolacja kont)             | proposed |
 | S-10 | `doczytywanie-okna-wierszy` | w „Prezentacji ekranu” oglądać dobę dużego ekranu, dla którego dane dochodzą tylko dla widocznego okna wierszy | S-05          | NFR (288 kolumn, feedback >2 s), PRD `## Open Questions` #5 | proposed |
+| S-11 | `logowanie-bledow-api` | (operacyjne) odnaleźć każdy błąd API w pliku logu w katalogu `Log`, także po restarcie API | F-01          | NFR (logowanie błędów backendu do plików)              | proposed |
 
 ## Streams
 
@@ -77,6 +78,7 @@ Navigation aid — groups items that share a Prerequisites chain. Canonical orde
 | B      | Konto, menu i słowniki  | `S-01` → `S-07` → `S-09`                            | Zależy tylko od `F-01`, więc może iść równolegle do `S-02`/`S-03`; `S-07` łączy się ze strumieniem A przy `S-02`, a `S-09` dołącza do A przy `S-06` (słownik kategorii to „ograniczona lista", z której ekran bierze kategorie domyślne). |
 | C      | Język wizualny          | `F-02`                                              | Nie zależy od niczego, więc może iść równolegle do A i B; musi być gotowy przed `S-05`, bo grid dziedziczy po nim gęstość i krój cyfr. |
 | D      | Edycja ekranu           | `S-04`                                              | Odgałęzia się od A przy `S-06` i idzie równolegle do `S-05` — edycja kategorii węzłów nie potrzebuje kolumn czasowych. |
+| E      | Diagnostyka backendu    | `F-01` → `S-11`                                     | Zależy tylko od istniejącego API, więc może iść równolegle do każdego innego strumienia; nie zmienia niczego, co widzi dyspozytor. |
 
 ## Baseline
 
@@ -247,6 +249,22 @@ Foundations below assume these are present and do NOT re-scaffold them.
 - **Risk:** Decyzja użytkownika z planu `prezentacja-ekranu` (*What We're NOT Doing*): `S-05` pobiera całą dobę ekranu jednym żądaniem i bez limitu wierszy, a doczytywanie okna przychodzi osobno. Plaster zmienia regułę „jedno żądanie na ekran, nie na kolumnę ani wiersz” (`context/foundation/infrastructure.md`), więc przy ciągłym przewijaniu żądania okien trzeba łączyć i odrzucać spóźnione — inaczej limit 200 równoległych żądań tunelu i dane z okna, które już zniknęło, wracają jako błędy widoczne dla użytkownika. Kontrakt `GET /screens/{id}/values` dostaje zakres wierszy; jego nazwy pól wchodzą razem z endpointem, który je emituje (`context/foundation/lessons.md`, „Kontrakt API nie wyprzedza emitenta”).
 - **Status:** proposed
 
+### S-11: Logowanie błędów API do plików w katalogu `Log`
+
+- **Outcome:** (operacyjne) Każdy błąd w warstwie backendu — nieobsłużony wyjątek w żądaniu (dziś odpowiedź 500 `internal_error`) i odmowa startu API (brak sekretów, niezmigrowana baza) — trafia do pliku logu w katalogu `Log`. Plik przeżywa restart API, więc ślad awarii nie znika razem z procesem. Katalog logowania jest ustawiony w `src/Api/appsettings.json`, a nie wpisany w kod, a poziom logowania do pliku to Error: do pliku trafiają wyłącznie błędy, bez wpisów informacyjnych i bez zapytań SQL. Dyspozytor nie widzi żadnej zmiany w interfejsie.
+- **Change ID:** `logowanie-bledow-api`
+- **PRD refs:** NFR (logowanie błędów backendu do plików w katalogu `Log`, poziom Error — dodane 2026-10-04)
+- **Prerequisites:** F-01
+- **Parallel with:** S-04, S-10
+- **Blockers:** —
+- **Unknowns:**
+  - Którą bibliotekę wybrać? Wbudowane `Microsoft.Extensions.Logging` nie ma dostawcy plikowego, więc zapis do plików wymaga zależności (np. Serilog z ujściem plikowym) albo własnego dostawcy. — Owner: użytkownik. Block: no (rozstrzyga plan).
+  - Względem czego liczyć ścieżkę `Log` z `appsettings.json` — katalogu projektu API (`src/Api/Log`, obok `src/Api/db/`) czy katalogu roboczego procesu? `start-api.ps1` i `buduj_app_dev.ps1` uruchamiają API z katalogu głównego repo. — Owner: użytkownik. Block: no.
+  - Czy poziom Error dotyczy wyłącznie pliku, czy całego logowania? Dziś konsola (przekierowana do `.tunnel-run/api.out.log`) loguje od Information, a w Development także każde zapytanie SQL. — Owner: użytkownik. Block: no.
+  - Jak plik się dzieli i ile plików zostaje (np. jeden plik na dobę, retencja)? — Owner: użytkownik. Block: no.
+- **Risk:** Wpis błędu musi dać się połączyć ze zgłoszeniem użytkownika. Odpowiedź 500 oddaje klientowi `context.requestId` (`src/Api/Errors/ApiErrorHandling.cs`), ale identyfikator żądania żyje w zakresie logowania (scope), którego domyślny zapis konsolowy nie wypisuje. Jeśli plik też go pominie, plaster dostarczy log, w którym konkretnego błędu nie da się znaleźć. Drugie ryzyko: log nie może stać się wyciekiem. Do pliku nie może trafić wartość sekretu (`context/foundation/lessons.md`, „Sekrety…”) ani pełna treść żądania. Katalog `Log` ma być poza repozytorium (`.gitignore`) i poza tym, co serwuje Vite (`server.fs` w `vite.config.ts`). Trzecie: poziom Error nie obejmuje odmów domenowych 4xx (zapętlenie, duplikat, limit) ani nieudanych logowań — to zamierzone. Logowanie zdarzeń bezpieczeństwa to osobna decyzja, nie ten plaster.
+- **Status:** proposed
+
 ## Backlog Handoff
 
 | Roadmap ID | Change ID             | Suggested issue title                                                | Ready for `/10x-plan` | Notes                                                        |
@@ -262,6 +280,7 @@ Foundations below assume these are present and do NOT re-scaffold them.
 | S-05       | `prezentacja-ekranu`  | Kolumny czasowe gridu ekranu dla wybranej doby (288 / 96 / 24)       | no                    | Czeka na `S-06` i `F-02`                                     |
 | S-04       | `edycja-ekranu`       | Tryb edycji ekranu: kategorie wskazanego węzła, nazwa, ziarno, kategorie domyślne | no | Czeka na `S-06`; równolegle do `S-05`                         |
 | S-10       | `doczytywanie-okna-wierszy` | Doczytywanie danych doby tylko dla widocznego okna wierszy w „Prezentacji ekranu” | no | Czeka na `S-05`; punkt wyjścia — pomiary w `context/changes/prezentacja-ekranu/plan.md` (*Performance Considerations*) |
+| S-11       | `logowanie-bledow-api` | Logowanie błędów API do plików w katalogu `Log` (poziom Error, katalog w `appsettings.json`) | yes | `F-01` ma działający kod; cztery pytania w `Unknowns` rozstrzyga plan |
 
 This table is the clean handoff to Jira/Linear or any MCP-backed backlog. It carries one row for every `F-NN` and `S-NN` and deliberately does not duplicate the detailed roadmap body.
 

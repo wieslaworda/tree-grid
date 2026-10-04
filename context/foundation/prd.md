@@ -105,6 +105,7 @@ Każdy dyspozytor ma inne potrzeby operacyjne, więc jeden uniwersalny, sztywny 
 - Widok danych liczbowych pozostaje czytelny przy gęstości roboczej: wartości w kolumnach czasowych wyrównują się do wspólnej siatki cyfr, a wiersz gridu (węzeł × kategoria) zajmuje nie więcej niż 24 punkty wysokości — tak, by w wariancie 288-kolumnowym co najmniej 25 wierszy było widocznych naraz bez przewijania w pionie.
 - Interfejs występuje w wariancie ciemnym i jasnym, przełączanym przez użytkownika. Wybór przeżywa odświeżenie strony i nie powoduje przeskoku wyglądu po załadowaniu. Przełączenie zmienia wyłącznie kolory — nigdy rozmiarów ani rozmieszczenia elementów.
 - Kolor niesie znaczenie wyłącznie na wartościach danych; rama interfejsu pozostaje achromatyczna. Tekst i elementy interaktywne spełniają kontrast WCAG AA — 4,5:1 dla tekstu i 3:1 dla elementów interfejsu — w obu wariantach.
+- Warstwa backendu (API .NET) loguje błędy do plików w katalogu `Log`. Katalog logowania jest ustawiany w pliku `appsettings.json` projektu API, a poziom logowania to Error — do pliku trafiają wyłącznie błędy. *(Dodane 2026-10-04.)*
 
 ## Business Logic
 
