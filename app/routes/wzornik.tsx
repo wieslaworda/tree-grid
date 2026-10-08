@@ -28,7 +28,7 @@ import type { CatalogObject } from "~/lib/objects.server";
 import type { TreeNode, UserTree } from "~/lib/tree.server";
 import {
   liczbaWezlowPodrzednych,
-  obiektyUzyteWDrzewie,
+  obiektyNiedostepneDoDodania,
   wezlyZDziecmi,
 } from "~/lib/drzewo";
 import {
@@ -174,8 +174,8 @@ const BRAK_DRZEW: UserTree[] = [];
 const BRAK_WEZLOW: TreeNode[] = [];
 const BRAK_OBIEKTOW: CatalogObject[] = [];
 
-const UZYTE_OBIEKTY = obiektyUzyteWDrzewie(WEZLY);
-const BRAK_UZYTYCH = obiektyUzyteWDrzewie(BRAK_WEZLOW);
+const UZYTE_OBIEKTY = obiektyNiedostepneDoDodania(WEZLY, null);
+const BRAK_UZYTYCH = obiektyNiedostepneDoDodania(BRAK_WEZLOW, null);
 
 /**
  * Kolumny listy drzew — kopia `KOLUMNY_DRZEW` z `routes/drzewo.tsx`. Kopia,

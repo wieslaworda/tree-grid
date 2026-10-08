@@ -17,7 +17,11 @@ type Wlasciwosci = {
   /** Obiekt zaznaczony do dodania albo `null`. Stan żyje w widoku. */
   wybranyId: number | null;
   onWybierz: (id: number) => void;
-  /** Obiekty, które już stoją w drzewie — do filtra „Bez obiektów drzewa”. */
+  /**
+   * Obiekty, których nie da się dodać pod zaznaczony węzeł (bez zaznaczenia —
+   * wszystkie obiekty drzewa) — do filtra „Bez obiektów drzewa”. Liczy je
+   * widok (`obiektyNiedostepneDoDodania`).
+   */
   uzyteObiekty: ReadonlySet<number>;
   /** Węzeł drzewa upuszczony na listę — do usunięcia z poddrzewem. */
   onUpuscWezel: (nodeId: number) => void;
@@ -64,7 +68,9 @@ function pasuje(wiersz: Wiersz, fraza: string): boolean {
  * więc zaznacza jak dotąd.
  *
  * Pole wyboru „Bez obiektów drzewa” obok filtra tekstowego chowa obiekty,
- * które już stoją w drzewie (na dowolnej głębokości). Filtry nie zmieniają
+ * których nie da się dodać pod zaznaczony węzeł drzewa — obiekty wszystkich
+ * korzeni i obiekty poddrzewa jego korzenia — a bez zaznaczonego węzła
+ * wszystkie obiekty drzewa (na dowolnej głębokości). Filtry nie zmieniają
  * zaznaczenia — obiekt ukryty filtrem zostaje celem „Dodaj”.
  *
  * Lista jest też celem upuszczenia **węzła z drzewa**: upuszczony węzeł

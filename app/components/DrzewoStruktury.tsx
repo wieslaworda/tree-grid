@@ -52,7 +52,8 @@ type CelUpuszczenia = number | "najwyzszy-poziom" | null;
  * pasek akcji widoku, a rozwinięcia zmienia widok po udanym dodaniu. Ponowne
  * kliknięcie zaznaczonego węzła zdejmuje zaznaczenie — to robi już rc-tree przy
  * `multiple={false}`, `onSelect` dostaje wtedy pustą listę, a cel wraca na
- * najwyższy poziom.
+ * najwyższy poziom. To samo robi kliknięcie w strefę najwyższego poziomu poza
+ * węzłami, żeby do nowego korzenia nie trzeba było szukać zaznaczonego węzła.
  *
  * **Przeciąganie węzła w drzewie** prowadzi w całości rc-tree
  * (`draggable`, `onDrop`); wynik przelicza `wyliczPrzeniesienie`. W trakcie
@@ -219,6 +220,18 @@ export function DrzewoStruktury({
       onDrop={(zdarzenie) => {
         if (zListy(zdarzenie)) {
           upusc(zdarzenie, null);
+        }
+      }}
+      // Kliknięcie poza węzłem zdejmuje zaznaczenie — cel „Dodaj” wraca na
+      // najwyższy poziom. Węzeł rc-tree to `role="treeitem"` (wiersz razem
+      // z wcięciem i strzałką), a jego kliknięcia obsługuje `onSelect`.
+      onClick={(zdarzenie) => {
+        if (
+          wybranyWezelId !== null &&
+          zdarzenie.target instanceof Element &&
+          zdarzenie.target.closest('[role="treeitem"]') === null
+        ) {
+          onWybierzWezel(null);
         }
       }}
     >

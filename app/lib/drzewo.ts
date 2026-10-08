@@ -141,13 +141,62 @@ export function liczbaWezlowPodrzednych(
 }
 
 /**
- * Obiekty słownika użyte w drzewie — przez węzeł na dowolnej głębokości.
- * Do filtra „Bez obiektów drzewa” na liście obiektów.
+ * Obiekty słownika, których nie da się dodać w wybrane miejsce drzewa —
+ * do filtra „Bez obiektów drzewa” na liście obiektów. Zbiór pokrywa się
+ * z odmowami `tree_object_reused` z API (PRD FR-004):
+ *
+ * - **Bez zaznaczenia** (albo z zaznaczeniem, którego nie ma już na liście) —
+ *   wszystkie obiekty drzewa: nowy korzeń nie może powtórzyć niczego.
+ * - **Z zaznaczonym węzłem** — obiekty wszystkich korzeni (obiekt korzenia
+ *   występuje w drzewie tylko raz) plus obiekty całego poddrzewa korzenia
+ *   zaznaczonego węzła, łącznie z nim samym (pod jednym korzeniem obiekt się
+ *   nie powtarza). Obiekt użyty wyłącznie pod innym korzeniem jest dostępny.
+ *
+ * Ostateczną kontrolę i tak robi API — filtr tylko nie podsuwa obiektów, które
+ * skończyłyby się odmową.
  */
-export function obiektyUzyteWDrzewie(
+export function obiektyNiedostepneDoDodania(
   wezly: readonly WezelDrzewa[],
+  wybranyWezelId: number | null,
 ): ReadonlySet<number> {
-  return new Set(wezly.map((wezel) => wezel.objectId));
+  const wezlyPoId = new Map(wezly.map((wezel) => [wezel.id, wezel]));
+  let korzen =
+    wybranyWezelId === null ? undefined : wezlyPoId.get(wybranyWezelId);
+
+  if (korzen === undefined) {
+    return new Set(wezly.map((wezel) => wezel.objectId));
+  }
+
+  // W górę po rodzicach do korzenia. Rodzic spoza listy kończy wspinaczkę —
+  // przy odpowiedzi API to się nie zdarza, a pętla nie może trwać w nieskończoność.
+  const odwiedzone = new Set([korzen.id]);
+
+  while (korzen.parentId !== null) {
+    const rodzic = wezlyPoId.get(korzen.parentId);
+
+    if (rodzic === undefined || odwiedzone.has(rodzic.id)) {
+      break;
+    }
+
+    odwiedzone.add(rodzic.id);
+    korzen = rodzic;
+  }
+
+  const niedostepne = new Set(
+    wezly.filter((wezel) => wezel.parentId === null).map((wezel) => wezel.objectId),
+  );
+  const dzieci = dzieciPoRodzicu(wezly);
+  // Stos jak w `liczbaWezlowPodrzednych`; korzeń poddrzewa też się liczy.
+  const stos = [korzen];
+
+  while (stos.length > 0) {
+    const biezacy = stos.pop()!;
+
+    niedostepne.add(biezacy.objectId);
+    stos.push(...(dzieci.get(biezacy.id) ?? []));
+  }
+
+  return niedostepne;
 }
 
 /**

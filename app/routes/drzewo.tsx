@@ -32,7 +32,7 @@ import { kontekstUzytkownika, requireSameOrigin } from "~/lib/auth.server";
 import {
   type Przeniesienie,
   liczbaWezlowPodrzednych,
-  obiektyUzyteWDrzewie,
+  obiektyNiedostepneDoDodania,
   wezlyZDziecmi,
 } from "~/lib/drzewo";
 import type { CatalogObject } from "~/lib/objects.server";
@@ -675,9 +675,14 @@ function BudowaDrzewa({
     () => new Map(obiekty.map((obiekt) => [obiekt.id, obiekt])),
     [obiekty],
   );
-  // Liczone raz na stan drzewa: dodanie i usunięcie węzła przychodzą nową
-  // listą `wezly` z rewalidacji, więc filtr listy przelicza się sam.
-  const uzyteObiekty = useMemo(() => obiektyUzyteWDrzewie(wezly), [wezly]);
+  // Liczone raz na stan drzewa i zaznaczenie: dodanie i usunięcie węzła
+  // przychodzą nową listą `wezly` z rewalidacji, a zmiana zaznaczenia zmienia
+  // miejsce dodania — w obu przypadkach filtr listy przelicza się sam.
+  // Zaznaczenie, którego po rewalidacji już nie ma, funkcja traktuje jak brak.
+  const uzyteObiekty = useMemo(
+    () => obiektyNiedostepneDoDodania(wezly, wybranyWezelId),
+    [wezly, wybranyWezelId],
+  );
 
   // Zaznaczenie wskazujące coś, czego po rewalidacji już nie ma (usunięty
   // węzeł, obiekt usunięty ze słownika), traktowane jest jak brak zaznaczenia.

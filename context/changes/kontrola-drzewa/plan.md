@@ -502,33 +502,33 @@ zdejmuje też jego przypisania kategorii w ekranach (kaskada).
 
 #### Automated
 
-- [x] 1.1 Build rozwiązania przechodzi: `dotnet build TreeGrid.sln`
-- [x] 1.2 Testy .NET przechodzą, w tym przepisane `TreeRulesTests` i `TreeIntegrationTests`: `dotnet test tests/Api.Tests`
-- [x] 1.3 Żaden plik kodu ani testu nie zna starych kodów: `grep -rnE "tree_cycle|tree_duplicate_sibling|TreeCycle|TreeDuplicateSibling" src app tests` nic nie zwraca
-- [x] 1.4 Typy frontendu przechodzą: `npm run typecheck`
-- [x] 1.5 Seed E2E przechodzi (przy zatrzymanym stosie deweloperskim): `npx playwright test tests/e2e/seed.spec.ts`
+- [x] 1.1 Build rozwiązania przechodzi: `dotnet build TreeGrid.sln` — bb03542
+- [x] 1.2 Testy .NET przechodzą, w tym przepisane `TreeRulesTests` i `TreeIntegrationTests`: `dotnet test tests/Api.Tests` — bb03542
+- [x] 1.3 Żaden plik kodu ani testu nie zna starych kodów: `grep -rnE "tree_cycle|tree_duplicate_sibling|TreeCycle|TreeDuplicateSibling" src app tests` nic nie zwraca — bb03542
+- [x] 1.4 Typy frontendu przechodzą: `npm run typecheck` — bb03542
+- [x] 1.5 Seed E2E przechodzi (przy zatrzymanym stosie deweloperskim): `npx playwright test tests/e2e/seed.spec.ts` — bb03542
 
 #### Manual
 
-- [x] 1.6 W `/drzewo` dodanie obiektu drugi raz pod tym samym korzeniem (także kilka poziomów niżej) pokazuje baner „… występuje już pod korzeniem …" i nie zmienia drzewa
-- [x] 1.7 Ten sam obiekt pod dwoma różnymi korzeniami jednego drzewa daje się dodać
-- [x] 1.8 Dodanie obiektu korzenia w inne miejsce drzewa i drugi raz na najwyższy poziom pokazuje „… jest już korzeniem drzewa."
-- [x] 1.9 Przeciągnięcie węzła pod własnego potomka, przeciągnięcie poddrzewa z powtarzającym się obiektem pod inny korzeń i przeciągnięcie korzenia pod węzeł innego korzenia są odrzucane w całości z komunikatem, a zmiana kolejności rodzeństwa nadal działa
-- [x] 1.10 Kopia `src/Api/db/treegrid.db` sprawdzona przed wdrożeniem nie ma naruszeń nowej reguły (Migration Notes)
+- [x] 1.6 W `/drzewo` dodanie obiektu drugi raz pod tym samym korzeniem (także kilka poziomów niżej) pokazuje baner „… występuje już pod korzeniem …" i nie zmienia drzewa — bb03542
+- [x] 1.7 Ten sam obiekt pod dwoma różnymi korzeniami jednego drzewa daje się dodać — bb03542
+- [x] 1.8 Dodanie obiektu korzenia w inne miejsce drzewa i drugi raz na najwyższy poziom pokazuje „… jest już korzeniem drzewa." — bb03542
+- [x] 1.9 Przeciągnięcie węzła pod własnego potomka, przeciągnięcie poddrzewa z powtarzającym się obiektem pod inny korzeń i przeciągnięcie korzenia pod węzeł innego korzenia są odrzucane w całości z komunikatem, a zmiana kolejności rodzeństwa nadal działa — bb03542
+- [x] 1.10 Kopia `src/Api/db/treegrid.db` sprawdzona przed wdrożeniem nie ma naruszeń nowej reguły (Migration Notes) — bb03542
 
 ### Phase 2: Filtr listy obiektów zależny od zaznaczenia i dokumentacja
 
 #### Automated
 
-- [ ] 2.1 Typy przechodzą: `npm run typecheck`
-- [ ] 2.2 Build produkcyjny przechodzi: `npm run build`
-- [ ] 2.3 Spece Node przechodzą: `npm run test:node`
-- [ ] 2.4 Seed E2E nadal przechodzi: `npx playwright test tests/e2e/seed.spec.ts`
-- [ ] 2.5 `CLAUDE.md` nie zawiera zdania o starej regule: `grep -n "egzekwuje jeszcze starą regułę" CLAUDE.md` nic nie zwraca
+- [x] 2.1 Typy przechodzą: `npm run typecheck`
+- [x] 2.2 Build produkcyjny przechodzi: `npm run build`
+- [x] 2.3 Spece Node przechodzą: `npm run test:node`
+- [x] 2.4 Seed E2E nadal przechodzi: `npx playwright test tests/e2e/seed.spec.ts`
+- [x] 2.5 `CLAUDE.md` nie zawiera zdania o starej regule: `grep -n "egzekwuje jeszcze starą regułę" CLAUDE.md` nic nie zwraca
 
 #### Manual
 
-- [ ] 2.6 Bez zaznaczonego węzła filtr chowa każdy obiekt użyty w drzewie
-- [ ] 2.7 Po zaznaczeniu węzła pod korzeniem A filtr pokazuje obiekt użyty wyłącznie pod korzeniem B, a chowa obiekty spod A i obiekty wszystkich korzeni. Zmiana zaznaczenia od razu przelicza listę
-- [ ] 2.8 Obiekt pokazany przez filtr przy zaznaczonym węźle daje się dodać „Dodaj" bez odmowy
-- [ ] 2.9 Wzornik renderuje próbki listy obiektów i baner nowej odmowy bez błędów
+- [x] 2.6 Bez zaznaczonego węzła filtr chowa każdy obiekt użyty w drzewie
+- [x] 2.7 Po zaznaczeniu węzła pod korzeniem A filtr pokazuje obiekt użyty wyłącznie pod korzeniem B, a chowa obiekty spod A i obiekty wszystkich korzeni. Zmiana zaznaczenia od razu przelicza listę
+- [x] 2.8 Obiekt pokazany przez filtr przy zaznaczonym węźle daje się dodać „Dodaj" bez odmowy
+- [x] 2.9 Wzornik renderuje próbki listy obiektów i baner nowej odmowy bez błędów

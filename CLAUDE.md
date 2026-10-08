@@ -190,9 +190,11 @@ przeglądarka ──► react-router-serve :3000 ──(loader/action, fetch)─
   (`app/lib/log.server.ts`). Przyczyna zgaszonego API (`ECONNREFUSED`)
   i ścieżka API są **tylko** w tej linii — koperta `api_unreachable` dla
   przeglądarki ma pusty `context`, także na publicznym `/api/health`.
-- **Reguła zapętlenia drzewa** (sprawdzenie ścieżki przodków), duplikat
-  rodzeństwa i limit węzłów mieszkają w `src/Api/Tree/TreeRules.cs`,
-  unikalność nazwy drzewa w `TreeNameRules.cs` — egzekwuje je API, nie widok.
+- **Reguła użycia obiektów w drzewie** (PRD FR-004: obiekt korzenia tylko raz
+  w całym drzewie, bez powtórzeń w poddrzewie jednego korzenia, jeden kod
+  odmowy `tree_object_reused`) i limit węzłów mieszkają
+  w `src/Api/Tree/TreeRules.cs`, unikalność nazwy drzewa
+  w `TreeNameRules.cs` — egzekwuje je API, nie widok.
 
 ## Kontekst produktowy
 
@@ -207,9 +209,12 @@ techniczną:
   15 min → 96, godzina → 24. Wariant 288-kolumnowy jest jawnym wymaganiem
   niefunkcjonalnym i musi dać się płynnie przewijać, więc grid potrzebuje
   wirtualizacji (`<Table virtual />`), a nie zwykłej tabeli.
-- Ten sam obiekt może wystąpić w wielu miejscach jednej struktury, więc
-  zapętlenie jest realnie możliwe i każda zmiana struktury jest walidowana przed
-  przyjęciem. To rdzenna reguła biznesowa aplikacji, nie formalność.
+- Drzewo może mieć wiele korzeni; obiekt korzenia występuje w drzewie tylko
+  raz, a pod jednym korzeniem (w całym jego poddrzewie) obiekt nie może się
+  powtórzyć — ten sam obiekt wolno użyć tylko pod innym korzeniem (PRD FR-004,
+  zmiana 2026-10-08). Każda zmiana struktury jest walidowana przed przyjęciem,
+  co wyklucza też zapętlenie. To rdzenna reguła biznesowa aplikacji, nie
+  formalność.
 
 `@context/foundation/tech-stack.md` zapisuje wybrany stack i — co istotne — że
 backend jest oparty na **ASP.NET Core + SQLite w podkatalogu** (`src/Api`).
