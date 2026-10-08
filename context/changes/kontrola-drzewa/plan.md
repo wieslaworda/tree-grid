@@ -520,15 +520,15 @@ zdejmuje też jego przypisania kategorii w ekranach (kaskada).
 
 #### Automated
 
-- [x] 2.1 Typy przechodzą: `npm run typecheck`
-- [x] 2.2 Build produkcyjny przechodzi: `npm run build`
-- [x] 2.3 Spece Node przechodzą: `npm run test:node`
-- [x] 2.4 Seed E2E nadal przechodzi: `npx playwright test tests/e2e/seed.spec.ts`
-- [x] 2.5 `CLAUDE.md` nie zawiera zdania o starej regule: `grep -n "egzekwuje jeszcze starą regułę" CLAUDE.md` nic nie zwraca
+- [x] 2.1 Typy przechodzą: `npm run typecheck` — b483a51
+- [x] 2.2 Build produkcyjny przechodzi: `npm run build` — b483a51
+- [x] 2.3 Spece Node przechodzą: `npm run test:node` — b483a51
+- [x] 2.4 Seed E2E nadal przechodzi: `npx playwright test tests/e2e/seed.spec.ts` — b483a51
+- [x] 2.5 `CLAUDE.md` nie zawiera zdania o starej regule: `grep -n "egzekwuje jeszcze starą regułę" CLAUDE.md` nic nie zwraca — b483a51
 
 #### Manual
 
-- [x] 2.6 Bez zaznaczonego węzła filtr chowa każdy obiekt użyty w drzewie
-- [x] 2.7 Po zaznaczeniu węzła pod korzeniem A filtr pokazuje obiekt użyty wyłącznie pod korzeniem B, a chowa obiekty spod A i obiekty wszystkich korzeni. Zmiana zaznaczenia od razu przelicza listę
-- [x] 2.8 Obiekt pokazany przez filtr przy zaznaczonym węźle daje się dodać „Dodaj" bez odmowy
-- [x] 2.9 Wzornik renderuje próbki listy obiektów i baner nowej odmowy bez błędów
+- [x] 2.6 Bez zaznaczonego węzła filtr chowa każdy obiekt użyty w drzewie — b483a51
+- [x] 2.7 Po zaznaczeniu węzła pod korzeniem A filtr pokazuje obiekt użyty wyłącznie pod korzeniem B, a chowa obiekty spod A i obiekty wszystkich korzeni. Zmiana zaznaczenia od razu przelicza listę — b483a51
+- [x] 2.8 Obiekt pokazany przez filtr przy zaznaczonym węźle daje się dodać „Dodaj" bez odmowy — b483a51
+- [x] 2.9 Wzornik renderuje próbki listy obiektów i baner nowej odmowy bez błędów — b483a51
