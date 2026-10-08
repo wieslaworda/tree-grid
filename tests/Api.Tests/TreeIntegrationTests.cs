@@ -13,11 +13,14 @@ namespace Api.Tests;
 /// potok HTTP na prawdziwym SQLite.
 ///
 /// Wyrocznią są PRD i plan, nie kod pod testem: Guardrail (<c>prd.md:37</c>)
-/// i FR-004 (<c>prd.md:76</c>) — obiekt nie może stanąć na własnej ścieżce
-/// przodków; Business Logic (<c>prd.md:108-116</c>) — zmiana struktury jest
-/// oceniana przed przyjęciem, a usunięty węzeł znika z całym poddrzewem;
-/// limit 2000 węzłów i przenumerowanie rodzeństwa z
-/// <c>context/changes/budowa-drzewa/plan.md</c>. Oczekiwane wartości są
+/// i FR-004 (<c>prd.md:76-83</c>, zmiana 2026-10-08) — obiekt korzenia
+/// występuje w drzewie tylko raz, pod jednym korzeniem obiekt się nie
+/// powtarza, a pod innym korzeniem wolno go użyć; Business Logic
+/// (<c>prd.md:116-130</c>) — zmiana struktury jest oceniana przed przyjęciem,
+/// a usunięty węzeł znika z całym poddrzewem; limit 2000 węzłów
+/// i przenumerowanie rodzeństwa z <c>context/changes/budowa-drzewa/plan.md</c>,
+/// przypadki reguły użycia obiektów z
+/// <c>context/changes/kontrola-drzewa/plan.md</c>. Oczekiwane wartości są
 /// wpisane w testach, a nie liczone regułami z <c>TreeRules</c>.
 ///
 /// Asercją jest stan bazy, nie status odpowiedzi. Każda odmowa porównuje
@@ -39,131 +42,193 @@ public class TreeIntegrationTests(TestApiFactory factory) : IClassFixture<TestAp
     /// </summary>
     private const int NodeLimit = 2000;
 
-    // --- Zapętlenie (FR-004) -------------------------------------------------
+    // --- Użycie obiektów (FR-004): dodanie ----------------------------------
 
     [Fact]
-    public async Task Adding_an_object_under_its_own_deeper_occurrence_is_refused_as_a_cycle_and_leaves_the_tree_unchanged()
+    public async Task Adding_an_object_again_deep_under_the_same_root_is_refused_and_leaves_the_tree_unchanged()
     {
-        // X → A → B, a obok drugie, poprawne wystąpienie A na najwyższym
-        // poziomie. Dodanie A pod B stawia A na jego własnej ścieżce przez
-        // wystąpienie dwa poziomy wyżej, nie przez bezpośredniego rodzica.
-        const int X = 0, A = 1, B = 2;
-        var arranged = await ArrangeAsync(objectCount: 3);
-        using var client = arranged.Account.Client;
-
-        var top = await SeedAsync(arranged, parentId: null, X, A);
-        var underX = await SeedAsync(arranged, parentId: top[0], A);
-        var underA = await SeedAsync(arranged, parentId: underX[0], B);
-
-        var before = await IntegrationSeed.ReadTreeAsync(factory, arranged.TreeId);
-
-        var response = await AddAsync(client, arranged.TreeId, arranged.Objects[A], parentId: underA[0]);
-
-        var error = await IntegrationSeed.AssertRefusedAsync(response, HttpStatusCode.Conflict, ApiErrorCodes.TreeCycle);
-        Assert.Contains(arranged.Code(A), PathCodes(error));
-        Assert.Equal(before, await IntegrationSeed.ReadTreeAsync(factory, arranged.TreeId));
-    }
-
-    [Fact]
-    public async Task Moving_a_subtree_whose_descendant_repeats_a_target_ancestor_is_refused_and_leaves_the_tree_unchanged()
-    {
-        // Gałąź 1: A → B → [E]. Gałąź 2: C → A. Przeniesienie C pod B dałoby
-        // A → B → C → A — pętla przez poddrzewo, nie przez przenoszony węzeł
-        // (budowa-drzewa/plan.md:330-334). D trzyma rodzeństwo źródła
-        // niepustym, E — rodzeństwo celu.
-        const int A = 0, B = 1, C = 2, D = 3, E = 4;
+        // R → A → B → C oraz Q obok. Drugie C pod A powtórzyłoby C pod R —
+        // wcześniejsze wystąpienie stoi dwa poziomy niżej, w innej gałęzi.
+        const int R = 0, A = 1, B = 2, C = 3, Q = 4;
         var arranged = await ArrangeAsync(objectCount: 5);
         using var client = arranged.Account.Client;
 
-        var top = await SeedAsync(arranged, parentId: null, A, C, D);
-        var underA = await SeedAsync(arranged, parentId: top[0], B);
-        await SeedAsync(arranged, parentId: underA[0], E);
-        await SeedAsync(arranged, parentId: top[1], A);
-
-        var before = await IntegrationSeed.ReadTreeAsync(factory, arranged.TreeId);
-
-        var response = await MoveAsync(client, arranged.TreeId, top[1], parentId: underA[0], position: 0);
-
-        var error = await IntegrationSeed.AssertRefusedAsync(response, HttpStatusCode.Conflict, ApiErrorCodes.TreeCycle);
-        Assert.Contains(arranged.Code(A), PathCodes(error));
-        Assert.Equal(before, await IntegrationSeed.ReadTreeAsync(factory, arranged.TreeId));
-    }
-
-    [Fact]
-    public async Task Moving_a_node_under_its_own_child_is_refused_as_a_cycle_and_leaves_the_tree_unchanged()
-    {
-        // A → B → C oraz D obok. Najkrótsza pętla przez potomka: A pod B.
-        const int A = 0, B = 1, C = 2, D = 3;
-        var arranged = await ArrangeAsync(objectCount: 4);
-        using var client = arranged.Account.Client;
-
-        var top = await SeedAsync(arranged, parentId: null, A, D);
-        var underA = await SeedAsync(arranged, parentId: top[0], B);
+        var top = await SeedAsync(arranged, parentId: null, R, Q);
+        var underR = await SeedAsync(arranged, parentId: top[0], A);
+        var underA = await SeedAsync(arranged, parentId: underR[0], B);
         await SeedAsync(arranged, parentId: underA[0], C);
 
         var before = await IntegrationSeed.ReadTreeAsync(factory, arranged.TreeId);
 
-        var response = await MoveAsync(client, arranged.TreeId, top[0], parentId: underA[0], position: 0);
+        var response = await AddAsync(client, arranged.TreeId, arranged.Objects[C], parentId: underR[0]);
 
-        var error = await IntegrationSeed.AssertRefusedAsync(response, HttpStatusCode.Conflict, ApiErrorCodes.TreeCycle);
-        Assert.Contains(arranged.Code(A), PathCodes(error));
+        var error = await IntegrationSeed.AssertRefusedAsync(response, HttpStatusCode.Conflict, ApiErrorCodes.TreeObjectReused);
+        Assert.Equal((arranged.Code(C), arranged.Code(R)), ReuseCodes(error));
         Assert.Equal(before, await IntegrationSeed.ReadTreeAsync(factory, arranged.TreeId));
     }
 
-    // --- Duplikat rodzeństwa (Business Logic) --------------------------------
-
     [Fact]
-    public async Task Adding_an_object_that_is_already_a_child_of_the_parent_is_refused_and_leaves_the_tree_unchanged()
+    public async Task Adding_a_root_object_under_another_root_or_again_at_the_top_level_is_refused_and_leaves_the_tree_unchanged()
     {
-        const int P = 0, A = 1, B = 2;
-        var arranged = await ArrangeAsync(objectCount: 3);
+        // R1 → A, R2 → B. Obiekt korzenia R1 nie może stanąć ani pod B, ani
+        // drugi raz na najwyższym poziomie.
+        const int R1 = 0, R2 = 1, A = 2, B = 3;
+        var arranged = await ArrangeAsync(objectCount: 4);
         using var client = arranged.Account.Client;
 
-        var top = await SeedAsync(arranged, parentId: null, P);
-        await SeedAsync(arranged, parentId: top[0], A, B);
+        var top = await SeedAsync(arranged, parentId: null, R1, R2);
+        await SeedAsync(arranged, parentId: top[0], A);
+        var underR2 = await SeedAsync(arranged, parentId: top[1], B);
 
         var before = await IntegrationSeed.ReadTreeAsync(factory, arranged.TreeId);
 
-        var response = await AddAsync(client, arranged.TreeId, arranged.Objects[A], parentId: top[0]);
+        foreach (var parentId in new int?[] { underR2[0], null })
+        {
+            var response = await AddAsync(client, arranged.TreeId, arranged.Objects[R1], parentId);
 
-        await IntegrationSeed.AssertRefusedAsync(response, HttpStatusCode.Conflict, ApiErrorCodes.TreeDuplicateSibling);
-        Assert.Equal(before, await IntegrationSeed.ReadTreeAsync(factory, arranged.TreeId));
+            var error = await IntegrationSeed.AssertRefusedAsync(response, HttpStatusCode.Conflict, ApiErrorCodes.TreeObjectReused);
+            Assert.Equal((arranged.Code(R1), arranged.Code(R1)), ReuseCodes(error));
+            Assert.EndsWith("jest już korzeniem drzewa.", error.Message);
+            Assert.Equal(before, await IntegrationSeed.ReadTreeAsync(factory, arranged.TreeId));
+        }
     }
 
     [Fact]
-    public async Task Adding_an_object_that_is_already_at_the_top_level_is_refused_and_leaves_the_tree_unchanged()
+    public async Task Adding_an_object_as_a_new_root_while_it_stands_under_another_root_is_refused_and_leaves_the_tree_unchanged()
     {
-        const int A = 0, B = 1;
+        const int R = 0, X = 1;
         var arranged = await ArrangeAsync(objectCount: 2);
         using var client = arranged.Account.Client;
 
-        await SeedAsync(arranged, parentId: null, A, B);
+        var top = await SeedAsync(arranged, parentId: null, R);
+        await SeedAsync(arranged, parentId: top[0], X);
 
         var before = await IntegrationSeed.ReadTreeAsync(factory, arranged.TreeId);
 
-        var response = await AddAsync(client, arranged.TreeId, arranged.Objects[A], parentId: null);
+        var response = await AddAsync(client, arranged.TreeId, arranged.Objects[X], parentId: null);
 
-        await IntegrationSeed.AssertRefusedAsync(response, HttpStatusCode.Conflict, ApiErrorCodes.TreeDuplicateSibling);
+        var error = await IntegrationSeed.AssertRefusedAsync(response, HttpStatusCode.Conflict, ApiErrorCodes.TreeObjectReused);
+        Assert.Equal((arranged.Code(X), arranged.Code(R)), ReuseCodes(error));
         Assert.Equal(before, await IntegrationSeed.ReadTreeAsync(factory, arranged.TreeId));
     }
 
     [Fact]
-    public async Task Moving_a_node_to_the_top_level_next_to_the_same_object_is_refused_and_leaves_the_tree_unchanged()
+    public async Task Adding_the_same_object_under_a_second_root_is_accepted()
     {
-        // Najwyższy poziom: A, P; pod P drugie wystąpienie A (i B obok).
-        const int A = 0, P = 1, B = 2;
+        // R1 → X, R2 puste. X pod R2 jest drugim wystąpieniem pod innym
+        // korzeniem — FR-004 na to pozwala.
+        const int R1 = 0, R2 = 1, X = 2;
         var arranged = await ArrangeAsync(objectCount: 3);
         using var client = arranged.Account.Client;
 
-        var top = await SeedAsync(arranged, parentId: null, A, P);
-        var underP = await SeedAsync(arranged, parentId: top[1], A, B);
+        var top = await SeedAsync(arranged, parentId: null, R1, R2);
+        var underR1 = await SeedAsync(arranged, parentId: top[0], X);
+
+        var response = await AddAsync(client, arranged.TreeId, arranged.Objects[X], parentId: top[1]);
+
+        Assert.Equal(HttpStatusCode.Created, response.StatusCode);
+
+        var addedId = (await response.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("id").GetInt32();
+
+        // Oczekiwany stan wypisany ręcznie: nowy węzeł X jako jedyne dziecko R2.
+        var expected = new TreeStateSnapshot(
+            "Drzewo testowe",
+            [
+                .. new[]
+                {
+                    new NodeRow(top[0], null, arranged.Objects[R1], 0),
+                    new NodeRow(top[1], null, arranged.Objects[R2], 1),
+                    new NodeRow(underR1[0], top[0], arranged.Objects[X], 0),
+                    new NodeRow(addedId, top[1], arranged.Objects[X], 0),
+                }.OrderBy(row => row.Id),
+            ]);
+
+        Assert.Equal(expected, await IntegrationSeed.ReadTreeAsync(factory, arranged.TreeId));
+    }
+
+    // --- Użycie obiektów (FR-004): przeniesienie -----------------------------
+
+    [Fact]
+    public async Task Moving_a_subtree_whose_deep_descendant_repeats_an_object_of_the_target_root_is_refused_and_leaves_the_tree_unchanged()
+    {
+        // R1 → S → A → B; R2 → C → B. Przeniesienie S pod C stawia drugie B
+        // pod R2 — konflikt siedzi dwa poziomy pod przenoszonym węzłem.
+        const int R1 = 0, R2 = 1, S = 2, A = 3, B = 4, C = 5;
+        var arranged = await ArrangeAsync(objectCount: 6);
+        using var client = arranged.Account.Client;
+
+        var top = await SeedAsync(arranged, parentId: null, R1, R2);
+        var underR1 = await SeedAsync(arranged, parentId: top[0], S);
+        var underS = await SeedAsync(arranged, parentId: underR1[0], A);
+        await SeedAsync(arranged, parentId: underS[0], B);
+        var underR2 = await SeedAsync(arranged, parentId: top[1], C);
+        await SeedAsync(arranged, parentId: underR2[0], B);
 
         var before = await IntegrationSeed.ReadTreeAsync(factory, arranged.TreeId);
 
-        var response = await MoveAsync(client, arranged.TreeId, underP[0], parentId: null, position: 0);
+        var response = await MoveAsync(client, arranged.TreeId, underR1[0], parentId: underR2[0], position: 0);
 
-        await IntegrationSeed.AssertRefusedAsync(response, HttpStatusCode.Conflict, ApiErrorCodes.TreeDuplicateSibling);
+        var error = await IntegrationSeed.AssertRefusedAsync(response, HttpStatusCode.Conflict, ApiErrorCodes.TreeObjectReused);
+        Assert.Equal((arranged.Code(B), arranged.Code(R2)), ReuseCodes(error));
         Assert.Equal(before, await IntegrationSeed.ReadTreeAsync(factory, arranged.TreeId));
+    }
+
+    [Fact]
+    public async Task Moving_a_node_under_its_own_child_or_a_root_under_its_own_descendant_is_refused_and_leaves_the_tree_unchanged()
+    {
+        // R → A → B oraz D obok. A pod B i R pod B zamknęłyby poddrzewo w pętlę
+        // (kontrola-drzewa/plan.md, „Pułapka przeniesienia").
+        const int R = 0, A = 1, B = 2, D = 3;
+        var arranged = await ArrangeAsync(objectCount: 4);
+        using var client = arranged.Account.Client;
+
+        var top = await SeedAsync(arranged, parentId: null, R, D);
+        var underR = await SeedAsync(arranged, parentId: top[0], A);
+        var underA = await SeedAsync(arranged, parentId: underR[0], B);
+
+        var before = await IntegrationSeed.ReadTreeAsync(factory, arranged.TreeId);
+
+        var childResponse = await MoveAsync(client, arranged.TreeId, underR[0], parentId: underA[0], position: 0);
+
+        var childError = await IntegrationSeed.AssertRefusedAsync(childResponse, HttpStatusCode.Conflict, ApiErrorCodes.TreeObjectReused);
+        Assert.Equal((arranged.Code(A), arranged.Code(R)), ReuseCodes(childError));
+        Assert.Equal(before, await IntegrationSeed.ReadTreeAsync(factory, arranged.TreeId));
+
+        var rootResponse = await MoveAsync(client, arranged.TreeId, top[0], parentId: underA[0], position: 0);
+
+        var rootError = await IntegrationSeed.AssertRefusedAsync(rootResponse, HttpStatusCode.Conflict, ApiErrorCodes.TreeObjectReused);
+        Assert.Equal((arranged.Code(R), arranged.Code(R)), ReuseCodes(rootError));
+        Assert.Equal(before, await IntegrationSeed.ReadTreeAsync(factory, arranged.TreeId));
+    }
+
+    [Fact]
+    public async Task Accepted_move_of_a_root_under_a_node_of_another_root_with_disjoint_objects_lands_whole()
+    {
+        // R1 → A, R2 → B; R1 z poddrzewem idzie pod B.
+        string[] names = ["R1", "R2", "A", "B"];
+        var arranged = await ArrangeAsync(objectCount: names.Length);
+        using var client = arranged.Account.Client;
+        var ids = new Dictionary<string, int>();
+
+        await SeedNamedAsync(arranged, ids, names, parent: null, "R1", "R2");
+        await SeedNamedAsync(arranged, ids, names, parent: "R1", "A");
+        await SeedNamedAsync(arranged, ids, names, parent: "R2", "B");
+
+        var response = await MoveAsync(client, arranged.TreeId, ids["R1"], parentId: ids["B"], position: 0);
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+
+        // Oczekiwany stan wypisany ręcznie: najwyższy poziom przenumerowany bez
+        // luki, R1 z A pod spodem jako dziecko B.
+        Assert.Equal(
+            ExpectedState(arranged, ids, names,
+            [
+                ("R2", null, 0),
+                ("B", "R2", 0),
+                ("R1", "B", 0),
+                ("A", "R1", 0),
+            ]),
+            await IntegrationSeed.ReadTreeAsync(factory, arranged.TreeId));
     }
 
     // --- Limit rozmiaru (budowa-drzewa/plan.md:388-389) ----------------------
@@ -465,16 +530,15 @@ public class TreeIntegrationTests(TestApiFactory factory) : IClassFixture<TestAp
         => client.PutAsJsonAsync($"/trees/{treeId}/nodes/{nodeId}", new { parentId, position });
 
     /// <summary>
-    /// Kody z <c>context.path</c> odmowy zapętlenia. Test sprawdza wyłącznie,
-    /// że ścieżka zawiera kod zapętlonego obiektu — kolejność i postać zapisu
-    /// ścieżki są szczegółem implementacji, nie wymaganiem.
+    /// <c>context.objectCode</c> i <c>context.rootCode</c> odmowy reguły użycia
+    /// obiektów. Brak klucza jest błędem asercji, a nie pustą wartością;
+    /// <c>null</c> z elementu JSON <c>null</c> przechodzi dalej i przegrywa
+    /// porównanie z oczekiwanym kodem — wykrzyknik ucisza wyłącznie
+    /// ostrzeżenie typu.
     /// </summary>
-    private static string[] PathCodes(ErrorEnvelope error)
-        => [.. error.Context
-            .GetProperty(TreeResponses.PathContextKey)
-            .EnumerateArray()
-            .Where(item => item.ValueKind == JsonValueKind.String)
-            .Select(item => item.GetString()!)];
+    private static (string ObjectCode, string RootCode) ReuseCodes(ErrorEnvelope error)
+        => (error.Context.GetProperty(TreeResponses.ObjectCodeContextKey).GetString()!,
+            error.Context.GetProperty(TreeResponses.RootCodeContextKey).GetString()!);
 
     /// <summary>Konto z drzewem i obiektami jednego testu.</summary>
     private sealed record ArrangedTree(TestAccount Account, int TreeId, string Prefix, IReadOnlyList<int> Objects)

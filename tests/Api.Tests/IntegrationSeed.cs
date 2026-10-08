@@ -134,9 +134,10 @@ internal static class IntegrationSeed
     /// Dokłada pod <paramref name="parentId"/> (<c>null</c> — najwyższy poziom)
     /// po jednym węźle na obiekt, w podanej kolejności, z pozycjami ciągłymi za
     /// istniejącym rodzeństwem — jednym <c>SaveChanges</c>, więc także hurtowo
-    /// (np. 2000 węzłów). Seed omija reguły drzewa, dlatego obiekty mają być
-    /// różne i nieobecne na ścieżce przodków rodzica: wywołujący odpowiada za
-    /// to, żeby stan wyjściowy był stanem, który API mogłoby przyjąć.
+    /// (np. 2000 węzłów). Seed omija reguły drzewa, dlatego wywołujący buduje
+    /// stan zgodny z regułą użycia obiektów FR-004 — obiekt korzenia tylko raz
+    /// w drzewie, pod jednym korzeniem bez powtórzeń — czyli stan, który API
+    /// mogłoby przyjąć.
     /// </summary>
     public static async Task<IReadOnlyList<int>> SeedNodesAsync(
         TestApiFactory factory,

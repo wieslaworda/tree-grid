@@ -34,8 +34,8 @@ namespace Api.Tree;
 /// od razu jako transakcja zapisowa (<c>BEGIN IMMEDIATE</c>), więc drugie
 /// równoległe polecenie tego samego użytkownika (np. z drugiej karty) czeka na
 /// pierwsze (<c>busy_timeout</c> z <c>Program.cs</c>), zamiast czytać ten sam
-/// stan. Bez tego dwa dodania przeszłyby kontrolę duplikatu albo zapętlenia
-/// osobno i razem zapisały dokładnie stan, którego reguły zabraniają — a dwa
+/// stan. Bez tego dwa dodania przeszłyby kontrolę użycia obiektu osobno
+/// i razem zapisały dokładnie stan, którego reguły zabraniają — a dwa
 /// nowe drzewa o tej samej nazwie skończyłyby się wyjątkiem z unikalnego
 /// indeksu zamiast odpowiedzią w kontrakcie. Wyjście bez <c>Commit</c> (odmowa,
 /// wyjątek) wycofuje transakcję przy jej zwolnieniu.
@@ -43,12 +43,13 @@ namespace Api.Tree;
 /// Każde polecenie na węzłach wczytuje całe drzewo z adresu: limit
 /// <see cref="TreeNode.MaxNodesPerTree"/> trzyma je w rozmiarze, przy którym
 /// reguły w pamięci kosztują pojedyncze milisekundy, a pozycje rodzeństwa da
-/// się przenumerować bez osobnych zapytań. Duplikat na najwyższym poziomie
-/// i limit liczą się w obrębie jednego drzewa.
+/// się przenumerować bez osobnych zapytań. Reguła użycia obiektów i limit
+/// liczą się w obrębie jednego drzewa.
 ///
 /// Kolejność kontroli jest częścią kontraktu: tożsamość → drzewo → wejście →
-/// duplikat → zapętlenie → rozmiar. Klient pokazuje jeden komunikat, więc przy
-/// kilku naruszeniach wygrywa pierwsze w tej kolejności.
+/// użycie obiektu → rozmiar (rozmiar tylko przy dodaniu). Klient pokazuje
+/// jeden komunikat, więc przy kilku naruszeniach wygrywa pierwsze w tej
+/// kolejności.
 /// </remarks>
 internal static class TreeEndpoints
 {
@@ -295,8 +296,10 @@ internal static class TreeEndpoints
 
     /// <summary>
     /// Dodaje jeden obiekt na koniec dzieci <c>parentId</c> (<c>null</c> —
-    /// najwyższy poziom). Słownik nie zna relacji między obiektami, więc
-    /// dodanie nigdy nie przynosi ze sobą struktury podrzędnej. Nowy węzeł
+    /// najwyższy poziom, czyli nowy korzeń). Słownik nie zna relacji między
+    /// obiektami, więc dodanie nigdy nie przynosi ze sobą struktury podrzędnej
+    /// i reguła użycia obiektów (<see cref="TreeRules.FindReuseOnAdd"/>) ocenia
+    /// wyłącznie nowy węzeł. Nowy węzeł
     /// dostaje kategorie domyślne każdego ekranu na tym drzewie (FR-012) —
     /// po wszystkich kontrolach, w tym samym <c>SaveChanges</c>.
     /// </summary>
@@ -355,19 +358,9 @@ internal static class TreeEndpoints
         // Walidacja wyżej przepuszcza wyłącznie komplet pól.
         var addedObjectId = objectId!.Value;
 
-        if (TreeRules.HasDuplicateSibling(tree.ChildrenOf(parentId), addedObjectId, exceptNodeId: null))
+        if (TreeRules.FindReuseOnAdd(tree, parentId, addedObjectId) is { } reuse)
         {
-            return Conflict(TreeResponses.DuplicateSibling(
-                catalog[addedObjectId].Code,
-                ParentCode(tree, catalog, parentId)));
-        }
-
-        if (TreeRules.FindConflictOnAdd(tree.AncestorObjectPath(parentId), addedObjectId) is { } conflict)
-        {
-            return Conflict(TreeResponses.Cycle(
-                TreeOperation.Add,
-                catalog[addedObjectId].Code,
-                Codes(conflict, catalog)));
+            return Conflict(ObjectReused(TreeOperation.Add, catalog[addedObjectId].Code, reuse, catalog));
         }
 
         if (TreeRules.IsFull(tree.Count, TreeNode.MaxNodesPerTree))
@@ -403,6 +396,8 @@ internal static class TreeEndpoints
     /// najwyższy poziom), na indeks <c>position</c> w docelowej grupie
     /// rodzeństwa liczony <b>po</b> zdjęciu przenoszonego węzła
     /// (0…liczba rodzeństwa). Ten sam rodzic to zmiana kolejności.
+    /// Reguła użycia obiektów (<see cref="TreeRules.FindReuseOnMove"/>) ocenia
+    /// przenoszony węzeł z całym poddrzewem, a cel w tym poddrzewie odrzuca.
     /// Przypisań kategorii ekranów przeniesienie nie dotyka: wiszą na
     /// identyfikatorze węzła, a ten się nie zmienia.
     /// </summary>
@@ -473,23 +468,13 @@ internal static class TreeEndpoints
             return ValidationFailure(fields);
         }
 
-        if (TreeRules.HasDuplicateSibling(tree.ChildrenOf(parentId), moved.ObjectId, exceptNodeId: id))
+        // Słownik dopiero po wykryciu konfliktu — przyjęte przeniesienie go nie
+        // potrzebuje.
+        if (TreeRules.FindReuseOnMove(tree, id, parentId) is { } reuse)
         {
             var catalog = await LoadCatalogAsync(db, cancellationToken);
 
-            return Conflict(TreeResponses.DuplicateSibling(
-                catalog[moved.ObjectId].Code,
-                ParentCode(tree, catalog, parentId)));
-        }
-
-        if (TreeRules.FindConflictOnMove(tree, id, parentId) is { } conflict)
-        {
-            var catalog = await LoadCatalogAsync(db, cancellationToken);
-
-            return Conflict(TreeResponses.Cycle(
-                TreeOperation.Move,
-                catalog[moved.ObjectId].Code,
-                Codes(conflict, catalog)));
+            return Conflict(ObjectReused(TreeOperation.Move, catalog[moved.ObjectId].Code, reuse, catalog));
         }
 
         // Grupa źródłowa traci węzeł, docelowa go zyskuje; przy tym samym
@@ -727,22 +712,22 @@ internal static class TreeEndpoints
     }
 
     /// <summary>
-    /// Kod obiektu rodzica do komunikatu o duplikacie; <c>null</c> — najwyższy
-    /// poziom. Obiekt węzła istnieje, bo klucz obcy z <c>Restrict</c> nie
-    /// pozwala go usunąć, a oba odczyty idą w tej samej transakcji.
+    /// Odmowa reguły użycia obiektów z kodami ze słownika, tak jak je wpisano —
+    /// ten sam zapis co na ekranie, nie postać znormalizowana. Obiekty węzłów
+    /// istnieją, bo klucz obcy z <c>Restrict</c> nie pozwala ich usunąć, a oba
+    /// odczyty idą w tej samej transakcji.
     /// </summary>
-    private static string? ParentCode(
-        TreeSnapshot tree,
-        IReadOnlyDictionary<int, CatalogEntry> catalog,
-        int? parentId)
-        => parentId is { } id ? catalog[tree.Get(id).ObjectId].Code : null;
-
-    /// <summary>
-    /// Kody obiektów ścieżki zapętlenia, tak jak je wpisano — ten sam zapis co
-    /// na ekranie, nie postać znormalizowana.
-    /// </summary>
-    private static List<string> Codes(IEnumerable<int> objectIds, IReadOnlyDictionary<int, CatalogEntry> catalog)
-        => [.. objectIds.Select(objectId => catalog[objectId].Code)];
+    private static ApiError ObjectReused(
+        TreeOperation operation,
+        string subjectCode,
+        TreeReuse reuse,
+        IReadOnlyDictionary<int, CatalogEntry> catalog)
+        => TreeResponses.ObjectReused(
+            operation,
+            subjectCode,
+            catalog[reuse.ObjectId].Code,
+            catalog[reuse.RootObjectId].Code,
+            reuse.IsRoot);
 
     private static string ParentNotInTreeMessage(int parentId)
         => $"Węzeł o identyfikatorze {parentId} nie istnieje w drzewie.";
@@ -828,11 +813,11 @@ internal enum TreeOperation
 /// </remarks>
 internal static class TreeResponses
 {
-    /// <summary>Klucz w <c>context</c> ze ścieżką kodów zapętlenia.</summary>
-    internal const string PathContextKey = "path";
-
-    /// <summary>Klucz w <c>context</c> z kodem dublowanego obiektu.</summary>
+    /// <summary>Klucz w <c>context</c> z kodem powtórzonego obiektu.</summary>
     internal const string ObjectCodeContextKey = "objectCode";
+
+    /// <summary>Klucz w <c>context</c> z kodem obiektu korzenia, którego dotyczy odmowa.</summary>
+    internal const string RootCodeContextKey = "rootCode";
 
     /// <summary>Klucz w <c>context</c> z limitem węzłów drzewa.</summary>
     internal const string LimitContextKey = "limit";
@@ -844,12 +829,23 @@ internal static class TreeResponses
     internal const string AddingContextKey = "adding";
 
     /// <summary>
-    /// Odmowa <see cref="ApiErrorCodes.TreeCycle"/>. Komunikat nazywa obiekt
-    /// operacji i pełną ścieżkę — FR-004 wymaga, żeby użytkownik widział, gdzie
-    /// pętla by się zamknęła, także gdy konflikt siedzi głęboko w przenoszonym
-    /// poddrzewie.
+    /// Odmowa <see cref="ApiErrorCodes.TreeObjectReused"/>. Komunikat nazywa
+    /// obiekt operacji, powtórzony obiekt i korzeń — także gdy konflikt siedzi
+    /// głęboko w przenoszonym poddrzewie, użytkownik widzi, który obiekt i pod
+    /// którym korzeniem blokuje zmianę.
     /// </summary>
-    public static ApiError Cycle(TreeOperation operation, string subjectCode, IReadOnlyList<string> pathCodes)
+    /// <param name="subjectCode">Dodawany obiekt albo obiekt przenoszonego węzła.</param>
+    /// <param name="isRoot">
+    /// Wariant „korzeń": <paramref name="objectCode"/> jest już korzeniem
+    /// drzewa, a <paramref name="rootCode"/> jest mu równy. Inaczej — obiekt
+    /// występuje już pod korzeniem <paramref name="rootCode"/>.
+    /// </param>
+    public static ApiError ObjectReused(
+        TreeOperation operation,
+        string subjectCode,
+        string objectCode,
+        string rootCode,
+        bool isRoot)
     {
         var subject = operation switch
         {
@@ -858,29 +854,19 @@ internal static class TreeResponses
             _ => throw new ArgumentOutOfRangeException(nameof(operation), operation, null),
         };
 
-        return ApiError.Create(
-            ApiErrorCodes.TreeCycle,
-            $"{subject} utworzyłoby zapętlenie: {string.Join(" → ", pathCodes)}.",
-            new Dictionary<string, object?>
-            {
-                [PathContextKey] = pathCodes,
-            });
-    }
+        var reason = isRoot
+            ? "jest już korzeniem drzewa"
+            : $"występuje już pod korzeniem {rootCode}";
 
-    /// <summary>
-    /// Odmowa <see cref="ApiErrorCodes.TreeDuplicateSibling"/>;
-    /// <paramref name="parentCode"/> <c>null</c> — najwyższy poziom.
-    /// </summary>
-    public static ApiError DuplicateSibling(string objectCode, string? parentCode)
-        => ApiError.Create(
-            ApiErrorCodes.TreeDuplicateSibling,
-            parentCode is null
-                ? $"Obiekt {objectCode} jest już na najwyższym poziomie drzewa."
-                : $"Obiekt {objectCode} jest już podobiektem {parentCode} w tym miejscu drzewa.",
+        return ApiError.Create(
+            ApiErrorCodes.TreeObjectReused,
+            $"{subject} powtórzyłoby obiekt {objectCode} — {reason}.",
             new Dictionary<string, object?>
             {
                 [ObjectCodeContextKey] = objectCode,
+                [RootCodeContextKey] = rootCode,
             });
+    }
 
     /// <summary>
     /// Odmowa <see cref="ApiErrorCodes.TreeTooLarge"/>.

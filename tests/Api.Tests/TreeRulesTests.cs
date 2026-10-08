@@ -7,9 +7,10 @@ using Api.Tree;
 namespace Api.Tests;
 
 /// <summary>
-/// Regresja reguł drzewa roboczego — limitu rozmiaru, zapętlenia po ścieżce
-/// przodków, duplikatu rodzeństwa i przenumerowania pozycji — oraz kształtu
-/// odmów drzewa i nazw, które muszą się zgadzać po obu stronach granicy.
+/// Regresja reguł drzewa roboczego — limitu rozmiaru, reguły użycia obiektów
+/// (FR-004) i przenumerowania pozycji — oraz kształtu odmów drzewa i nazw,
+/// które muszą się zgadzać po obu stronach granicy. Oczekiwane werdykty są
+/// wpisane w testach, a nie liczone regułą.
 ///
 /// Wzorem <see cref="ObjectRulesTests"/> testy nie podnoszą hosta ani bazy.
 /// Reguły są czystymi funkcjami (<see cref="TreeRules"/>) właśnie po to, żeby
@@ -28,7 +29,10 @@ public class TreeRulesTests
     // Obiekty słownika nazwane tak, jak w opisach przypadków.
     private const int Gpz01 = 1, L2 = 5, L1 = 7;
 
-    private const int A = 11, B = 12, C = 13, D = 14, X = 15;
+    private const int A = 11, B = 12, C = 13, D = 14, X = 15, S = 16;
+
+    // Obiekty korzeni.
+    private const int R1 = 21, R2 = 22;
 
     // --- Limit rozmiaru -----------------------------------------------------
 
@@ -44,149 +48,270 @@ public class TreeRulesTests
         Assert.True(TreeRules.IsFull(TreeNode.MaxNodesPerTree, TreeNode.MaxNodesPerTree));
     }
 
-    // --- Konflikt przodków --------------------------------------------------
+    // --- Użycie obiektów: dodanie nowego korzenia --------------------------
 
     [Fact]
-    public void Adding_at_the_top_level_is_never_a_conflict()
+    public void Adding_a_new_root_with_an_unused_object_is_allowed()
     {
-        Assert.Null(TreeRules.FindConflictOnAdd([], A));
-    }
-
-    [Fact]
-    public void Object_added_under_itself_is_a_conflict_of_length_one()
-    {
-        var conflict = TreeRules.FindConflictOnAdd([A, X], X);
-
-        Assert.NotNull(conflict);
-        Assert.Equal([X, X], conflict);
-    }
-
-    [Fact]
-    public void Direct_conflict_is_reported_from_the_ancestor_occurrence()
-    {
-        // A → B w drzewie; dodanie A pod B stawia A na jego własnej ścieżce.
-        var conflict = TreeRules.FindConflictOnAdd([A, B], A);
-
-        Assert.NotNull(conflict);
-        Assert.Equal([A, B, A], conflict);
-    }
-
-    [Fact]
-    public void Deep_conflict_is_reported_as_the_full_path_in_order()
-    {
-        // Przodkowie GPZ-01 → L1 → L2, dodawany GPZ-01.
-        var conflict = TreeRules.FindConflictOnAdd([Gpz01, L1, L2], Gpz01);
-
-        // Kolejność jest częścią wyniku: z niej powstaje komunikat
-        // „GPZ-01 → L1 → L2 → GPZ-01".
-        Assert.NotNull(conflict);
-        Assert.Equal([Gpz01, L1, L2, Gpz01], conflict);
-    }
-
-    [Fact]
-    public void Same_objects_in_reversed_order_in_another_branch_are_not_a_conflict()
-    {
-        // Gałąź 1: A → B. Gałąź 2: B na najwyższym poziomie, pod nim ma
-        // stanąć A. Ścieżka nowego wystąpienia A to [B] — A na niej nie stoi.
         var tree = new TreeSnapshot(
         [
-            new TreeNodeEntry(1, null, A, 0),
-            new TreeNodeEntry(2, 1, B, 0),
-            new TreeNodeEntry(3, null, B, 1),
+            new TreeNodeEntry(1, null, R1, 0),
+            new TreeNodeEntry(2, 1, A, 0),
         ]);
 
-        Assert.Null(TreeRules.FindConflictOnAdd(tree.AncestorObjectPath(3), A));
+        Assert.Null(TreeRules.FindReuseOnAdd(tree, parentId: null, X));
+        Assert.Null(TreeRules.FindReuseOnAdd(new TreeSnapshot([]), parentId: null, X));
     }
 
     [Fact]
-    public void Moving_a_node_under_its_own_descendant_is_a_conflict()
+    public void Adding_a_new_root_whose_object_is_already_a_root_is_refused_as_a_root()
     {
-        // A → B → C; przeniesienie A pod C.
         var tree = new TreeSnapshot(
         [
-            new TreeNodeEntry(1, null, A, 0),
-            new TreeNodeEntry(2, 1, B, 0),
-            new TreeNodeEntry(3, 2, C, 0),
+            new TreeNodeEntry(1, null, R1, 0),
+            new TreeNodeEntry(2, null, R2, 1),
         ]);
 
-        var conflict = TreeRules.FindConflictOnMove(tree, nodeId: 1, targetParentId: 3);
-
-        Assert.NotNull(conflict);
-        Assert.Equal([A, B, C, A], conflict);
+        Assert.Equal(new TreeReuse(R1, R1, IsRoot: true), TreeRules.FindReuseOnAdd(tree, parentId: null, R1));
     }
 
     [Fact]
-    public void Moving_a_node_under_itself_is_a_conflict_of_length_one()
+    public void Adding_a_new_root_whose_object_stands_under_roots_names_the_first_root_by_position()
     {
-        var tree = new TreeSnapshot([new TreeNodeEntry(1, null, A, 0)]);
-
-        Assert.Equal([A, A], TreeRules.FindConflictOnMove(tree, nodeId: 1, targetParentId: 1));
-    }
-
-    [Fact]
-    public void Moving_a_subtree_whose_descendant_repeats_a_target_ancestor_is_a_conflict()
-    {
-        // Gałąź 1: A → B. Gałąź 2: C → A. Przeniesienie C (z A pod spodem)
-        // pod B daje ścieżkę A → B → C → A.
+        // X pod R2 (węzeł o niższym identyfikatorze) i głębiej pod R1. R1 stoi
+        // pierwszy w kolejności pozycji, więc to jego nazywa odmowa.
         var tree = new TreeSnapshot(
         [
-            new TreeNodeEntry(1, null, A, 0),
-            new TreeNodeEntry(2, 1, B, 0),
-            new TreeNodeEntry(3, null, C, 1),
+            new TreeNodeEntry(1, null, R2, 1),
+            new TreeNodeEntry(2, null, R1, 0),
+            new TreeNodeEntry(3, 1, X, 0),
+            new TreeNodeEntry(4, 2, A, 0),
+            new TreeNodeEntry(5, 4, X, 0),
+        ]);
+
+        Assert.Equal(new TreeReuse(X, R1, IsRoot: false), TreeRules.FindReuseOnAdd(tree, parentId: null, X));
+    }
+
+    [Fact]
+    public void Adding_a_root_object_under_another_root_is_refused_as_a_root()
+    {
+        var tree = new TreeSnapshot(
+        [
+            new TreeNodeEntry(1, null, R1, 0),
+            new TreeNodeEntry(2, 1, A, 0),
+            new TreeNodeEntry(3, null, R2, 1),
+        ]);
+
+        Assert.Equal(new TreeReuse(R1, R1, IsRoot: true), TreeRules.FindReuseOnAdd(tree, parentId: 3, R1));
+    }
+
+    // --- Użycie obiektów: dodanie pod korzeniem -----------------------------
+
+    [Fact]
+    public void Adding_an_object_already_deep_under_the_same_root_is_refused_under_that_root()
+    {
+        // GPZ-01 → L1 → L2; drugie L2 bezpośrednio pod GPZ-01.
+        var tree = new TreeSnapshot(
+        [
+            new TreeNodeEntry(1, null, Gpz01, 0),
+            new TreeNodeEntry(2, 1, L1, 0),
+            new TreeNodeEntry(3, 2, L2, 0),
+        ]);
+
+        Assert.Equal(new TreeReuse(L2, Gpz01, IsRoot: false), TreeRules.FindReuseOnAdd(tree, parentId: 1, L2));
+    }
+
+    [Fact]
+    public void Adding_an_object_under_itself_is_refused_under_its_root()
+    {
+        var tree = new TreeSnapshot(
+        [
+            new TreeNodeEntry(1, null, R1, 0),
+            new TreeNodeEntry(2, 1, X, 0),
+        ]);
+
+        Assert.Equal(new TreeReuse(X, R1, IsRoot: false), TreeRules.FindReuseOnAdd(tree, parentId: 2, X));
+    }
+
+    [Fact]
+    public void Adding_an_object_used_only_under_another_root_is_allowed()
+    {
+        var tree = new TreeSnapshot(
+        [
+            new TreeNodeEntry(1, null, R1, 0),
+            new TreeNodeEntry(2, 1, X, 0),
+            new TreeNodeEntry(3, null, R2, 1),
             new TreeNodeEntry(4, 3, A, 0),
         ]);
 
-        Assert.Equal([A, B, C, A], TreeRules.FindConflictOnMove(tree, nodeId: 3, targetParentId: 2));
+        Assert.Null(TreeRules.FindReuseOnAdd(tree, parentId: 3, X));
+        Assert.Null(TreeRules.FindReuseOnAdd(tree, parentId: 4, X));
+    }
+
+    // --- Użycie obiektów: przeniesienie poza własne poddrzewo ---------------
+
+    [Fact]
+    public void Moving_a_subtree_under_another_root_is_refused_on_its_first_repetition_in_pre_order()
+    {
+        // R1 → S → [A → B, C]; R2 → [C, B]. Przenoszone poddrzewo powtarza pod
+        // R2 dwa obiekty: głębokie B i płytsze C. Pre-order S, A, B, C stawia B
+        // pierwsze — przejście wszerz trafiłoby najpierw C (stąd identyfikatory
+        // C niższy niż B).
+        var tree = new TreeSnapshot(
+        [
+            new TreeNodeEntry(1, null, R1, 0),
+            new TreeNodeEntry(2, 1, S, 0),
+            new TreeNodeEntry(3, 2, A, 0),
+            new TreeNodeEntry(4, 2, C, 1),
+            new TreeNodeEntry(5, 3, B, 0),
+            new TreeNodeEntry(6, null, R2, 1),
+            new TreeNodeEntry(7, 6, C, 0),
+            new TreeNodeEntry(8, 6, B, 1),
+        ]);
+
+        Assert.Equal(new TreeReuse(B, R2, IsRoot: false), TreeRules.FindReuseOnMove(tree, nodeId: 2, targetParentId: 6));
     }
 
     [Fact]
-    public void Moving_a_node_to_the_top_level_or_to_an_unrelated_branch_is_not_a_conflict()
+    public void Moving_a_subtree_disjoint_from_the_target_root_is_allowed()
     {
         var tree = new TreeSnapshot(
         [
-            new TreeNodeEntry(1, null, A, 0),
-            new TreeNodeEntry(2, 1, B, 0),
-            new TreeNodeEntry(3, 2, C, 0),
-            new TreeNodeEntry(4, null, D, 1),
+            new TreeNodeEntry(1, null, R1, 0),
+            new TreeNodeEntry(2, 1, S, 0),
+            new TreeNodeEntry(3, 2, A, 0),
+            new TreeNodeEntry(4, null, R2, 1),
+            new TreeNodeEntry(5, 4, B, 0),
         ]);
 
-        Assert.Null(TreeRules.FindConflictOnMove(tree, nodeId: 3, targetParentId: null));
-        Assert.Null(TreeRules.FindConflictOnMove(tree, nodeId: 2, targetParentId: 4));
-    }
-
-    // --- Duplikat rodzeństwa ------------------------------------------------
-
-    private static readonly TreeSnapshot SiblingTree = new(
-    [
-        new TreeNodeEntry(1, null, A, 0),
-        new TreeNodeEntry(2, 1, B, 0),
-        new TreeNodeEntry(3, 1, C, 1),
-        new TreeNodeEntry(4, null, D, 1),
-    ]);
-
-    [Fact]
-    public void Object_already_under_the_parent_is_a_duplicate()
-    {
-        Assert.True(TreeRules.HasDuplicateSibling(SiblingTree.ChildrenOf(1), B, exceptNodeId: null));
+        Assert.Null(TreeRules.FindReuseOnMove(tree, nodeId: 2, targetParentId: 5));
     }
 
     [Fact]
-    public void Object_already_at_the_top_level_is_a_duplicate()
+    public void Moving_a_root_under_a_node_of_another_root_depends_on_the_intersection()
     {
-        Assert.True(TreeRules.HasDuplicateSibling(SiblingTree.ChildrenOf(null), A, exceptNodeId: null));
+        // R1 → A i R2 → B → A: A pod dwoma korzeniami jest poprawne. R1 pod B
+        // stawia oba A pod R2.
+        var intersecting = new TreeSnapshot(
+        [
+            new TreeNodeEntry(1, null, R1, 0),
+            new TreeNodeEntry(2, 1, A, 0),
+            new TreeNodeEntry(3, null, R2, 1),
+            new TreeNodeEntry(4, 3, B, 0),
+            new TreeNodeEntry(5, 4, A, 0),
+        ]);
+
+        // R1 → A i R2 → B: obiekty rozłączne.
+        var disjoint = new TreeSnapshot(
+        [
+            new TreeNodeEntry(1, null, R1, 0),
+            new TreeNodeEntry(2, 1, A, 0),
+            new TreeNodeEntry(3, null, R2, 1),
+            new TreeNodeEntry(4, 3, B, 0),
+        ]);
+
+        Assert.Equal(
+            new TreeReuse(A, R2, IsRoot: false),
+            TreeRules.FindReuseOnMove(intersecting, nodeId: 1, targetParentId: 4));
+        Assert.Null(TreeRules.FindReuseOnMove(disjoint, nodeId: 1, targetParentId: 4));
+    }
+
+    // --- Użycie obiektów: przeniesienie na najwyższy poziom -----------------
+
+    [Fact]
+    public void Moving_a_node_to_the_top_level_whose_object_stands_under_another_root_is_refused()
+    {
+        // X pod R1 i pod R2; X spod R2 jako nowy korzeń powtórzyłby X spod R1.
+        var tree = new TreeSnapshot(
+        [
+            new TreeNodeEntry(1, null, R1, 0),
+            new TreeNodeEntry(2, 1, X, 0),
+            new TreeNodeEntry(3, null, R2, 1),
+            new TreeNodeEntry(4, 3, X, 0),
+        ]);
+
+        Assert.Equal(new TreeReuse(X, R1, IsRoot: false), TreeRules.FindReuseOnMove(tree, nodeId: 4, targetParentId: null));
     }
 
     [Fact]
-    public void Same_object_under_another_parent_is_allowed()
+    public void Moving_a_node_with_a_unique_object_to_the_top_level_is_allowed()
     {
-        Assert.False(TreeRules.HasDuplicateSibling(SiblingTree.ChildrenOf(4), B, exceptNodeId: null));
-        Assert.False(TreeRules.HasDuplicateSibling(SiblingTree.ChildrenOf(null), B, exceptNodeId: null));
+        var tree = new TreeSnapshot(
+        [
+            new TreeNodeEntry(1, null, R1, 0),
+            new TreeNodeEntry(2, 1, A, 0),
+            new TreeNodeEntry(3, 2, B, 0),
+        ]);
+
+        Assert.Null(TreeRules.FindReuseOnMove(tree, nodeId: 2, targetParentId: null));
+    }
+
+    // --- Użycie obiektów: przeniesienie pod siebie albo pod potomka ---------
+
+    [Fact]
+    public void Moving_a_non_root_node_under_itself_or_its_descendant_is_refused_under_its_current_root()
+    {
+        // R1 → A → B → C.
+        var tree = new TreeSnapshot(
+        [
+            new TreeNodeEntry(1, null, R1, 0),
+            new TreeNodeEntry(2, 1, A, 0),
+            new TreeNodeEntry(3, 2, B, 0),
+            new TreeNodeEntry(4, 3, C, 0),
+        ]);
+
+        Assert.Equal(new TreeReuse(A, R1, IsRoot: false), TreeRules.FindReuseOnMove(tree, nodeId: 2, targetParentId: 4));
+        Assert.Equal(new TreeReuse(A, R1, IsRoot: false), TreeRules.FindReuseOnMove(tree, nodeId: 2, targetParentId: 2));
     }
 
     [Fact]
-    public void Reordering_a_node_within_its_parent_is_not_a_duplicate_of_itself()
+    public void Moving_a_root_under_itself_or_its_descendant_is_refused_as_a_root()
     {
-        Assert.False(TreeRules.HasDuplicateSibling(SiblingTree.ChildrenOf(1), B, exceptNodeId: 2));
+        var tree = new TreeSnapshot(
+        [
+            new TreeNodeEntry(1, null, R1, 0),
+            new TreeNodeEntry(2, 1, A, 0),
+        ]);
+
+        Assert.Equal(new TreeReuse(R1, R1, IsRoot: true), TreeRules.FindReuseOnMove(tree, nodeId: 1, targetParentId: 2));
+        Assert.Equal(new TreeReuse(R1, R1, IsRoot: true), TreeRules.FindReuseOnMove(tree, nodeId: 1, targetParentId: 1));
+    }
+
+    // --- Użycie obiektów: zmiana kolejności i stare naruszenia --------------
+
+    [Fact]
+    public void Reordering_within_the_parent_and_among_roots_is_not_a_reuse()
+    {
+        // R1 → [A, B], R2 → A.
+        var tree = new TreeSnapshot(
+        [
+            new TreeNodeEntry(1, null, R1, 0),
+            new TreeNodeEntry(2, 1, A, 0),
+            new TreeNodeEntry(3, 1, B, 1),
+            new TreeNodeEntry(4, null, R2, 1),
+            new TreeNodeEntry(5, 4, A, 0),
+        ]);
+
+        Assert.Null(TreeRules.FindReuseOnMove(tree, nodeId: 3, targetParentId: 1));
+        Assert.Null(TreeRules.FindReuseOnMove(tree, nodeId: 4, targetParentId: null));
+    }
+
+    [Fact]
+    public void An_old_violation_elsewhere_does_not_block_operations_on_disjoint_nodes()
+    {
+        // X dwa razy pod R1 — stan sprzed reguły, którego API nie naprawia.
+        var tree = new TreeSnapshot(
+        [
+            new TreeNodeEntry(1, null, R1, 0),
+            new TreeNodeEntry(2, 1, X, 0),
+            new TreeNodeEntry(3, 1, X, 1),
+            new TreeNodeEntry(4, null, R2, 1),
+            new TreeNodeEntry(5, 4, A, 0),
+        ]);
+
+        Assert.Null(TreeRules.FindReuseOnAdd(tree, parentId: 1, B));
+        Assert.Null(TreeRules.FindReuseOnAdd(tree, parentId: 4, B));
+        Assert.Null(TreeRules.FindReuseOnMove(tree, nodeId: 5, targetParentId: null));
     }
 
     // --- Przenumerowanie ----------------------------------------------------
@@ -232,76 +357,100 @@ public class TreeRulesTests
     }
 
     [Fact]
-    public void Snapshot_reads_siblings_in_position_order_and_the_ancestor_path_from_the_root()
+    public void Snapshot_reads_siblings_in_position_order_the_root_and_the_subtree_in_pre_order()
     {
         var tree = new TreeSnapshot(
         [
             new TreeNodeEntry(3, 1, C, 1),
             new TreeNodeEntry(2, 1, B, 0),
             new TreeNodeEntry(1, null, A, 0),
+            new TreeNodeEntry(4, 2, D, 0),
         ]);
 
         Assert.Equal([2, 3], tree.ChildrenOf(1).Select(node => node.Id));
-        Assert.Equal([A, C], tree.AncestorObjectPath(3));
-        Assert.Empty(tree.AncestorObjectPath(null));
+        Assert.Equal(1, tree.RootOf(4).Id);
+        Assert.Equal(1, tree.RootOf(1).Id);
+        Assert.Equal([1, 2, 4, 3], tree.Subtree(1).Select(node => node.Id));
+        Assert.Equal([2, 4], tree.Subtree(2).Select(node => node.Id));
+    }
+
+    [Fact]
+    public void Snapshot_with_a_parent_loop_in_the_data_fails_instead_of_hanging()
+    {
+        // Pętla 1 → 2 → 1 powstaje wyłącznie przez zmianę pliku bazy z
+        // pominięciem API; wspinaczka i przejście mają skończyć się wyjątkiem.
+        var tree = new TreeSnapshot(
+        [
+            new TreeNodeEntry(1, 2, A, 0),
+            new TreeNodeEntry(2, 1, B, 0),
+        ]);
+
+        Assert.Throws<InvalidOperationException>(() => tree.RootOf(1));
+        Assert.Throws<InvalidOperationException>(() => tree.Subtree(1));
     }
 
     // --- Koperty ------------------------------------------------------------
 
     [Fact]
-    public void Cycle_refusal_has_the_contract_shape_with_the_path_of_codes()
+    public void Object_reused_refusal_under_a_root_has_the_contract_shape()
     {
-        string[] path = ["GPZ-01", "L1", "L2", "GPZ-01"];
+        using var document = Serialize(
+            TreeResponses.ObjectReused(TreeOperation.Add, "L1", "L1", "GPZ-01", isRoot: false));
 
-        using var document = Serialize(TreeResponses.Cycle(TreeOperation.Add, "GPZ-01", path));
-
-        var error = AssertEnvelope(document, "tree_cycle", ApiErrorCodes.TreeCycle);
+        var error = AssertEnvelope(document, "tree_object_reused", ApiErrorCodes.TreeObjectReused);
 
         Assert.Equal(
-            "Dodanie obiektu GPZ-01 utworzyłoby zapętlenie: GPZ-01 → L1 → L2 → GPZ-01.",
+            "Dodanie obiektu L1 powtórzyłoby obiekt L1 — występuje już pod korzeniem GPZ-01.",
             error.GetProperty("message").GetString());
 
         var context = error.GetProperty("context");
 
-        Assert.Equal(["path"], PropertyNames(context));
-        Assert.Equal(path, StringValues(context.GetProperty(TreeResponses.PathContextKey)));
-    }
-
-    [Fact]
-    public void Cycle_refusal_for_a_move_names_the_moved_node()
-    {
-        using var document = Serialize(TreeResponses.Cycle(TreeOperation.Move, "L2", ["L2", "T5", "L2"]));
-
-        Assert.Equal(
-            "Przeniesienie węzła L2 utworzyłoby zapętlenie: L2 → T5 → L2.",
-            document.RootElement.GetProperty("error").GetProperty("message").GetString());
-    }
-
-    [Fact]
-    public void Duplicate_sibling_refusal_has_the_contract_shape()
-    {
-        using var document = Serialize(TreeResponses.DuplicateSibling("L1", "GPZ-01"));
-
-        var error = AssertEnvelope(document, "tree_duplicate_sibling", ApiErrorCodes.TreeDuplicateSibling);
-
-        Assert.Equal(
-            "Obiekt L1 jest już podobiektem GPZ-01 w tym miejscu drzewa.",
-            error.GetProperty("message").GetString());
-
-        var context = error.GetProperty("context");
-
-        Assert.Equal(["objectCode"], PropertyNames(context));
+        Assert.Equal(["objectCode", "rootCode"], PropertyNames(context));
         Assert.Equal("L1", context.GetProperty(TreeResponses.ObjectCodeContextKey).GetString());
+        Assert.Equal("GPZ-01", context.GetProperty(TreeResponses.RootCodeContextKey).GetString());
     }
 
     [Fact]
-    public void Duplicate_sibling_refusal_at_the_top_level_says_so()
+    public void Object_reused_refusal_for_a_move_names_the_moved_node_and_the_repeated_object()
     {
-        using var document = Serialize(TreeResponses.DuplicateSibling("L1", parentCode: null));
+        using var document = Serialize(
+            TreeResponses.ObjectReused(TreeOperation.Move, "L2", "T5", "GPZ-02", isRoot: false));
+
+        var error = AssertEnvelope(document, "tree_object_reused", ApiErrorCodes.TreeObjectReused);
 
         Assert.Equal(
-            "Obiekt L1 jest już na najwyższym poziomie drzewa.",
-            document.RootElement.GetProperty("error").GetProperty("message").GetString());
+            "Przeniesienie węzła L2 powtórzyłoby obiekt T5 — występuje już pod korzeniem GPZ-02.",
+            error.GetProperty("message").GetString());
+
+        var context = error.GetProperty("context");
+
+        Assert.Equal(["objectCode", "rootCode"], PropertyNames(context));
+        Assert.Equal("T5", context.GetProperty(TreeResponses.ObjectCodeContextKey).GetString());
+        Assert.Equal("GPZ-02", context.GetProperty(TreeResponses.RootCodeContextKey).GetString());
+    }
+
+    [Fact]
+    public void Object_reused_refusal_for_a_root_says_it_is_already_a_root()
+    {
+        using var added = Serialize(
+            TreeResponses.ObjectReused(TreeOperation.Add, "GPZ-01", "GPZ-01", "GPZ-01", isRoot: true));
+        using var moved = Serialize(
+            TreeResponses.ObjectReused(TreeOperation.Move, "GPZ-01", "GPZ-01", "GPZ-01", isRoot: true));
+
+        var error = AssertEnvelope(added, "tree_object_reused", ApiErrorCodes.TreeObjectReused);
+
+        Assert.Equal(
+            "Dodanie obiektu GPZ-01 powtórzyłoby obiekt GPZ-01 — jest już korzeniem drzewa.",
+            error.GetProperty("message").GetString());
+        Assert.Equal(
+            "Przeniesienie węzła GPZ-01 powtórzyłoby obiekt GPZ-01 — jest już korzeniem drzewa.",
+            moved.RootElement.GetProperty("error").GetProperty("message").GetString());
+
+        var context = error.GetProperty("context");
+
+        Assert.Equal(["objectCode", "rootCode"], PropertyNames(context));
+        Assert.Equal("GPZ-01", context.GetProperty(TreeResponses.ObjectCodeContextKey).GetString());
+        Assert.Equal("GPZ-01", context.GetProperty(TreeResponses.RootCodeContextKey).GetString());
     }
 
     [Fact]
@@ -402,9 +551,4 @@ public class TreeRulesTests
 
     private static string[] PropertyNames(JsonElement element)
         => [.. element.EnumerateObject().Select(property => property.Name)];
-
-    // `null` z elementu JSON `null` przechodzi dalej i przegrywa porównanie
-    // z oczekiwanym kodem — wykrzyknik ucisza wyłącznie ostrzeżenie typu.
-    private static string[] StringValues(JsonElement array)
-        => [.. array.EnumerateArray().Select(item => item.GetString()!)];
 }

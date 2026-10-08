@@ -1,7 +1,7 @@
 // risk: context/foundation/test-plan.md #1 — facet: przyjęta operacja zapisuje
 // się w całości, a widok pokazuje drzewo zapisane. Tu: poddrzewo przeciągnięte
 // na inny węzeł ląduje pod nim razem z dziećmi, także po przeładowaniu.
-// Odrzucone zapętlenie pokrywa seed.spec.ts; ruch po stronie API —
+// Odrzucone powtórzenie obiektu pokrywa seed.spec.ts; ruch po stronie API —
 // TreeIntegrationTests (`Accepted_subtree_move_…`). Ten test chroni odcinek,
 // którego tamte nie widzą: upuszczenie rc-tree → `wyliczPrzeniesienie`
 // (`app/lib/drzewo.ts`) → action → API → SQLite → widok.

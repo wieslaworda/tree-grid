@@ -7,11 +7,30 @@ namespace Api.Tree;
 /// kopertę błędu — dzięki temu każdą decyzję sprawdza test jednostkowy.
 /// </summary>
 /// <remarks>
-/// Zapętlenie w drzewie to <b>obiekt na własnej ścieżce do korzenia</b> —
-/// ścieżce jednego wystąpienia, a nie cykl w grafie obiektów. A pod B w jednej
-/// gałęzi i B pod A w innej jest poprawne. Słownik nie niesie relacji między
-/// obiektami, więc całą strukturę składa użytkownik, a reguła patrzy wyłącznie
-/// na drzewo.
+/// Reguła użycia obiektów (PRD FR-004): drzewo może mieć wiele korzeni,
+/// obiekt korzenia występuje w całym drzewie tylko raz, a w całym poddrzewie
+/// jednego korzenia obiekt nie może się powtórzyć. Ten sam obiekt wolno użyć
+/// pod innym korzeniem. Słownik nie niesie relacji między obiektami, więc całą
+/// strukturę składa użytkownik, a reguła patrzy wyłącznie na drzewo.
+///
+/// Regułę ocenia się na <b>drzewie po operacji</b> i wyłącznie dla
+/// <b>węzłów objętych operacją</b>: nowego węzła przy dodaniu, przenoszonego
+/// węzła z całym poddrzewem przy przeniesieniu. Konflikt jest relacją
+/// symetryczną, więc para węzłów, z których żaden nie jest objęty operacją,
+/// nie mogła się zmienić — sprawdzenie samych węzłów operacji wystarcza,
+/// a stare naruszenie w innej części drzewa nie blokuje niezwiązanych operacji.
+///
+/// Dla węzła <c>m</c> z obiektem <c>o</c> i korzeniem <c>R</c> wygrywa
+/// pierwszy trafiony przypadek, a w przenoszonym poddrzewie — pierwszy węzeł
+/// w pre-order z konfliktem:
+/// <list type="number">
+/// <item>inny węzeł z obiektem <c>o</c> jest korzeniem — odmowa „korzeń";</item>
+/// <item><c>m</c> jest korzeniem, a <c>o</c> stoi gdzieś pod korzeniem —
+/// odmowa „pod korzeniem" z korzeniem pierwszego takiego wystąpienia
+/// w pre-order całego drzewa;</item>
+/// <item><c>m</c> nie jest korzeniem, a <c>o</c> stoi jeszcze raz pod
+/// <c>R</c> — odmowa „pod korzeniem" z korzeniem <c>R</c>.</item>
+/// </list>
 ///
 /// Przejścia idą jawnym stosem, a nie rekurencją: głębokość przejścia to
 /// głębokość drzewa, a <c>StackOverflowException</c> kończy cały proces API
@@ -26,70 +45,58 @@ internal static class TreeRules
     internal static bool IsFull(int nodeCount, int limit) => nodeCount >= limit;
 
     /// <summary>
-    /// Szuka zapętlenia przy dodaniu obiektu pod miejsce, do którego prowadzi
-    /// <paramref name="ancestorObjectIds"/>.
+    /// Szuka powtórzenia obiektu przy dodaniu <paramref name="objectId"/> na
+    /// koniec dzieci <paramref name="parentId"/> (<c>null</c> — nowy korzeń).
     /// </summary>
-    /// <param name="ancestorObjectIds">
-    /// Obiekty na ścieżce od korzenia do docelowego rodzica włącznie; pusta
-    /// lista — najwyższy poziom.
-    /// </param>
-    /// <returns>
-    /// <c>null</c> albo ścieżka obiektów od wystąpienia konfliktowego wśród
-    /// przodków, przez miejsce docelowe, do dodawanego obiektu — np. przodkowie
-    /// <c>[GPZ-01, L1]</c> i obiekt <c>GPZ-01</c> dają <c>[GPZ-01, L1, GPZ-01]</c>;
-    /// obiekt pod samym sobą — <c>[X, X]</c>.
-    /// </returns>
+    /// <returns><c>null</c>, gdy dodanie nie łamie reguły.</returns>
     /// <remarks>
-    /// Dodanie wstawia jeden obiekt bez dzieci, więc przejście kończy się na
-    /// nim samym. Rdzeń jest wspólny z <see cref="FindConflictOnMove"/>, żeby
-    /// obie operacje budowały ścieżkę konfliktu w tej samej kolejności.
+    /// Wywołujący sprawdził już, że <paramref name="parentId"/> jest w drzewie.
+    /// Dodanie wstawia jeden obiekt bez dzieci, więc węzłem operacji jest tylko
+    /// on sam.
     /// </remarks>
-    internal static IReadOnlyList<int>? FindConflictOnAdd(
-        IReadOnlyList<int> ancestorObjectIds,
-        int objectId)
-        => FindConflict(
-            ancestorObjectIds,
-            objectId,
-            objectOf: key => key,
-            childrenOf: _ => []);
+    internal static TreeReuse? FindReuseOnAdd(TreeSnapshot tree, int? parentId, int objectId)
+    {
+        // Identyfikator spoza drzewa — nowy węzeł istnieje wyłącznie w drzewie
+        // po operacji, a pozycja stawia go na końcu rodzeństwa, jak w endpoincie.
+        var addedId = tree.Count == 0 ? 1 : tree.Nodes.Max(node => node.Id) + 1;
+        var added = new TreeNodeEntry(addedId, parentId, objectId, int.MaxValue);
+
+        return FindReuse(tree.With(added), addedId);
+    }
 
     /// <summary>
-    /// Szuka zapętlenia przy przeniesieniu węzła <paramref name="nodeId"/>
-    /// z całym poddrzewem pod <paramref name="targetParentId"/>
-    /// (<c>null</c> — najwyższy poziom). Wynik jak w
-    /// <see cref="FindConflictOnAdd"/>.
+    /// Szuka powtórzenia obiektu przy przeniesieniu węzła
+    /// <paramref name="nodeId"/> z całym poddrzewem pod
+    /// <paramref name="targetParentId"/> (<c>null</c> — najwyższy poziom).
     /// </summary>
+    /// <returns><c>null</c>, gdy przeniesienie nie łamie reguły.</returns>
     /// <remarks>
-    /// Przeniesienie węzła pod jego własnego potomka nie potrzebuje osobnego
-    /// przypadku: przodkowie celu obejmują wtedy obiekt przenoszonego węzła,
-    /// więc ta sama kontrola zwraca ścieżkę od niego do celu i z powrotem.
-    /// Ścieżka przodków liczona jest na drzewie sprzed przeniesienia — zdjęcie
-    /// węzła nie zmienia przodków celu leżącego poza jego poddrzewem.
+    /// Cel leżący w przenoszonym poddrzewie (węzeł pod sobą albo pod własnym
+    /// potomkiem) jest odmawiany, zanim powstanie drzewo po operacji: po
+    /// takim przeniesieniu poddrzewo odcina się od korzeni i zamyka w pętlę,
+    /// więc porównanie z resztą drzewa nie znalazłoby nic. Przenoszony korzeń
+    /// dostaje wtedy odmowę „korzeń", węzeł podrzędny — „pod korzeniem" ze
+    /// swoim obecnym korzeniem.
+    ///
+    /// Pozycja przeniesienia nie wpływa na werdykt. Drzewo po operacji stawia
+    /// przenoszony węzeł na końcu docelowego rodzeństwa, co zmienia najwyżej
+    /// to, który korzeń nazwie odmowa przypadku 2, gdy pasuje kilka.
     /// </remarks>
-    internal static IReadOnlyList<int>? FindConflictOnMove(
-        TreeSnapshot tree,
-        int nodeId,
-        int? targetParentId)
-        => FindConflict(
-            tree.AncestorObjectPath(targetParentId),
-            nodeId,
-            objectOf: key => tree.Get(key).ObjectId,
-            childrenOf: key => [.. tree.ChildrenOf(key).Select(child => child.Id)]);
+    internal static TreeReuse? FindReuseOnMove(TreeSnapshot tree, int nodeId, int? targetParentId)
+    {
+        var moved = tree.Get(nodeId);
 
-    /// <summary>
-    /// Czy obiekt <paramref name="objectId"/> jest już wśród
-    /// <paramref name="siblings"/> — dzieci docelowego rodzica albo węzłów
-    /// najwyższego poziomu.
-    /// </summary>
-    /// <param name="exceptNodeId">
-    /// Węzeł przenoszony: przy zmianie kolejności w obrębie tego samego
-    /// rodzica stoi wśród rodzeństwa i nie jest duplikatem samego siebie.
-    /// </param>
-    internal static bool HasDuplicateSibling(
-        IEnumerable<TreeNodeEntry> siblings,
-        int objectId,
-        int? exceptNodeId)
-        => siblings.Any(sibling => sibling.ObjectId == objectId && sibling.Id != exceptNodeId);
+        if (targetParentId is { } targetId && tree.Subtree(nodeId).Any(node => node.Id == targetId))
+        {
+            return moved.ParentId is null
+                ? new TreeReuse(moved.ObjectId, moved.ObjectId, IsRoot: true)
+                : new TreeReuse(moved.ObjectId, tree.RootOf(nodeId).ObjectId, IsRoot: false);
+        }
+
+        var after = tree.With(moved with { ParentId = targetParentId, Position = int.MaxValue });
+
+        return FindReuse(after, nodeId);
+    }
 
     /// <summary>Kolejność rodzeństwa po zdjęciu węzła <paramref name="nodeId"/>.</summary>
     internal static IReadOnlyList<int> Without(IReadOnlyList<int> order, int nodeId)
@@ -126,83 +133,83 @@ internal static class TreeRules
         => order.Select((id, index) => (id, index)).ToDictionary(pair => pair.id, pair => pair.index);
 
     /// <summary>
-    /// Rdzeń kontroli zapętlenia wspólny dla dodania i przeniesienia.
-    /// Gałąź jest grafem kluczy (<paramref name="childrenOf"/>) — sam dodawany
-    /// obiekt przy dodaniu, węzły przenoszonego poddrzewa przy przeniesieniu —
-    /// a <paramref name="objectOf"/> zamienia klucz na obiekt.
+    /// Rdzeń reguły użycia obiektów wspólny dla dodania i przeniesienia:
+    /// predykat z komentarza klasy dla każdego węzła poddrzewa
+    /// <paramref name="subjectId"/> w drzewie po operacji <paramref name="after"/>.
     /// </summary>
-    private static IReadOnlyList<int>? FindConflict(
-        IReadOnlyList<int> ancestorObjectIds,
-        int rootKey,
-        Func<int, int> objectOf,
-        Func<int, IReadOnlyList<int>> childrenOf)
+    private static TreeReuse? FindReuse(TreeSnapshot after, int subjectId)
     {
-        // Ścieżka przodków w poprawnym drzewie nie powtarza obiektu (pilnuje
-        // tego właśnie ta reguła), więc indeks wystąpienia jest jednoznaczny.
-        var ancestorIndex = new Dictionary<int, int>();
+        // Korzeń każdego węzła i wystąpienia obiektów w pre-order całego
+        // drzewa, korzenie w kolejności pozycji — z tej kolejności przypadek 2
+        // bierze pierwsze wystąpienie.
+        var rootOf = new Dictionary<int, TreeNodeEntry>();
+        var occurrences = new Dictionary<int, List<TreeNodeEntry>>();
 
-        for (var index = 0; index < ancestorObjectIds.Count; index++)
+        foreach (var root in after.ChildrenOf(null))
         {
-            ancestorIndex.TryAdd(ancestorObjectIds[index], index);
+            foreach (var node in after.Subtree(root.Id))
+            {
+                rootOf[node.Id] = root;
+
+                if (!occurrences.TryGetValue(node.ObjectId, out var list))
+                {
+                    occurrences[node.ObjectId] = list = [];
+                }
+
+                list.Add(node);
+            }
         }
 
-        var stack = new Stack<(int Key, IEnumerator<int> Children)>();
-
-        IReadOnlyList<int>? ConflictAt(int key)
+        foreach (var node in after.Subtree(subjectId))
         {
-            var objectId = objectOf(key);
+            // Węzła nieosiągalnego od korzeni nie ma w `rootOf` tylko wtedy, gdy
+            // jego przodkowie tworzą pętlę — `RootOf` kończy się wtedy wyjątkiem.
+            var root = rootOf.GetValueOrDefault(node.Id) ?? after.RootOf(node.Id);
 
-            if (!ancestorIndex.TryGetValue(objectId, out var from))
+            // Węzeł osiągalny od korzeni sam stoi w `occurrences`.
+            List<TreeNodeEntry> others = [.. occurrences[node.ObjectId].Where(other => other.Id != node.Id)];
+
+            if (others.Any(other => other.ParentId is null))
             {
-                return null;
+                return new TreeReuse(node.ObjectId, node.ObjectId, IsRoot: true);
             }
 
-            // Stos od dna to droga od korzenia gałęzi do rodzica badanego klucza.
-            return
-            [
-                .. ancestorObjectIds.Skip(from),
-                .. stack.Reverse().Select(frame => objectOf(frame.Key)),
-                objectId,
-            ];
-        }
-
-        if (ConflictAt(rootKey) is { } rootConflict)
-        {
-            return rootConflict;
-        }
-
-        var exhausted = new HashSet<int> { rootKey };
-        stack.Push((rootKey, childrenOf(rootKey).GetEnumerator()));
-
-        while (stack.Count > 0)
-        {
-            var children = stack.Peek().Children;
-
-            if (!children.MoveNext())
+            if (node.ParentId is null)
             {
-                stack.Pop();
+                if (others.Count > 0)
+                {
+                    return new TreeReuse(node.ObjectId, rootOf[others[0].Id].ObjectId, IsRoot: false);
+                }
 
                 continue;
             }
 
-            var child = children.Current;
-
-            if (ConflictAt(child) is { } conflict)
+            if (others.Any(other => rootOf[other.Id].Id == root.Id))
             {
-                return conflict;
+                return new TreeReuse(node.ObjectId, root.ObjectId, IsRoot: false);
             }
-
-            if (!exhausted.Add(child))
-            {
-                continue;
-            }
-
-            stack.Push((child, childrenOf(child).GetEnumerator()));
         }
 
         return null;
     }
 }
+
+/// <summary>
+/// Werdykt reguły użycia obiektów: obiekt, który operacja by powtórzyła,
+/// i obiekt korzenia, pod którym już stoi.
+/// </summary>
+/// <param name="ObjectId">Powtórzony obiekt.</param>
+/// <param name="RootObjectId">
+/// Obiekt korzenia, którego dotyczy odmowa; przy <paramref name="IsRoot"/>
+/// równy <paramref name="ObjectId"/>.
+/// </param>
+/// <param name="IsRoot">
+/// Wariant „korzeń": powtórzony obiekt jest już korzeniem drzewa. Inaczej —
+/// wariant „pod korzeniem". Rozróżnienie jest jawne, bo obiekt powtórzony
+/// pod korzeniem o tym samym obiekcie daje równe identyfikatory w obu
+/// wariantach.
+/// </param>
+internal sealed record TreeReuse(int ObjectId, int RootObjectId, bool IsRoot);
 
 /// <summary>
 /// Węzeł drzewa w postaci, na której działają reguły: bez nawigacji EF, same
@@ -212,7 +219,7 @@ internal sealed record TreeNodeEntry(int Id, int? ParentId, int ObjectId, int Po
 
 /// <summary>
 /// Całe drzewo jednego użytkownika w pamięci, z odczytem grup rodzeństwa
-/// w kolejności i ścieżki przodków. Budowane raz na operację z węzłów
+/// w kolejności, korzenia węzła i poddrzewa. Budowane raz na operację z węzłów
 /// wczytanych w transakcji endpointu.
 /// </summary>
 internal sealed class TreeSnapshot
@@ -248,35 +255,80 @@ internal sealed class TreeSnapshot
     /// </summary>
     public IReadOnlyList<TreeNodeEntry> ChildrenOf(int? parentId) => [.. childrenByParent[parentId]];
 
+    /// <summary>Wszystkie węzły drzewa, bez gwarancji kolejności.</summary>
+    public IReadOnlyCollection<TreeNodeEntry> Nodes => nodesById.Values;
+
     /// <summary>
-    /// Obiekty na ścieżce od korzenia do węzła <paramref name="nodeId"/>
-    /// włącznie; dla <c>null</c> (najwyższy poziom) — pusta lista.
+    /// Drzewo z węzłem <paramref name="entry"/> dodanym albo podmienionym po
+    /// identyfikatorze — postać, na której reguły oceniają drzewo po operacji.
+    /// </summary>
+    public TreeSnapshot With(TreeNodeEntry entry)
+        => new(nodesById.Values.Where(node => node.Id != entry.Id).Append(entry));
+
+    /// <summary>
+    /// Korzeń węzła <paramref name="nodeId"/> — węzeł najwyższego poziomu, do
+    /// którego prowadzi wspinaczka po rodzicach; korzeń dla samego siebie.
     /// </summary>
     /// <remarks>
     /// Wspinaczka jest ograniczona liczbą węzłów: pętla w relacji rodzic–dziecko
     /// może powstać wyłącznie przez zmianę pliku bazy z pominięciem API i ma
     /// skończyć się wyjątkiem, a nie zawieszeniem żądania.
     /// </remarks>
-    public IReadOnlyList<int> AncestorObjectPath(int? nodeId)
+    public TreeNodeEntry RootOf(int nodeId)
     {
-        var path = new List<int>();
-        var current = nodeId;
+        var node = nodesById[nodeId];
+        var steps = 0;
 
-        while (current is { } id)
+        while (node.ParentId is { } parentId)
         {
-            if (path.Count >= nodesById.Count)
+            if (steps++ >= nodesById.Count)
             {
-                throw new InvalidOperationException(
-                    "Relacja rodzic–dziecko w drzewie zawiera pętlę — dane zmieniono z pominięciem API.");
+                throw LoopInData();
             }
 
-            var node = nodesById[id];
-            path.Add(node.ObjectId);
-            current = node.ParentId;
+            node = nodesById[parentId];
         }
 
-        path.Reverse();
-
-        return path;
+        return node;
     }
+
+    /// <summary>
+    /// Węzeł <paramref name="nodeId"/> i całe jego poddrzewo w pre-order,
+    /// rodzeństwo w kolejności pozycji.
+    /// </summary>
+    /// <remarks>
+    /// Jawny stos zamiast rekurencji — patrz <see cref="TreeRules"/>. Przejście
+    /// ograniczone liczbą węzłów z tego samego powodu co <see cref="RootOf"/>:
+    /// poddrzewo zamknięte w pętlę nie kończyłoby się nigdy.
+    /// </remarks>
+    public IReadOnlyList<TreeNodeEntry> Subtree(int nodeId)
+    {
+        var result = new List<TreeNodeEntry>();
+        var stack = new Stack<TreeNodeEntry>();
+        stack.Push(nodesById[nodeId]);
+
+        while (stack.Count > 0)
+        {
+            if (result.Count >= nodesById.Count)
+            {
+                throw LoopInData();
+            }
+
+            var node = stack.Pop();
+            result.Add(node);
+
+            // Od końca, żeby pierwsze dziecko zeszło ze stosu pierwsze.
+            var children = ChildrenOf(node.Id);
+
+            for (var index = children.Count - 1; index >= 0; index--)
+            {
+                stack.Push(children[index]);
+            }
+        }
+
+        return result;
+    }
+
+    private static InvalidOperationException LoopInData()
+        => new("Relacja rodzic–dziecko w drzewie zawiera pętlę — dane zmieniono z pominięciem API.");
 }

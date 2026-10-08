@@ -141,10 +141,11 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options)
             // unikalny: przenumerowanie przesuwa pozycje w miejscu, więc
             // unikalność łamałaby się chwilowo w środku `SaveChanges`.
             //
-            // Unikalnego indeksu na duplikat rodzeństwa `(TreeId, ParentId,
-            // ObjectId)` też nie ma: SQLite traktuje `NULL` w unikalnym indeksie
-            // jako różne wartości, więc nie złapałby duplikatu na najwyższym
-            // poziomie. Ta reguła żyje w `TreeRules` i w transakcji endpointu.
+            // Ograniczenia dla reguły użycia obiektów (obiekt korzenia raz
+            // w drzewie, pod jednym korzeniem bez powtórzeń) też nie ma:
+            // „pod jednym korzeniem" to całe poddrzewo, a nie kolumna wiersza,
+            // więc żaden indeks tego nie wyrazi. Ta reguła żyje w `TreeRules`
+            // i w transakcji endpointu.
             node.HasIndex(n => new { n.TreeId, n.ParentId, n.Position });
         });
 

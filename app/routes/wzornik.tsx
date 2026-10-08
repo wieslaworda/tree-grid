@@ -214,12 +214,12 @@ const BLAD_OGOLNY: ApiErrorBody = {
   },
 };
 
-const ODMOWA_ZAPETLENIA: ApiErrorBody = {
+const ODMOWA_POWTORZENIA: ApiErrorBody = {
   error: {
-    code: "tree_cycle",
+    code: "tree_object_reused",
     message:
-      "Dodanie obiektu ST-01 utworzyłoby zapętlenie: ST-01 → LN-01 → ST-02 → ST-01.",
-    context: { path: ["ST-01", "LN-01", "ST-02", "ST-01"] },
+      "Dodanie obiektu ST-02 powtórzyłoby obiekt ST-02 — występuje już pod korzeniem ST-01.",
+    context: { objectCode: "ST-02", rootCode: "ST-01" },
   },
 };
 
@@ -652,8 +652,8 @@ export default function Wzornik() {
 
       <Grupa tytul="Baner odmowy operacji">
         <Siatka kolumny={2}>
-          <Stan nazwa="odmowa reguły (zapętlenie)">
-            <BanerOdmowy odmowa={ODMOWA_ZAPETLENIA} />
+          <Stan nazwa="odmowa reguły (powtórzenie obiektu pod korzeniem)">
+            <BanerOdmowy odmowa={ODMOWA_POWTORZENIA} />
           </Stan>
 
           <Stan nazwa="odmowa walidacji z naruszeniami pól">

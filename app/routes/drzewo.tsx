@@ -326,7 +326,7 @@ export async function action({ request, context }: Route.ActionArgs) {
     const wynik = await addNode(userId, treeId, { objectId, parentId });
 
     // Koperta API idzie do widoku nietknięta, razem ze statusem: to ona niesie
-    // ścieżkę zapętlenia i kod dublowanego obiektu w komunikacie.
+    // powtórzony obiekt i korzeń, pod którym już stoi, w komunikacie.
     return wynik.ok ? null : data(wynik.error, { status: wynik.status });
   }
 
@@ -393,7 +393,7 @@ function nieznanaOperacja(intent: FormDataEntryValue | null) {
 }
 
 /**
- * Odmowa z API (409: zapętlenie, duplikat rodzeństwa, limit) znaczy, że widok
+ * Odmowa z API (409: powtórzenie obiektu w drzewie, limit) znaczy, że widok
  * mógł pokazywać nieaktualny stan — np. drzewo zmienione w drugiej karcie.
  * Po akcji zakończonej 4xx React Router domyślnie nie woła loaderów, więc bez
  * tego drzewo zostałoby w stanie sprzed zmiany do ręcznego odświeżenia

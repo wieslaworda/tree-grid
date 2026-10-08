@@ -16,9 +16,9 @@ namespace Api.Data;
 /// własnego <c>UserId</c>: dwa źródła właściciela mogłyby się rozjechać, a jedno
 /// nie może.
 ///
-/// Niezmienniki, których schemat nie unosi — brak obiektu na własnej ścieżce
-/// do korzenia, brak duplikatu wśród rodzeństwa, ciągłość <see cref="Position"/>
-/// i limit <see cref="MaxNodesPerTree"/> — pilnują reguły
+/// Niezmienniki, których schemat nie unosi — reguła użycia obiektów (obiekt
+/// korzenia raz w drzewie, pod jednym korzeniem bez powtórzeń), ciągłość
+/// <see cref="Position"/> i limit <see cref="MaxNodesPerTree"/> — pilnują reguły
 /// <c>Api.Tree.TreeRules</c> w transakcji endpointu, w obrębie jednego drzewa.
 /// Klucze obce i ich zachowanie przy usuwaniu — w <see cref="AppDbContext"/>.
 /// </remarks>

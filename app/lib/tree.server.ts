@@ -5,9 +5,9 @@
  * Żądania idą przez wspólny {@link requestApi} z `api.server.ts`, więc
  * semantyka porażek jest ta sama co w klientach słowników: każda ścieżka,
  * łącznie ze zgaszonym API, kończy się kopertą `{ error: { code, message,
- * context } }` razem ze statusem, a błąd z API (`tree_cycle`,
- * `tree_duplicate_sibling`, `tree_too_large`, `validation_error`,
- * `not_found`, `unauthorized`) leci dalej w oryginale.
+ * context } }` razem ze statusem, a błąd z API (`tree_object_reused`,
+ * `tree_too_large`, `validation_error`, `not_found`, `unauthorized`) leci
+ * dalej w oryginale.
  *
  * W odróżnieniu od słowników drzewa mają właściciela, więc **każda** funkcja
  * wymaga `userId` i wysyła go nagłówkiem `USER_HEADER`. Wariantu bez

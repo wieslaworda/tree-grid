@@ -1,10 +1,11 @@
 // Seed E2E — wzorzec, który kopiuje każdy kolejny test (/10x-e2e).
 // Chroni ryzyko #1 z context/foundation/test-plan.md: odrzucona operacja na
-// drzewie (tu: zapętlenie) nie zapisuje się ani częściowo, ani po cichu,
-// a widok po odmowie pokazuje komunikat i stan z API — także po przeładowaniu.
+// drzewie (tu: powtórzenie obiektu korzenia, FR-004) nie zapisuje się ani
+// częściowo, ani po cichu, a widok po odmowie pokazuje komunikat i stan z API
+// — także po przeładowaniu.
 import { test, expect, type Page } from "@playwright/test";
 
-test("rejected cycle leaves the saved tree unchanged, also after reload", async ({ page }) => {
+test("rejected root object repetition leaves the saved tree unchanged, also after reload", async ({ page }) => {
   // Słownik obiektów jest wspólny dla kont, a kod unikalny — sufiks rozdziela
   // równoległe testy i ponowne uruchomienia.
   const sufiks = `${Date.now().toString(36)}${test.info().parallelIndex}`.toUpperCase();
@@ -41,14 +42,14 @@ test("rejected cycle leaves the saved tree unchanged, also after reload", async 
   await expect(wezelDziecka).toBeVisible();
   await expect(wezly).toHaveCount(2);
 
-  // --- Akcja: rodzic pod własnym dzieckiem, czyli P → C → P ---
+  // --- Akcja: obiekt korzenia P drugi raz, pod dzieckiem C ---
   await wezelDziecka.click();
   await slownik.getByRole("cell", { name: rodzic.kod, exact: true }).click();
   await drzewo.getByRole("button", { name: `Dodaj pod: ${dziecko.kod}` }).click();
 
-  // --- Asercja: odmowa wskazuje ścieżkę, a struktura się nie zmienia ---
+  // --- Asercja: odmowa wskazuje powtórzony korzeń, a struktura się nie zmienia ---
   await expect(drzewo.getByRole("alert")).toContainText(
-    `${rodzic.kod} → ${dziecko.kod} → ${rodzic.kod}`,
+    `${rodzic.kod} — jest już korzeniem drzewa`,
   );
   await expect(wezly).toHaveCount(2);
 

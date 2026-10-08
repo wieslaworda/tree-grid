@@ -212,8 +212,8 @@ try
     app.MapCategoryEndpoints();
 
     // Nazwane drzewa użytkownika i ich węzły (S-03), ten sam podział — reguły
-    // drzewa (zapętlenie po ścieżce przodków, duplikat rodzeństwa, limit węzłów,
-    // nazwa unikalna w obrębie konta) i model własności przez drzewo w `Api.Tree`,
+    // drzewa (reguła użycia obiektów FR-004, limit węzłów, nazwa unikalna
+    // w obrębie konta) i model własności przez drzewo w `Api.Tree`,
     // a tam też model zaufania nagłówka tożsamości, na którym stoją te endpointy:
     // `TreeIdentity` mówi, które warunki infrastruktury go niosą.
     app.MapTreeEndpoints();

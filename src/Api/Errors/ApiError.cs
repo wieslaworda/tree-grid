@@ -141,23 +141,17 @@ public static class ApiErrorCodes
     public const string ObjectInTree = "object_in_tree";
 
     /// <summary>
-    /// Odmowa operacji na drzewie, po której obiekt stanąłby na własnej ścieżce
-    /// do korzenia (409, <c>POST /trees/{treeId}/nodes</c>
-    /// i <c>PUT /trees/{treeId}/nodes/{id}</c>).
-    /// <c>context.path</c> niesie kody obiektów od wystąpienia konfliktowego
-    /// wśród przodków do dodawanego obiektu albo do wystąpienia w przenoszonym
-    /// poddrzewie.
+    /// Odmowa operacji na drzewie, która złamałaby regułę użycia obiektów
+    /// FR-004 (409, <c>POST /trees/{treeId}/nodes</c>
+    /// i <c>PUT /trees/{treeId}/nodes/{id}</c>): obiekt korzenia występuje
+    /// w drzewie tylko raz, a pod jednym korzeniem obiekt nie może się
+    /// powtórzyć. Przeniesienie węzła pod siebie albo pod własnego potomka
+    /// dostaje ten sam kod. <c>context.objectCode</c> — kod powtórzonego
+    /// obiektu; <c>context.rootCode</c> — kod obiektu korzenia, pod którym już
+    /// stoi, albo — gdy obiekt jest już korzeniem drzewa — ten sam kod co
+    /// <c>objectCode</c>.
     /// </summary>
-    public const string TreeCycle = "tree_cycle";
-
-    /// <summary>
-    /// Odmowa operacji na drzewie, po której ten sam obiekt stałby dwa razy
-    /// pod jednym rodzicem albo dwa razy na najwyższym poziomie jednego drzewa
-    /// (409, <c>POST /trees/{treeId}/nodes</c>
-    /// i <c>PUT /trees/{treeId}/nodes/{id}</c>).
-    /// <c>context.objectCode</c> — kod dublowanego obiektu.
-    /// </summary>
-    public const string TreeDuplicateSibling = "tree_duplicate_sibling";
+    public const string TreeObjectReused = "tree_object_reused";
 
     /// <summary>
     /// Odmowa dodania, po którym drzewo przekroczyłoby limit węzłów (409,

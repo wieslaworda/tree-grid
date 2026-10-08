@@ -9,9 +9,10 @@ namespace Api.Objects;
 /// sprawdza je test jednostkowy.
 ///
 /// Obiekt to wyłącznie kod i nazwa: słownik nie niesie relacji między
-/// obiektami, więc nie ma tu ani grafu, ani kontroli cyklu. Zapętlenie jest
-/// regułą drzewa użytkownika — obiekt na ścieżce do korzenia jednego
-/// wystąpienia — i mieszka w <c>Api.Tree.TreeRules</c>.
+/// obiektami, więc nie ma tu ani grafu, ani kontroli cyklu. Reguła użycia
+/// obiektów (FR-004 — obiekt korzenia raz w drzewie, pod jednym korzeniem bez
+/// powtórzeń) jest regułą drzewa użytkownika i mieszka w
+/// <c>Api.Tree.TreeRules</c>.
 /// </summary>
 internal static class ObjectRules
 {
