@@ -3,7 +3,7 @@ project: TreeGrid
 version: 1
 status: draft
 created: 2026-09-21
-updated: 2026-10-04
+updated: 2026-10-08
 prd_version: 1
 main_goal: speed
 top_blocker: time
@@ -67,6 +67,7 @@ Przy celu sekwencjonowania `speed` to również fragment, który najtaniej odpow
 | S-04 | `edycja-ekranu`       | w trybie edycji zapisanego ekranu dokładać i zdejmować kategorie wskazanego węzła, zmienić nazwę, ziarno i domyślne kategorie | S-06          | FR-006, FR-011, US-02, NFR (izolacja kont)             | proposed |
 | S-10 | `doczytywanie-okna-wierszy` | w „Prezentacji ekranu” oglądać dobę dużego ekranu, dla którego dane dochodzą tylko dla widocznego okna wierszy | S-05          | NFR (288 kolumn, feedback >2 s), PRD `## Open Questions` #5 | proposed |
 | S-11 | `logowanie-bledow-api` | (operacyjne) odnaleźć każdy błąd API w pliku logu w katalogu `Log`, także po restarcie API | F-01          | NFR (logowanie błędów backendu do plików)              | in-progress |
+| S-12 | `kontrola-drzewa`     | budować drzewo o wielu korzeniach, w którym korzeń występuje raz, a obiekt nie powtarza się pod tym samym korzeniem | S-03          | FR-004, US-01, Business Logic, Guardrails              | in-progress |
 
 ## Streams
 
@@ -79,6 +80,7 @@ Navigation aid — groups items that share a Prerequisites chain. Canonical orde
 | C      | Język wizualny          | `F-02`                                              | Nie zależy od niczego, więc może iść równolegle do A i B; musi być gotowy przed `S-05`, bo grid dziedziczy po nim gęstość i krój cyfr. |
 | D      | Edycja ekranu           | `S-04`                                              | Odgałęzia się od A przy `S-06` i idzie równolegle do `S-05` — edycja kategorii węzłów nie potrzebuje kolumn czasowych. |
 | E      | Diagnostyka backendu    | `F-01` → `S-11`                                     | Zależy tylko od istniejącego API, więc może iść równolegle do każdego innego strumienia; nie zmienia niczego, co widzi dyspozytor. |
+| F      | Reguły drzewa           | `S-03` → `S-12`                                     | Zaostrza regułę budowy drzewa z `S-03`; dotyka drzew wskazywanych przez ekrany (`S-06`), więc dane istniejących drzew trzeba ocenić przed wdrożeniem. |
 
 ## Baseline
 
@@ -152,7 +154,7 @@ Foundations below assume these are present and do NOT re-scaffold them.
 - **Outcome:** Dyspozytor prowadzi listę własnych drzew i składa strukturę w drzewie wybranym z tej listy:
   - **Drzewa (MS-03–MS-05).** Na górze widoku „Drzewo" stoi lista jego drzew w tym samym układzie co lista obiektów. Dyspozytor dodaje drzewo, zmienia jego nazwę i usuwa je razem z całą strukturą. Nagłówek drzewa to wyłącznie nazwa (unikalna w obrębie konta) i identyfikator. Cudze drzewa są niewidoczne i nieosiągalne także z pominięciem interfejsu. Bez żadnego drzewa lista pokazuje zachętę „Dodaj drzewo", a budowa struktury jest nieaktywna. Dotychczasowe drzewo robocze konta nie ginie — staje się pierwszym nazwanym drzewem.
   - **Dodawanie (FR-003).** Obiekt z listy trafia na koniec dzieci zaznaczonego węzła albo na najwyższy poziom — przyciskiem „Dodaj" albo przeciągnięciem z listy na węzeł lub strefę najwyższego poziomu. Dodanie wstawia zawsze sam obiekt: słownik nie zna podobiektów, więc nie ma gałęzi do dołączenia (FR-005 wycofane 2026-09-24).
-  - **Odmowy (FR-004, `Business Logic`).** Operacja, która postawiłaby obiekt na jego własnej ścieżce do korzenia, jest odrzucana z komunikatem wskazującym ścieżkę — także gdy konflikt leży głęboko w przenoszonym poddrzewie, bo wtedy odrzucana jest cała operacja. Ten sam obiekt w dwóch różnych gałęziach jest poprawny. Odrzucany jest też duplikat rodzeństwa w tym samym miejscu drzewa oraz przekroczenie limitu rozmiaru drzewa.
+  - **Odmowy (FR-004, `Business Logic`).** Operacja, która postawiłaby obiekt na jego własnej ścieżce do korzenia, jest odrzucana z komunikatem wskazującym ścieżkę — także gdy konflikt leży głęboko w przenoszonym poddrzewie, bo wtedy odrzucana jest cała operacja. Ten sam obiekt w dwóch różnych gałęziach jest poprawny. Odrzucany jest też duplikat rodzeństwa w tym samym miejscu drzewa oraz przekroczenie limitu rozmiaru drzewa. *(Od `S-12` reguła jest zaostrzona: obiekt nie powtarza się w całym poddrzewie jednego korzenia, a korzeń występuje w drzewie tylko raz — PRD FR-004, zmiana 2026-10-08.)*
   - **Przesuwanie i usuwanie (MS-07).** Przeciągnięcie węzła wewnątrz drzewa przenosi go z poddrzewem albo zmienia kolejność rodzeństwa, z tą samą walidacją. Węzeł z poddrzewem usuwa się przyciskiem „Usuń węzeł" (po potwierdzeniu) albo przeciągnięciem go z drzewa na listę obiektów (bez potwierdzenia).
   - **Filtr listy (MS-06).** Pole wyboru „Pokaż obiekty nieużyte w drzewie" zawęża listę obiektów do tych, których nie ma w wybranym drzewie. Działa razem z filtrem tekstowym.
   - **Słownik.** Obiektu użytego w jakimkolwiek drzewie nie da się usunąć ze słownika. Odmowa nie wskazuje, czyje to drzewo.
@@ -265,6 +267,24 @@ Foundations below assume these are present and do NOT re-scaffold them.
 - **Risk:** Wpis błędu musi dać się połączyć ze zgłoszeniem użytkownika. Odpowiedź 500 oddaje klientowi `context.requestId` (`src/Api/Errors/ApiErrorHandling.cs`), ale identyfikator żądania żyje w zakresie logowania (scope), którego domyślny zapis konsolowy nie wypisuje. Jeśli plik też go pominie, plaster dostarczy log, w którym konkretnego błędu nie da się znaleźć. Drugie ryzyko: log nie może stać się wyciekiem. Do pliku nie może trafić wartość sekretu (`context/foundation/lessons.md`, „Sekrety…”) ani pełna treść żądania. Katalog `Log` ma być poza repozytorium (`.gitignore`) i poza tym, co serwuje Vite (`server.fs` w `vite.config.ts`). Trzecie: poziom Error nie obejmuje odmów domenowych 4xx (zapętlenie, duplikat, limit) ani nieudanych logowań — to zamierzone. Logowanie zdarzeń bezpieczeństwa to osobna decyzja, nie ten plaster.
 - **Status:** in-progress
 
+### S-12: Kontrola użycia obiektów w budowie drzewa
+
+- **Outcome:** Dyspozytor buduje drzewo, które może mieć wiele korzeni, a aplikacja pilnuje reguł użycia obiektów:
+  - **Korzenie.** Drzewo może mieć wiele korzeni. Korzenie nie mogą się powtórzyć, a obiekt korzenia występuje w całym drzewie tylko raz: ani jako drugi korzeń, ani jako węzeł podrzędny gdziekolwiek indziej.
+  - **Jedna gałąź korzenia.** W całym poddrzewie korzenia — od korzenia po wszystkie jego rozwidlenia — obiekt podrzędny nie może się powtórzyć.
+  - **Różne korzenie.** Ten sam obiekt może wystąpić w innym miejscu drzewa, które ma inny korzeń.
+  - **Odmowy.** Dodanie, przeniesienie węzła z poddrzewem (także przeniesienie korzenia pod inny węzeł albo węzła na najwyższy poziom) i przeciągnięcie, które złamałoby którąkolwiek regułę, jest odrzucane w całości, z komunikatem wskazującym powtórzony obiekt i korzeń, pod którym już występuje. Regułę egzekwuje API, nie widok.
+- **Change ID:** `kontrola-drzewa`
+- **PRD refs:** FR-004 (zmiana 2026-10-08), US-01, sekcja `Business Logic`, `Success Criteria` → Guardrails
+- **Prerequisites:** S-03
+- **Parallel with:** S-04, S-10, S-11
+- **Blockers:** —
+- **Unknowns:**
+  - Co z istniejącymi drzewami, które łamią nowe reguły (ten sam obiekt dwa razy pod jednym korzeniem albo obiekt korzenia użyty także jako węzeł podrzędny)? Do wyboru: odmowa wdrożenia migracji z raportem naruszeń, naprawa ręczna przed wdrożeniem albo zachowanie starych drzew i egzekwowanie reguły tylko przy kolejnych zmianach. — Owner: użytkownik. Block: no (rozstrzyga plan).
+  - Czy filtr „Pokaż obiekty nieużyte w drzewie" (MS-06) ma uwzględniać zaznaczony korzeń, skoro obiekt użyty pod jednym korzeniem nadal może trafić pod inny? — Owner: użytkownik. Block: no.
+- **Risk:** Plaster zmienia rdzenną regułę produktu, a nie dokłada nowej funkcji. Dzisiejsza kontrola w `src/Api/Tree/TreeRules.cs` sprawdza ścieżkę przodków i duplikat rodzeństwa. Nowa reguła jest od niej mocniejsza — unikalność w całym poddrzewie korzenia wyklucza też zapętlenie — więc stara kontrola musi zostać zastąpiona, a nie uzupełniona, inaczej dwie reguły zaczną dawać różne komunikaty dla tej samej operacji. Najtrudniejsze jest przeniesienie: przeniesiony węzeł z poddrzewem musi spełnić regułę względem korzenia docelowego, a przeniesienie korzenia pod inny węzeł zmienia jego status z korzenia na węzeł podrzędny. Drzewa wskazywane przez zapisane ekrany (`S-06`) dziedziczą skutki reguły: węzeł odrzucony w drzewie nie pojawi się w ekranie, a naprawa istniejących danych usuwa węzły razem z ich przypisaniami kategorii. Testy reguł (`TreeRulesTests`) trzeba zaktualizować razem z kodem, a z `CLAUDE.md` („Kontekst produktowy") usunąć zdanie, że kod egzekwuje jeszcze starą regułę.
+- **Status:** in-progress
+
 ## Backlog Handoff
 
 | Roadmap ID | Change ID             | Suggested issue title                                                | Ready for `/10x-plan` | Notes                                                        |
@@ -281,6 +301,7 @@ Foundations below assume these are present and do NOT re-scaffold them.
 | S-04       | `edycja-ekranu`       | Tryb edycji ekranu: kategorie wskazanego węzła, nazwa, ziarno, kategorie domyślne | no | Czeka na `S-06`; równolegle do `S-05`                         |
 | S-10       | `doczytywanie-okna-wierszy` | Doczytywanie danych doby tylko dla widocznego okna wierszy w „Prezentacji ekranu” | no | Czeka na `S-05`; punkt wyjścia — pomiary w `context/changes/prezentacja-ekranu/plan.md` (*Performance Considerations*) |
 | S-11       | `logowanie-bledow-api` | Logowanie błędów API do plików w katalogu `Log` (poziom Error, katalog w `appsettings.json`) | yes | `F-01` ma działający kod; cztery pytania w `Unknowns` rozstrzyga plan |
+| S-12       | `kontrola-drzewa`     | Reguły użycia obiektów w drzewie: wiele korzeni, korzeń raz w drzewie, brak powtórzeń pod jednym korzeniem | yes | Zastępuje regułę zapętlenia i duplikatu rodzeństwa z `S-03`; dane istniejących drzew — `Unknowns` |
 
 This table is the clean handoff to Jira/Linear or any MCP-backed backlog. It carries one row for every `F-NN` and `S-NN` and deliberately does not duplicate the detailed roadmap body.
 

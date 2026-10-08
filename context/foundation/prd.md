@@ -34,7 +34,7 @@ Każdy dyspozytor ma inne potrzeby operacyjne, więc jeden uniwersalny, sztywny 
 - Użytkownik ma kilka zapisanych ekranów i swobodnie przełącza się między nimi.
 
 ### Guardrails
-- Nigdy nie da się zapisać struktury drzewa zawierającej zapętlenie — aplikacja nie dopuszcza niespójnej struktury.
+- Nigdy nie da się zapisać struktury drzewa zawierającej zapętlenie — aplikacja nie dopuszcza niespójnej struktury. Od 2026-10-08 strukturą spójną jest wyłącznie drzewo spełniające reguły użycia obiektów z FR-004.
 
 ## User Stories
 
@@ -45,7 +45,7 @@ Każdy dyspozytor ma inne potrzeby operacyjne, więc jeden uniwersalny, sztywny 
 - **Then** widzi grid, w którym pierwsza kolumna zawiera strukturę drzewa, druga — kategorię (atrybut), a kolejne — punkty czasowe z danymi, przy czym każdy węzeł drzewa ma po jednym wierszu na każdą kategorię z listy domyślnej; po ponownym zalogowaniu otwiera ten ekran z listy własnych ekranów w niezmienionej postaci
 
 #### Acceptance Criteria
-- Próba dodania obiektu, która tworzyłaby zapętlenie, jest odrzucana z komunikatem
+- Próba dodania obiektu, która tworzyłaby zapętlenie albo łamała reguły użycia obiektów z FR-004 (powtórzony korzeń, obiekt powtórzony pod tym samym korzeniem), jest odrzucana z komunikatem
 - Liczba kolumn czasowych odpowiada wybranemu ziarnu dla doby: 5 min → 288, 15 min → 96, 60 min → 24
 - W nowo tworzonym ekranie liczba wierszy gridu to liczba węzłów drzewa × liczba kategorii domyślnych, a wiersze powstają na bieżąco — zmiana drzewa albo listy kategorii przed zapisem od razu przebudowuje grid
 - Zapisany ekran po ponownym otwarciu odtwarza drzewo, ziarno i kategorie przypisane do każdego węzła bez zmian; dobę użytkownik wybiera przy oglądaniu ekranu
@@ -75,6 +75,12 @@ Każdy dyspozytor ma inne potrzeby operacyjne, więc jeden uniwersalny, sztywny 
   > Socrates: Rozważone kontrargumenty: "budowanie bez drag&drop może być uciążliwe i odeśle użytkownika do sztywnego widoku" oraz "gotowe szablony dałyby wartość szybciej niż budowa od zera". Rozstrzygnięcie: FR zostaje — samodzielna budowa struktury jest rdzeniem produktu.
 - FR-004: Użytkownik jest blokowany przed utworzeniem struktury zawierającej zapętlenie. Priority: must-have
   > Socrates: Rozważone kontrargumenty: "w czystym drzewie zapętlenie jest niemożliwe z definicji, więc walidacja byłaby martwym kodem" oraz "blokada bez wskazania cyklu frustruje". Rozstrzygnięcie: FR zostaje — ten sam obiekt może wystąpić w wielu miejscach struktury, więc cykl jest realnie możliwy.
+  > Zmienione 2026-10-08 — reguły użycia obiektów w budowie drzewa:
+  > - Każde drzewo może mieć wiele korzeni. Korzenie nie mogą się powtórzyć, a obiekt korzenia występuje w drzewie tylko raz — ani jako drugi korzeń, ani jako węzeł podrzędny w innym miejscu drzewa.
+  > - Obiekt podrzędny nie może się powtórzyć w danej gałęzi drzewa, czyli w całym poddrzewie jednego korzenia — od korzenia po wszystkie jego rozwidlenia.
+  > - Ten sam obiekt może wystąpić w innym miejscu drzewa, które ma inny korzeń.
+  >
+  > Reguła zastępuje dotychczasowe sprawdzenie ścieżki do korzenia i zakaz duplikatu rodzeństwa: unikalność obiektu w poddrzewie korzenia wyklucza oba przypadki, więc zapętlenie nadal jest niemożliwe. Odrzucana jest cała operacja — dodanie, przeniesienie węzła z poddrzewem albo przeciągnięcie — jeśli łamie regułę w którymkolwiek miejscu.
 - FR-005: *Wycofane 2026-09-24.* Było: podpowiedź o dołączeniu całej struktury podrzędnej, gdy dodawany obiekt ma w słowniku podobiekty. Struktura drzewa jest budowana wyłącznie przez użytkownika, obiekt po obiekcie, więc słownik nie niesie podobiektów i nie ma gałęzi do dołączenia. Numer zostaje zarezerwowany, żeby odwołania w roadmapie i planach nie wskazywały innego wymagania.
 
 ### Kategorie i prezentacja danych
@@ -109,11 +115,17 @@ Każdy dyspozytor ma inne potrzeby operacyjne, więc jeden uniwersalny, sztywny 
 
 ## Business Logic
 
-Aplikacja ocenia każdą zmianę struktury przed jej przyjęciem i odrzuca operacje tworzące zapętlenie.
+Aplikacja ocenia każdą zmianę struktury przed jej przyjęciem i odrzuca operacje łamiące reguły użycia obiektów (zmienione 2026-10-08, FR-004):
 
-Reguła działa na wejściach: aktualna struktura drzewa, obiekt dodawany (albo węzeł przenoszony) przez użytkownika oraz miejsce w drzewie, w które trafia. Wynikiem jest przyjęcie albo odrzucenie operacji. Dodanie wstawia zawsze sam obiekt — słownik nie zna relacji między obiektami, więc całą hierarchię składa użytkownik.
+- Drzewo może mieć wiele korzeni. Korzenie nie mogą się powtórzyć, a obiekt korzenia występuje w drzewie tylko raz — ani jako drugi korzeń, ani jako węzeł podrzędny w innym miejscu drzewa.
+- W gałęzi drzewa, czyli w całym poddrzewie jednego korzenia — od korzenia po wszystkie jego rozwidlenia — obiekt podrzędny nie może się powtórzyć.
+- Ten sam obiekt może wystąpić w innym miejscu drzewa, które ma inny korzeń.
 
-Użytkownik spotyka regułę w jednym momencie — przy dodawaniu obiektu do drzewa — i nie może jej obejść, ponieważ drzewo o niespójnej strukturze nie daje się zapisać, a ekran pokazuje zawsze drzewo przyjęte przez tę regułę. Ten sam obiekt może występować w wielu miejscach struktury, dlatego zapętlenie jest realnie możliwe i wymaga jawnej oceny przy każdej operacji.
+Z tych reguł wynika, że zapętlenie jest niemożliwe: obiekt nie może trafić na własną ścieżkę do korzenia, skoro nie powtarza się w poddrzewie tego korzenia.
+
+Reguła działa na wejściach: aktualna struktura drzewa, obiekt dodawany (albo węzeł przenoszony razem z poddrzewem) przez użytkownika oraz miejsce w drzewie, w które trafia. Wynikiem jest przyjęcie albo odrzucenie całej operacji. Dodanie wstawia zawsze sam obiekt — słownik nie zna relacji między obiektami, więc całą hierarchię składa użytkownik.
+
+Użytkownik spotyka regułę przy każdej zmianie struktury — dodaniu obiektu, przeniesieniu węzła i przeciągnięciu — i nie może jej obejść, ponieważ drzewo o niespójnej strukturze nie daje się zapisać, a ekran pokazuje zawsze drzewo przyjęte przez tę regułę. Ten sam obiekt może występować w wielu miejscach struktury pod różnymi korzeniami, dlatego reguła wymaga jawnej oceny przy każdej operacji.
 
 Ekran wylicza swoje wiersze z aktualnej struktury wskazanego drzewa: każdy węzeł daje tyle wierszy, ile ma przypisanych kategorii — przy tworzeniu ekranu są to kategorie domyślne, później te, które użytkownik dołożył lub zdjął temu węzłowi. Węzeł dodany do drzewa po zapisaniu ekranu dostaje kategorie domyślne ekranu, węzeł usunięty znika z ekranu razem ze swoimi przypisaniami, a drzewo wskazywane przez ekran nie daje się usunąć.
 
