@@ -55,6 +55,30 @@ internal static class IntegrationSeed
     }
 
     /// <summary>
+    /// Zakłada konto w kształcie sprzed S-14 — login równy adresowi e-mail —
+    /// z hasłem, przez <c>UserManager</c> z pominięciem kroków rejestracji.
+    /// Zwraca adres, który jest zarazem loginem.
+    /// </summary>
+    public static async Task<string> CreateLegacyAccountAsync(TestApiFactory factory, string password)
+    {
+        var email = $"u{Guid.NewGuid():N}@test.local";
+        var user = new AppUser { UserName = email, Email = email };
+
+        await using (var scope = factory.Services.CreateAsyncScope())
+        {
+            var users = scope.ServiceProvider.GetRequiredService<UserManager<AppUser>>();
+            var result = await users.CreateAsync(user, password);
+
+            Assert.True(
+                result.Succeeded,
+                "Nie udało się założyć konta testowego: " +
+                string.Join("; ", result.Errors.Select(error => error.Description)));
+        }
+
+        return email;
+    }
+
+    /// <summary>
     /// Zakłada <paramref name="count"/> obiektów słownika o kodach
     /// <c>{prefix}-{i}</c> i zwraca ich identyfikatory w tej kolejności.
     /// </summary>

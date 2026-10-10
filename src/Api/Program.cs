@@ -4,10 +4,12 @@ using Api.Auth;
 using Api.Categories;
 using Api.Data;
 using Api.Errors;
+using Api.Mail;
 using Api.Objects;
 using Api.Screens;
 using Api.Tree;
 using Microsoft.AspNetCore.Identity;
+using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Diagnostics;
@@ -66,8 +68,11 @@ try
     builder.Services
         .AddIdentityCore<AppUser>(options =>
         {
-            // Adres e-mail jest identyfikatorem logowania (PRD FR-001), więc dwa
-            // konta o tym samym adresie uczyniłyby logowanie niejednoznacznym.
+            // Identyfikatorem logowania jest login (`UserName`, PRD FR-001
+            // w wersji z 2026-10-10), a adres e-mail jest daną konta. Unikalność
+            // adresu zostaje: krok 1 rejestracji rezerwuje adres na równi
+            // z loginem, a administrator, który dostaje kod razem z adresem
+            // wnioskodawcy, ma po nim jednoznacznie rozpoznać osobę.
             options.User.RequireUniqueEmail = true;
 
             // Podniesiona wyłącznie minimalna długość. Pozostałe reguły złożoności
@@ -85,40 +90,94 @@ try
         })
         .AddEntityFrameworkStores<AppDbContext>();
 
-    // Sekrety aplikacji — kod rejestracyjny i klucz podpisu ciasteczka sesji —
-    // czytane są ze standardowej konfiguracji: w Development z `user-secrets`,
-    // poza nim ze zmiennych środowiskowych. Żadnego dodatkowego kodu to nie
-    // wymaga, bo oba dostawcy są domyślne, a `appsettings.json` niesie wyłącznie
-    // strukturę. Szczegóły i kształt poleceń — w `Api.Auth.AuthSecrets`.
+    // Sekret uwierzytelniania — klucz podpisu ciasteczka sesji — czytany jest ze
+    // standardowej konfiguracji: w Development z `user-secrets`, poza nim ze
+    // zmiennych środowiskowych. Żadnego dodatkowego kodu to nie wymaga, bo oba
+    // dostawcy są domyślne, a `appsettings.json` niesie wyłącznie strukturę.
+    // Szczegóły i kształt poleceń — w `Api.Auth.AuthSecrets`.
     var authSecrets = AuthSecrets.FromConfiguration(builder.Configuration);
     builder.Services.AddSingleton(authSecrets);
+
+    // Wysyłka kodu weryfikacyjnego administratorowi (S-14). Transport wybiera
+    // `Mail:Transport` raz, przy starcie: SMTP albo pliki `.eml` w katalogu
+    // (pętla deweloperska, testy, E2E). Hasło SMTP jest sekretem na tych samych
+    // zasadach co klucz podpisu — szczegóły w `Api.Mail.MailSettings`.
+    var mailSettings = MailSettings.FromConfiguration(builder.Configuration, builder.Environment.ContentRootPath);
+    builder.Services.AddSingleton(mailSettings);
+    builder.Services.AddSingleton<IVerificationMailSender>(mailSettings.UsesDirectory
+        ? new DirectoryVerificationMailSender(mailSettings)
+        : new SmtpVerificationMailSender(mailSettings));
+
+    // Limit tempa kroku 1 rejestracji: każde żądanie wysyła wiadomość do
+    // administratora, więc bez limitu formularz jest generatorem poczty
+    // (OWASP F-003, TG-SEC-04). Okno stałe i jeden licznik na cały proces, a nie
+    // per adres — za tunelem API widzi wyłącznie `cloudflared`. Wartości są
+    // decyzją produktową, więc mieszkają w konfiguracji; testy integracyjne
+    // podnoszą limit tym samym kluczem.
+    var registrationRateLimit = builder.Configuration.GetSection("Auth:RegistrationRateLimit");
+
+    builder.Services.AddRateLimiter(options =>
+    {
+        options.AddFixedWindowLimiter(AuthEndpoints.RegistrationRateLimitPolicy, limiter =>
+        {
+            limiter.PermitLimit = registrationRateLimit.GetValue("PermitLimit", 5);
+            limiter.Window = TimeSpan.FromMinutes(registrationRateLimit.GetValue("WindowMinutes", 60));
+
+            // Bez kolejki: nadmiar dostaje odmowę od razu, a nie wisi godzinę.
+            limiter.QueueLimit = 0;
+        });
+
+        // Odmowa nie przechodzi przez żaden endpoint ani przez obsługę statusów
+        // z `UseApiErrorContract` (treść jest już zapisana), więc kopertę
+        // w kontrakcie błędów trzeba napisać tutaj.
+        options.OnRejected = (context, cancellationToken) =>
+        {
+            context.HttpContext.Response.StatusCode = StatusCodes.Status429TooManyRequests;
+
+            return new ValueTask(context.HttpContext.Response.WriteAsJsonAsync(
+                AuthResponses.RateLimited(),
+                cancellationToken));
+        };
+    });
 
     var app = builder.Build();
 
     // Ten sam wzorzec, którym niżej odmawia startu niezmigrowana baza: brak sekretu
-    // jest błędem konfiguracji, więc ma zatrzymać start i nazwać brakujący klucz,
-    // zamiast zamienić się w cichą podatność przy pierwszym żądaniu. Sprawdzenie
-    // obejmuje każde środowisko poza Development — tam sekretów może jeszcze nie
-    // być, a ścieżki, które ich potrzebują, i tak odmawiają działania bez nich
-    // (`AuthSecrets.RequireRegistrationCode`). Do logu trafiają wyłącznie nazwy
-    // kluczy; żadna wartość nie opuszcza konfiguracji.
+    // albo niekompletna poczta są błędem konfiguracji, więc mają zatrzymać start
+    // i nazwać brakujący klucz, zamiast zamienić się w cichą podatność albo w 503
+    // przy pierwszej rejestracji. Sprawdzenie obejmuje każde środowisko poza
+    // Development — tam sekretów może jeszcze nie być, a ścieżki, które ich
+    // potrzebują, i tak odmawiają działania bez nich
+    // (`AuthSecrets.RequireSessionSigningKey`, `MailSettings.ThrowIfIncomplete`).
+    // Do logu trafiają wyłącznie nazwy kluczy; żadna wartość nie opuszcza
+    // konfiguracji.
+    var mailProblems = mailSettings.FindProblems(app.Environment.IsDevelopment());
+
     if (!app.Environment.IsDevelopment())
     {
-        var secretProblems = authSecrets.FindProblems();
+        var startProblems = authSecrets.FindProblems().Concat(mailProblems).ToList();
 
-        if (secretProblems.Count > 0)
+        if (startProblems.Count > 0)
         {
             app.Logger.LogCritical(
-                "Konfiguracja sekretów jest niekompletna: {Problems} Start przerwany. " +
+                "Konfiguracja sekretów i poczty jest niekompletna: {Problems} Start przerwany. " +
                 "Ustaw brakujące klucze zmiennymi środowiskowymi, zapisując dwukropek " +
-                "jako podwójne podkreślenie (np. Auth__RegistrationCode).",
-                string.Join(" ", secretProblems));
+                "jako podwójne podkreślenie (np. Auth__SessionSigningKey, Mail__Smtp__Password).",
+                string.Join(" ", startProblems));
 
             // Odmowa kończy proces bez zwolnienia hosta, więc logger plikowy
             // zwalniamy sami — dopiero to gwarantuje, że wpis jest na dysku.
             fileLogger.Dispose();
             return 1;
         }
+    }
+    else if (mailProblems.Count > 0)
+    {
+        // W Development start wstaje, ale brak ma być widoczny od razu na
+        // konsoli, a nie dopiero jako 503 przy pierwszej rejestracji.
+        app.Logger.LogWarning(
+            "Konfiguracja poczty jest niekompletna: {Problems} Krok 1 rejestracji odpowie mail_unavailable.",
+            string.Join(" ", mailProblems));
     }
 
     // Ścieżki aplikowania migracji są rozdzielone świadomie. W Development schemat
@@ -161,6 +220,11 @@ try
     // generowane przez sam framework. Wpięcie po routingu zostawiłoby 404 z literówki
     // w adresie w formacie ProblemDetails, czyli w kształcie sprzecznym z CLAUDE.md.
     app.UseApiErrorContract();
+
+    // Po kontrakcie błędów, żeby wyjątek w limiterze też skończył się kopertą.
+    // Polityka działa wyłącznie tam, gdzie endpoint ją przypina
+    // (`RequireRateLimiting` przy `POST /auth/register`).
+    app.UseRateLimiter();
 
     if (app.Environment.IsDevelopment())
     {

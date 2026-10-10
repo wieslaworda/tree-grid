@@ -1,22 +1,22 @@
 namespace Api.Auth;
 
 /// <summary>
-/// Dwa sekrety aplikacji: kod rejestracyjny i klucz podpisu ciasteczka sesji.
+/// Sekret uwierzytelniania: klucz podpisu ciasteczka sesji. Drugi sekret
+/// aplikacji — hasło SMTP do wysyłki kodu weryfikacyjnego — należy do sekcji
+/// <c>Mail</c> (<c>Api.Mail.MailSettings</c>) i podlega tym samym regułom.
 ///
-/// Obie wartości czytane są ze standardowej konfiguracji .NET i **nigdy** nie
-/// leżą w repozytorium (`infrastructure.md:208`). `appsettings.json` niesie
-/// wyłącznie strukturę — puste wartości, żeby widać było, co trzeba ustawić.
+/// Wartość czytana jest ze standardowej konfiguracji .NET i **nigdy** nie
+/// leży w repozytorium (<c>infrastructure.md:208</c>). <c>appsettings.json</c> niesie
+/// wyłącznie strukturę — pustą wartość, żeby widać było, co trzeba ustawić.
 /// Kolejność dostawców konfiguracji w <c>WebApplication.CreateBuilder</c>
 /// sprawia, że oba poniższe źródła przebijają plik:
 ///
 /// <list type="bullet">
 /// <item>Development — `user-secrets` (magazyn poza katalogiem projektu):
-/// <c>dotnet user-secrets set "Auth:RegistrationCode" "&lt;wartość&gt;" --project src/Api</c>,
 /// <c>dotnet user-secrets set "Auth:SessionSigningKey" "&lt;wartość&gt;" --project src/Api</c>.
 /// Działa dzięki <c>UserSecretsId</c> w <c>src/Api/Api.csproj</c>.</item>
-/// <item>Poza Development — zmienne środowiskowe, w których dwukropek
-/// zastępuje podwójne podkreślenie: <c>Auth__RegistrationCode</c>,
-/// <c>Auth__SessionSigningKey</c>.</item>
+/// <item>Poza Development — zmienna środowiskowa, w której dwukropek
+/// zastępuje podwójne podkreślenie: <c>Auth__SessionSigningKey</c>.</item>
 /// </list>
 ///
 /// Żadnego dodatkowego kodu ładującego to nie wymaga — oba dostawcy są
@@ -24,9 +24,6 @@ namespace Api.Auth;
 /// </summary>
 internal sealed class AuthSecrets
 {
-    /// <summary>Klucz konfiguracji kodu rejestracyjnego.</summary>
-    public const string RegistrationCodeKey = "Auth:RegistrationCode";
-
     /// <summary>Klucz konfiguracji klucza podpisu ciasteczka sesji.</summary>
     public const string SessionSigningKeyKey = "Auth:SessionSigningKey";
 
@@ -39,24 +36,19 @@ internal sealed class AuthSecrets
     /// </summary>
     public const int MinimumSessionSigningKeyLength = 32;
 
-    private AuthSecrets(string? registrationCode, string? sessionSigningKey)
+    private AuthSecrets(string? sessionSigningKey)
     {
-        RegistrationCode = registrationCode;
         SessionSigningKey = sessionSigningKey;
     }
-
-    /// <summary>Kod odróżniający zaproszonego dyspozytora od przypadkowego gościa.</summary>
-    private string? RegistrationCode { get; }
 
     /// <summary>Klucz, którym serwer React Routera podpisuje ciasteczko sesji.</summary>
     private string? SessionSigningKey { get; }
 
     public static AuthSecrets FromConfiguration(IConfiguration configuration) => new(
-        configuration[RegistrationCodeKey],
         configuration[SessionSigningKeyKey]);
 
     /// <summary>
-    /// Wykaz braków w konfiguracji sekretów — pusty, gdy wszystko jest na
+    /// Wykaz braków w konfiguracji sekretu — pusty, gdy wszystko jest na
     /// miejscu. Komunikaty nazywają klucz, bo to jedyna informacja, która
     /// pozwala naprawić start; sama wartość nigdzie się nie pojawia, także
     /// w logu.
@@ -64,11 +56,6 @@ internal sealed class AuthSecrets
     public IReadOnlyList<string> FindProblems()
     {
         var problems = new List<string>();
-
-        if (string.IsNullOrWhiteSpace(RegistrationCode))
-        {
-            problems.Add(MissingMessage(RegistrationCodeKey));
-        }
 
         if (string.IsNullOrWhiteSpace(SessionSigningKey))
         {
@@ -83,21 +70,9 @@ internal sealed class AuthSecrets
     }
 
     /// <summary>
-    /// Kod rejestracyjny albo wyjątek. Zwrócenie pustej wartości byłoby tu
-    /// najgorszym z możliwych zachowań: pusty kod zgadzałby się z pustym
-    /// polem formularza, czyli brak konfiguracji otwierałby rejestrację dla
-    /// każdego, kto trafił pod adres tunelu. Ścieżka bez sekretu ma się
-    /// zatrzymać, nie przepuścić.
-    /// </summary>
-    public string RequireRegistrationCode()
-        => string.IsNullOrWhiteSpace(RegistrationCode)
-            ? throw new InvalidOperationException(MissingMessage(RegistrationCodeKey))
-            : RegistrationCode;
-
-    /// <summary>
     /// Klucz podpisu albo wyjątek — razem z wymuszeniem minimalnej długości.
     /// Poza Development obie reguły sprawdza już start aplikacji; tutaj są
-    /// ponownie, bo w Development sekretów może jeszcze nie być, a endpoint
+    /// ponownie, bo w Development sekretu może jeszcze nie być, a endpoint
     /// ma wtedy odmówić głośno, nie wydać pustego klucza.
     /// </summary>
     public string RequireSessionSigningKey()

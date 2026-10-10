@@ -43,6 +43,12 @@ obj/
 # i ścieżki, a nie może zależeć od tego, jakie rozszerzenie dostanie.
 src/Api/Log/
 
+# --- Poczta pętli deweloperskiej (Mail:Directory:Path w appsettings.Development.json) ---
+# Pliki .eml niosą kody weryfikacyjne, loginy i adresy wnioskodawców. Nazwa
+# katalogu jest celowo inna niż folder źródeł `src/Api/Mail/`, żeby ten wpis
+# nie objął kodu.
+src/Api/MailOutbox/
+
 # --- SQLite (pliki poboczne trybu WAL) ---
 *.db-wal
 *.db-shm

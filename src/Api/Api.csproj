@@ -7,7 +7,8 @@
     <!--
       Identyfikator magazynu `user-secrets`. Nie jest sekretem — sam wskazuje
       plik poza katalogiem projektu, w którym w Development leżą wartości
-      `Auth:RegistrationCode` i `Auth:SessionSigningKey`. Bez tego wpisu
+      `Auth:SessionSigningKey` i — gdy pętla deweloperska ma wysyłać prawdziwą
+      pocztę — `Mail:Smtp:UserName`, `Mail:Smtp:Password` i `Mail:From`. Bez tego wpisu
       `dotnet user-secrets` nie ma czego otworzyć, a dostawca konfiguracji
       z `user-secrets` w ogóle się nie rejestruje.
     -->
@@ -15,6 +16,7 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <PackageReference Include="MailKit" Version="4.18.1" />
     <PackageReference Include="Microsoft.AspNetCore.Identity.EntityFrameworkCore" Version="10.0.12" />
     <PackageReference Include="Microsoft.AspNetCore.OpenApi" Version="10.0.12" />
     <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="10.0.12">

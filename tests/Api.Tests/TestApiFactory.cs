@@ -1,6 +1,9 @@
+using System.Globalization;
 using System.Security.Cryptography;
+using System.Text.RegularExpressions;
 using Api.Auth;
 using Api.Data;
+using Api.Mail;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.AspNetCore.TestHost;
@@ -8,6 +11,7 @@ using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
+using MimeKit;
 
 namespace Api.Tests;
 
@@ -42,6 +46,16 @@ namespace Api.Tests;
 /// <c>WebApplication.CreateBuilder</c>. Bez tego każdy celowy błąd 500 z testów
 /// lądowałby w deweloperskim <c>src/Api/Log/</c>. Host zamyka plik logu przy
 /// zwolnieniu, więc katalog jest usuwany po <c>base.Dispose</c>, razem z bazą.
+///
+/// Poczta z kodem weryfikacyjnym ląduje jako pliki <c>.eml</c> we własnym
+/// katalogu instancji (<see cref="MailDirectory"/>), sprzątanym razem z logiem;
+/// kod czyta z niego <see cref="ReadLastVerificationCode"/>. Konfiguracja
+/// wskazuje przy tym transport <c>Smtp</c> z kompletem wartości technicznych,
+/// a nadawcę plikowego podstawia <c>ConfigureTestServices</c>: poza Development
+/// start odmawia transportu <c>Directory</c>, a host testowy ma przechodzić tę
+/// samą kontrolę startu co produkcja. Z serwerem SMTP nic się nie łączy.
+/// Limit tempa kroku 1 jest podniesiony (<see cref="RegistrationPermitLimit"/>),
+/// bo licznik jest jeden na host, a testy klasy dzielą host.
 /// </remarks>
 public class TestApiFactory : WebApplicationFactory<Program>
 {
@@ -55,9 +69,13 @@ public class TestApiFactory : WebApplicationFactory<Program>
     /// </summary>
     private const int BusyTimeoutMilliseconds = 5000;
 
-    private readonly string _registrationCode = RandomSecret(32);
-
     private readonly string _sessionSigningKey = RandomSecret(AuthSecrets.MinimumSessionSigningKeyLength * 2);
+
+    /// <summary>
+    /// Hasło SMTP tylko po to, żeby konfiguracja przeszła kontrolę startu —
+    /// losowe i wyłącznie w pamięci, jak pozostałe sekrety fabryki.
+    /// </summary>
+    private readonly string _smtpPassword = RandomSecret(32);
 
     private bool _filesDeleted;
 
@@ -73,6 +91,7 @@ public class TestApiFactory : WebApplicationFactory<Program>
         DatabasePath = Path.GetFullPath(Path.Combine(directory, $"{instanceId}.db"));
         ConnectionString = new SqliteConnectionStringBuilder { DataSource = DatabasePath }.ToString();
         LogDirectory = Path.GetFullPath(Path.Combine(directory, $"{instanceId}-log"));
+        MailDirectory = Path.GetFullPath(Path.Combine(directory, $"{instanceId}-mail"));
 
         // Gdy konstruktor rzuci, xUnit nie zwolni fixture — sprzątanie tutaj.
         try
@@ -100,6 +119,64 @@ public class TestApiFactory : WebApplicationFactory<Program>
     public string LogDirectory { get; }
 
     /// <summary>
+    /// Bezwzględny katalog plików <c>.eml</c> tej instancji, podawany hostowi
+    /// jako <c>Mail:Directory:Path</c>. Nadawca zakłada go przy pierwszej
+    /// wiadomości.
+    /// </summary>
+    public string MailDirectory { get; }
+
+    /// <summary>
+    /// Limit żądań kroku 1 rejestracji w oknie limitera. Domyślnie wysoki, żeby
+    /// kolejne testy jednej klasy nie dostawały 429; klasa pochodna obniża go,
+    /// gdy sprawdza sam limit.
+    /// </summary>
+    protected virtual int RegistrationPermitLimit => 1000;
+
+    /// <summary>
+    /// Kod weryfikacyjny z najnowszej wiadomości dla <paramref name="login"/>,
+    /// odczytany z treści pliku <c>.eml</c> tym samym wyrażeniem, którego używa
+    /// setup E2E (<c>VerificationMessage.CodePattern</c>). Brak wiadomości jest
+    /// błędem asercji.
+    /// </summary>
+    public string ReadLastVerificationCode(string login)
+    {
+        var loginLine = VerificationMessage.LoginLinePrefix + login;
+
+        // Nazwy plików zaczynają się znacznikiem czasu, więc porządek nazw
+        // malejąco to porządek od najnowszej wiadomości.
+        var files = Directory.Exists(MailDirectory)
+            ? Directory.GetFiles(MailDirectory, "*.eml").OrderDescending(StringComparer.Ordinal)
+            : Enumerable.Empty<string>();
+
+        foreach (var file in files)
+        {
+            using var message = MimeMessage.Load(file);
+            var text = message.TextBody ?? string.Empty;
+
+            if (!text.Split('\n').Any(line => line.TrimEnd('\r') == loginLine))
+            {
+                continue;
+            }
+
+            var match = Regex.Match(text, VerificationMessage.CodePattern);
+            Assert.True(match.Success, $"Wiadomość '{file}' nie zawiera wiersza z kodem.");
+
+            return match.Groups[1].Value;
+        }
+
+        Assert.Fail($"Brak wiadomości z kodem dla loginu '{login}' w '{MailDirectory}'.");
+
+        return string.Empty;
+    }
+
+    /// <summary>
+    /// Punkt rozszerzenia dla klas pochodnych: nadawca kodu weryfikacyjnego
+    /// hosta. Domyślnie pliki <c>.eml</c> w <see cref="MailDirectory"/>.
+    /// </summary>
+    private protected virtual IVerificationMailSender CreateMailSender(MailSettings settings)
+        => new DirectoryVerificationMailSender(settings);
+
+    /// <summary>
     /// Nowy scope usług hosta razem z jego <see cref="AppDbContext"/>. Każdy
     /// odczyt migawki i każdy seed ma brać własny scope, żeby nie czytać stanu
     /// ze śledzenia kontekstu zamiast z bazy.
@@ -116,14 +193,33 @@ public class TestApiFactory : WebApplicationFactory<Program>
     {
         builder.UseEnvironment(EnvironmentName);
         builder.UseSetting("ConnectionStrings:Default", ConnectionString);
-        builder.UseSetting(AuthSecrets.RegistrationCodeKey, _registrationCode);
         builder.UseSetting(AuthSecrets.SessionSigningKeyKey, _sessionSigningKey);
         builder.UseSetting("FileLogging:Directory", LogDirectory);
 
+        // Komplet `Smtp` dla kontroli startu — wartości techniczne, domena
+        // `.invalid` z RFC 2606 nie rozwiązuje się nigdzie. Wysyłkę i tak
+        // przejmuje nadawca z `CreateMailSender`.
+        builder.UseSetting(MailSettings.TransportKey, MailSettings.SmtpTransport);
+        builder.UseSetting(MailSettings.SmtpHostKey, "smtp.invalid");
+        builder.UseSetting(MailSettings.SmtpPortKey, "587");
+        builder.UseSetting(MailSettings.SmtpUserNameKey, "treegrid-tests");
+        builder.UseSetting(MailSettings.SmtpPasswordKey, _smtpPassword);
+        builder.UseSetting(MailSettings.FromKey, "treegrid-tests@test.invalid");
+        builder.UseSetting(MailSettings.AdminAddressKey, "admin@test.invalid");
+        builder.UseSetting(MailSettings.DirectoryPathKey, MailDirectory);
+        builder.UseSetting(
+            "Auth:RegistrationRateLimit:PermitLimit",
+            RegistrationPermitLimit.ToString(CultureInfo.InvariantCulture));
+
         // Opcje kontekstu z `Program.cs` (plik, interceptor busy_timeout) zostają;
         // klasa pochodna może do nich jedynie dołożyć, np. własny interceptor.
+        // Nadawca poczty jest podmieniany w całości — rejestracja tutaj wygrywa
+        // z tą z `Program.cs`, bo jest późniejsza.
         builder.ConfigureTestServices(services =>
-            services.ConfigureDbContext<AppDbContext>(ConfigureAppDbContext));
+        {
+            services.ConfigureDbContext<AppDbContext>(ConfigureAppDbContext);
+            services.AddSingleton(provider => CreateMailSender(provider.GetRequiredService<MailSettings>()));
+        });
     }
 
     /// <summary>
@@ -214,8 +310,8 @@ public class TestApiFactory : WebApplicationFactory<Program>
     }
 
     /// <summary>
-    /// Usuwa plik bazy razem z plikami WAL oraz katalog logu. Pula połączeń
-    /// trzyma na Windows otwarte uchwyty, więc najpierw jest czyszczona —
+    /// Usuwa plik bazy razem z plikami WAL oraz katalogi logu i poczty. Pula
+    /// połączeń trzyma na Windows otwarte uchwyty, więc najpierw jest czyszczona —
     /// inaczej usunięcie kończy się wyjątkiem „plik jest używany". Czyszczone
     /// są wyłącznie pule tej instancji: <c>ClearAllPools</c> zamykałby też
     /// połączenia klas biegnących równolegle, a SQLite przy zamknięciu
@@ -245,6 +341,7 @@ public class TestApiFactory : WebApplicationFactory<Program>
         }
 
         TryDeleteDirectory(LogDirectory);
+        TryDeleteDirectory(MailDirectory);
 
         _filesDeleted = true;
     }
@@ -279,8 +376,8 @@ public class TestApiFactory : WebApplicationFactory<Program>
 
     /// <summary>
     /// Usunięcie katalogu z zawartością bez wyjątku, z tych samych powodów co
-    /// <see cref="TryDeleteFile"/>. Katalogu może nie być — logger zakłada go
-    /// dopiero przy pierwszym błędzie.
+    /// <see cref="TryDeleteFile"/>. Katalogu może nie być — logger i nadawca
+    /// poczty zakładają swój dopiero przy pierwszym wpisie.
     /// </summary>
     private static void TryDeleteDirectory(string path)
     {

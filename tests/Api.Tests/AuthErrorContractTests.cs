@@ -88,8 +88,8 @@ public class AuthErrorContractTests
             "Przesłane dane są nieprawidłowe.",
             new Dictionary<string, string>
             {
-                [AuthFormFields.Email] = "Podaj adres e-mail.",
-                [AuthFormFields.RegistrationCode] = "Nieprawidłowy kod rejestracyjny.",
+                [AuthFormFields.Login] = "Podaj login.",
+                [AuthFormFields.Code] = "Nieprawidłowy kod weryfikacyjny.",
             });
 
         using var document = Serialize(error);
@@ -106,10 +106,10 @@ public class AuthErrorContractTests
 
         var fields = context.GetProperty(ApiErrorContextKeys.Fields);
 
-        Assert.Equal("Podaj adres e-mail.", fields.GetProperty("email").GetString());
+        Assert.Equal("Podaj login.", fields.GetProperty("login").GetString());
         Assert.Equal(
-            "Nieprawidłowy kod rejestracyjny.",
-            fields.GetProperty("registrationCode").GetString());
+            "Nieprawidłowy kod weryfikacyjny.",
+            fields.GetProperty("code").GetString());
     }
 
     [Fact]
@@ -119,10 +119,54 @@ public class AuthErrorContractTests
         // i nic jej nie sprawdza przy budowaniu. Ten test jest jedynym
         // miejscem, w którym jej złamanie w ogóle się odezwie — zmiana nazwy
         // tutaj wymaga zmiany atrybutu `name` w formularzu.
+        Assert.Equal("login", AuthFormFields.Login);
         Assert.Equal("email", AuthFormFields.Email);
         Assert.Equal("password", AuthFormFields.Password);
-        Assert.Equal("registrationCode", AuthFormFields.RegistrationCode);
+        Assert.Equal("code", AuthFormFields.Code);
         Assert.Equal("form", AuthFormFields.Form);
+    }
+
+    [Fact]
+    public void Invalid_credentials_message_names_the_login_not_the_email()
+    {
+        // Logowanie idzie po loginie (S-14). Komunikat jest wpisany z planu,
+        // a nie czytany ze stałej — zmiana treści ma się tu odezwać.
+        var failure = AuthResponses.DescribeLoginFailure(LoginOutcome.UserNotFound, lockoutEnd: null);
+
+        Assert.Equal("Nieprawidłowy login lub hasło.", failure.Error.Error.Message);
+    }
+
+    [Fact]
+    public void Rate_limited_and_mail_unavailable_have_their_own_codes_and_an_empty_context()
+    {
+        var cases = new[]
+        {
+            (Error: AuthResponses.RateLimited(), Code: "rate_limited"),
+            (Error: AuthResponses.MailUnavailable(), Code: "mail_unavailable"),
+        };
+
+        foreach (var (apiError, code) in cases)
+        {
+            using var document = Serialize(apiError);
+
+            var root = document.RootElement;
+            var error = root.GetProperty("error");
+
+            Assert.Equal(["error"], PropertyNames(root));
+            Assert.Equal(["code", "message", "context"], PropertyNames(error));
+            Assert.Equal(code, error.GetProperty("code").GetString());
+            Assert.False(string.IsNullOrWhiteSpace(error.GetProperty("message").GetString()));
+
+            // Pusty `context`: przyczyna porażki wysyłki zostaje w logu API,
+            // a kod weryfikacyjny nie trafia nigdzie poza wiadomość.
+            Assert.Empty(error.GetProperty("context").EnumerateObject());
+
+            foreach (var field in ProblemDetailsFields)
+            {
+                Assert.False(root.TryGetProperty(field, out _), $"Korzeń odpowiedzi zawiera pole '{field}'.");
+                Assert.False(error.TryGetProperty(field, out _), $"Obiekt błędu zawiera pole '{field}'.");
+            }
+        }
     }
 
     [Fact]

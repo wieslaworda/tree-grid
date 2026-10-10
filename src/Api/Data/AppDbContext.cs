@@ -1,3 +1,4 @@
+using Api.Auth;
 using Api.Categories;
 using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
@@ -18,7 +19,9 @@ namespace Api.Data;
 /// wskazuje jedno z drzew konta i niesie uporządkowaną listę kategorii
 /// domyślnych (<see cref="ScreenDefaultCategory"/>) oraz przypisania kategorii
 /// do węzłów tego drzewa (<see cref="ScreenNodeCategory"/>). Kolumny czasowe
-/// gridu dochodzą w kolejnym plastrze.
+/// gridu dochodzą w kolejnym plastrze. Od S-14 — rejestracje czekające na kod
+/// weryfikacyjny (<see cref="PendingRegistration"/>), bez relacji z kontami:
+/// konto powstaje z wiersza dopiero po poprawnym kodzie.
 /// </summary>
 public sealed class AppDbContext(DbContextOptions<AppDbContext> options)
     : IdentityDbContext<AppUser>(options)
@@ -36,6 +39,8 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options)
     public DbSet<ScreenDefaultCategory> ScreenDefaultCategories => Set<ScreenDefaultCategory>();
 
     public DbSet<ScreenNodeCategory> ScreenNodeCategories => Set<ScreenNodeCategory>();
+
+    public DbSet<PendingRegistration> PendingRegistrations => Set<PendingRegistration>();
 
     protected override void OnModelCreating(ModelBuilder builder)
     {
@@ -234,6 +239,23 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options)
             // `ScreenId`, więc ich nie obsługuje.
             assignment.HasIndex(a => a.TreeNodeId);
             assignment.HasIndex(a => a.CategoryId);
+        });
+
+        builder.Entity<PendingRegistration>(registration =>
+        {
+            // Długości jako metadane, wiążący limit loginu w `RegistrationRules`
+            // — ten sam układ co w blokach wyżej.
+            registration.Property(r => r.UserName).HasMaxLength(RegistrationRules.LoginMaxLength);
+            registration.Property(r => r.NormalizedUserName).HasMaxLength(RegistrationRules.LoginMaxLength);
+            registration.Property(r => r.Email).HasMaxLength(PendingRegistration.EmailMaxLength);
+            registration.Property(r => r.NormalizedEmail).HasMaxLength(PendingRegistration.EmailMaxLength);
+
+            // Rezerwacja loginu i adresu na czas ważności. Krok 1 sprawdza
+            // zajętość w transakcji zapisowej, a te indeksy rozstrzygają to,
+            // czego kontrola w kodzie nie zobaczy: zapis z pominięciem
+            // endpointu albo błąd w samej kontroli.
+            registration.HasIndex(r => r.NormalizedUserName).IsUnique();
+            registration.HasIndex(r => r.NormalizedEmail).IsUnique();
         });
     }
 

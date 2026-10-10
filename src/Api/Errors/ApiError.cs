@@ -101,7 +101,7 @@ public static class ApiErrorCodes
     /// <summary>
     /// Żądanie nie zostało uwierzytelnione albo poświadczenia są nieprawidłowe
     /// (401). Kod jest wspólny dla nieistniejącego konta i złego hasła —
-    /// rozróżnienie ich w odpowiedzi pozwoliłoby wyliczyć listę adresów e-mail.
+    /// rozróżnienie ich w odpowiedzi pozwoliłoby wyliczyć listę loginów.
     /// Oddają go też endpointy <c>/trees</c> dla żądania bez nagłówka tożsamości
     /// albo z identyfikatorem konta, którego nie ma (<c>Api.Tree.TreeIdentity</c>).
     /// </summary>
@@ -179,6 +179,24 @@ public static class ApiErrorCodes
     /// mówi, czyj to ekran ani ile ich jest.
     /// </summary>
     public const string CategorySoleScreenDefault = "category_sole_screen_default";
+
+    /// <summary>
+    /// Odmowa limitu tempa (429, <c>POST /auth/register</c>). Limit jest
+    /// globalny, nie per adres: za tunelem API widzi wyłącznie
+    /// <c>cloudflared</c>. Odmowę pisze limiter, a nie endpoint — żądanie do
+    /// endpointu nie dochodzi — więc koperta powstaje w <c>OnRejected</c>
+    /// w <c>Program.cs</c>. <c>context</c> jest pusty.
+    /// </summary>
+    public const string RateLimited = "rate_limited";
+
+    /// <summary>
+    /// Kodu weryfikacyjnego nie udało się wysłać administratorowi (503,
+    /// <c>POST /auth/register</c>). Oczekująca rejestracja jest wtedy usuwana,
+    /// więc ponowne wysłanie formularza zaczyna od zera. <c>context</c> jest
+    /// pusty celowo: przyczyna (serwer SMTP, uwierzytelnienie) zostaje w logu
+    /// API, a kod nie trafia ani tam, ani tutaj.
+    /// </summary>
+    public const string MailUnavailable = "mail_unavailable";
 
     /// <summary>Pozostałe statusy błędne wygenerowane przez framework.</summary>
     public const string HttpError = "http_error";
