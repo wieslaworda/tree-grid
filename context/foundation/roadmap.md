@@ -3,7 +3,7 @@ project: TreeGrid
 version: 1
 status: draft
 created: 2026-09-21
-updated: 2026-10-08
+updated: 2026-10-10
 prd_version: 1
 main_goal: speed
 top_blocker: time
@@ -67,7 +67,7 @@ Przy celu sekwencjonowania `speed` to również fragment, który najtaniej odpow
 | S-04 | `edycja-ekranu`       | w trybie edycji zapisanego ekranu dokładać i zdejmować kategorie wskazanego węzła, zmienić nazwę, ziarno i domyślne kategorie | S-06          | FR-006, FR-011, US-02, NFR (izolacja kont)             | proposed |
 | S-10 | `doczytywanie-okna-wierszy` | w „Prezentacji ekranu” oglądać dobę dużego ekranu, dla którego dane dochodzą tylko dla widocznego okna wierszy | S-05          | NFR (288 kolumn, feedback >2 s), PRD `## Open Questions` #5 | proposed |
 | S-11 | `logowanie-bledow-api` | (operacyjne) odnaleźć każdy błąd API w pliku logu w katalogu `Log`, także po restarcie API | F-01          | NFR (logowanie błędów backendu do plików)              | in-progress |
-| S-12 | `kontrola-drzewa`     | budować drzewo o wielu korzeniach, w którym korzeń występuje raz, a obiekt nie powtarza się pod tym samym korzeniem | S-03          | FR-004, US-01, Business Logic, Guardrails              | in-progress |
+| S-12 | `kontrola-drzewa`     | budować drzewo o wielu korzeniach, w którym korzeń występuje raz, a obiekt nie powtarza się pod tym samym korzeniem | S-03          | FR-004, US-01, Business Logic, Guardrails              | done |
 
 ## Streams
 
@@ -283,7 +283,7 @@ Foundations below assume these are present and do NOT re-scaffold them.
   - Co z istniejącymi drzewami, które łamią nowe reguły (ten sam obiekt dwa razy pod jednym korzeniem albo obiekt korzenia użyty także jako węzeł podrzędny)? Do wyboru: odmowa wdrożenia migracji z raportem naruszeń, naprawa ręczna przed wdrożeniem albo zachowanie starych drzew i egzekwowanie reguły tylko przy kolejnych zmianach. — Owner: użytkownik. Block: no (rozstrzyga plan).
   - Czy filtr „Pokaż obiekty nieużyte w drzewie" (MS-06) ma uwzględniać zaznaczony korzeń, skoro obiekt użyty pod jednym korzeniem nadal może trafić pod inny? — Owner: użytkownik. Block: no.
 - **Risk:** Plaster zmienia rdzenną regułę produktu, a nie dokłada nowej funkcji. Dzisiejsza kontrola w `src/Api/Tree/TreeRules.cs` sprawdza ścieżkę przodków i duplikat rodzeństwa. Nowa reguła jest od niej mocniejsza — unikalność w całym poddrzewie korzenia wyklucza też zapętlenie — więc stara kontrola musi zostać zastąpiona, a nie uzupełniona, inaczej dwie reguły zaczną dawać różne komunikaty dla tej samej operacji. Najtrudniejsze jest przeniesienie: przeniesiony węzeł z poddrzewem musi spełnić regułę względem korzenia docelowego, a przeniesienie korzenia pod inny węzeł zmienia jego status z korzenia na węzeł podrzędny. Drzewa wskazywane przez zapisane ekrany (`S-06`) dziedziczą skutki reguły: węzeł odrzucony w drzewie nie pojawi się w ekranie, a naprawa istniejących danych usuwa węzły razem z ich przypisaniami kategorii. Testy reguł (`TreeRulesTests`) trzeba zaktualizować razem z kodem, a z `CLAUDE.md` („Kontekst produktowy") usunąć zdanie, że kod egzekwuje jeszcze starą regułę.
-- **Status:** in-progress
+- **Status:** done
 
 ## Backlog Handoff
 
@@ -341,3 +341,5 @@ Rozstrzygnięte:
 ## Done
 
 (Empty on first generation. `/10x-archive` appends an entry here — and flips that item's `Status` to `done` — when a change whose `Change ID` matches the item is archived.)
+
+- **S-12: Dyspozytor buduje drzewo, które może mieć wiele korzeni, a aplikacja pilnuje reguł użycia obiektów** — Archived 2026-10-10 → `context/archive/2026-10-08-kontrola-drzewa/`. Lesson: —.

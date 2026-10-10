@@ -1,10 +1,10 @@
 ---
 change_id: kontrola-drzewa
 title: Kontrola drzewa
-status: implemented
+status: archived
 created: 2026-10-08
-updated: 2026-10-08
-archived_at: null
+updated: 2026-10-10
+archived_at: 2026-10-10T06:44:42Z
 ---
 
 ## Notes
