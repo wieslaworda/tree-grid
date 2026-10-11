@@ -523,6 +523,9 @@ function GridDoby({
           tekstPusty={TEKST_PUSTY}
           kolumnyCzasowe={kolumnyCzasowe}
           tylkoNazwaKategorii
+          // Grid za zasłoną z postępem, dopóki nie zbuduje się w całości —
+          // duże drzewo nie pokazuje wtedy kolejnych etapów budowy.
+          wczytywanie={dane.wczytywanie}
         />
 
         <div className="flex items-center gap-tg-element">

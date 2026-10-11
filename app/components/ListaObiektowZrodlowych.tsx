@@ -95,8 +95,9 @@ export function ListaObiektowZrodlowych({
   zajete,
 }: Wlasciwosci) {
   const [filtr, ustawFiltr] = useState("");
-  // Domyślnie odznaczony: lista pokazuje cały słownik, jak dotąd.
-  const [bezUzytych, ustawBezUzytych] = useState(false);
+  // Domyślnie zaznaczony: lista od razu chowa obiekty, których nie da się
+  // dodać, więc przeciągany wiersz trafia do drzewa bez odmowy.
+  const [bezUzytych, ustawBezUzytych] = useState(true);
   // Czy kursor z węzłem drzewa jest nad listą — tylko do wyróżnienia celu.
   const [nadLista, ustawNadLista] = useState(false);
   const kontener = useRef<HTMLDivElement>(null);

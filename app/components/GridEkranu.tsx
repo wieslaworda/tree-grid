@@ -1,8 +1,9 @@
-import { Empty, Table, type TableColumnsType, theme } from "antd";
+import { Empty, Spin, Table, type TableColumnsType, theme } from "antd";
 import {
   type CSSProperties,
   memo,
   useCallback,
+  useEffect,
   useMemo,
   useRef,
   useState,
@@ -79,6 +80,15 @@ type Wlasciwosci = {
    * kolumna ma „KOD — Nazwa” i stałą `METRYKI.szerokoscKolumnyKategorii`.
    */
   tylkoNazwaKategorii?: boolean;
+  /**
+   * Rodzic wciąż wczytuje dane gridu (widok „Prezentacja ekranu”). Podany
+   * włącza zasłonę: grid jest niewidoczny, a na jego miejscu kręci się
+   * postęp, dopóki dane nie przyjdą **i** grid nie skończy budowy — pomiar
+   * kontenera, szerokość „Kategorii”, jedna klatka na ponowne pomiary po
+   * pierwszym renderze z danymi. Bez tej właściwości grid rysuje każdy etap
+   * od razu, jak w widoku „Ekrany”.
+   */
+  wczytywanie?: boolean;
 };
 
 /**
@@ -318,6 +328,7 @@ export function GridEkranu({
   onWybierzWezel,
   kolumnyCzasowe,
   tylkoNazwaKategorii = false,
+  wczytywanie,
 }: Wlasciwosci) {
   const punkty = kolumnyCzasowe?.punkty;
   const wartosci = kolumnyCzasowe?.wartosci;
@@ -505,6 +516,30 @@ export function GridEkranu({
     [token.colorPrimary],
   );
 
+  // Zasłona budowy: grid gotowy, gdy dane są i oba pomiary już spłynęły.
+  // Odsłonięcie dopiero klatkę później — pierwszy render z danymi zmienia
+  // nagłówek, a `useWysokoscTresci` mierzy go ponownie po zatwierdzeniu,
+  // więc bez tej klatki widać byłoby jeszcze przeliczenie wysokości.
+  // Ukrycie natomiast działa od razu w renderze, bez czekania na efekt.
+  const gotowy =
+    wczytywanie === false &&
+    wysokoscTresci !== undefined &&
+    (!tylkoNazwaKategorii || szerokoscNazw !== undefined);
+  const [odsloniety, ustawOdsloniety] = useState(false);
+
+  useEffect(() => {
+    if (!gotowy) {
+      ustawOdsloniety(false);
+      return;
+    }
+
+    const klatka = requestAnimationFrame(() => ustawOdsloniety(true));
+
+    return () => cancelAnimationFrame(klatka);
+  }, [gotowy]);
+
+  const zasloniety = wczytywanie !== undefined && !(gotowy && odsloniety);
+
   const tekstyTabeli = useMemo(
     () => ({
       emptyText: (
@@ -515,22 +550,37 @@ export function GridEkranu({
   );
 
   return (
-    <ObszarPrzewijania ref={kontener} przycinanie>
-      {/* `tg-grid-ekranu` — grubsze i widoczne paski przewijania listy
-          wirtualnej (`app/app.css`); ich kolor niesie `stylTabeli`. */}
-      <Table<WierszTabeli>
-        className="tg-grid-ekranu"
-        style={stylTabeli}
-        virtual
-        size="small"
-        rowKey="key"
-        columns={kolumny}
-        dataSource={wiersze}
-        pagination={false}
-        scroll={przewijanie}
-        locale={tekstyTabeli}
-      />
-    </ObszarPrzewijania>
+    // Opakowanie przejmuje od `ObszarPrzewijania` miejsce w kolumnie flex
+    // rodzica (`min-h-0 flex-1`) i daje zasłonie punkt odniesienia.
+    <div
+      className="relative flex min-h-0 flex-1 flex-col"
+      aria-busy={zasloniety}
+    >
+      <ObszarPrzewijania ref={kontener} przycinanie>
+        {/* `tg-grid-ekranu` — grubsze i widoczne paski przewijania listy
+            wirtualnej (`app/app.css`); ich kolor niesie `stylTabeli`.
+            Pod zasłoną `invisible`, a nie `hidden`: tabela musi mieć układ,
+            bo z niego biorą się pomiary, na które zasłona czeka. */}
+        <Table<WierszTabeli>
+          className={zasloniety ? "tg-grid-ekranu invisible" : "tg-grid-ekranu"}
+          style={stylTabeli}
+          virtual
+          size="small"
+          rowKey="key"
+          columns={kolumny}
+          dataSource={wiersze}
+          pagination={false}
+          scroll={przewijanie}
+          locale={tekstyTabeli}
+        />
+      </ObszarPrzewijania>
+
+      {zasloniety ? (
+        <div className="absolute inset-0 flex items-center justify-center">
+          <Spin size="large" />
+        </div>
+      ) : null}
+    </div>
   );
 }
 

@@ -68,6 +68,9 @@ type CelUpuszczenia = number | "najwyzszy-poziom" | null;
  * rc-tree przy `draggable` przechwyciłby zdarzenie, a bez `dragNodeProps`
  * zresetowałby stan i zignorował upuszczenie (`Tree.js`, `onNodeDragEnter`,
  * `onNodeDrop`). Przeciągania węzła wewnątrz drzewa te handlery nie dotykają.
+ * Wiersz **zaznaczonego** węzła przyjmuje upuszczenie w całości, nie tylko na
+ * tytule: korzeń przechwytuje jego zdarzenia w fazie przechwytywania, zanim
+ * dotrą do rc-tree.
  *
  * **Przeciąganie węzła na listę obiektów** (usunięcie) zaczyna się tutaj:
  * `onDragStart` dokłada {@link TYP_PRZECIAGANEGO_WEZLA} z identyfikatorem
@@ -181,7 +184,8 @@ export function DrzewoStruktury({
     // wypełnia przewijany kontener widoku). Upuszczenie na tytuł węzła do niej
     // nie dociera — zatrzymuje je handler tytułu; na resztę wiersza węzła
     // (wcięcie, strzałka) też nie — tam zdarzenie zatrzymuje rc-tree
-    // i upuszczenie z listy przepada.
+    // i upuszczenie z listy przepada. Poza wierszem zaznaczonego węzła — ten
+    // przechwytują handlery fazy przechwytywania niżej.
     <div
       className={
         cel === "najwyzszy-poziom" ? "min-h-full bg-tg-hover-wiersza" : "min-h-full"
@@ -191,9 +195,52 @@ export function DrzewoStruktury({
       // z powrotem tylko ten, kto przyjmie upuszczenie. Dzięki temu nad
       // wcięciem węzła, gdzie rc-tree połyka zdarzenie, nic nie jest
       // wyróżnione.
+      //
+      // Wyjątek: wiersz zaznaczonego węzła jest celem w całości (wcięcie,
+      // strzałka i tło obok tytułu), bo to zaznaczenie wskazuje, dokąd
+      // użytkownik dodaje. Zdarzenia z tego wiersza zatrzymuje tutaj, zanim
+      // dotrą do rc-tree, które przyjęłoby upuszczenie i je zignorowało.
       onDragEnterCapture={(zdarzenie) => {
-        if (zListy(zdarzenie)) {
+        if (!zListy(zdarzenie)) {
+          return;
+        }
+
+        if (wybranyWezelId !== null && wWierszuZaznaczonym(zdarzenie.target)) {
+          zdarzenie.stopPropagation();
+          nadCelem(zdarzenie, wybranyWezelId);
+        } else {
           ustawCel(null);
+        }
+      }}
+      onDragOverCapture={(zdarzenie) => {
+        if (
+          wybranyWezelId !== null &&
+          zListy(zdarzenie) &&
+          wWierszuZaznaczonym(zdarzenie.target)
+        ) {
+          zdarzenie.stopPropagation();
+          nadCelem(zdarzenie, wybranyWezelId);
+        }
+      }}
+      onDragLeaveCapture={(zdarzenie) => {
+        // Przejście wewnątrz zaznaczonego wiersza (np. z tytułu na tło obok)
+        // nie gasi wyróżnienia — handler tytułu by je zgasił.
+        if (
+          zListy(zdarzenie) &&
+          wWierszuZaznaczonym(zdarzenie.target) &&
+          wWierszuZaznaczonym(zdarzenie.relatedTarget)
+        ) {
+          zdarzenie.stopPropagation();
+        }
+      }}
+      onDropCapture={(zdarzenie) => {
+        if (
+          wybranyWezelId !== null &&
+          zListy(zdarzenie) &&
+          wWierszuZaznaczonym(zdarzenie.target)
+        ) {
+          zdarzenie.stopPropagation();
+          upusc(zdarzenie, wybranyWezelId);
         }
       }}
       onDragEnter={(zdarzenie) => {
@@ -272,6 +319,18 @@ export function DrzewoStruktury({
         )}
       </Spin>
     </div>
+  );
+}
+
+/**
+ * Czy element leży w wierszu zaznaczonego węzła. Węzeł rc-tree to
+ * `role="treeitem"` z `aria-selected` (wiersze nie są zagnieżdżone — wcięcie
+ * to odstęp, nie rodzic w DOM), więc wystarcza najbliższy taki przodek.
+ */
+function wWierszuZaznaczonym(element: EventTarget | null): boolean {
+  return (
+    element instanceof Element &&
+    element.closest('[role="treeitem"][aria-selected="true"]') !== null
   );
 }
 
