@@ -67,6 +67,11 @@ Każdy dyspozytor ma inne potrzeby operacyjne, więc jeden uniwersalny, sztywny 
 ### Konta i dostęp
 - FR-001: Użytkownik może założyć konto i zalogować się (e-mail + hasło). Priority: must-have
   > Socrates: Rozważone kontrargumenty: "dane są losowe, więc wystarczyłby jeden wspólny profil" oraz "własna rejestracja to dodatkowa powierzchnia zamiast pracy nad kontrolką". Rozstrzygnięcie: FR zostaje — separacja ekranów między użytkownikami jest częścią problemu, nie dodatkiem.
+  > Zmienione 2026-10-10 — zakładanie konta z kodem weryfikacyjnym:
+  > - Przy zakładaniu konta użytkownik podaje login, hasło i adres e-mail.
+  > - Aplikacja wysyła kod weryfikacyjny na adres administratora `wieslaworda@gmail.com`, a nie na adres podany w formularzu. Administrator przekazuje kod osobie, której konto akceptuje. Kod zastępuje dotychczasowy wspólny kod rejestracyjny.
+  > - W następnym kroku pojawia się formularz z polem na kod weryfikacyjny. Konto powstaje dopiero po poprawnym podaniu kodu.
+  > - Użytkownik loguje się loginem i hasłem. Adres e-mail jest daną konta, a nie identyfikatorem logowania.
 
 ### Obiekty i struktura drzewa
 - FR-002: Użytkownik może przeglądać, dodawać i edytować obiekty dostępne do budowy drzewa. Obiekt to kod i nazwa — słownik nie przechowuje relacji między obiektami (podobiektów); hierarchię buduje użytkownik w drzewie. Priority: must-have
@@ -131,7 +136,7 @@ Ekran wylicza swoje wiersze z aktualnej struktury wskazanego drzewa: każdy węz
 
 ## Access Control
 
-Logowanie e-mail + hasło. Model płaski — każdy zalogowany użytkownik ma te same uprawnienia i widzi wyłącznie własne drzewa i własne, zapisane ekrany; lista ekranów pokazuje tylko ekrany zalogowanego użytkownika, a ekran może wskazywać wyłącznie drzewo tego samego użytkownika. Brak ról administracyjnych w MVP. Wszystkie widoki wymagają zalogowania — brak dostępu dla niezalogowanych użytkowników.
+Logowanie login + hasło (od 2026-10-10; wcześniej e-mail + hasło). Konto powstaje dopiero po potwierdzeniu kodem weryfikacyjnym wysłanym na adres administratora (FR-001), więc nikt nie założy konta bez jego zgody. Model płaski — każdy zalogowany użytkownik ma te same uprawnienia i widzi wyłącznie własne drzewa i własne, zapisane ekrany; lista ekranów pokazuje tylko ekrany zalogowanego użytkownika, a ekran może wskazywać wyłącznie drzewo tego samego użytkownika. Brak ról administracyjnych w MVP. Wszystkie widoki wymagają zalogowania — brak dostępu dla niezalogowanych użytkowników.
 
 ## Non-Goals
 

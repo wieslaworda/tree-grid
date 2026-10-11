@@ -21,17 +21,24 @@ const baseURL = `http://localhost:${PORT}`;
 // zajętego portu, zamiast po cichu podpiąć testy pod bazę deweloperską.
 const API_URL = "http://127.0.0.1:5180";
 
-// Świeża baza i sekrety na każde uruchomienie. Konfigurację ewaluuje proces
-// główny i ponownie każdy worker, więc usunięcie bazy i losowanie sekretów
-// zachodzą tylko raz — w procesie głównym — a workery dziedziczą wartości przez
-// `process.env` (inaczej `auth.setup.ts` wpisałby inny kod rejestracyjny niż
-// ten, który dostało API). Sekretów nie zapisujemy ani nie logujemy.
+// Świeża baza, pusta skrzynka i nowy klucz podpisu sesji na każde uruchomienie.
+// Konfigurację ewaluuje proces główny i ponownie każdy worker, więc sprzątanie
+// i losowanie klucza zachodzą tylko raz — w procesie głównym, rozpoznanym po
+// braku `E2E_SESSION_SIGNING_KEY` — a workery dziedziczą wartości przez
+// `process.env`. Inaczej worker z `auth.setup.ts` skasowałby wiadomość z kodem,
+// którą API właśnie zapisało. Klucza nie zapisujemy ani nie logujemy.
 const DB_DIR = join(import.meta.dirname, ".e2e");
 const DB_FILE = join(DB_DIR, "treegrid-e2e.db");
-if (!process.env.E2E_REGISTRATION_CODE) {
+// Transport poczty `Directory`: API zapisuje tu jeden plik `.eml` na wiadomość
+// z kodem weryfikacyjnym, a `auth.setup.ts` czyta z niego kod (krok 2
+// rejestracji). Ścieżka idzie do setupu przez `process.env`, żeby obie strony
+// nie liczyły jej osobno.
+const MAIL_DIR = join(DB_DIR, "MailOutbox");
+process.env.E2E_MAIL_OUTBOX = MAIL_DIR;
+if (!process.env.E2E_SESSION_SIGNING_KEY) {
   for (const sufiks of ["", "-wal", "-shm"]) rmSync(DB_FILE + sufiks, { force: true });
+  rmSync(MAIL_DIR, { recursive: true, force: true });
   mkdirSync(DB_DIR, { recursive: true });
-  process.env.E2E_REGISTRATION_CODE = randomBytes(16).toString("hex");
   process.env.E2E_SESSION_SIGNING_KEY = randomBytes(32).toString("hex");
 }
 
@@ -69,8 +76,12 @@ export default defineConfig({
       env: {
         ASPNETCORE_ENVIRONMENT: "Development",
         ConnectionStrings__Default: `Data Source=${DB_FILE}`,
-        Auth__RegistrationCode: process.env.E2E_REGISTRATION_CODE!,
         Auth__SessionSigningKey: process.env.E2E_SESSION_SIGNING_KEY!,
+        // Kod weryfikacyjny do pliku `.eml` w `.e2e/`, a nie przez SMTP — bez
+        // skrzynki i bez hasła; `src/Api/MailOutbox/` z pętli deweloperskiej
+        // zostaje nietknięty.
+        Mail__Transport: "Directory",
+        Mail__Directory__Path: MAIL_DIR,
         // Log błędów API obok bazy E2E, a nie w deweloperskim `src/Api/Log/`.
         FileLogging__Directory: join(DB_DIR, "Log"),
       },

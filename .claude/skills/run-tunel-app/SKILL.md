@@ -310,28 +310,49 @@ którym broni reszta tego skilla. API startuje pierwsze.
 
 ### Sekrety, bez których API nie wstanie
 
-Od plastra `konto-i-logowanie` API czyta dwa sekrety — kod rejestracyjny i klucz
-podpisu ciasteczka sesji (`src/Api/Auth/AuthSecrets.cs`). Poza środowiskiem
-`Development` ich brak **przerywa start**: proces zapisuje w
-`.tunnel-run/api.err.log` wpis krytyczny z nazwą brakującego klucza i kończy się
-kodem 1. `start-api.ps1` domyślnie ustawia `ASPNETCORE_ENVIRONMENT` na
-`Production`, więc dotyczy to zwykłego uruchomienia. To nie jest awaria skryptu
-ani uszkodzony build — to niekompletna konfiguracja i tylko tak należy to
-czytać.
+API czyta dwa sekrety — klucz podpisu ciasteczka sesji
+(`src/Api/Auth/AuthSecrets.cs`) i hasło aplikacji Gmail, którym wysyła
+administratorowi kod weryfikacyjny rejestracji (`src/Api/Mail/MailSettings.cs`,
+plaster `zakladanie-konta`). Poza środowiskiem `Development` brak klucza albo
+niekompletna sekcja `Mail` (transport musi być `Smtp`, a `Host`, `Port`,
+`UserName`, `Password`, `From` i `AdminAddress` niepuste) **przerywa start**:
+proces zapisuje w `.tunnel-run/api.err.log` wpis krytyczny z nazwą brakującego
+klucza i kończy się kodem 1. `start-api.ps1` domyślnie ustawia
+`ASPNETCORE_ENVIRONMENT` na `Production`, więc dotyczy to zwykłego uruchomienia.
+To nie jest awaria skryptu ani uszkodzony build — to niekompletna konfiguracja
+i tylko tak należy to czytać. `Host` (`smtp.gmail.com`), `Port` (587)
+i `AdminAddress` stoją już w `src/Api/appsettings.json`; ustawić trzeba resztę.
+
+Konto Gmail nadawcy musi mieć włączoną **weryfikację dwuetapową (2FA)** —
+bez niej Google nie wyda hasła aplikacji. `Mail__Smtp__Password` to **hasło
+aplikacji** (Konto Google → Bezpieczeństwo → Hasła aplikacji), a nie hasło
+do konta; `Mail__Smtp__UserName` to adres tego konta Gmail, a `Mail__From`
+— zwykle ten sam adres.
 
 Wartości nie ma w repozytorium i nie ma jej tam być (`context/foundation/lessons.md`,
-wpis o sekretach). Ustaw je raz dla swojego konta, **przed** uruchomieniem API;
-dwukropek z klucza konfiguracji zapisuje się jako podwójne podkreślenie:
+wpis o sekretach) — wpisujesz je samodzielnie, nie w rozmowie z agentem. Ustaw
+je raz dla swojego konta, **przed** uruchomieniem API; dwukropek z klucza
+konfiguracji zapisuje się jako podwójne podkreślenie:
 
 ```powershell
-[Environment]::SetEnvironmentVariable('Auth__RegistrationCode', '<kod>', 'User')
-[Environment]::SetEnvironmentVariable('Auth__SessionSigningKey', '<co najmniej 32 znaki>', 'User')
+[Environment]::SetEnvironmentVariable('Auth__SessionSigningKey', '<wartość>', 'User')
+[Environment]::SetEnvironmentVariable('Mail__Smtp__UserName', '<wartość>', 'User')
+[Environment]::SetEnvironmentVariable('Mail__Smtp__Password', '<wartość>', 'User')
+[Environment]::SetEnvironmentVariable('Mail__From', '<wartość>', 'User')
 ```
 
-Zmienną widzą wyłącznie procesy uruchomione po jej ustawieniu, więc otwarty
-terminal trzeba otworzyć ponownie — inaczej skrypt dalej startuje w starym
-środowisku i odmawia z tym samym komunikatem. Dla `-Environment Development`
-odpowiednikiem jest `dotnet user-secrets set "<klucz>" "<wartość>" --project src/Api`.
+Klucz podpisu ma co najmniej 32 znaki. Zmienną widzą wyłącznie procesy
+uruchomione po jej ustawieniu, więc otwarty terminal trzeba otworzyć ponownie —
+inaczej skrypt dalej startuje w starym środowisku i odmawia z tym samym
+komunikatem. Dla `-Environment Development` odpowiednikiem jest
+`dotnet user-secrets set "<klucz>" "<wartość>" --project src/Api` (np.
+`Mail:Smtp:Password`). W Development transport domyślnie to `Directory`:
+wiadomość z kodem ląduje jako plik `.eml` w `src/Api/MailOutbox/`, bez SMTP
+i bez hasła Gmail.
+
+Porażka wysyłki (np. złe hasło aplikacji) nie zatrzymuje API: krok 1
+rejestracji odpowiada `mail_unavailable`, nie zostawia oczekującej rejestracji,
+a przyczyna — bez kodu — trafia do `src/Api/Log/api-YYYYMMDD.log`.
 
 Osobna konsekwencja dla wykrywania gotowości: serwer produkcyjny podniesiony bez
 działającego API **nadal zgłosi gotowość**. `/` przekierowuje teraz na

@@ -93,17 +93,17 @@ test("requestApi: unreachable API is logged with its cause and hidden from the b
 
 test("requestAccount: unreachable API is logged without credentials and hidden from the browser", async () => {
   const sufiks = Date.now().toString(36);
-  const email = `node-${sufiks}@example.test`;
+  const login = `login-node-${sufiks}`;
   const password = `haslo-${sufiks}`;
 
-  const wynik = await requestAccount(AUTH_LOGIN_PATH, { email, password });
+  const wynik = await requestAccount(AUTH_LOGIN_PATH, { login, password });
 
   expect(wynik.ok).toBe(false);
   if (wynik.ok) return;
   expect(wynik.status).toBe(502);
   oczekujLinii("POST", AUTH_LOGIN_PATH);
   const linia = String(stderr[0][0]);
-  expect(linia).not.toContain(email);
+  expect(linia).not.toContain(login);
   expect(linia).not.toContain(password);
   oczekujKopertyBezSzczegolow(wynik.error);
 });

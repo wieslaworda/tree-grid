@@ -8,31 +8,35 @@ import {
   useNavigation,
 } from "react-router";
 
+import { PanelUwierzytelniania } from "~/components/PanelUwierzytelniania";
 import type { ApiErrorBody } from "~/lib/api.server";
 import {
-  AUTH_REGISTER_PATH,
   HOME_ROUTE,
-  createUserSession,
+  REGISTER_CONFIRM_ROUTE,
   getUser,
-  requestAccount,
+  requestRegistration,
   requireSameOrigin,
 } from "~/lib/auth.server";
 
 import type { Route } from "./+types/rejestracja";
 
 /** Patrz `logowanie.tsx` — ta sama rola, o jedno pole dłuższa lista. */
-const POLA_FORMULARZA = ["email", "password", "registrationCode"] as const;
+const POLA_FORMULARZA = ["login", "email", "password"] as const;
 
 export function meta() {
   return [{ title: "Rejestracja — TreeGrid" }];
 }
 
 /**
- * Rejestracja stoi poza bramą z tego samego powodu co logowanie: przed
- * założeniem konta nie ma sesji, którą można by sprawdzić. Bramką jest tu kod
- * rejestracyjny weryfikowany przez API — `trycloudflare.com` nie obsługuje
- * Cloudflare Access (`infrastructure.md:222`), więc przed tym formularzem nie
- * stoi nic innego.
+ * Krok 1 rejestracji. Stoi poza bramą z tego samego powodu co logowanie: przed
+ * założeniem konta nie ma sesji, którą można by sprawdzić.
+ *
+ * Ten formularz konta nie zakłada. API zapisuje oczekującą rejestrację
+ * i wysyła jednorazowy kod weryfikacyjny administratorowi, a konto powstaje
+ * dopiero w kroku 2 (`routes/rejestracja-potwierdzenie.tsx`), gdy osoba wpisze
+ * kod, który administrator jej przekazał. Ten kod jest bramką przed
+ * rejestracją — `trycloudflare.com` nie obsługuje Cloudflare Access
+ * (`infrastructure.md:222`), więc przed tym formularzem nie stoi nic innego.
  */
 export async function loader({ request }: Route.LoaderArgs) {
   if ((await getUser(request)) !== null) {
@@ -49,33 +53,33 @@ export async function action({ request }: Route.ActionArgs) {
 
   // Nazwy pól są wspólnym kontraktem z `AuthFormFields`
   // (`src/Api/Auth/AuthEndpoints.cs`) — patrz komentarz w `logowanie.tsx`.
-  const result = await requestAccount(AUTH_REGISTER_PATH, {
+  const result = await requestRegistration({
+    login: String(formData.get("login") ?? ""),
     email: String(formData.get("email") ?? ""),
     password: String(formData.get("password") ?? ""),
-    registrationCode: String(formData.get("registrationCode") ?? ""),
   });
 
   if (!result.ok) {
+    // Także `rate_limited` (429) i `mail_unavailable` (503): oba mają pusty
+    // `context`, więc trafiają do banera komunikatem koperty z API.
     return data(result.error, { status: result.status });
   }
 
-  // Sesja zakładana od razu po rejestracji. Odesłanie na formularz logowania
-  // wymagałoby przeniesienia przez przekierowanie informacji „konto powstało",
-  // bo bez niej użytkownik nie odróżnia sukcesu od nic-nierobienia — a to
-  // więcej stanu niż wystawienie ciasteczka komuś, kto przed chwilą podał
-  // poprawny kod rejestracyjny.
-  return createUserSession(result.user, HOME_ROUTE);
+  // Login w adresie, a nie w sesji ani w ciasteczku: rejestrację wskazuje
+  // zarezerwowany login, więc krok 2 da się otworzyć także później i z innego
+  // urządzenia — gdy administrator przekaże kod. Login z odpowiedzi API, bo
+  // to on (po przycięciu) jest kluczem rejestracji.
+  return redirect(
+    `${REGISTER_CONFIRM_ROUTE}?login=${encodeURIComponent(result.login)}`,
+  );
 }
 
 /**
  * Budowa formularza — dwa komponenty `Form` o rozłącznych rolach, podział
  * walidacji na natywną i antd, jawne `name` na polach — jest opisana
- * w `logowanie.tsx`. Tutaj dochodzi jedno pole: kod rejestracyjny.
- *
- * Kod świadomie nie ma w przeglądarce żadnej reguły poza „niepusty". Jego
- * format jest sekretem konfiguracji (`Auth:RegistrationCode`), a wzorzec
- * sprawdzany po stronie klienta rozgłaszałby, jak ten sekret wygląda — komu
- * pasuje kod, rozstrzyga wyłącznie API.
+ * w `logowanie.tsx`. Tutaj dochodzą pola, z których API składa wniosek o konto:
+ * login (przyszły identyfikator logowania) i adres e-mail (dana konta, którą
+ * administrator widzi w wiadomości z kodem).
  */
 export default function Rejestracja() {
   const blad = useActionData<ApiErrorBody>();
@@ -86,114 +90,117 @@ export default function Rejestracja() {
   const wysylanie = nawigacja.state !== "idle";
 
   return (
-    <main className="flex min-h-screen items-center justify-center bg-tg-tlo p-6">
-      {/*
-        Ten sam panel co w `logowanie.tsx`, klasa w klasę. Wcześniej te dwa
-        ekrany nie miały ze sobą nic wspólnego — jeden stał na gradiencie ze
-        szkłem, drugi na gołym `max-w-md p-8` — i użytkownik przechodzący
-        z jednego na drugi widział dwa różne produkty. Jeśli zmieniasz panel
-        tutaj, zmień go tam; jeśli robisz to po raz trzeci, to jest sygnał, żeby
-        wyciągnąć go do wspólnego komponentu w `app/components/`.
-      */}
-      <div className="w-full max-w-md rounded-xs border border-tg-linia bg-tg-panel p-8">
-        {/* `Typography.Title`, a nie `<h1>` jak w logowaniu, i to zostaje:
-            dzięki temu ścieżka SSR przez antd (CLAUDE.md, kontrakty 1 i 2)
-            jest ćwiczona także na tym ekranie. */}
-        <Typography.Title level={1} className="text-center">
-          Rejestracja
-        </Typography.Title>
+    // Panel wspólny z logowaniem i krokiem 2 —
+    // `app/components/PanelUwierzytelniania.tsx`.
+    <PanelUwierzytelniania>
+      {/* `Typography.Title`, a nie `<h1>` jak w logowaniu, i to zostaje:
+          dzięki temu ścieżka SSR przez antd (CLAUDE.md, kontrakty 1 i 2)
+          jest ćwiczona także na tym ekranie. */}
+      <Typography.Title level={1} className="text-center">
+        Rejestracja
+      </Typography.Title>
 
-        {ogolny === undefined ? null : (
-          <Alert className="mb-6" type="error" showIcon message={ogolny} />
-        )}
+      {ogolny === undefined ? null : (
+        <Alert className="mb-6" type="error" showIcon message={ogolny} />
+      )}
 
-        <RouterForm method="post">
-          <AntForm component={false} layout="vertical">
-            {/* `size="large"` na polach i na CTA jest tym samym wyborem co
-                w logowaniu i z tego samego powodu — przy `controlHeight: 24`
-                daje 30 px. Rozjazd wysokości między tymi dwoma ekranami jest
-                dokładnie tą niespójnością, którą ta faza usuwa. */}
-            <AntForm.Item
-              label="Adres e-mail"
-              name="email"
-              rules={[
-                { required: true },
-                { type: "email", message: "Podaj poprawny adres e-mail." },
-              ]}
-              validateStatus={pola.email === undefined ? undefined : "error"}
-              help={pola.email}
-            >
-              <Input
-                name="email"
-                type="email"
-                autoComplete="username"
-                size="large"
-                required
-              />
-            </AntForm.Item>
-
-            <AntForm.Item
-              label="Hasło"
-              name="password"
-              // Żadnej reguły długości ani złożoności: te ustawia Identity po
-              // stronie API i stamtąd przychodzą ich komunikaty. Powtórzenie ich
-              // tutaj dawałoby dwa źródła prawdy, z których jedno cicho starzeje
-              // się przy każdej zmianie konfiguracji hasła.
-              rules={[{ required: true }]}
-              validateStatus={pola.password === undefined ? undefined : "error"}
-              help={pola.password}
-            >
-              <Input.Password
-                name="password"
-                autoComplete="new-password"
-                size="large"
-                required
-              />
-            </AntForm.Item>
-
-            <AntForm.Item
-              label="Kod rejestracyjny"
-              name="registrationCode"
-              rules={[{ required: true }]}
-              validateStatus={
-                pola.registrationCode === undefined ? undefined : "error"
-              }
-              help={pola.registrationCode}
-            >
-              <Input
-                name="registrationCode"
-                autoComplete="off"
-                size="large"
-                required
-              />
-            </AntForm.Item>
-
-            <AntForm.Item className="mt-8 mb-0">
-              <Button
-                type="primary"
-                htmlType="submit"
-                block
-                size="large"
-                loading={wysylanie}
-                disabled={wysylanie}
-              >
-                Załóż konto
-              </Button>
-            </AntForm.Item>
-          </AntForm>
-        </RouterForm>
-
-        <Typography.Paragraph className="mt-8 mb-0 text-center text-tg-tekst-drugorzedny">
-          Masz już konto?{" "}
-          <Link
-            to="/logowanie"
-            className="font-semibold text-tg-akcent underline-offset-4 hover:underline"
+      <RouterForm method="post">
+        <AntForm component={false} layout="vertical">
+          {/* `size="large"` na polach i na CTA jest tym samym wyborem co
+              w logowaniu i z tego samego powodu — przy `controlHeight: 24`
+              daje 30 px. Rozjazd wysokości między ekranami uwierzytelniania
+              jest dokładnie tą niespójnością, której wspólny panel ma
+              zapobiegać. */}
+          <AntForm.Item
+            label="Login"
+            name="login"
+            // Wyłącznie „niepusty”: długość i dozwolone znaki loginu sprawdza
+            // API (`RegistrationRules`) i stamtąd przychodzi komunikat.
+            rules={[{ required: true }]}
+            validateStatus={pola.login === undefined ? undefined : "error"}
+            help={pola.login}
           >
-            Zaloguj się
-          </Link>
-        </Typography.Paragraph>
-      </div>
-    </main>
+            <Input
+              name="login"
+              autoComplete="username"
+              size="large"
+              required
+            />
+          </AntForm.Item>
+
+          <AntForm.Item
+            label="Adres e-mail"
+            name="email"
+            rules={[
+              { required: true },
+              { type: "email", message: "Podaj poprawny adres e-mail." },
+            ]}
+            validateStatus={pola.email === undefined ? undefined : "error"}
+            help={pola.email}
+          >
+            <Input
+              name="email"
+              type="email"
+              autoComplete="email"
+              size="large"
+              required
+            />
+          </AntForm.Item>
+
+          <AntForm.Item
+            label="Hasło"
+            name="password"
+            // Żadnej reguły długości ani złożoności: te ustawia Identity po
+            // stronie API i stamtąd przychodzą ich komunikaty. Powtórzenie ich
+            // tutaj dawałoby dwa źródła prawdy, z których jedno cicho starzeje
+            // się przy każdej zmianie konfiguracji hasła.
+            rules={[{ required: true }]}
+            validateStatus={pola.password === undefined ? undefined : "error"}
+            help={pola.password}
+          >
+            <Input.Password
+              name="password"
+              autoComplete="new-password"
+              size="large"
+              required
+            />
+          </AntForm.Item>
+
+          <AntForm.Item className="mt-8 mb-0">
+            <Button
+              type="primary"
+              htmlType="submit"
+              block
+              size="large"
+              loading={wysylanie}
+              disabled={wysylanie}
+            >
+              Wyślij wniosek o konto
+            </Button>
+          </AntForm.Item>
+        </AntForm>
+      </RouterForm>
+
+      <Typography.Paragraph className="mt-8 mb-0 text-center text-tg-tekst-drugorzedny">
+        Masz już kod weryfikacyjny?{" "}
+        <Link
+          to="/rejestracja/potwierdzenie"
+          className="font-semibold text-tg-akcent underline-offset-4 hover:underline"
+        >
+          Potwierdź rejestrację
+        </Link>
+      </Typography.Paragraph>
+
+      <Typography.Paragraph className="mt-2 mb-0 text-center text-tg-tekst-drugorzedny">
+        Masz już konto?{" "}
+        <Link
+          to="/logowanie"
+          className="font-semibold text-tg-akcent underline-offset-4 hover:underline"
+        >
+          Zaloguj się
+        </Link>
+      </Typography.Paragraph>
+    </PanelUwierzytelniania>
   );
 }
 
@@ -208,7 +215,11 @@ function naruszeniaPol(
     : {};
 }
 
-/** Patrz `logowanie.tsx` — ten sam wybór treści banera. */
+/**
+ * Patrz `logowanie.tsx` — ten sam wybór treści banera. Odmowy bez pól
+ * (`rate_limited`, `mail_unavailable`, `api_unreachable`) wychodzą komunikatem
+ * koperty.
+ */
 function komunikatOgolny(
   blad: ApiErrorBody | undefined,
   pola: Record<string, string | undefined>,

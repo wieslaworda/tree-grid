@@ -8,6 +8,7 @@ import {
   useNavigation,
 } from "react-router";
 
+import { PanelUwierzytelniania } from "~/components/PanelUwierzytelniania";
 import type { ApiErrorBody } from "~/lib/api.server";
 import {
   AUTH_LOGIN_PATH,
@@ -26,16 +27,17 @@ import type { Route } from "./+types/logowanie";
  * pójść do banera. Nazwy są te same co w `AuthFormFields`
  * (`src/Api/Auth/AuthEndpoints.cs`).
  */
-const POLA_FORMULARZA = ["email", "password"] as const;
+const POLA_FORMULARZA = ["login", "password"] as const;
 
 export function meta() {
   return [{ title: "Logowanie — TreeGrid" }];
 }
 
 /**
- * Ekran logowania jest — obok rejestracji — jedynym widokiem dostępnym bez
- * sesji. Stoi **poza** layoutem `routes/chronione.tsx` (`app/routes.ts`), bo
- * brama, która odsyła tutaj, odesłałaby tu również z tego adresu.
+ * Ekran logowania jest — obok obu kroków rejestracji — jedynym widokiem
+ * dostępnym bez sesji. Stoi **poza** layoutem `routes/chronione.tsx`
+ * (`app/routes.ts`), bo brama, która odsyła tutaj, odesłałaby tu również
+ * z tego adresu.
  *
  * Musi zwracać 200 bez sesji nie tylko dla użytkownika: na tym opiera się
  * wykrywanie gotowości w `start-prod-tunnel.ps1:210`, które po wprowadzeniu
@@ -61,7 +63,7 @@ export async function action({ request }: Route.ActionArgs) {
   // walidacji. Zgodności nie sprawdza ani kompilator, ani `npm run typecheck`:
   // rozjazd nie daje błędu, tylko komunikat, który nigdy się nie pokazuje.
   const result = await requestAccount(AUTH_LOGIN_PATH, {
-    email: String(formData.get("email") ?? ""),
+    login: String(formData.get("login") ?? ""),
     password: String(formData.get("password") ?? ""),
   });
 
@@ -113,120 +115,107 @@ export default function Logowanie() {
   const wysylanie = nawigacja.state !== "idle";
 
   return (
-    <main className="flex min-h-screen items-center justify-center bg-tg-tlo p-6">
-      {/*
-        Jeden panel na tle dokumentu, bez ani jednej wartości koloru wpisanej
-        tutaj: `bg-tg-panel`, `border-tg-linia` i `bg-tg-tlo` rozwiązują się
-        przez zmienne `--tg-*` ustawione na `<html>`, więc ten ekran przełącza
-        wariant razem z resztą aplikacji i nie ma czego aktualizować przy
-        zmianie palety. Promień 2 px (`rounded-xs`) jest tym samym promieniem,
-        który `METRYKI.borderRadius` daje komponentom antd — panel ma stać
-        w jednym rytmie z polami, które w sobie trzyma.
-      */}
-      <div className="w-full max-w-md rounded-xs border border-tg-linia bg-tg-panel p-8">
-        <h1 className="text-center text-2xl font-semibold tracking-tight text-tg-tekst">
-          Logowanie
-        </h1>
-        <p className="mt-2 mb-8 text-center text-sm text-tg-tekst-drugorzedny">
-          Miło Cię znowu widzieć
-        </p>
+    // Panel wspólny z obu krokami rejestracji — uzasadnienie klas i ich źródło
+    // w `app/components/PanelUwierzytelniania.tsx`.
+    <PanelUwierzytelniania>
+      <h1 className="text-center text-2xl font-semibold tracking-tight text-tg-tekst">
+        Logowanie
+      </h1>
+      <p className="mt-2 mb-8 text-center text-sm text-tg-tekst-drugorzedny">
+        Miło Cię znowu widzieć
+      </p>
 
-        {ogolny === undefined ? null : (
-          <Alert className="mb-6" type="error" showIcon message={ogolny} />
-        )}
+      {ogolny === undefined ? null : (
+        <Alert className="mb-6" type="error" showIcon message={ogolny} />
+      )}
 
-        <RouterForm method="post">
-          <AntForm component={false} layout="vertical" requiredMark={false}>
-            {/*
-              `name` stoi w dwóch miejscach na każde pole i nie jest to
-              powtórzenie. To w `Form.Item` adresuje pole w stanie antd i nie
-              zostawia śladu w DOM-ie; to na `Input` jest atrybutem elementu,
-              a `request.formData()` czyta wyłącznie atrybuty. Bez drugiego pole
-              wychodzi z formularza puste — bez żadnego błędu.
+      <RouterForm method="post">
+        <AntForm component={false} layout="vertical" requiredMark={false}>
+          {/*
+            `name` stoi w dwóch miejscach na każde pole i nie jest to
+            powtórzenie. To w `Form.Item` adresuje pole w stanie antd i nie
+            zostawia śladu w DOM-ie; to na `Input` jest atrybutem elementu,
+            a `request.formData()` czyta wyłącznie atrybuty. Bez drugiego pole
+            wychodzi z formularza puste — bez żadnego błędu.
 
-              `size="large"` daje przy `controlHeight: 24` pole 30 px
-              (antd liczy `controlHeightLG = 1,25 × controlHeight`). To jest
-              świadomie przyjęta wysokość: ekran uwierzytelniania jest jedynym
-              miejscem, gdzie użytkownik celuje myszą w pole, a nie skanuje
-              gęstą tabelę. Gdyby 30 px okazało się za mało, poprawką jest
-              zmiana tego propu albo metryki — **nie** zagnieżdżony
-              `ConfigProvider`, bo drugi motyw w repo to dokładnie to, co ta
-              zmiana likwidowała.
-            */}
-            <AntForm.Item
-              label="Adres e-mail"
-              name="email"
-              rules={[
-                // Bez `message`: tekst „pole wymagane" bierze się z lokalizacji
-                // `pl_PL` ustawionej w jedynym `ConfigProvider` aplikacji
-                // (`app/root.tsx`).
-                { required: true },
-                // Tu wprost, bo domyślny tekst z lokalizacji mówi o „poprawnej
-                // wartości dla typu email", czyli o typie, a nie o adresie.
-                { type: "email", message: "Podaj poprawny adres e-mail." },
-              ]}
-              validateStatus={pola.email === undefined ? undefined : "error"}
-              help={pola.email}
-            >
-              <Input
-                name="email"
-                type="email"
-                autoComplete="username"
-                placeholder="ty@przyklad.pl"
-                size="large"
-                required
-              />
-            </AntForm.Item>
-
-            <AntForm.Item
-              label="Hasło"
-              name="password"
-              rules={[{ required: true }]}
-              validateStatus={pola.password === undefined ? undefined : "error"}
-              help={pola.password}
-            >
-              <Input.Password
-                name="password"
-                autoComplete="current-password"
-                placeholder="Twoje hasło"
-                size="large"
-                required
-              />
-            </AntForm.Item>
-
-            <AntForm.Item className="mt-8 mb-0">
-              {/*
-                Zero klas kolorystycznych: `type="primary"` bierze kolor
-                z ziarna `colorPrimary`, a tekst na nim z `Button.primaryColor`
-                — oba ustawione raz w `app/theme/antd.ts` i policzone pod
-                kontrast w obu wariantach. Klasa nadpisująca tło przycisku
-                działałaby w jednym wariancie i milczała w drugim.
-              */}
-              <Button
-                type="primary"
-                htmlType="submit"
-                block
-                size="large"
-                loading={wysylanie}
-                disabled={wysylanie}
-              >
-                Zaloguj się
-              </Button>
-            </AntForm.Item>
-          </AntForm>
-        </RouterForm>
-
-        <p className="mt-8 text-center text-sm text-tg-tekst-drugorzedny">
-          Nie masz konta?{" "}
-          <Link
-            to="/rejestracja"
-            className="font-semibold text-tg-akcent underline-offset-4 hover:underline"
+            `size="large"` daje przy `controlHeight: 24` pole 30 px
+            (antd liczy `controlHeightLG = 1,25 × controlHeight`). To jest
+            świadomie przyjęta wysokość: ekran uwierzytelniania jest jedynym
+            miejscem, gdzie użytkownik celuje myszą w pole, a nie skanuje
+            gęstą tabelę. Gdyby 30 px okazało się za mało, poprawką jest
+            zmiana tego propu albo metryki — **nie** zagnieżdżony
+            `ConfigProvider`, bo drugi motyw w repo to dokładnie to, co ta
+            zmiana likwidowała.
+          */}
+          <AntForm.Item
+            label="Login"
+            name="login"
+            // Bez `message`: tekst „pole wymagane" bierze się z lokalizacji
+            // `pl_PL` ustawionej w jedynym `ConfigProvider` aplikacji
+            // (`app/root.tsx`). Bez reguły `type: "email"`: identyfikatorem
+            // logowania jest login, a konta sprzed loginów wpisują tu swój
+            // dotychczasowy adres e-mail — oba kształty mają przejść.
+            rules={[{ required: true }]}
+            validateStatus={pola.login === undefined ? undefined : "error"}
+            help={pola.login}
           >
-            Załóż konto
-          </Link>
-        </p>
-      </div>
-    </main>
+            <Input
+              name="login"
+              autoComplete="username"
+              placeholder="Twój login"
+              size="large"
+              required
+            />
+          </AntForm.Item>
+
+          <AntForm.Item
+            label="Hasło"
+            name="password"
+            rules={[{ required: true }]}
+            validateStatus={pola.password === undefined ? undefined : "error"}
+            help={pola.password}
+          >
+            <Input.Password
+              name="password"
+              autoComplete="current-password"
+              placeholder="Twoje hasło"
+              size="large"
+              required
+            />
+          </AntForm.Item>
+
+          <AntForm.Item className="mt-8 mb-0">
+            {/*
+              Zero klas kolorystycznych: `type="primary"` bierze kolor
+              z ziarna `colorPrimary`, a tekst na nim z `Button.primaryColor`
+              — oba ustawione raz w `app/theme/antd.ts` i policzone pod
+              kontrast w obu wariantach. Klasa nadpisująca tło przycisku
+              działałaby w jednym wariancie i milczała w drugim.
+            */}
+            <Button
+              type="primary"
+              htmlType="submit"
+              block
+              size="large"
+              loading={wysylanie}
+              disabled={wysylanie}
+            >
+              Zaloguj się
+            </Button>
+          </AntForm.Item>
+        </AntForm>
+      </RouterForm>
+
+      <p className="mt-8 text-center text-sm text-tg-tekst-drugorzedny">
+        Nie masz konta?{" "}
+        <Link
+          to="/rejestracja"
+          className="font-semibold text-tg-akcent underline-offset-4 hover:underline"
+        >
+          Załóż konto
+        </Link>
+      </p>
+    </PanelUwierzytelniania>
   );
 }
 

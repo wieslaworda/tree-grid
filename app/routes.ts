@@ -23,6 +23,9 @@ export default [
   // konta, a brama z `chronione.tsx` odsyła właśnie na `/logowanie`.
   route("logowanie", "routes/logowanie.tsx"),
   route("rejestracja", "routes/rejestracja.tsx"),
+  // Krok 2 rejestracji (kod weryfikacyjny od administratora) — publiczny z tego
+  // samego powodu co krok 1: konta, a więc i sesji, jeszcze nie ma.
+  route("rejestracja/potwierdzenie", "routes/rejestracja-potwierdzenie.tsx"),
   route("wylogowanie", "routes/wylogowanie.ts"),
 
   // Publiczne świadomie: na tej trasie opiera się wykrywanie gotowości procesu

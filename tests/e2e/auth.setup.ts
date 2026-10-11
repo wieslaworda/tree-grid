@@ -1,3 +1,5 @@
+import { readFileSync, readdirSync } from "node:fs";
+import { join } from "node:path";
 import { test as setup, expect } from "@playwright/test";
 
 const authFile = "playwright/.auth/user.json";
@@ -6,24 +8,66 @@ const authFile = "playwright/.auth/user.json";
 // stawia pod nim API na świeżej bazie `.e2e/`.
 const API_URL = "http://127.0.0.1:5180";
 
+// Wiersz z kodem w treści wiadomości do administratora. Brzmienie należy do
+// szablonu w C# — `VerificationMessage.CodeLinePrefix` i `CodePattern`
+// w `src/Api/Mail/IVerificationMailSender.cs` — i musi się z nim zgadzać:
+// zmiana zdania po jednej stronie nie wywali buildu, tylko setup nie znajdzie
+// kodu. Wiersze z samych znaków ASCII zostają w `.eml` dosłownie (treść
+// w quoted-printable), więc wyrażenie działa na surowym pliku.
+const CODE_PATTERN = /Kod weryfikacyjny: (\d{8})/;
+const LOGIN_LINE = /^Login: (.+?)\r?$/m;
+
+/**
+ * Kod z najnowszej wiadomości dla danego loginu. Nazwy plików zaczynają się
+ * znacznikiem czasu zapisu (`DirectoryVerificationMailSender`), więc porządek
+ * nazw to porządek wysyłki.
+ */
+function codeFromNewestMail(mailDir: string, login: string): string {
+  const files = readdirSync(mailDir)
+    .filter((name) => name.endsWith(".eml"))
+    .sort()
+    .reverse();
+
+  for (const name of files) {
+    const raw = readFileSync(join(mailDir, name), "utf8");
+
+    if (LOGIN_LINE.exec(raw)?.[1] !== login) continue;
+
+    const code = CODE_PATTERN.exec(raw)?.[1];
+    if (code) return code;
+  }
+
+  throw new Error(`No verification code for the setup login in ${mailDir}`);
+}
+
 setup("sign in once and save the session", async ({ page, request }) => {
   const username = process.env.E2E_USERNAME;
   const password = process.env.E2E_PASSWORD;
-  const registrationCode = process.env.E2E_REGISTRATION_CODE;
+  const mailDir = process.env.E2E_MAIL_OUTBOX;
   if (!username || !password) {
     throw new Error("Set E2E_USERNAME and E2E_PASSWORD (see context/foundation/test-stack.md, ## E2E)");
   }
-  if (!registrationCode) {
-    throw new Error("E2E_REGISTRATION_CODE is set by playwright.config.ts — run through `npx playwright test`");
+  if (!mailDir) {
+    throw new Error("E2E_MAIL_OUTBOX is set by playwright.config.ts — run through `npx playwright test`");
   }
 
   // Baza E2E jest świeża przy każdym uruchomieniu, więc konto zakładamy za
-  // każdym razem — wprost w API, bo rejestracji nie wolno ponawiać (drugie
-  // wysłanie trafia na zajęty adres), a logowanie niżej ponawiać trzeba.
+  // każdym razem — wprost w API, nowym przepływem w dwóch krokach. Rejestracji
+  // nie wolno ponawiać (drugi krok 1 trafia na zarezerwowany login), a
+  // logowanie niżej ponawiać trzeba. `E2E_USERNAME` może być adresem e-mail:
+  // login go przyjmuje, więc ta sama wartość służy za login i za e-mail konta.
   const register = await request.post(`${API_URL}/auth/register`, {
-    data: { email: username, password, registrationCode },
+    data: { login: username, email: username, password },
   });
-  expect(register.ok(), `POST /auth/register → ${register.status()}`).toBe(true);
+  expect(register.status(), `POST /auth/register → ${register.status()}`).toBe(202);
+
+  // Plik `.eml` jest zapisany, zanim API odpowie 202 — czekać nie ma na co.
+  const code = codeFromNewestMail(mailDir, username);
+
+  const confirm = await request.post(`${API_URL}/auth/register/confirm`, {
+    data: { login: username, code },
+  });
+  expect(confirm.ok(), `POST /auth/register/confirm → ${confirm.status()}`).toBe(true);
 
   await page.goto("/logowanie");
   // Formularz renderuje React po SSR: wpisane przed hydratacją znika, a reguły
@@ -31,14 +75,14 @@ setup("sign in once and save the session", async ({ page, request }) => {
   // logowanie (dwa logowania niczego nie zmieniają). Czyścimy przed
   // wypełnieniem: ta sama wartość nie wyzwala zdarzenia zmiany.
   await expect(async () => {
-    await page.getByRole("textbox", { name: "Adres e-mail" }).fill("");
-    await page.getByRole("textbox", { name: "Adres e-mail" }).fill(username);
+    await page.getByRole("textbox", { name: "Login" }).fill("");
+    await page.getByRole("textbox", { name: "Login" }).fill(username);
     await page.getByRole("textbox", { name: "Hasło" }).fill("");
     await page.getByRole("textbox", { name: "Hasło" }).fill(password);
     await page.getByRole("button", { name: "Zaloguj się" }).click();
     await page.waitForURL((url) => !url.pathname.startsWith("/logowanie"), { timeout: 5_000 });
   }).toPass();
-  // Nagłówek powłoki z adresem konta i wylogowaniem widzi tylko zalogowany.
+  // Nagłówek powłoki z loginem konta i wylogowaniem widzi tylko zalogowany.
   await expect(page.getByRole("banner").getByText(username, { exact: true })).toBeVisible();
   await expect(page.getByRole("button", { name: "Wyloguj się" })).toBeVisible();
 

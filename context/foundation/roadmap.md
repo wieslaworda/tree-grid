@@ -68,6 +68,7 @@ Przy celu sekwencjonowania `speed` to również fragment, który najtaniej odpow
 | S-10 | `doczytywanie-okna-wierszy` | w „Prezentacji ekranu” oglądać dobę dużego ekranu, dla którego dane dochodzą tylko dla widocznego okna wierszy | S-05          | NFR (288 kolumn, feedback >2 s), PRD `## Open Questions` #5 | proposed |
 | S-11 | `logowanie-bledow-api` | (operacyjne) odnaleźć każdy błąd API w pliku logu w katalogu `Log`, także po restarcie API | F-01          | NFR (logowanie błędów backendu do plików)              | in-progress |
 | S-12 | `kontrola-drzewa`     | budować drzewo o wielu korzeniach, w którym korzeń występuje raz, a obiekt nie powtarza się pod tym samym korzeniem | S-03          | FR-004, US-01, Business Logic, Guardrails              | done |
+| S-14 | `zakladanie-konta`    | założyć konto loginem, hasłem i adresem e-mail, potwierdzając je kodem weryfikacyjnym wysłanym do administratora | S-01          | FR-001 (zmiana 2026-10-10), Access Control             | in-progress |
 
 ## Streams
 
@@ -81,6 +82,7 @@ Navigation aid — groups items that share a Prerequisites chain. Canonical orde
 | D      | Edycja ekranu           | `S-04`                                              | Odgałęzia się od A przy `S-06` i idzie równolegle do `S-05` — edycja kategorii węzłów nie potrzebuje kolumn czasowych. |
 | E      | Diagnostyka backendu    | `F-01` → `S-11`                                     | Zależy tylko od istniejącego API, więc może iść równolegle do każdego innego strumienia; nie zmienia niczego, co widzi dyspozytor. |
 | F      | Reguły drzewa           | `S-03` → `S-12`                                     | Zaostrza regułę budowy drzewa z `S-03`; dotyka drzew wskazywanych przez ekrany (`S-06`), więc dane istniejących drzew trzeba ocenić przed wdrożeniem. |
+| G      | Zakładanie konta        | `S-01` → `S-14`                                     | Zmienia rejestrację i identyfikator logowania z `S-01`; nie dotyka drzew ani ekranów, więc może iść równolegle do każdego innego strumienia. |
 
 ## Baseline
 
@@ -285,6 +287,26 @@ Foundations below assume these are present and do NOT re-scaffold them.
 - **Risk:** Plaster zmienia rdzenną regułę produktu, a nie dokłada nowej funkcji. Dzisiejsza kontrola w `src/Api/Tree/TreeRules.cs` sprawdza ścieżkę przodków i duplikat rodzeństwa. Nowa reguła jest od niej mocniejsza — unikalność w całym poddrzewie korzenia wyklucza też zapętlenie — więc stara kontrola musi zostać zastąpiona, a nie uzupełniona, inaczej dwie reguły zaczną dawać różne komunikaty dla tej samej operacji. Najtrudniejsze jest przeniesienie: przeniesiony węzeł z poddrzewem musi spełnić regułę względem korzenia docelowego, a przeniesienie korzenia pod inny węzeł zmienia jego status z korzenia na węzeł podrzędny. Drzewa wskazywane przez zapisane ekrany (`S-06`) dziedziczą skutki reguły: węzeł odrzucony w drzewie nie pojawi się w ekranie, a naprawa istniejących danych usuwa węzły razem z ich przypisaniami kategorii. Testy reguł (`TreeRulesTests`) trzeba zaktualizować razem z kodem, a z `CLAUDE.md` („Kontekst produktowy") usunąć zdanie, że kod egzekwuje jeszcze starą regułę.
 - **Status:** done
 
+### S-14: Zakładanie konta z kodem weryfikacyjnym
+
+- **Outcome:** Nowa osoba zakłada konto w dwóch krokach, a konto powstaje dopiero za zgodą administratora:
+  - **Dane konta.** Formularz zakładania konta prosi o login, hasło i adres e-mail.
+  - **Kod do administratora.** Aplikacja wysyła kod weryfikacyjny na adres administratora `wieslaworda@gmail.com`, a nie na adres z formularza. Administrator przekazuje kod osobie, której konto akceptuje. Kod zastępuje dotychczasowy wspólny kod rejestracyjny.
+  - **Potwierdzenie.** W następnym kroku pojawia się formularz z polem na kod weryfikacyjny. Po poprawnym kodzie konto zostaje założone; bez niego konto nie istnieje.
+  - **Logowanie.** Użytkownik loguje się loginem i hasłem.
+- **Change ID:** `zakladanie-konta`
+- **PRD refs:** FR-001 (zmiana 2026-10-10), sekcja `Access Control`
+- **Prerequisites:** S-01
+- **Parallel with:** S-04, S-10, S-11
+- **Blockers:** Aplikacja nie wysyła dziś żadnej poczty — wysyłka e-mail (dostawca, konto nadawcy, poświadczenia) musi zostać wybrana i skonfigurowana, zanim plaster da się zweryfikować.
+- **Unknowns:**
+  - Jak aplikacja wysyła pocztę: SMTP skrzynki Gmail z hasłem aplikacji czy usługa transakcyjna z API? Poświadczenia to sekret konfiguracji .NET (`context/foundation/lessons.md`, „Sekrety…"). — Owner: użytkownik. Block: yes.
+  - Ile kod jest ważny, ile prób wpisania dopuszcza i czy można poprosić o nowy kod? — Owner: użytkownik. Block: no (rozstrzyga plan).
+  - Co z istniejącymi kontami, które logują się dziś adresem e-mail: login równy dotychczasowemu adresowi czy nadanie loginu przy pierwszym logowaniu? — Owner: użytkownik. Block: no (rozstrzyga plan).
+  - Gdzie czeka niepotwierdzona rejestracja (login, skrót hasła, e-mail) do chwili podania kodu i kiedy wygasa? Unikalność loginu trzeba sprawdzić już w pierwszym kroku, żeby kod nie trafił do administratora na próżno. — Owner: użytkownik. Block: no.
+- **Risk:** Wspólny kod rejestracyjny jest dziś jedną z trzech barier dostępu po uruchomieniu quick tunnelu (obok bramy logowania i blokady konta). Plaster zastępuje go kodem jednorazowym, więc w żadnym momencie przejścia rejestracja nie może zostać otwarta — ani na czas wdrożenia, ani po porażce wysyłki poczty. Porażka wysyłki ma kończyć się odmową założenia konta, a nie kontem bez weryfikacji. Kod musi być jednorazowy, krótko ważny i ograniczony liczbą prób, bo pole kodu jest publiczne. Adres administratora należy do konfiguracji, a nie do kodu. Dotychczasowe ryzyko z `S-01` („potwierdzanie adresu e-mail nie jest wymaganiem koniecznym") zmienia się w wymaganie FR-001 od 2026-10-10. Zmiana identyfikatora logowania z e-maila na login dotyka sesji, blokady konta po nieudanych próbach i testów E2E logowania (`tests/e2e/auth.setup.ts`).
+- **Status:** in-progress
+
 ## Backlog Handoff
 
 | Roadmap ID | Change ID             | Suggested issue title                                                | Ready for `/10x-plan` | Notes                                                        |
@@ -302,6 +324,7 @@ Foundations below assume these are present and do NOT re-scaffold them.
 | S-10       | `doczytywanie-okna-wierszy` | Doczytywanie danych doby tylko dla widocznego okna wierszy w „Prezentacji ekranu” | no | Czeka na `S-05`; punkt wyjścia — pomiary w `context/changes/prezentacja-ekranu/plan.md` (*Performance Considerations*) |
 | S-11       | `logowanie-bledow-api` | Logowanie błędów API do plików w katalogu `Log` (poziom Error, katalog w `appsettings.json`) | yes | `F-01` ma działający kod; cztery pytania w `Unknowns` rozstrzyga plan |
 | S-12       | `kontrola-drzewa`     | Reguły użycia obiektów w drzewie: wiele korzeni, korzeń raz w drzewie, brak powtórzeń pod jednym korzeniem | yes | Zastępuje regułę zapętlenia i duplikatu rodzeństwa z `S-03`; dane istniejących drzew — `Unknowns` |
+| S-14       | `zakladanie-konta`    | Zakładanie konta (login, hasło, e-mail) z kodem weryfikacyjnym wysyłanym do administratora | no | Blokuje wybór sposobu wysyłki poczty (`Unknowns`); zastępuje wspólny kod rejestracyjny z `S-01` |
 
 This table is the clean handoff to Jira/Linear or any MCP-backed backlog. It carries one row for every `F-NN` and `S-NN` and deliberately does not duplicate the detailed roadmap body.
 

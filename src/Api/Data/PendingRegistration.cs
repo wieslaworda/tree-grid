@@ -7,9 +7,10 @@ namespace Api.Data;
 /// istnieje, dopóki nie padnie poprawny kod.
 /// </summary>
 /// <remarks>
-/// Wiersz rezerwuje login i adres e-mail na czas ważności: unikalne indeksy na
-/// <see cref="NormalizedUserName"/> i <see cref="NormalizedEmail"/> są drugą linią
-/// obrony za kontrolą w kroku 1. Rezerwacja loginu pozwala krokowi 2 znaleźć
+/// Wiersz rezerwuje login na czas ważności: unikalny indeks na
+/// <see cref="NormalizedUserName"/> jest drugą linią obrony za kontrolą
+/// w kroku 1. Adres e-mail nie jest rezerwowany — może się powtarzać między
+/// kontami i rejestracjami. Rezerwacja loginu pozwala krokowi 2 znaleźć
 /// rejestrację po samym loginie — bez ukrytego identyfikatora i bez ciasteczka,
 /// więc osoba może wrócić z kodem po kilku godzinach, z innego urządzenia.
 ///
@@ -43,7 +44,7 @@ public sealed class PendingRegistration
     /// <summary>Adres e-mail w postaci wpisanej, bez spacji na brzegach.</summary>
     public string Email { get; set; } = string.Empty;
 
-    /// <summary>Adres po <c>UserManager.NormalizeEmail</c>, z unikalnym indeksem.</summary>
+    /// <summary>Adres po <c>UserManager.NormalizeEmail</c>; bez indeksu unikalnego — może się powtarzać.</summary>
     public string NormalizedEmail { get; set; } = string.Empty;
 
     /// <summary>Hasz hasła z kroku 1, przepisywany do konta bez ponownego haszowania.</summary>

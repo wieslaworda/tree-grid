@@ -25,7 +25,7 @@ import type { Route } from "./+types/chronione";
  *
  * Zweryfikowaną tożsamość brama nie wyrzuca, tylko odkłada do kontekstu
  * żądania (`kontekstUzytkownika`), skąd czytają ją widoki pod nią — dziś
- * powłoka z `routes/powloka.tsx`, która pokazuje e-mail. To jest przekazanie
+ * powłoka z `routes/powloka.tsx`, która pokazuje login. To jest przekazanie
  * danych, nie wygląd: brama nadal niczego nie renderuje.
  */
 export const middleware: Route.MiddlewareFunction[] = [

@@ -69,11 +69,11 @@ try
         .AddIdentityCore<AppUser>(options =>
         {
             // Identyfikatorem logowania jest login (`UserName`, PRD FR-001
-            // w wersji z 2026-10-10), a adres e-mail jest daną konta. Unikalność
-            // adresu zostaje: krok 1 rejestracji rezerwuje adres na równi
-            // z loginem, a administrator, który dostaje kod razem z adresem
-            // wnioskodawcy, ma po nim jednoznacznie rozpoznać osobę.
-            options.User.RequireUniqueEmail = true;
+            // w wersji z 2026-10-10), a adres e-mail jest daną konta. Adres nie
+            // jest unikalny: kilka kont może mieć ten sam adres, a osobę
+            // rozpoznaje unikalny login. Identity i tak wymaga adresu w poprawnym
+            // kształcie — sprawdza go już krok 1 (`RegistrationRules`).
+            options.User.RequireUniqueEmail = false;
 
             // Podniesiona wyłącznie minimalna długość. Pozostałe reguły złożoności
             // zostają domyślne — PRD nie stawia w tej sprawie żadnego wymagania,

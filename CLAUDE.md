@@ -80,17 +80,26 @@ dotnet ef database update --project src/Api
 Automatyczna weryfikacja to `npm run typecheck`, `npm run test:node`
 i `dotnet test`. Testy .NET
 pokrywają **reguły domenowe i kształt kontraktu błędów** (`*RulesTests`,
-`*ErrorContractTests`) oraz **potok HTTP drzew, ekranów i kaskady usunięcia
-kategorii na prawdziwym SQLite i zapis błędu 500 do pliku logu**
-(`*IntegrationTests`: host z `TestApiFactory`, własny plik bazy i katalog logu
-tymczasowe na klasę, baza i log deweloperskie nietknięte) — bez
-widoku i bez izolacji kont (poza kontrolą właściciela drzewa przy
-`PUT /screens`). Frontend ma jedynie spec Node `tests/node/porazka-api.spec.ts`
+`*ErrorContractTests`) oraz **potok HTTP drzew, ekranów, kaskady usunięcia
+kategorii i rejestracji z logowaniem na prawdziwym SQLite i zapis błędu 500
+do pliku logu** (`*IntegrationTests`: host z `TestApiFactory`, własny plik
+bazy, katalog logu i katalog poczty `.eml` tymczasowe na klasę, baza, log
+i skrzynka deweloperskie nietknięte; `AuthIntegrationTests` czytają kod
+weryfikacyjny z pliku `.eml`) — bez widoku i bez izolacji kont (poza kontrolą
+właściciela drzewa przy `PUT /screens`). Frontend ma jedynie spec Node
+`tests/node/porazka-api.spec.ts`
 (koperta i linia logu przy zgaszonym API, z podstawionym `fetch`; osobny
 `playwright.node.config.ts`, bo główny config zawsze stawia API i build)
-oraz E2E w `tests/e2e/`. Lintera i CI nie ma. Przejście tych komend nie znaczy, że
-działa zmiana w widoku albo w endpointach spoza drzew i ekranów. Jak dodać
-kolejny test integracyjny — `context/foundation/test-plan.md` §6.2.
+oraz E2E w `tests/e2e/` (setup zakłada konto nowym przepływem: krok 1 w API,
+kod z `.e2e/MailOutbox/*.eml`, krok 2). Lintera i CI nie ma. Przejście tych
+komend nie znaczy, że działa zmiana w widoku albo w endpointach spoza drzew,
+ekranów i uwierzytelniania. Jak dodać kolejny test integracyjny —
+`context/foundation/test-plan.md` §6.2.
+
+Poczta z kodem weryfikacyjnym w Development i w E2E nie wychodzi przez SMTP:
+transport `Directory` zapisuje jeden plik `.eml` na wiadomość —
+`src/Api/MailOutbox/` w pętli deweloperskiej (poza repo), `.e2e/MailOutbox/`
+w E2E. Kod do kroku 2 rejestracji czyta się stamtąd.
 
 Działające API trzyma `src/Api/bin/Debug/net10.0/Api.exe`, więc `dotnet build`
 i `dotnet test` kończą się `MSB3021`/`MSB3027` („file is locked by Api"),
@@ -171,7 +180,8 @@ przeglądarka ──► react-router-serve :3000 ──(loader/action, fetch)─
   razem z tą kontrolą.
 - **Migracje:** w Development API migruje bazę przy starcie; w Production
   odmawia startu przy oczekujących migracjach (`dotnet ef database update`).
-  Brak sekretów `Auth:*` poza Development też zatrzymuje start. W Development
+  Brak sekretu `Auth:SessionSigningKey` albo niekompletna sekcja `Mail`
+  (transport `Smtp` z hasłem) poza Development też zatrzymuje start. W Development
   sekrety ustawia się przez `dotnet user-secrets --project src/Api`
   (polecenia w `src/Api/Auth/AuthSecrets.cs`) — nie proś o ich wartości i nie
   zapisuj ich w repo.
@@ -298,9 +308,33 @@ Dockerfile nie obejmuje jeszcze API .NET ani wolumenu na plik bazy.
 Dwie rzeczy do zapamiętania o samym quick tunnelu: **adres zmienia się przy
 każdym restarcie** i nie da się go przypiąć, więc nie zapisuj go na sztywno
 nigdzie w kodzie ani w ciasteczkach; **Cloudflare Access na `trycloudflare.com`
-nie działa**, więc od chwili uruchomienia tunelu jedyną kontrolą dostępu jest
-logowanie samej aplikacji — brama w `chronione.tsx`, kod rejestracyjny
-i blokada konta po nieudanych próbach. Nie osłabiaj żadnego z nich „na chwilę".
+nie działa**, więc od chwili uruchomienia tunelu jedyną kontrolą dostępu są
+trzy bariery samej aplikacji — brama w `chronione.tsx`, jednorazowy kod
+weryfikacyjny wysyłany przy rejestracji administratorowi (konto powstaje
+dopiero po wpisaniu kodu, który administrator przekazał; krok 1 ma globalny
+limit tempa) i blokada konta po nieudanych próbach logowania. Nie osłabiaj
+żadnej z nich „na chwilę". Porażka wysyłki kodu kończy się odmową
+(`mail_unavailable`), nigdy kontem bez weryfikacji.
+
+Poza Development API wysyła kod przez Gmail SMTP (`smtp.gmail.com:587`)
+i bez kompletnej sekcji `Mail` odmawia startu. Konto Gmail nadawcy musi mieć
+włączoną weryfikację dwuetapową (2FA), a `Mail:Smtp:Password` to **hasło
+aplikacji** Gmail, nie hasło konta. Trzy wartości ustawia się zmiennymi
+środowiskowymi — wpisując je samodzielnie, nigdy w repo ani w rozmowie
+z agentem (`context/foundation/lessons.md`, „Sekrety”):
+
+```powershell
+[Environment]::SetEnvironmentVariable('Mail__Smtp__UserName', '<wartość>', 'User')
+[Environment]::SetEnvironmentVariable('Mail__Smtp__Password', '<wartość>', 'User')
+[Environment]::SetEnvironmentVariable('Mail__From', '<wartość>', 'User')
+```
+
+W Development odpowiednikiem jest
+`dotnet user-secrets set "Mail:Smtp:Password" "<wartość>" --project src/Api`
+(i tak samo `Mail:Smtp:UserName`, `Mail:From`) — potrzebne tylko wtedy, gdy
+pętla deweloperska ma wysyłać prawdziwą pocztę (`Mail:Transport` = `Smtp`);
+domyślnie Development pisze `.eml` do `src/Api/MailOutbox/`. Szczegóły
+uruchomienia: `.claude/skills/run-tunel-app/SKILL.md`, sekcja o sekretach.
 
 ## Znane luki
 
@@ -310,10 +344,13 @@ Nie traktuj ich jako błędów do naprawienia przy okazji — to zaległa praca:
   (`tests/node/`) i nieliczne testy procesowe (E2E) z
   `context/changes/testy-procesowe-playwright/`. Runner testów jednostkowych
   stoi w roadmapie w sekcji *Parked* — nie rozbudowuj zestawu na zapas.
-- Testy integracyjne API (`*IntegrationTests`) pokrywają wyłącznie drzewa
-  i ekrany. Uwierzytelnianie (logowanie, rejestracja, blokada konta), izolacja
-  kont (IDOR) poza kontrolą właściciela drzewa przy `PUT /screens` oraz
-  endpointy kategorii i obiektów poza kaskadami ekranu są
+- Testy integracyjne API (`*IntegrationTests`) pokrywają drzewa, ekrany oraz
+  rejestrację z kodem weryfikacyjnym i logowanie loginem
+  (`AuthIntegrationTests`: rezerwacja loginu — adres e-mail może się
+  powtarzać — limit prób kodu,
+  wygaśnięcie, limit tempa, porażka wysyłki). Blokada konta po nieudanych
+  próbach logowania, izolacja kont (IDOR) poza kontrolą właściciela drzewa przy
+  `PUT /screens` oraz endpointy kategorii i obiektów poza kaskadami ekranu są
   nadal weryfikowane ręcznie; dwa pierwsze to Faza 2 rolloutu
   (`context/foundation/test-plan.md` §3).
 - Brak lintera i pipeline'u CI.

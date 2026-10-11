@@ -12,7 +12,8 @@ namespace Api.Tests;
 /// <summary>
 /// Bariera dostępu za tunelem (S-14, FR-001 w wersji z 2026-10-10) na
 /// prawdziwym potoku HTTP i SQLite: rejestracja w dwóch krokach z kodem
-/// weryfikacyjnym wysyłanym administratorowi, rezerwacja loginu i adresu,
+/// weryfikacyjnym wysyłanym administratorowi, rezerwacja loginu (adres może
+/// się powtarzać),
 /// limit prób kodu, wygaśnięcie, limit tempa kroku 1, porażka wysyłki
 /// i logowanie loginem.
 ///
@@ -40,8 +41,6 @@ public class AuthIntegrationTests(
     private const string Password = "Haslo-Testowe-1";
 
     private const string LoginTaken = "Ten login jest już zajęty.";
-
-    private const string EmailTaken = "Konto o tym adresie e-mail już istnieje.";
 
     private const string WrongCode = "Nieprawidłowy kod weryfikacyjny.";
 
@@ -151,18 +150,24 @@ public class AuthIntegrationTests(
     }
 
     [Fact]
-    public async Task Pending_email_is_reserved()
+    public async Task Email_may_repeat_across_pending_registrations_and_accounts()
     {
+        // Unikalny jest wyłącznie login — ten sam adres przechodzi i przy
+        // niewygasłej rejestracji, i przy istniejącym koncie.
         using var client = factory.CreateClient();
-        var login = NewLogin();
-        var email = EmailFor(login);
+        var first = NewLogin();
+        var email = EmailFor(first);
 
-        Assert.Equal(HttpStatusCode.Accepted, (await RegisterAsync(client, login, email)).StatusCode);
+        Assert.Equal(HttpStatusCode.Accepted, (await RegisterAsync(client, first, email)).StatusCode);
 
-        var response = await RegisterAsync(client, NewLogin(), email.ToUpperInvariant());
+        var second = NewLogin();
+        Assert.Equal(HttpStatusCode.Accepted, (await RegisterAsync(client, second, email.ToUpperInvariant())).StatusCode);
 
-        var error = await IntegrationSeed.AssertRefusedAsync(response, HttpStatusCode.BadRequest, ApiErrorCodes.ValidationError);
-        Assert.Equal(EmailTaken, Fields(error).GetProperty("email").GetString());
+        Assert.Equal(HttpStatusCode.OK, (await ConfirmAsync(client, first, factory.ReadLastVerificationCode(first))).StatusCode);
+        Assert.Equal(HttpStatusCode.OK, (await ConfirmAsync(client, second, factory.ReadLastVerificationCode(second))).StatusCode);
+
+        var third = NewLogin();
+        Assert.Equal(HttpStatusCode.Accepted, (await RegisterAsync(client, third, email)).StatusCode);
     }
 
     [Fact]

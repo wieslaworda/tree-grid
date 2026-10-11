@@ -40,9 +40,16 @@ const SIGNING_KEY_PATH = "/internal/session-signing-key";
 /** Nazwa ciasteczka sesji. */
 const SESSION_COOKIE_NAME = "__session";
 
-/** Tożsamość zalogowanego dyspozytora — dokładnie tyle, ile zwraca API. */
+/**
+ * Tożsamość zalogowanego dyspozytora — dokładnie tyle, ile zwraca API.
+ * `login` jest identyfikatorem logowania i tym, co pokazuje nagłówek powłoki;
+ * `email` zostaje daną konta. Sesja sprzed S-14 (`{ id, email }`) nie przejdzie
+ * kontroli kształtu w `auth.server.ts` i wyloguje użytkownika raz — to
+ * zachowanie bezpieczne, nie błąd.
+ */
 export type SessionUser = {
   id: string;
+  login: string;
   email: string;
 };
 

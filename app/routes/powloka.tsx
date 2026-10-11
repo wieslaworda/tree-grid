@@ -11,7 +11,7 @@ import { kontekstUzytkownika } from "~/lib/auth.server";
 import type { Route } from "./+types/powloka";
 
 /**
- * Powłoka: nagłówek z linkiem „Prezentacja ekranu”, menu głównym, e-mailem i wylogowaniem
+ * Powłoka: nagłówek z linkiem „Prezentacja ekranu”, menu głównym, loginem i wylogowaniem
  * nad każdym widokiem produktu. Layout bez segmentu ścieżki, zagnieżdżony
  * w `app/routes.ts` **pod** bramą.
  *
@@ -30,15 +30,16 @@ export function loader({ context }: Route.LoaderArgs) {
   // `get` bez wartości domyślnej rzuca, gdy brama nic nie odłożyła — czyli
   // gdy ktoś wyjął powłokę spod bramy. Tak ma zostać; uzasadnienie przy
   // `kontekstUzytkownika` w `app/lib/auth.server.ts`.
-  const { email } = context.get(kontekstUzytkownika);
+  const { login } = context.get(kontekstUzytkownika);
 
-  // Tylko e-mail: dane loadera lądują w HTML-u i w odpowiedziach `.data`,
-  // a widok nie potrzebuje `id`, więc nie ma powodu go tam wystawiać.
-  return { email };
+  // Tylko login: dane loadera lądują w HTML-u i w odpowiedziach `.data`,
+  // a widok nie potrzebuje ani `id`, ani adresu e-mail, więc nie ma powodu
+  // ich tam wystawiać.
+  return { login };
 }
 
 export default function Powloka({ loaderData }: Route.ComponentProps) {
-  const { email } = loaderData;
+  const { login } = loaderData;
 
   return (
     // Kolumna na wysokość okna: nagłówek tyle, ile wyznaczy menu, a obszar
@@ -85,7 +86,7 @@ export default function Powloka({ loaderData }: Route.ComponentProps) {
         <MenuGlowne />
 
         <div className="flex items-center gap-3">
-          <span className="text-tg-tekst-drugorzedny">{email}</span>
+          <span className="text-tg-tekst-drugorzedny">{login}</span>
 
           {/*
             Jedyne wyjście z sesji w interfejsie. Formularz, a nie link: trasa

@@ -540,12 +540,12 @@ Bez istotnych. Hasz kodu przez `IPasswordHasher` (PBKDF2) kosztuje kilkadziesią
 
 #### Automated
 
-- [x] 1.1 Migracja `PendingRegistrations` powstaje i stosuje się na świeżej bazie
-- [x] 1.2 Build przechodzi bez ostrzeżeń o nowym kodzie
-- [x] 1.3 Testy reguł przechodzą (RegistrationRules, MailSettings, AuthErrorContract)
-- [x] 1.4 Testy integracyjne auth przechodzą
-- [x] 1.5 Pełny zestaw .NET przechodzi
-- [x] 1.6 Brak `RegistrationCode` w src/Api i tests/Api.Tests
+- [x] 1.1 Migracja `PendingRegistrations` powstaje i stosuje się na świeżej bazie — 8e24518
+- [x] 1.2 Build przechodzi bez ostrzeżeń o nowym kodzie — 8e24518
+- [x] 1.3 Testy reguł przechodzą (RegistrationRules, MailSettings, AuthErrorContract) — 8e24518
+- [x] 1.4 Testy integracyjne auth przechodzą — 8e24518
+- [x] 1.5 Pełny zestaw .NET przechodzi — 8e24518
+- [x] 1.6 Brak `RegistrationCode` w src/Api i tests/Api.Tests — 8e24518
 
 #### Manual
 

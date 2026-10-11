@@ -197,9 +197,6 @@ namespace Api.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("NormalizedEmail")
-                        .IsUnique();
-
                     b.HasIndex("NormalizedUserName")
                         .IsUnique();
 

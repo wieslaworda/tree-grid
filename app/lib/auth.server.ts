@@ -13,7 +13,7 @@ import { createContext, redirect } from "react-router";
 
 import {
   API_BASE_URL,
-  type ApiErrorBody,
+  type ApiFailure,
   ROUTE_ERROR_CODES,
   apiError,
   isApiErrorBody,
@@ -40,18 +40,32 @@ export const LOGIN_ROUTE = "/logowanie";
  */
 export const HOME_ROUTE = "/prezentacja";
 
+/**
+ * Adres kroku 2 rejestracji — formularz loginu i kodu weryfikacyjnego. Cel
+ * przekierowania z kroku 1 (`routes/rejestracja.tsx`) i wpis w `app/routes.ts`.
+ */
+export const REGISTER_CONFIRM_ROUTE = "/rejestracja/potwierdzenie";
+
 /** Endpointy uwierzytelniania API (`src/Api/Auth/AuthEndpoints.cs`). */
 export const AUTH_LOGIN_PATH = "/auth/login";
 export const AUTH_REGISTER_PATH = "/auth/register";
+export const AUTH_REGISTER_CONFIRM_PATH = "/auth/register/confirm";
 
 /**
- * Wynik odpytania endpointu uwierzytelniania. Porażka niesie gotową kopertę
- * kontraktu razem ze statusem, bo trasa nie ma czego do niej dopisać —
- * komunikaty dla użytkownika układa API, które jako jedyne zna reguły.
+ * Wynik odpytania endpointu, który zwraca konto (logowanie, krok 2
+ * rejestracji). Porażka niesie gotową kopertę kontraktu razem ze statusem, bo
+ * trasa nie ma czego do niej dopisać — komunikaty dla użytkownika układa API,
+ * które jako jedyne zna reguły.
  */
-export type AccountResult =
-  | { ok: true; user: SessionUser }
-  | { ok: false; status: number; error: ApiErrorBody };
+export type AccountResult = { ok: true; user: SessionUser } | ApiFailure;
+
+/**
+ * Wynik kroku 1 rejestracji. Sukces nie niesie konta, bo konto jeszcze nie
+ * istnieje — API przyjęło wniosek i wysłało kod administratorowi. `login` to
+ * login w postaci przyjętej przez API (po przycięciu), czyli ten, którym krok 2
+ * wskaże rejestrację.
+ */
+export type RegistrationResult = { ok: true; login: string } | ApiFailure;
 
 /**
  * Zwraca zalogowanego użytkownika albo `null`.
@@ -186,19 +200,69 @@ export function requireSameOrigin(request: Request): void {
 }
 
 /**
- * Odpytuje endpoint uwierzytelniania po stronie serwera, wzorem
- * `app/routes/api.health.ts`: każda ścieżka — także ta, w której API w ogóle
- * nie odpowiada — kończy się kopertą `{ error: { code, message, context } }`.
+ * Odpytuje endpoint uwierzytelniania zwracający konto (logowanie, krok 2
+ * rejestracji) po stronie serwera, wzorem `app/routes/api.health.ts`: każda
+ * ścieżka — także ta, w której API w ogóle nie odpowiada — kończy się kopertą
+ * `{ error: { code, message, context } }`.
  *
  * Do logu (`log.server.ts`) trafiają zgaszone API, 5xx i treść spoza
  * kontraktu — tak jak w `requestApi`. Każde 4xx, łącznie z 401, to tutaj
- * zwykły wynik (złe hasło, blokada konta, odmowa rejestracji) i linii nie
- * zostawia. `payload` niesie e-mail i hasło, więc do logu nie trafia nigdy.
+ * zwykły wynik (złe hasło, blokada konta, zły kod weryfikacyjny) i linii nie
+ * zostawia. `payload` niesie login z hasłem albo login z kodem
+ * weryfikacyjnym, więc do logu nie trafia nigdy.
  */
 export async function requestAccount(
   path: string,
   payload: Record<string, string>,
 ): Promise<AccountResult> {
+  const sent = await postAuth(path, payload);
+
+  if (!sent.ok) {
+    return sent;
+  }
+
+  return isSessionUser(sent.body)
+    ? { ok: true, user: sent.body }
+    : invalidResponse(path, sent.status, sent.body);
+}
+
+/**
+ * Krok 1 rejestracji: wysyła login, adres e-mail i hasło do
+ * `POST /auth/register`. Sukces (202) znaczy „wniosek przyjęty, kod poszedł do
+ * administratora”, a nie „konto założone” — dlatego wynik niesie sam login,
+ * a sesja nie powstaje.
+ *
+ * Reguły logu są te same co w {@link requestAccount}: zgaszone API, 5xx (np.
+ * `mail_unavailable`) i treść spoza kontraktu zostawiają linię, 4xx (walidacja,
+ * `rate_limited`) nie. `payload` niesie hasło i do logu nie trafia nigdy.
+ */
+export async function requestRegistration(payload: {
+  login: string;
+  email: string;
+  password: string;
+}): Promise<RegistrationResult> {
+  const sent = await postAuth(AUTH_REGISTER_PATH, payload);
+
+  if (!sent.ok) {
+    return sent;
+  }
+
+  const login = (sent.body as { login?: unknown } | undefined)?.login;
+
+  return typeof login === "string" && login.length > 0
+    ? { ok: true, login }
+    : invalidResponse(AUTH_REGISTER_PATH, sent.status, sent.body);
+}
+
+/**
+ * Wspólny transport obu funkcji wyżej: `POST` z JSON-em, a każda porażka
+ * zamieniona w kopertę. Sukces zwraca treść jeszcze niesprawdzoną co do
+ * kształtu — to robi wywołujący, bo tylko on wie, czego się spodziewa.
+ */
+async function postAuth(
+  path: string,
+  payload: Record<string, string>,
+): Promise<{ ok: true; status: number; body: unknown } | ApiFailure> {
   let response: Response;
 
   try {
@@ -249,21 +313,19 @@ export async function requestAccount(
     return { ok: false, status: response.status, error: body };
   }
 
-  return isSessionUser(body)
-    ? { ok: true, user: body }
-    : invalidResponse(path, response.status, body);
+  return { ok: true, status: response.status, body };
 }
 
 /**
- * Kopia `invalidResponse` z `api.server.ts` dla typu {@link AccountResult},
+ * Kopia `invalidResponse` z `api.server.ts` dla endpointów uwierzytelniania,
  * z tym samym efektem ubocznym: linia w logu z kształtem treści, nigdy z jej
- * wartościami (udana odpowiedź niesie e-mail). Raz na porażkę.
+ * wartościami (udana odpowiedź niesie login i e-mail). Raz na porażkę.
  */
 function invalidResponse(
   path: string,
   apiStatus: number,
   body: unknown,
-): AccountResult {
+): ApiFailure {
   logApiFailure({
     code: ROUTE_ERROR_CODES.ApiInvalidResponse,
     status: 502,
@@ -294,6 +356,7 @@ function isSessionUser(value: unknown): value is SessionUser {
     typeof value === "object" &&
     value !== null &&
     typeof (value as { id?: unknown }).id === "string" &&
+    typeof (value as { login?: unknown }).login === "string" &&
     typeof (value as { email?: unknown }).email === "string"
   );
 }

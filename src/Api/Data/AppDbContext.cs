@@ -250,12 +250,12 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options)
             registration.Property(r => r.Email).HasMaxLength(PendingRegistration.EmailMaxLength);
             registration.Property(r => r.NormalizedEmail).HasMaxLength(PendingRegistration.EmailMaxLength);
 
-            // Rezerwacja loginu i adresu na czas ważności. Krok 1 sprawdza
-            // zajętość w transakcji zapisowej, a te indeksy rozstrzygają to,
-            // czego kontrola w kodzie nie zobaczy: zapis z pominięciem
-            // endpointu albo błąd w samej kontroli.
+            // Rezerwacja loginu na czas ważności. Krok 1 sprawdza zajętość
+            // w transakcji zapisowej, a ten indeks rozstrzyga to, czego
+            // kontrola w kodzie nie zobaczy: zapis z pominięciem endpointu
+            // albo błąd w samej kontroli. Adres e-mail może się powtarzać,
+            // więc nie ma na nim indeksu unikalnego.
             registration.HasIndex(r => r.NormalizedUserName).IsUnique();
-            registration.HasIndex(r => r.NormalizedEmail).IsUnique();
         });
     }
 

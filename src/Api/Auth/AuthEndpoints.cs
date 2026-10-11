@@ -62,8 +62,9 @@ internal static class AuthEndpoints
     }
 
     /// <summary>
-    /// Krok 1 rejestracji: rezerwuje login i adres e-mail, zapisuje oczekującą
-    /// rejestrację i wysyła kod administratorowi. Konto jeszcze nie powstaje.
+    /// Krok 1 rejestracji: rezerwuje login, zapisuje oczekującą rejestrację
+    /// i wysyła kod administratorowi. Konto jeszcze nie powstaje. Adres e-mail
+    /// nie jest rezerwowany — może się powtarzać.
     /// </summary>
     /// <remarks>
     /// Kolejność jest wymuszona. Najpierw walidacja i rezerwacja zapisana
@@ -145,23 +146,19 @@ internal static class AuthEndpoints
             var expired = pending.Where(row => RegistrationRules.IsExpired(row.ExpiresAt, now)).ToList();
 
             // Sprzątanie leniwe, przed sprawdzeniem unikalności — wygasła
-            // rezerwacja nie zajmuje loginu ani adresu.
+            // rezerwacja nie zajmuje loginu.
             db.PendingRegistrations.RemoveRange(expired);
 
             var live = pending.Except(expired).ToList();
 
             // Zajętość przez konto i przez niewygasłą rejestrację daje ten sam
             // komunikat: rozróżnienie mówiłoby, że ktoś właśnie czeka na kod.
+            // Adres e-mail nie jest sprawdzany — może się powtarzać między
+            // kontami (`RequireUniqueEmail = false` w `Program.cs`).
             if (await userManager.FindByNameAsync(login) is not null
                 || live.Any(row => row.NormalizedUserName == registration.NormalizedUserName))
             {
                 fields[AuthFormFields.Login] = AuthResponses.LoginTakenMessage;
-            }
-
-            if (await userManager.FindByEmailAsync(email) is not null
-                || live.Any(row => row.NormalizedEmail == registration.NormalizedEmail))
-            {
-                fields[AuthFormFields.Email] = AuthResponses.EmailTakenMessage;
             }
 
             if (fields.Count == 0)
@@ -299,7 +296,7 @@ internal static class AuthEndpoints
         }
 
         // Konto z haszem hasła z kroku 1 — `CreateAsync(user)` bez hasła
-        // waliduje login i adres (w tym unikalność) i ustawia znacznik
+        // waliduje login (w tym unikalność) i adres i ustawia znacznik
         // bezpieczeństwa, ale hasza nie dotyka. Ten sam kontekst co wiersz
         // rejestracji, więc konto i usunięcie wiersza zapisują się w jednej
         // transakcji.
@@ -313,7 +310,7 @@ internal static class AuthEndpoints
         var created = await userManager.CreateAsync(user);
 
         // Usunięcie wiersza w obu przypadkach. Porażka tutaj to konto założone
-        // w międzyczasie z tym samym loginem albo adresem — taka rejestracja
+        // w międzyczasie z tym samym loginem — taka rejestracja
         // nie ma już szans się udać, więc nie ma też czego rezerwować.
         db.PendingRegistrations.Remove(registration);
 
@@ -494,9 +491,6 @@ internal static class AuthEndpoints
                 "DuplicateUserName" => (
                     AuthFormFields.Login,
                     AuthResponses.LoginTakenMessage),
-                "DuplicateEmail" => (
-                    AuthFormFields.Email,
-                    AuthResponses.EmailTakenMessage),
                 "InvalidUserName" => (
                     AuthFormFields.Login,
                     RegistrationRules.LoginCharactersMessage),
@@ -606,9 +600,6 @@ internal static class AuthResponses
 
     /// <summary>Login zajęty przez konto albo przez niewygasłą rejestrację — jeden komunikat na oba.</summary>
     internal const string LoginTakenMessage = "Ten login jest już zajęty.";
-
-    /// <summary>Adres zajęty przez konto albo przez niewygasłą rejestrację — jeden komunikat na oba.</summary>
-    internal const string EmailTakenMessage = "Konto o tym adresie e-mail już istnieje.";
 
     internal const string MissingCodeMessage = "Podaj kod weryfikacyjny.";
 
