@@ -356,38 +356,26 @@ Nie traktuj ich jako błędów do naprawienia przy okazji — to zaległa praca:
 - Brak lintera i pipeline'u CI.
 <!-- BEGIN @przeprogramowani/10x-cli -->
 
-## 10xDevs AI Toolkit - Module 3, Lesson 4 (E2E Tests)
+## 10xDevs AI Toolkit - Module 5, Lesson 1 (AI Internal Builders)
 
-**For E2E tests, use the two M3L4 skills in this order:**
+Classify recurring team friction before you build anything for it. The default answer is an existing tool; build only a thin helper where local, cross-system pain justifies it.
 
-1. **`/10x-e2e-setup`** — one-time setup: Playwright config (`webServer`,
-   auth `setup` project, `storageState`), a green seed test, and `context/foundation/test-stack.md`.
-2. **`/10x-e2e`** — the per-risk loop: risk → explore the running app with
-   `playwright-cli` → generate → review against the five anti-patterns →
-   re-prompt by name → verify with a deliberate break.
+```
+/10x-opportunity-map -> /10x-mom-test -> /10x-shape -> /10x-prd -> /10x-roadmap
+```
 
-The skills' `references/` carry the full rules, anti-patterns, seed pattern, and
-prompt-template.
+### Task Router - Where to start
 
-A few hard rules that hold even before you invoke the skill:
+| Skill | Use it when |
+| --- | --- |
+| `/10x-opportunity-map` | A team keeps hitting the same friction, or someone says "let's build a dashboard / agent / automation". Writes a build / buy / complement / wait map with a first useful version and a data-risk caveat to `context/team/opportunity-map.md`. |
+| `/10x-mom-test` | You have a candidate and want to know whether the problem is real. Produces a non-leading critique, interview questions, a survey and go/no-go criteria; saves to `context/team/mom-test-validation.md`. |
+| `/10x-shape` -> `/10x-prd` -> `/10x-roadmap` | A validated candidate is worth building. Continue with the usual 10xWorkflow. |
 
-- **Locators:** `getByRole` / `getByLabel` / `getByText` first; `getByTestId`
-  only when accessibility attributes are ambiguous. Never CSS selectors, XPath,
-  or DOM structure.
-- **Never `page.waitForTimeout()`.** Wait for state: `toBeVisible()`,
-  `waitForURL()`, `waitForResponse()`.
-- **Test independence + cleanup.** Each test runs standalone — its own setup,
-  action, assertion, and cleanup; unique ids (timestamp suffix) so parallel runs
-  and re-runs don't collide.
+### Hard rules
 
-Two boundaries to keep straight:
-
-- **DOM (snapshot) is the default.** Vision (`--caps=vision`) is a supplement for
-  visual-only risks (layout, z-index, animation); for pixel regression prefer
-  deterministic tools (`toHaveScreenshot`, Argos, Lost Pixel). VLM model
-  selection/cost is a debugging topic (Lesson 5), not testing.
-- **A red test is a signal, not a chore.** A changed selector → update the
-  locator in a reviewed diff. A changed business behavior → the test caught a
-  bug; never edit the assertion to match it. Fixing failing tests is Lesson 5.
+- **Buy before you build.** Name the existing or default response first; a helper complements it, it doesn't replace it.
+- **Evidence comes from past behavior.** Ask what people did last time, not whether they would use the tool.
+- **State the data risk.** Every candidate says which data it reads and what could leak or go wrong.
 
 <!-- END @przeprogramowani/10x-cli -->
