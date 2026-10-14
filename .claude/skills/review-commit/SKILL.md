@@ -3,8 +3,8 @@ name: review-commit
 description: >
   Code review jednego commita przez `npm run anthropic:review`
   (scripts/anthropic-review.ts, Claude Agent SDK). Bierze identyfikator commita
-  (pełny lub skrócony SHA, HEAD~2, gałąź, tag; bez niego — ostatni commit,
-  HEAD), buduje diff względem rodzica,
+  (pełny lub skrócony SHA, HEAD~2, gałąź, tag; bez niego pokazuje 10 ostatnich
+  commitów i pyta o wybór, podpowiadając HEAD), buduje diff względem rodzica,
   pilnuje limitu 200 000 znaków skryptu, uruchamia review i streszcza uwagi
   z odnośnikami do plików. Trigger phrases: "review-commit", "zrób review
   commita", "przejrzyj commit", "anthropic review commita", "review commit <sha>".
@@ -27,18 +27,29 @@ przygotowuje wejście i podaje wynik.
 
 `$ARGUMENTS` = `[commit] [ścieżka…]`
 
-- `<commit>` — opcjonalny. Wszystko, co rozumie `git rev-parse`: `b483a51`,
+- `[commit]` — opcjonalny. Wszystko, co rozumie `git rev-parse`: `b483a51`,
   `HEAD`, `HEAD~3`, nazwa gałęzi, tag.
 - `[ścieżka…]` — opcjonalne zawężenie diffa (pathspec gita), np. `app src`
   albo `':!package-lock.json'`.
 
-Bez identyfikatora: przyjmij ostatni commit, czyli `HEAD`. Ustal go
-poleceniem `git log -1 --format="%h %s" HEAD`, napisz użytkownikowi jedną
-linią, że review obejmie ostatni commit (`%h` + tytuł), i przejdź dalej
-bez pytania. Jeśli pierwszy argument nie jest commitem
+Jeśli pierwszy argument nie jest commitem
 (`git rev-parse --verify --quiet "<arg>^{commit}"` zwraca pusty wynik), ale
-istnieje taka ścieżka w repo, potraktuj wszystkie argumenty jako ścieżki,
-a commit ustaw na `HEAD`.
+istnieje taka ścieżka w repo, potraktuj wszystkie argumenty jako ścieżki
+i uznaj, że commitu nie podano.
+
+Bez identyfikatora commita zapytaj, który commit przejrzeć — nie zakładaj
+`HEAD` po cichu:
+
+1. Pobierz listę: `git log -10 --format="%h %ad %s" --date=short`.
+2. Pokaż ją użytkownikowi jako tabelę (SHA, data, tytuł), od najnowszego.
+3. Zapytaj przez AskUserQuestion „Który commit dać do review?”. Pierwsza
+   opcja to ostatni commit z dopiskiem „(Recommended)” — to podpowiedź
+   domyślna. Kolejne opcje to trzy następne commity z listy (narzędzie
+   przyjmuje najwyżej 4 opcje). Etykieta opcji: `%h` + skrócony tytuł,
+   opis: data i pełny tytuł. W treści pytania napisz, że inny commit z listy
+   (albo dowolny identyfikator) można wpisać w polu „Other”.
+4. Odpowiedź z „Other” przepuść przez Krok 1 jak każdy inny identyfikator.
+   Ścieżki podane w argumentach zostają w mocy dla wybranego commita.
 
 ## Zanim zaczniesz — dwie rzeczy, których nie widać z kodu
 
