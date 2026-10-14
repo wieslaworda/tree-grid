@@ -34,8 +34,16 @@ przygotowuje wejście i podaje wynik.
 
 Jeśli pierwszy argument nie jest commitem
 (`git rev-parse --verify --quiet "<arg>^{commit}"` zwraca pusty wynik), ale
-istnieje taka ścieżka w repo, potraktuj wszystkie argumenty jako ścieżki
-i uznaj, że commitu nie podano.
+wygląda na pathspec, potraktuj wszystkie argumenty jako ścieżki i uznaj, że
+commitu nie podano. Argument wygląda na pathspec, gdy:
+
+- zaczyna się od `:` (pathspec magiczny, np. `':!package-lock.json'` —
+  takiej ścieżki nie ma na dysku), albo
+- `git ls-files -- "<arg>"` coś zwraca (plik, katalog albo glob), albo
+- istnieje taka ścieżka w repo.
+
+Argument, który nie jest ani commitem, ani pathspekiem, idzie do Kroku 1
+jako identyfikator commita.
 
 Bez identyfikatora commita zapytaj, który commit przejrzeć — nie zakładaj
 `HEAD` po cichu:
@@ -44,12 +52,16 @@ Bez identyfikatora commita zapytaj, który commit przejrzeć — nie zakładaj
 2. Pokaż ją użytkownikowi jako tabelę (SHA, data, tytuł), od najnowszego.
 3. Zapytaj przez AskUserQuestion „Który commit dać do review?”. Pierwsza
    opcja to ostatni commit z dopiskiem „(Recommended)” — to podpowiedź
-   domyślna. Kolejne opcje to trzy następne commity z listy (narzędzie
-   przyjmuje najwyżej 4 opcje). Etykieta opcji: `%h` + skrócony tytuł,
-   opis: data i pełny tytuł. W treści pytania napisz, że inny commit z listy
-   (albo dowolny identyfikator) można wpisać w polu „Other”.
-4. Odpowiedź z „Other” przepuść przez Krok 1 jak każdy inny identyfikator.
-   Ścieżki podane w argumentach zostają w mocy dla wybranego commita.
+   domyślna. Kolejne opcje to następne commity z listy: opcji jest tyle, ile
+   commitów na liście, najwyżej 4 (narzędzie przyjmuje od 2 do 4 opcji).
+   Etykieta opcji: `%h` + skrócony tytuł, opis: data i pełny tytuł. W treści
+   pytania napisz, że inny commit z listy (albo dowolny identyfikator) można
+   wpisać w polu „Other”.
+   Jeśli lista ma tylko jeden commit, nie pytaj: napisz jedną linią, że review
+   obejmie jedyny commit repozytorium, i przejdź z nim do Kroku 1.
+4. Wybrany commit — z listy albo wpisany w „Other” — przepuść przez Krok 1;
+   tam dopiero ustala się rodziców i bazę diffa. Ścieżki podane
+   w argumentach zostają w mocy dla wybranego commita.
 
 ## Zanim zaczniesz — dwie rzeczy, których nie widać z kodu
 
