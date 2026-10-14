@@ -3,11 +3,12 @@ name: review-commit
 description: >
   Code review jednego commita przez `npm run anthropic:review`
   (scripts/anthropic-review.ts, Claude Agent SDK). Bierze identyfikator commita
-  (pełny lub skrócony SHA, HEAD~2, gałąź, tag), buduje diff względem rodzica,
+  (pełny lub skrócony SHA, HEAD~2, gałąź, tag; bez niego — ostatni commit,
+  HEAD), buduje diff względem rodzica,
   pilnuje limitu 200 000 znaków skryptu, uruchamia review i streszcza uwagi
   z odnośnikami do plików. Trigger phrases: "review-commit", "zrób review
   commita", "przejrzyj commit", "anthropic review commita", "review commit <sha>".
-argument-hint: "<commit> [ścieżka…]"
+argument-hint: "[commit] [ścieżka…]"
 disable-model-invocation: true
 allowed-tools:
   - Bash
@@ -24,15 +25,20 @@ przygotowuje wejście i podaje wynik.
 
 ## Argumenty
 
-`$ARGUMENTS` = `<commit> [ścieżka…]`
+`$ARGUMENTS` = `[commit] [ścieżka…]`
 
-- `<commit>` — wymagany. Wszystko, co rozumie `git rev-parse`: `b483a51`,
+- `<commit>` — opcjonalny. Wszystko, co rozumie `git rev-parse`: `b483a51`,
   `HEAD`, `HEAD~3`, nazwa gałęzi, tag.
 - `[ścieżka…]` — opcjonalne zawężenie diffa (pathspec gita), np. `app src`
   albo `':!package-lock.json'`.
 
-Bez identyfikatora: pokaż `git log --format="%h %ad %s" --date=short -15`
-i zapytaj, który commit przejrzeć. Nie zgaduj.
+Bez identyfikatora: przyjmij ostatni commit, czyli `HEAD`. Ustal go
+poleceniem `git log -1 --format="%h %s" HEAD`, napisz użytkownikowi jedną
+linią, że review obejmie ostatni commit (`%h` + tytuł), i przejdź dalej
+bez pytania. Jeśli pierwszy argument nie jest commitem
+(`git rev-parse --verify --quiet "<arg>^{commit}"` zwraca pusty wynik), ale
+istnieje taka ścieżka w repo, potraktuj wszystkie argumenty jako ścieżki,
+a commit ustaw na `HEAD`.
 
 ## Zanim zaczniesz — dwie rzeczy, których nie widać z kodu
 
