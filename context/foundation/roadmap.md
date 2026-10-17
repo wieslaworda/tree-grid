@@ -70,6 +70,7 @@ Przy celu sekwencjonowania `speed` to również fragment, który najtaniej odpow
 | S-12 | `kontrola-drzewa`     | budować drzewo o wielu korzeniach, w którym korzeń występuje raz, a obiekt nie powtarza się pod tym samym korzeniem | S-03          | FR-004, US-01, Business Logic, Guardrails              | done |
 | S-14 | `zakladanie-konta`    | założyć konto loginem, hasłem i adresem e-mail, potwierdzając je kodem weryfikacyjnym wysłanym do administratora | S-01          | FR-001 (zmiana 2026-10-10), Access Control             | in-progress |
 | S-15 | `kod-do-rejestrujacego` | założyć konto bez udziału administratora, potwierdzając je kodem wysłanym od razu na adres e-mail z formularza | S-14          | FR-001 (zmiana 2026-10-17), Access Control             | in-progress |
+| S-16 | `drzewo-domyslne`     | po założeniu konta od razu oglądać własną kopię przykładowego ekranu z drzewem i gridem   | S-15, S-06    | FR-001 (zmiana 2026-10-17 — kopia przykładowego ekranu), FR-003, Access Control | in-progress |
 
 ## Streams
 
@@ -83,7 +84,7 @@ Navigation aid — groups items that share a Prerequisites chain. Canonical orde
 | D      | Edycja ekranu           | `S-04`                                              | Odgałęzia się od A przy `S-06` i idzie równolegle do `S-05` — edycja kategorii węzłów nie potrzebuje kolumn czasowych. |
 | E      | Diagnostyka backendu    | `F-01` → `S-11`                                     | Zależy tylko od istniejącego API, więc może iść równolegle do każdego innego strumienia; nie zmienia niczego, co widzi dyspozytor. |
 | F      | Reguły drzewa           | `S-03` → `S-12`                                     | Zaostrza regułę budowy drzewa z `S-03`; dotyka drzew wskazywanych przez ekrany (`S-06`), więc dane istniejących drzew trzeba ocenić przed wdrożeniem. |
-| G      | Zakładanie konta        | `S-01` → `S-14` → `S-15`                            | Zmienia rejestrację i identyfikator logowania z `S-01`; nie dotyka drzew ani ekranów, więc może iść równolegle do każdego innego strumienia. `S-15` zmienia tylko odbiorcę kodu z `S-14`. |
+| G      | Zakładanie konta        | `S-01` → `S-14` → `S-15` → `S-16`                   | Zmienia rejestrację i identyfikator logowania z `S-01`. `S-15` zmienia tylko odbiorcę kodu z `S-14`. Do `S-15` strumień nie dotyka drzew ani ekranów; `S-16` dokłada do założenia konta kopię wzorcowego ekranu i drzewa, więc łączy się ze strumieniem A przy `S-06`. |
 
 ## Baseline
 
@@ -328,6 +329,22 @@ Foundations below assume these are present and do NOT re-scaffold them.
 - **Risk:** Plaster świadomie zdejmuje jedną z trzech barier dostępu po uruchomieniu quick tunnelu (obok bramy logowania i blokady konta). Po zmianie konto założy każdy, kto zna adres tunelu i ma skrzynkę e-mail, więc dane innych użytkowników chroni już wyłącznie izolacja kont — którą testy integracyjne pokrywają dziś tylko częściowo (`CLAUDE.md`, „Znane luki”). Drugie ryzyko: formularz wysyła pocztę z konta Gmail nadawcy na adres wpisany przez anonimowego gościa. Może więc posłużyć do zasypywania cudzych skrzynek i psuć reputację nadawcy, a jedyną kontrolą jest globalny limit tempa. Trzecie: o kodzie do administratora mówią `CLAUDE.md` („Wdrożenie”, trzy bariery), komentarze w `src/Api/Auth/` i `src/Api/Mail/`, teksty widoków rejestracji, `context/foundation/infrastructure.md` i plan `zakladanie-konta`. Opis, który zostanie, podpowie następnemu agentowi „naprawę” przywracającą administratora. Porażka wysyłki nadal nie może dać konta bez kodu.
 - **Status:** in-progress
 
+### S-16: Nowe konto startuje z kopią przykładowego ekranu
+
+- **Outcome:** Nowa osoba po założeniu konta od razu ogląda działający ekran zamiast pustego stanu (decyzja z 2026-10-17):
+  - **Kopia przy rejestracji.** Krok 2 rejestracji zakłada konto, a potem kopiuje na nie wzorcowy ekran („Testowy ekran prezentacyjny”) i drzewo, które ten ekran wskazuje („Drzewo testowe na potrzeby prezentacji”). Kopia jest wierna: ta sama struktura i obiekty, ziarno, lista kategorii domyślnych i kategorie każdego węzła. Nazwy kopii mają login nowego konta: „Testowy ekran prezentacyjny dla {login}” i „Drzewo testowe na potrzeby prezentacji {login}”.
+  - **Pierwszy widok.** Po rejestracji użytkownik trafia na „Prezentację ekranu”, która otwiera kopię — jedyny ekran nowego konta.
+  - **Wzorzec.** Ekran i drzewo wzorca mają w bazie atrybut wzorca, ustawiany migracją. Wzorzec zostaje na koncie `test4`, które może go edytować, a nie może usunąć ekranu wzorca.
+  - **Bez wzorca.** Baza bez wzorca (testy, E2E, świeża instalacja) daje konto bez ekranu i bez drzewa, jak przed zmianą. Porażka kopiowania też nie blokuje konta — trafia do logu błędów API.
+- **Change ID:** `drzewo-domyslne`
+- **PRD refs:** FR-001 (zmiana 2026-10-17 — konto startuje z kopią przykładowego ekranu), FR-003 (doprecyzowanie 2026-10-17), sekcja `Access Control`
+- **Prerequisites:** S-15, S-06
+- **Parallel with:** S-04, S-10
+- **Blockers:** —
+- **Unknowns:** —
+- **Risk:** Kopia to jedyny odczyt w API bez filtra właściciela — operacja serwera przy zakładaniu konta, a nie dostęp użytkownika do cudzych danych. Rozszerzenie tego wyjątku na jakikolwiek endpoint dostępny dla użytkownika złamałoby izolację kont. Każde nowe konto dokłada drzewo (~95 węzłów) i ekran (~285 przypisań); wzrost ogranicza globalny limit tempa kroku 1. Każda kopia blokuje usunięcie obiektów wzorca ze słownika (`object_in_tree`). Kto zaloguje się na `test4`, zmienia to, co dostaną kolejne nowe konta. Porażka kopii daje użytkownikowi puste konto, widoczne wyłącznie w logu API.
+- **Status:** in-progress
+
 ## Backlog Handoff
 
 | Roadmap ID | Change ID             | Suggested issue title                                                | Ready for `/10x-plan` | Notes                                                        |
@@ -347,6 +364,7 @@ Foundations below assume these are present and do NOT re-scaffold them.
 | S-12       | `kontrola-drzewa`     | Reguły użycia obiektów w drzewie: wiele korzeni, korzeń raz w drzewie, brak powtórzeń pod jednym korzeniem | yes | Zastępuje regułę zapętlenia i duplikatu rodzeństwa z `S-03`; dane istniejących drzew — `Unknowns` |
 | S-14       | `zakladanie-konta`    | Zakładanie konta (login, hasło, e-mail) z kodem weryfikacyjnym wysyłanym do administratora | no | Blokuje wybór sposobu wysyłki poczty (`Unknowns`); zastępuje wspólny kod rejestracyjny z `S-01` |
 | S-15       | `kod-do-rejestrujacego` | Kod weryfikacyjny rejestracji na adres rejestrującego zamiast do administratora | yes | Kod `S-14` działa (fazy 1–2 zakomitowane); zmienia odbiorcę kodu i zdejmuje zgodę administratora — decyzja z 2026-10-17 |
+| S-16       | `drzewo-domyslne`     | Nowe konto dostaje kopię wzorcowego ekranu i drzewa prezentacyjnego | yes | Plan w `context/changes/drzewo-domyslne/plan.md`; decyzja z 2026-10-17, zawęża Parked „kopiowanie cudzych drzew” |
 
 This table is the clean handoff to Jira/Linear or any MCP-backed backlog. It carries one row for every `F-NN` and `S-NN` and deliberately does not duplicate the detailed roadmap body.
 
@@ -368,7 +386,7 @@ Rozstrzygnięte:
 ## Parked
 
 - **Import listy obiektów z arkuszy kalkulacyjnych** — Why parked: PRD `## Non-Goals`; obiekty powstają w aplikacji, a ścieżka importu to osobny problem z własnym parsowaniem i walidacją.
-- **Współdzielenie ekranów i drzew między użytkownikami, kopiowanie cudzych drzew, role administracyjne** — Why parked: PRD `## Non-Goals`; model pozostaje jednoosobowy, a drzewa z MS-05 są prywatne tak samo jak ekrany.
+- **Współdzielenie ekranów i drzew między użytkownikami, kopiowanie cudzych drzew na żądanie użytkownika, role administracyjne** — Why parked: PRD `## Non-Goals`; model pozostaje jednoosobowy, a drzewa z MS-05 są prywatne tak samo jak ekrany. Od 2026-10-17 wyjątkiem jest kopia wzorcowego ekranu i drzewa przy zakładaniu konta (`S-16`) — operacja serwera, nie funkcja dostępna dla użytkownika.
 - **Cofanie operacji w drzewie („cofnij")** — Why parked: nie wynika z PRD ani z MS-03–MS-07; przy celu `speed` zabezpieczeniem jest potwierdzenie przy „Usuń węzeł". Usuwanie przeciągnięciem (MS-07) świadomie działa bez potwierdzenia.
 - **Podmiana drzewa w zapisanym ekranie** — Why parked: odrzucona 2026-09-24 przy ustalaniu cyklu życia ekranu; PRD FR-011 ustala drzewo przy tworzeniu ekranu.
 - **Zapamiętanie doby w ekranie** — Why parked: PRD FR-007 (2026-09-24) — dobę wybiera się przy oglądaniu, zapisany ekran niesie tylko ziarno.

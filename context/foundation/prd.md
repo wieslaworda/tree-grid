@@ -76,12 +76,19 @@ Każdy dyspozytor ma inne potrzeby operacyjne, więc jeden uniwersalny, sztywny 
   > - Po pierwszym kroku aplikacja od razu wysyła kod weryfikacyjny na adres e-mail podany w formularzu. Administrator nie dostaje wiadomości i nie akceptuje kont.
   > - Kod potwierdza tylko, że rejestrujący ma dostęp do podanej skrzynki. Konto nadal powstaje dopiero po poprawnym podaniu kodu w drugim kroku.
   > - Punkt o wysyłce kodu na adres administratora z poprzedniej zmiany przestaje obowiązywać; pozostałe punkty — login, hasło i e-mail w formularzu, drugi krok z kodem, logowanie loginem — zostają bez zmian.
+  > Zmienione 2026-10-17 — konto startuje z kopią przykładowego ekranu:
+  > - Po założeniu konta użytkownik dostaje kopię wzorcowego ekranu („Testowy ekran prezentacyjny”) razem z kopią drzewa, które ten ekran wskazuje („Drzewo testowe na potrzeby prezentacji”). Kopie mają nazwy z loginem nowego konta: „Testowy ekran prezentacyjny dla {login}” i „Drzewo testowe na potrzeby prezentacji {login}”.
+  > - Wzorzec wskazuje atrybut zapisany na ekranie i na drzewie w bazie — nie nazwa. Wzorzec należy do jednego konta, a jego właściciel może go edytować jak każdy własny zasób; zmiany trafiają do kopii kont zakładanych później. Ekranu wzorca nie da się usunąć.
+  > - Kopie są zwykłymi, prywatnymi zasobami nowego konta: można je edytować i usuwać, a zmiana kopii nie dotyka wzorca. Obiekty i kategorie są wspólne, więc nie są kopiowane.
+  > - Po rejestracji użytkownik trafia na „Prezentację ekranu”, która otwiera tę kopię.
+  > - Brak wzorca albo porażka kopiowania nie blokują rejestracji: konto powstaje wtedy bez ekranu i bez drzewa.
 
 ### Obiekty i struktura drzewa
 - FR-002: Użytkownik może przeglądać, dodawać i edytować obiekty dostępne do budowy drzewa. Obiekt to kod i nazwa — słownik nie przechowuje relacji między obiektami (podobiektów); hierarchię buduje użytkownik w drzewie. Priority: must-have
   > Socrates: Rozważone kontrargumenty: "obiekty pochodzą z systemu źródłowego, więc edycja tworzy rozjazd z rzeczywistością" oraz "to osobny CRUD poza sednem MVP". Rozstrzygnięcie: FR zostaje bez zmian.
 - FR-003: Użytkownik może zbudować własną strukturę drzewiastą z listy dostępnych obiektów. Priority: must-have
   > Socrates: Rozważone kontrargumenty: "budowanie bez drag&drop może być uciążliwe i odeśle użytkownika do sztywnego widoku" oraz "gotowe szablony dałyby wartość szybciej niż budowa od zera". Rozstrzygnięcie: FR zostaje — samodzielna budowa struktury jest rdzeniem produktu.
+  > Doprecyzowane 2026-10-17: kopia przykładowego drzewa dla nowego konta (FR-001, zmiana 2026-10-17) nie jest szablonem zastępującym budowę. To dane startowe, które pokazują działający ekran od pierwszego logowania. Rozstrzygnięcie Socratesa dotyczy budowy struktury i obowiązuje bez zmian: użytkownik nadal buduje i zmienia drzewa sam, a aplikacja nie oferuje wyboru gotowych szablonów.
 - FR-004: Użytkownik jest blokowany przed utworzeniem struktury zawierającej zapętlenie. Priority: must-have
   > Socrates: Rozważone kontrargumenty: "w czystym drzewie zapętlenie jest niemożliwe z definicji, więc walidacja byłaby martwym kodem" oraz "blokada bez wskazania cyklu frustruje". Rozstrzygnięcie: FR zostaje — ten sam obiekt może wystąpić w wielu miejscach struktury, więc cykl jest realnie możliwy.
   > Zmienione 2026-10-08 — reguły użycia obiektów w budowie drzewa:
@@ -140,7 +147,7 @@ Ekran wylicza swoje wiersze z aktualnej struktury wskazanego drzewa: każdy węz
 
 ## Access Control
 
-Logowanie login + hasło (od 2026-10-10; wcześniej e-mail + hasło). Konto powstaje dopiero po potwierdzeniu kodem weryfikacyjnym wysłanym na adres e-mail podany przy rejestracji (FR-001, zmiana 2026-10-17). Kod potwierdza dostęp do skrzynki, a nie zgodę administratora: konto może założyć każdy, kto ma adres e-mail i zna adres aplikacji. To świadome uproszczenie aplikacji testowej MVP — dane innych użytkowników chroni wyłącznie izolacja kont. Do 2026-10-17 kod trafiał na adres administratora i konto wymagało jego zgody. Model płaski — każdy zalogowany użytkownik ma te same uprawnienia i widzi wyłącznie własne drzewa i własne, zapisane ekrany; lista ekranów pokazuje tylko ekrany zalogowanego użytkownika, a ekran może wskazywać wyłącznie drzewo tego samego użytkownika. Brak ról administracyjnych w MVP. Wszystkie widoki wymagają zalogowania — brak dostępu dla niezalogowanych użytkowników.
+Logowanie login + hasło (od 2026-10-10; wcześniej e-mail + hasło). Konto powstaje dopiero po potwierdzeniu kodem weryfikacyjnym wysłanym na adres e-mail podany przy rejestracji (FR-001, zmiana 2026-10-17). Kod potwierdza dostęp do skrzynki, a nie zgodę administratora: konto może założyć każdy, kto ma adres e-mail i zna adres aplikacji. To świadome uproszczenie aplikacji testowej MVP — dane innych użytkowników chroni wyłącznie izolacja kont. Do 2026-10-17 kod trafiał na adres administratora i konto wymagało jego zgody. Model płaski — każdy zalogowany użytkownik ma te same uprawnienia i widzi wyłącznie własne drzewa i własne, zapisane ekrany; lista ekranów pokazuje tylko ekrany zalogowanego użytkownika, a ekran może wskazywać wyłącznie drzewo tego samego użytkownika. Brak ról administracyjnych w MVP. Wyjątkiem od zasady „każdy widzi wyłącznie własne” jest jedna operacja serwera: przy zakładaniu konta API czyta wzorcowy ekran i drzewo z konta właściciela wzorca i zapisuje ich kopie na nowym koncie (FR-001, zmiana 2026-10-17). To kopia, nie współdzielenie — nowy użytkownik nie widzi wzorca ani żadnego zasobu innego konta. Wszystkie widoki wymagają zalogowania — brak dostępu dla niezalogowanych użytkowników.
 
 ## Non-Goals
 
