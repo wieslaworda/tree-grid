@@ -311,17 +311,18 @@ którym broni reszta tego skilla. API startuje pierwsze.
 ### Sekrety, bez których API nie wstanie
 
 API czyta dwa sekrety — klucz podpisu ciasteczka sesji
-(`src/Api/Auth/AuthSecrets.cs`) i hasło aplikacji Gmail, którym wysyła
-administratorowi kod weryfikacyjny rejestracji (`src/Api/Mail/MailSettings.cs`,
-plaster `zakladanie-konta`). Poza środowiskiem `Development` brak klucza albo
+(`src/Api/Auth/AuthSecrets.cs`) i hasło aplikacji Gmail, którym wysyła kod
+weryfikacyjny rejestracji na adres e-mail podany przez rejestrującego
+w formularzu (`src/Api/Mail/MailSettings.cs`, plastry `zakladanie-konta`
+i `kod-do-rejestrujacego`). Poza środowiskiem `Development` brak klucza albo
 niekompletna sekcja `Mail` (transport musi być `Smtp`, a `Host`, `Port`,
-`UserName`, `Password`, `From` i `AdminAddress` niepuste) **przerywa start**:
+`UserName`, `Password` i `From` niepuste) **przerywa start**:
 proces zapisuje w `.tunnel-run/api.err.log` wpis krytyczny z nazwą brakującego
 klucza i kończy się kodem 1. `start-api.ps1` domyślnie ustawia
 `ASPNETCORE_ENVIRONMENT` na `Production`, więc dotyczy to zwykłego uruchomienia.
 To nie jest awaria skryptu ani uszkodzony build — to niekompletna konfiguracja
-i tylko tak należy to czytać. `Host` (`smtp.gmail.com`), `Port` (587)
-i `AdminAddress` stoją już w `src/Api/appsettings.json`; ustawić trzeba resztę.
+i tylko tak należy to czytać. `Host` (`smtp.gmail.com`) i `Port` (587) stoją
+już w `src/Api/appsettings.json`; ustawić trzeba resztę.
 
 Konto Gmail nadawcy musi mieć włączoną **weryfikację dwuetapową (2FA)** —
 bez niej Google nie wyda hasła aplikacji. `Mail__Smtp__Password` to **hasło

@@ -29,15 +29,16 @@ export function meta() {
 }
 
 /**
- * Krok 2 rejestracji: login i kod weryfikacyjny, który administrator dostał
- * pocztą i przekazał osobie, której wniosek akceptuje. Poprawny kod zakłada
- * konto i sesję. Trasa stoi poza bramą (`app/routes.ts`) z tego samego powodu
- * co logowanie i krok 1 — konta jeszcze nie ma.
+ * Krok 2 rejestracji: login i kod weryfikacyjny, który rejestrujący dostał
+ * pocztą na adres podany w kroku 1. Poprawny kod zakłada konto i sesję. Trasa
+ * stoi poza bramą (`app/routes.ts`) z tego samego powodu co logowanie i krok 1
+ * — konta jeszcze nie ma.
  *
  * Login przychodzi w `?login=` z przekierowania po kroku 1, ale pole jest
- * edytowalne: kod może przyjść po kilku godzinach, a osoba może otworzyć ten
- * ekran z innego urządzenia albo z linku w kroku 1 — rejestrację wskazuje
- * zarezerwowany login, nie stan przeglądarki.
+ * edytowalne: kod przychodzi w ciągu sekund i jest ważny 30 minut, ale osoba
+ * może odczytać wiadomość na innym urządzeniu i tam otworzyć ten ekran, także
+ * z linku w kroku 1 — rejestrację wskazuje zarezerwowany login, nie stan
+ * przeglądarki.
  */
 export async function loader({ request }: Route.LoaderArgs) {
   if ((await getUser(request)) !== null) {
@@ -66,9 +67,9 @@ export async function action({ request }: Route.ActionArgs) {
   }
 
   // Sesja od razu po założeniu konta — tak jak dotąd po rejestracji. Kto podał
-  // poprawny kod od administratora, właśnie przeszedł bramkę rejestracji, a
-  // odesłanie na logowanie wymagałoby przenoszenia informacji „konto powstało”
-  // przez przekierowanie.
+  // poprawny kod, właśnie potwierdził dostęp do skrzynki z kroku 1 i ma konto,
+  // a odesłanie na logowanie wymagałoby przenoszenia informacji „konto
+  // powstało” przez przekierowanie.
   return createUserSession(result.user, HOME_ROUTE);
 }
 
@@ -104,8 +105,8 @@ export default function RejestracjaPotwierdzenie({
       </Typography.Title>
 
       <Typography.Paragraph className="mb-8 text-center text-tg-tekst-drugorzedny">
-        Kod weryfikacyjny wysłaliśmy administratorowi — poproś go o przekazanie
-        kodu.
+        Kod weryfikacyjny wysłaliśmy na adres e-mail podany w formularzu. Jeśli
+        go nie widzisz, sprawdź folder spamu.
       </Typography.Paragraph>
 
       {ogolny === undefined ? null : (

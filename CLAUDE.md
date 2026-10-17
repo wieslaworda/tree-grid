@@ -309,12 +309,16 @@ Dwie rzeczy do zapamiętania o samym quick tunnelu: **adres zmienia się przy
 każdym restarcie** i nie da się go przypiąć, więc nie zapisuj go na sztywno
 nigdzie w kodzie ani w ciasteczkach; **Cloudflare Access na `trycloudflare.com`
 nie działa**, więc od chwili uruchomienia tunelu jedyną kontrolą dostępu są
-trzy bariery samej aplikacji — brama w `chronione.tsx`, jednorazowy kod
-weryfikacyjny wysyłany przy rejestracji administratorowi (konto powstaje
-dopiero po wpisaniu kodu, który administrator przekazał; krok 1 ma globalny
-limit tempa) i blokada konta po nieudanych próbach logowania. Nie osłabiaj
-żadnej z nich „na chwilę". Porażka wysyłki kodu kończy się odmową
-(`mail_unavailable`), nigdy kontem bez weryfikacji.
+dwie bariery samej aplikacji — brama w `chronione.tsx` i blokada konta po
+nieudanych próbach logowania. Nie osłabiaj żadnej z nich „na chwilę".
+Jednorazowy kod weryfikacyjny rejestracji idzie na adres e-mail z formularza
+i potwierdza tylko dostęp do tej skrzynki — konto powstaje dopiero po jego
+wpisaniu, a krok 1 ma globalny limit tempa. Od 2026-10-17 konto może więc
+założyć każdy, kto ma adres e-mail i zna adres tunelu: to świadome
+uproszczenie aplikacji testowej MVP (PRD `Access Control`), a nie luka do
+naprawienia. Dane innych kont chroni izolacja kont.
+Porażka wysyłki kodu kończy się odmową (`mail_unavailable`), nigdy kontem bez
+weryfikacji.
 
 Poza Development API wysyła kod przez Gmail SMTP (`smtp.gmail.com:587`)
 i bez kompletnej sekcji `Mail` odmawia startu. Konto Gmail nadawcy musi mieć

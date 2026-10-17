@@ -276,8 +276,8 @@ czyta **domyślny** `new UserOptions()`. `UserValidator` w kroku 2 czyta
 **skonfigurowany** `manager.Options.User.AllowedUserNameCharacters`
 (`UserValidator.cs`, release/10.0). Komentarz `:57` przyznaje:
 „`Program.cs` zestawu nie zmienia”. Pierwsza zmiana w `Program.cs` rozjedzie
-krok 1 z krokiem 2 bez błędu. Login przejdzie krok 1, administrator dostanie
-kod, a krok 2 odmówi.
+krok 1 z krokiem 2 bez błędu. Login przejdzie krok 1, rejestrujący dostanie
+kod na adres z formularza (od 2026-10-17), a krok 2 odmówi.
 
 ### 3.4 Komentarze, które opisują kontrakt biblioteki niezgodnie z nią
 
@@ -708,7 +708,7 @@ nigdy do endpointu.
 | OQ-7 | Czy haszer potrzebuje użytkownika? | `PasswordHasher` nie używa parametru `user` | Atrapy znikają. Adapter podaje stałą instancję | `Identity/IdentityAccountDirectory.cs` |
 | OQ-8 | Czy konto i usunięcie rezerwacji są atomowe? | `UserStore.CreateAsync` robi `Context.Add` + `SaveChanges`, a `AutoSaveChanges` jest domyślnie `true`. Sklep dostaje scoped `AppDbContext` | Kontrakt portu: `CreateAsync` działa w transakcji otwartej przez wywołującego na tym samym `AppDbContext`. Test C-8 to przypina | `Domain/IAccountDirectory.cs` (dokumentacja) + test adaptera |
 | OQ-9 | Klasy znaków polityki haseł | `PasswordValidator`: zakresy ASCII. `IsLetterOrDigit` = upper ∨ lower ∨ digit | Domena odtwarza semantykę ASCII, żeby zachowanie się nie zmieniło. Test C-9 porównuje z walidatorem Identity, dopóki Identity jest adapterem | `Domain/PasswordPolicy.cs` |
-| OQ-10 | `SuccessRehashNeeded` | Zwracany dla V2, niższej liczby iteracji i PRF SHA1/SHA256 | Logowanie przehaszowuje (dziś robi to wnętrze `CheckPasswordAsync`). Kod weryfikacyjny nie (żyje 24 h) | `Identity/IdentityAccountDirectory.cs` → `CredentialCheck` |
+| OQ-10 | `SuccessRehashNeeded` | Zwracany dla V2, niższej liczby iteracji i PRF SHA1/SHA256 | Logowanie przehaszowuje (dziś robi to wnętrze `CheckPasswordAsync`). Kod weryfikacyjny nie (żyje 30 min od zmiany 2026-10-17, wcześniej 24 h) | `Identity/IdentityAccountDirectory.cs` → `CredentialCheck` |
 
 ---
 

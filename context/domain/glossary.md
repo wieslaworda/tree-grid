@@ -14,9 +14,9 @@ i dowody są w `context/domain/01-domain-distillation.md`.
 | Dyspozytor | Persona: osoba, która buduje i ogląda własne ekrany | `AppUser` (typ), „dyspozytor” tylko w tekstach | „admin”, „operator” |
 | Konto | Zarejestrowany użytkownik, właściciel drzew i ekranów | `AppUser`, `UserId` | „profil”, „tenant” |
 | Login | Identyfikator logowania (od 2026-10-10) | `UserName`, pole `login` | „e-mail” (e-mail to dana konta, nie identyfikator i nie musi być unikalny) |
-| Oczekująca rejestracja | Wniosek o konto czekający na kod. Rezerwuje login na 24 h | `PendingRegistration` | „konto nieaktywne”, „konto niezweryfikowane” (konto jeszcze nie istnieje) |
-| Kod weryfikacyjny | 8 cyfr wysyłanych administratorowi. Bez niego konto nie powstaje | `CodeHash`, `GenerateCode`, pole `code` w kroku 2 | samo „kod” (koliduje z kodem obiektu i kodem błędu) |
-| Administrator | Osoba spoza systemu, która dostaje kody. To adres w konfiguracji, nie rola | `Mail:AdminAddress` | „rola admina”, „konto administratora” |
+| Oczekująca rejestracja | Wniosek o konto czekający na kod. Rezerwuje login na 30 min (zmiana 2026-10-17; wcześniej 24 h) | `PendingRegistration` | „konto nieaktywne”, „konto niezweryfikowane” (konto jeszcze nie istnieje) |
+| Kod weryfikacyjny | 8 cyfr wysyłanych na adres e-mail z formularza rejestracji. Potwierdza tylko dostęp do skrzynki. Bez niego konto nie powstaje | `CodeHash`, `GenerateCode`, pole `code` w kroku 2 | samo „kod” (koliduje z kodem obiektu i kodem błędu) |
+| *(hasło wycofane 2026-10-17)* | Od 2026-10-17 kod weryfikacyjny nie trafia do administratora, a konto nie wymaga niczyjej zgody (PRD `Access Control`) | brak (`Mail:AdminAddress` usunięty) | „administrator” jako odbiorca kodu albo osoba akceptująca konta |
 | Blokada konta | Czasowa blokada logowania po serii złych haseł | `account_locked`, Identity `Lockout` | „ban”, „zawieszenie” |
 | Obiekt | Pozycja wspólnego słownika: kod i nazwa, bez relacji z innymi obiektami | `CatalogObject` | „węzeł”, „element drzewa”, „podobiekt” |
 | Kod obiektu / kod kategorii | Unikalny (bez względu na wielkość liter) identyfikator pozycji słownika, widoczny dla użytkownika | `Code`, `NormalizedCode`, `DictionaryCode.Normalize` | „id” (to osobny klucz liczbowy) |

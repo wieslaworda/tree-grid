@@ -8,7 +8,7 @@ const authFile = "playwright/.auth/user.json";
 // stawia pod nim API na świeżej bazie `.e2e/`.
 const API_URL = "http://127.0.0.1:5180";
 
-// Wiersz z kodem w treści wiadomości do administratora. Brzmienie należy do
+// Wiersz z kodem w treści wiadomości do rejestrującego. Brzmienie należy do
 // szablonu w C# — `VerificationMessage.CodeLinePrefix` i `CodePattern`
 // w `src/Api/Mail/IVerificationMailSender.cs` — i musi się z nim zgadzać:
 // zmiana zdania po jednej stronie nie wywali buildu, tylko setup nie znajdzie

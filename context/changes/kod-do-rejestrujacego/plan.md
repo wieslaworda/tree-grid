@@ -538,25 +538,25 @@ w kroku 1 jest pomijalne wobec PBKDF2 i wysyłki SMTP.
 
 #### Automated
 
-- [x] 1.1 Build przechodzi (API zatrzymane): `dotnet build TreeGrid.sln`
-- [x] 1.2 Testy reguł przechodzą: `dotnet test tests/Api.Tests --filter "FullyQualifiedName~RegistrationRulesTests|FullyQualifiedName~MailSettingsTests"`
-- [x] 1.3 Testy integracyjne auth przechodzą: `dotnet test tests/Api.Tests --filter "FullyQualifiedName~AuthIntegrationTests"`
-- [x] 1.4 Pełny zestaw .NET przechodzi: `dotnet test tests/Api.Tests`
-- [x] 1.5 Brak `AdminAddress` i słowa „administrator” w kontekście kodu w `src/Api` i `tests/Api.Tests`
+- [x] 1.1 Build przechodzi (API zatrzymane): `dotnet build TreeGrid.sln` — 27a2788
+- [x] 1.2 Testy reguł przechodzą: `dotnet test tests/Api.Tests --filter "FullyQualifiedName~RegistrationRulesTests|FullyQualifiedName~MailSettingsTests"` — 27a2788
+- [x] 1.3 Testy integracyjne auth przechodzą: `dotnet test tests/Api.Tests --filter "FullyQualifiedName~AuthIntegrationTests"` — 27a2788
+- [x] 1.4 Pełny zestaw .NET przechodzi: `dotnet test tests/Api.Tests` — 27a2788
+- [x] 1.5 Brak `AdminAddress` i słowa „administrator” w kontekście kodu w `src/Api` i `tests/Api.Tests` — 27a2788
 
 #### Manual
 
-- [x] 1.6 API w Development zostawia `.eml` z `To:` równym adresowi z formularza, treścią do rejestrującego i `Ważny do` około 30 minut naprzód
-- [x] 1.7 Krok 1 z adresem `Jan <jan@example.com>` pokazuje błąd przy polu e-mail, a nie baner `mail_unavailable`
+- [x] 1.6 API w Development zostawia `.eml` z `To:` równym adresowi z formularza, treścią do rejestrującego i `Ważny do` około 30 minut naprzód — 27a2788
+- [x] 1.7 Krok 1 z adresem `Jan <jan@example.com>` pokazuje błąd przy polu e-mail, a nie baner `mail_unavailable` — 27a2788
 
 ### Phase 2: Widoki, E2E i dokumentacja
 
 #### Automated
 
-- [ ] 2.1 Typecheck przechodzi: `npm run typecheck`
-- [ ] 2.2 Spec Node przechodzi: `npm run test:node`
-- [ ] 2.3 E2E przechodzi: `npx playwright test`
-- [ ] 2.4 Brak opisu administratora jako odbiorcy kodu w widokach, testach E2E, `CLAUDE.md`, `context/domain/` i `SKILL.md`
+- [x] 2.1 Typecheck przechodzi: `npm run typecheck`
+- [x] 2.2 Spec Node przechodzi: `npm run test:node`
+- [x] 2.3 E2E przechodzi: `npx playwright test`
+- [x] 2.4 Brak opisu administratora jako odbiorcy kodu w widokach, testach E2E, `CLAUDE.md`, `context/domain/` i `SKILL.md`
 
 #### Manual
 

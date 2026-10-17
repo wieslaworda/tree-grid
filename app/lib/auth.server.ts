@@ -61,9 +61,9 @@ export type AccountResult = { ok: true; user: SessionUser } | ApiFailure;
 
 /**
  * Wynik kroku 1 rejestracji. Sukces nie niesie konta, bo konto jeszcze nie
- * istnieje — API przyjęło wniosek i wysłało kod administratorowi. `login` to
- * login w postaci przyjętej przez API (po przycięciu), czyli ten, którym krok 2
- * wskaże rejestrację.
+ * istnieje — API przyjęło wniosek i wysłało kod na adres e-mail z formularza.
+ * `login` to login w postaci przyjętej przez API (po przycięciu), czyli ten,
+ * którym krok 2 wskaże rejestrację.
  */
 export type RegistrationResult = { ok: true; login: string } | ApiFailure;
 
@@ -228,8 +228,8 @@ export async function requestAccount(
 
 /**
  * Krok 1 rejestracji: wysyła login, adres e-mail i hasło do
- * `POST /auth/register`. Sukces (202) znaczy „wniosek przyjęty, kod poszedł do
- * administratora”, a nie „konto założone” — dlatego wynik niesie sam login,
+ * `POST /auth/register`. Sukces (202) znaczy „wniosek przyjęty, kod poszedł na
+ * adres z formularza”, a nie „konto założone” — dlatego wynik niesie sam login,
  * a sesja nie powstaje.
  *
  * Reguły logu są te same co w {@link requestAccount}: zgaszone API, 5xx (np.

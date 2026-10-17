@@ -64,9 +64,9 @@ Przeszukane warianty podaję w nawiasie.
 | 1 | **Dyspozytor** | Osoba monitorująca dane pomiarowe ułożone hierarchicznie, która chce własny układ widoku | `prd.md:26` | Tylko w komentarzach: `AppUser.cs:6` („Konto dyspozytora”), `session.server.ts:44`. Typem jest `AppUser`. Nazwa persony nie jest identyfikatorem |
 | 2 | **Konto** | Zarejestrowany użytkownik. Właściciel drzew i ekranów | `prd.md:68`, `:139` | `AppUser` (`AppUser.cs:19`), `UserId` w `UserTree.cs:42`, `Screen.cs:50` |
 | 3 | **Login** | Identyfikator logowania. Od 2026-10-10 jest nim login, nie e-mail | `prd.md:74`, `:139` | `AppUser.UserName`, `AuthFormFields.Login` (`AuthEndpoints.cs:545-552`), `LoginAsync` (`AuthEndpoints.cs:357-422`). Konta sprzed zmiany mają login równy adresowi (`AuthEndpoints.cs:353-355`) |
-| 4 | **Oczekująca rejestracja** | Wniosek o konto czekający na kod weryfikacyjny. Rezerwuje login na 24 h | PRD opisuje krok (`prd.md:73`), ale nie nazywa bytu | `PendingRegistration` (`PendingRegistration.cs:26`). Termin pochodzi z kodu |
-| 5 | **Kod weryfikacyjny** | Jednorazowy, 8 cyfr, wysyłany administratorowi. Konto powstaje dopiero po jego wpisaniu | `prd.md:72-73` | `RegistrationRules.GenerateCode` (`RegistrationRules.cs:71`), `CodeHash` (`PendingRegistration.cs:54`), `ConfirmOutcome` (`RegistrationRules.cs:173`) |
-| 6 | **Administrator** | Osoba spoza systemu, która dostaje kody i decyduje, komu je przekazać | `prd.md:72`. Zarazem „brak ról administracyjnych” (`prd.md:139`) | Adres w konfiguracji: `MailSettings.AdminAddress` (`MailSettings.cs:70-71`), odbiorca `IVerificationMailSender.cs:86`. To nie jest rola ani konto |
+| 4 | **Oczekująca rejestracja** | Wniosek o konto czekający na kod weryfikacyjny. Rezerwuje login na 30 min (zmiana 2026-10-17; wcześniej 24 h) | PRD opisuje krok (`prd.md:73`), ale nie nazywa bytu | `PendingRegistration` (`PendingRegistration.cs:26`). Termin pochodzi z kodu |
+| 5 | **Kod weryfikacyjny** | Jednorazowy, 8 cyfr, wysyłany na adres e-mail z formularza (zmiana 2026-10-17). Potwierdza tylko dostęp do skrzynki. Konto powstaje dopiero po jego wpisaniu | `prd.md:73`, `:75-78` | `RegistrationRules.GenerateCode` (`RegistrationRules.cs:71`), `CodeHash` (`PendingRegistration.cs:54`), `ConfirmOutcome` (`RegistrationRules.cs:173`) |
+| 6 | **Administrator** — wycofane 2026-10-17 | Do 2026-10-17 osoba spoza systemu, która dostawała kody i decydowała, komu je przekazać. Od tej zmiany kod idzie na adres z formularza, a konto nie wymaga niczyjej zgody | `prd.md:75-78` (FR-001, zmiana 2026-10-17), `prd.md:143` (`Access Control`) | **BRAK w kodzie** od S-15: `Mail:AdminAddress` usunięty, odbiorcą jest adres z formularza (`IVerificationMailSender.cs:91`) |
 | 7 | **Blokada konta** | Czasowe zablokowanie logowania po serii nieudanych prób | Brak w PRD; opisuje ją `CLAUDE.md` („Wdrożenie”) | `Program.cs:86-89`, `AuthEndpoints.cs:394-414`, kod `account_locked` (`ApiError.cs:123`) |
 | 8 | **Obiekt** (obiekt słownika) | Pozycja słownika, z której buduje się drzewo: kod i nazwa, bez relacji z innymi obiektami | `prd.md:77` | `CatalogObject` (`CatalogObject.cs:22`). Słownik jest wspólny dla kont (`CatalogObject.cs:5-6`) |
 | 9 | **Kod** (pozycji słownika) | Identyfikator obiektu albo kategorii widoczny dla użytkownika, unikalny bez rozróżniania wielkości liter | `roadmap.md:30` (MS-02). PRD mówi tylko „kod i nazwa” (`prd.md:77`) | `Code` / `NormalizedCode`, `DictionaryCode.Normalize` (`DictionaryCode.cs:23`) |
@@ -111,7 +111,7 @@ błędów**, **Motyw**.
 | **Ziarno** | Ziarno czasowe ekranu (Prezentacja) | Token „seed” antd (Motyw) | `Screen.cs:79` przeciw `CLAUDE.md` („Ziarna nie przypinają kolorów”), `app/theme/tokeny.ts` | Granica domena / technika |
 | **Pozycja** | `TreeNode.Position`: ciągły indeks od 0 wśród rodzeństwa | `ScreenDefaultCategory.Position` i `ScreenNodeCategory.Position`: klucz porządku z lukami | `TreeNode.cs:61-66` przeciw `ScreenDefaultCategory.cs:28-34` | To samo słowo niesie dwa różne niezmienniki (Budowa drzewa / Kompozycja ekranu) |
 | **Doba** | W PRD stałe 288 / 96 / 24 kolumny | W kodzie doba kalendarzowa `Europe/Warsaw`, 23–25 h | `prd.md:49` przeciw `ScreenValuesRules.cs:220-224` | Rozjazd, patrz §4 D5 |
-| **Administrator** | Brak ról administracyjnych (Konta i dostęp) | Odbiorca kodów weryfikacyjnych, osoba poza systemem (Poczta) | `prd.md:139` przeciw `prd.md:72`, `MailSettings.cs:70-71` | Granica Konta / Poczta. Administrator to adres, nie rola |
+| **Administrator** — znaczenie B wycofane 2026-10-17 | Brak ról administracyjnych (Konta i dostęp) | Do 2026-10-17 odbiorca kodów weryfikacyjnych, osoba poza systemem (Poczta) | `prd.md:143` (`Access Control`, zmiana 2026-10-17) | Od 2026-10-17 zostaje tylko znaczenie A: kod idzie na adres z formularza, a `Mail:AdminAddress` zniknął z kodu |
 
 ---
 
@@ -194,10 +194,10 @@ kategorii wszystkich ekranów na tym drzewie (`TreeEndpoints.cs:383`,
 | # | Niezmiennik | Źródło | Status | Dowód |
 |---|---|---|---|---|
 | E1 | Konto powstaje dopiero po poprawnym kodzie | `prd.md:73` | **egzekwuje** | `AuthEndpoints.cs:276-310`, `RegistrationRules.cs:150-169` |
-| E2 | Kod trafia do administratora, nie na adres z formularza | `prd.md:72` | **egzekwuje** | `IVerificationMailSender.cs:86` |
+| E2 | Kod trafia na adres z formularza (zmiana 2026-10-17; wcześniej do administratora) | `prd.md:76` | **egzekwuje** | `IVerificationMailSender.cs:91`; adres nienadający się na odbiorcę odpada w kroku 1 (`RegistrationRules.cs:100`, `:150-153`) |
 | E3 | Porażka wysyłki kodu kończy się odmową, nigdy kontem | `CLAUDE.md` („Wdrożenie”) | **egzekwuje** | `AuthEndpoints.cs:188-207` |
 | E4 | Login jest unikalny także wobec niewygasłych rejestracji | `PendingRegistration.cs:10-15` | **egzekwuje** | `AuthEndpoints.cs:158-162`, `AppDbContext.cs:258` |
-| E5 | Kod ważny 24 h, najwyżej 5 prób | kod (`RegistrationRules.cs:23`, `:31`) | **egzekwuje** | `RegistrationRules.cs:138`, `:150-169` |
+| E5 | Kod ważny 30 min (zmiana 2026-10-17; wcześniej 24 h), najwyżej 5 prób | kod (`RegistrationRules.cs:26`, `:34`) | **egzekwuje** | `RegistrationRules.cs:159`, `:170-189` |
 | E6 | Blokada konta po nieudanych próbach logowania | `CLAUDE.md` | **egzekwuje** | `AuthEndpoints.cs:394-419`, `Program.cs:86-89` |
 
 ---

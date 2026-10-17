@@ -32,11 +32,13 @@ export function meta() {
  * założeniem konta nie ma sesji, którą można by sprawdzić.
  *
  * Ten formularz konta nie zakłada. API zapisuje oczekującą rejestrację
- * i wysyła jednorazowy kod weryfikacyjny administratorowi, a konto powstaje
- * dopiero w kroku 2 (`routes/rejestracja-potwierdzenie.tsx`), gdy osoba wpisze
- * kod, który administrator jej przekazał. Ten kod jest bramką przed
- * rejestracją — `trycloudflare.com` nie obsługuje Cloudflare Access
- * (`infrastructure.md:222`), więc przed tym formularzem nie stoi nic innego.
+ * i wysyła jednorazowy kod weryfikacyjny na adres e-mail podany w formularzu,
+ * a konto powstaje dopiero w kroku 2 (`routes/rejestracja-potwierdzenie.tsx`),
+ * gdy osoba wpisze ten kod. Kod potwierdza wyłącznie dostęp do skrzynki, a nie
+ * czyjąkolwiek zgodę (PRD `Access Control`, 2026-10-17): konto założy każdy,
+ * kto ma adres e-mail i zna adres aplikacji — `trycloudflare.com` nie obsługuje
+ * Cloudflare Access (`infrastructure.md:221`), więc przed tym formularzem nie
+ * stoi nic innego.
  */
 export async function loader({ request }: Route.LoaderArgs) {
   if ((await getUser(request)) !== null) {
@@ -66,9 +68,10 @@ export async function action({ request }: Route.ActionArgs) {
   }
 
   // Login w adresie, a nie w sesji ani w ciasteczku: rejestrację wskazuje
-  // zarezerwowany login, więc krok 2 da się otworzyć także później i z innego
-  // urządzenia — gdy administrator przekaże kod. Login z odpowiedzi API, bo
-  // to on (po przycięciu) jest kluczem rejestracji.
+  // zarezerwowany login, więc krok 2 da się otworzyć także później (w ciągu
+  // 30 minut ważności kodu) i z innego urządzenia — tego, na którym rejestrujący
+  // odczytał wiadomość. Login z odpowiedzi API, bo to on (po przycięciu) jest
+  // kluczem rejestracji.
   return redirect(
     `${REGISTER_CONFIRM_ROUTE}?login=${encodeURIComponent(result.login)}`,
   );
@@ -78,8 +81,8 @@ export async function action({ request }: Route.ActionArgs) {
  * Budowa formularza — dwa komponenty `Form` o rozłącznych rolach, podział
  * walidacji na natywną i antd, jawne `name` na polach — jest opisana
  * w `logowanie.tsx`. Tutaj dochodzą pola, z których API składa wniosek o konto:
- * login (przyszły identyfikator logowania) i adres e-mail (dana konta, którą
- * administrator widzi w wiadomości z kodem).
+ * login (przyszły identyfikator logowania) i adres e-mail (dana konta, a zarazem
+ * adres, na który API wysyła kod weryfikacyjny).
  */
 export default function Rejestracja() {
   const blad = useActionData<ApiErrorBody>();
