@@ -505,11 +505,11 @@ semantyką słowników wspólnych.
 
 #### Automated
 
-- [x] 4.1 `dotnet test tests/Api.Tests --filter "FullyQualifiedName~ScreenErrorContractTests"` przechodzi
-- [x] 4.2 `dotnet test tests/Api.Tests` przechodzi w całości
-- [x] 4.3 `npm run typecheck` przechodzi
+- [x] 4.1 `dotnet test tests/Api.Tests --filter "FullyQualifiedName~ScreenErrorContractTests"` przechodzi — 12835b3
+- [x] 4.2 `dotnet test tests/Api.Tests` przechodzi w całości — 12835b3
+- [x] 4.3 `npm run typecheck` przechodzi — 12835b3
 
 #### Manual
 
-- [x] 4.4 Zalogowany jako `test4` na kopii bazy: „Usuń ekran" na „Testowy ekran prezentacyjny" pokazuje w widoku `/ekrany` komunikat odmowy, a ekran zostaje na liście
-- [x] 4.5 Usunięcie klonu na nowym koncie działa jak dziś
+- [x] 4.4 Zalogowany jako `test4` na kopii bazy: „Usuń ekran" na „Testowy ekran prezentacyjny" pokazuje w widoku `/ekrany` komunikat odmowy, a ekran zostaje na liście — 12835b3
+- [x] 4.5 Usunięcie klonu na nowym koncie działa jak dziś — 12835b3

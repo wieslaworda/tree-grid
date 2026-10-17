@@ -1,7 +1,7 @@
 ---
 change_id: drzewo-domyslne
 title: Nowe konto dostaje klon domyślnego ekranu i drzewa prezentacyjnego
-status: implementing
+status: implemented
 created: 2026-10-17
 updated: 2026-10-17
 archived_at: null
