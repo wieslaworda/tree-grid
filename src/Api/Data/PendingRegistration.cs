@@ -2,9 +2,9 @@ namespace Api.Data;
 
 /// <summary>
 /// Rejestracja czekająca na kod weryfikacyjny (S-14, FR-001 w wersji
-/// z 2026-10-10). Krok 1 zakłada wiersz i wysyła kod administratorowi, krok 2
-/// zamienia wiersz w konto (<see cref="AppUser"/>) albo go odrzuca. Konto nie
-/// istnieje, dopóki nie padnie poprawny kod.
+/// z 2026-10-17). Krok 1 zakłada wiersz i wysyła kod na adres z formularza,
+/// krok 2 zamienia wiersz w konto (<see cref="AppUser"/>) albo go odrzuca.
+/// Konto nie istnieje, dopóki nie padnie poprawny kod.
 /// </summary>
 /// <remarks>
 /// Wiersz rezerwuje login na czas ważności: unikalny indeks na
@@ -12,7 +12,8 @@ namespace Api.Data;
 /// w kroku 1. Adres e-mail nie jest rezerwowany — może się powtarzać między
 /// kontami i rejestracjami. Rezerwacja loginu pozwala krokowi 2 znaleźć
 /// rejestrację po samym loginie — bez ukrytego identyfikatora i bez ciasteczka,
-/// więc osoba może wrócić z kodem po kilku godzinach, z innego urządzenia.
+/// więc osoba może wrócić z kodem w dowolnej chwili przed terminem, z innego
+/// urządzenia.
 ///
 /// Ani hasło, ani kod nie leżą tu jawnie: oba są haszami z
 /// <c>IPasswordHasher</c>, a kod jawny istnieje wyłącznie w pamięci kroku 1

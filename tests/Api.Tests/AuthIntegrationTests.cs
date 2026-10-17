@@ -10,18 +10,18 @@ using Microsoft.EntityFrameworkCore;
 namespace Api.Tests;
 
 /// <summary>
-/// Bariera dostępu za tunelem (S-14, FR-001 w wersji z 2026-10-10) na
+/// Bariera dostępu za tunelem (S-14, S-15, FR-001 w wersji z 2026-10-17) na
 /// prawdziwym potoku HTTP i SQLite: rejestracja w dwóch krokach z kodem
-/// weryfikacyjnym wysyłanym administratorowi, rezerwacja loginu (adres może
-/// się powtarzać),
-/// limit prób kodu, wygaśnięcie, limit tempa kroku 1, porażka wysyłki
-/// i logowanie loginem.
+/// weryfikacyjnym wysyłanym na adres z formularza, odrzucenie adresu, którego
+/// wysyłka nie przyjmie jako odbiorcy, rezerwacja loginu (adres może się
+/// powtarzać), limit prób kodu, wygaśnięcie, limit tempa kroku 1, porażka
+/// wysyłki i logowanie loginem.
 ///
 /// Wyrocznią są PRD i plan <c>context/changes/zakladanie-konta/plan.md</c>
 /// („Testing Strategy"), nie kod pod testem: komunikaty, limity i statusy są
 /// wpisane w testach. Kod weryfikacyjny jest czytany z pliku <c>.eml</c>
 /// w katalogu fabryki (<see cref="TestApiFactory.ReadLastVerificationCode"/>),
-/// tak jak przeczytałby go administrator. Stan bazy jest odczytywany wprost
+/// tak jak przeczytałby go rejestrujący. Stan bazy jest odczytywany wprost
 /// z tabeli, nowym scope.
 ///
 /// Testy w klasie dzielą jeden host i plik bazy, więc każdy używa własnego,
@@ -64,8 +64,8 @@ public class AuthIntegrationTests(
         var expiresAt = accepted.GetProperty("expiresAt").GetDateTimeOffset();
         Assert.InRange(
             expiresAt - DateTimeOffset.UtcNow,
-            TimeSpan.FromHours(24) - TimeSpan.FromMinutes(5),
-            TimeSpan.FromHours(24));
+            TimeSpan.FromMinutes(30) - TimeSpan.FromMinutes(5),
+            TimeSpan.FromMinutes(30));
 
         var code = factory.ReadLastVerificationCode(login);
 
@@ -88,20 +88,43 @@ public class AuthIntegrationTests(
     }
 
     [Fact]
-    public async Task Mailed_message_names_the_login_and_the_applicant_email()
+    public async Task Mailed_message_goes_only_to_the_form_email_and_names_the_login_and_the_code()
     {
         using var client = factory.CreateClient();
         var login = NewLogin();
         var email = EmailFor(login);
 
-        Assert.Equal(HttpStatusCode.Accepted, (await RegisterAsync(client, login, email)).StatusCode);
+        // Spacje na brzegach: odbiorcą ma być adres obcięty w endpoincie.
+        Assert.Equal(HttpStatusCode.Accepted, (await RegisterAsync(client, login, $" {email} ")).StatusCode);
 
         var code = factory.ReadLastVerificationCode(login);
-        var text = ReadMailText(factory, login);
+        using var message = ReadMail(factory, login);
 
+        var recipient = Assert.IsType<MimeKit.MailboxAddress>(Assert.Single(message.To));
+        Assert.Equal(email, recipient.Address);
+        Assert.Empty(message.Cc);
+        Assert.Empty(message.Bcc);
+
+        var text = message.TextBody;
         Assert.Contains($"Login: {login}", text);
-        Assert.Contains($"Adres e-mail: {email}", text);
         Assert.Contains($"Kod weryfikacyjny: {code}", text);
+    }
+
+    [Fact]
+    public async Task Email_with_a_display_name_is_refused_on_the_field_without_a_message_or_a_reservation()
+    {
+        // `Jan <x@y>` przechodzi test kształtu, a MimeKit parsuje go poprawnie —
+        // bez reguły kroku 1 poczta poszłaby na `x@y`, a kontu zostałby surowy
+        // napis. Odmowa ma być błędem pola, a nie 503 z wnętrza wysyłki.
+        using var client = factory.CreateClient();
+        var login = NewLogin();
+
+        var response = await RegisterAsync(client, login, "Jan <jan@test.local>");
+
+        var error = await IntegrationSeed.AssertRefusedAsync(response, HttpStatusCode.BadRequest, ApiErrorCodes.ValidationError);
+        Assert.Equal("Podaj poprawny adres e-mail.", Fields(error).GetProperty("email").GetString());
+        Assert.Null(await ReadPendingAsync(factory, login));
+        Assert.False(HasMailFor(factory, login), $"Powstała wiadomość dla loginu '{login}'.");
     }
 
     [Fact]
@@ -386,24 +409,47 @@ public class AuthIntegrationTests(
         }
     }
 
-    /// <summary>Odkodowana treść najnowszej wiadomości dla loginu.</summary>
-    private static string ReadMailText(TestApiFactory host, string login)
+    /// <summary>Najnowsza wiadomość dla loginu, wczytana z pliku <c>.eml</c>; zwalnia ją wołający.</summary>
+    private static MimeKit.MimeMessage ReadMail(TestApiFactory host, string login)
     {
         foreach (var file in Directory.GetFiles(host.MailDirectory, "*.eml").OrderDescending(StringComparer.Ordinal))
         {
-            using var message = MimeKit.MimeMessage.Load(file);
+            var message = MimeKit.MimeMessage.Load(file);
 
             if (message.TextBody?.Contains(VerificationMessage.LoginLinePrefix + login) == true)
             {
                 Assert.Equal($"TreeGrid — kod weryfikacyjny dla {login}", message.Subject);
 
-                return message.TextBody;
+                return message;
             }
+
+            message.Dispose();
         }
 
         Assert.Fail($"Brak wiadomości dla loginu '{login}'.");
 
-        return string.Empty;
+        return null!;
+    }
+
+    /// <summary>Czy w katalogu fabryki jest jakakolwiek wiadomość dla loginu.</summary>
+    private static bool HasMailFor(TestApiFactory host, string login)
+    {
+        if (!Directory.Exists(host.MailDirectory))
+        {
+            return false;
+        }
+
+        foreach (var file in Directory.GetFiles(host.MailDirectory, "*.eml"))
+        {
+            using var message = MimeKit.MimeMessage.Load(file);
+
+            if (message.TextBody?.Contains(VerificationMessage.LoginLinePrefix + login) == true)
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /// <summary>

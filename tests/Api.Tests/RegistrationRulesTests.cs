@@ -9,8 +9,9 @@ namespace Api.Tests;
 /// Wzorem <see cref="TreeNameRulesTests"/> testy nie podnoszą hosta ani bazy:
 /// reguły są czystymi funkcjami (<see cref="RegistrationRules"/>). Pełną ścieżkę
 /// HTTP na SQLite sprawdza <see cref="AuthIntegrationTests"/>. Oczekiwane
-/// wartości — 8 cyfr, 3–64 znaki, 5 prób, doba — są wpisane z planu
-/// <c>context/changes/zakladanie-konta/plan.md</c>, a nie czytane ze stałych.
+/// wartości — 8 cyfr, 3–64 znaki, 5 prób, 30 minut — są wpisane z planów
+/// <c>context/changes/zakladanie-konta/plan.md</c> i
+/// <c>context/changes/kod-do-rejestrujacego/plan.md</c>, a nie czytane ze stałych.
 /// </summary>
 public class RegistrationRulesTests
 {
@@ -105,6 +106,21 @@ public class RegistrationRulesTests
         Assert.Equal("Podaj poprawny adres e-mail.", fields["email"]);
     }
 
+    [Theory]
+    [InlineData("a b@example.com")]
+    [InlineData("a;b@example.com")]
+    [InlineData("Jan <jan@example.com>")]
+    [InlineData("jan@example.com, ewa@example.com")]
+    public void Email_that_mail_delivery_would_not_take_as_a_single_bare_recipient_is_rejected(string email)
+    {
+        // Każdy z tych adresów przechodzi test kształtu `EmailAddressAttribute`;
+        // odpada dopiero na parserze odbiorcy (S-15).
+        var fields = RegistrationRules.ValidateRegistration("jan", email, "haslo");
+
+        Assert.Equal(["email"], fields.Keys);
+        Assert.Equal("Podaj poprawny adres e-mail.", fields["email"]);
+    }
+
     [Fact]
     public void Complete_registration_has_no_violations()
     {
@@ -160,7 +176,7 @@ public class RegistrationRulesTests
     [Fact]
     public void Limits_match_the_plan()
     {
-        Assert.Equal(TimeSpan.FromHours(24), RegistrationRules.CodeLifetime);
+        Assert.Equal(TimeSpan.FromMinutes(30), RegistrationRules.CodeLifetime);
         Assert.Equal(5, RegistrationRules.MaxCodeAttempts);
         Assert.Equal(3, RegistrationRules.LoginMinLength);
         Assert.Equal(64, RegistrationRules.LoginMaxLength);

@@ -190,7 +190,7 @@ public static class ApiErrorCodes
     public const string RateLimited = "rate_limited";
 
     /// <summary>
-    /// Kodu weryfikacyjnego nie udało się wysłać administratorowi (503,
+    /// Kodu weryfikacyjnego nie udało się wysłać na adres z formularza (503,
     /// <c>POST /auth/register</c>). Oczekująca rejestracja jest wtedy usuwana,
     /// więc ponowne wysłanie formularza zaczyna od zera. <c>context</c> jest
     /// pusty celowo: przyczyna (serwer SMTP, uwierzytelnienie) zostaje w logu

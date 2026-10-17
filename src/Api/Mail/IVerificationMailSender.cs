@@ -5,8 +5,9 @@ using MimeKit;
 namespace Api.Mail;
 
 /// <summary>
-/// Jedna operacja: wyślij administratorowi kod weryfikacyjny dla wniosku
-/// o konto (S-14). Transport wybiera konfiguracja (<see cref="MailSettings"/>):
+/// Jedna operacja: wyślij rejestrującemu, na adres podany w formularzu, kod
+/// weryfikacyjny jego rejestracji (S-14, S-15). Transport wybiera
+/// konfiguracja (<see cref="MailSettings"/>):
 /// <see cref="SmtpVerificationMailSender"/> albo
 /// <see cref="DirectoryVerificationMailSender"/>. Porażka wysyłki to wyjątek —
 /// krok 1 rejestracji usuwa wtedy oczekującą rejestrację i odpowiada
@@ -25,7 +26,7 @@ internal interface IVerificationMailSender
 /// <summary>
 /// Treść wiadomości z kodem — wspólna dla obu transportów, żeby plik
 /// <c>.eml</c> z pętli deweloperskiej i testów był dokładnie tym, co dostaje
-/// administrator.
+/// rejestrujący.
 /// </summary>
 internal static class VerificationMessage
 {
@@ -57,8 +58,11 @@ internal static class VerificationMessage
     /// quoted-printable, ustawionym jawnie: wiersze z samych znaków ASCII —
     /// a takie są wiersze z loginem i kodem — zostają w pliku dosłownie, więc
     /// da się je znaleźć wyrażeniem w surowym <c>.eml</c>. Przy kodowaniu
-    /// wybieranym automatycznie MimeKit mógłby wybrać base64. Nadawcę i odbiorcę
-    /// sprawdza wcześniej <see cref="MailSettings.ThrowIfIncomplete"/>.
+    /// wybieranym automatycznie MimeKit mógłby wybrać base64. Nadawcę sprawdza
+    /// wcześniej <see cref="MailSettings.ThrowIfIncomplete"/>, a odbiorcę —
+    /// adres z formularza, obcięty w endpoincie — walidacja kroku 1
+    /// (<c>Api.Auth.RegistrationRules.ValidateRegistration</c>) tym samym
+    /// parserem MimeKit, więc tutaj się już sparsuje.
     /// </summary>
     internal static MimeMessage Build(
         MailSettings settings,
@@ -69,21 +73,22 @@ internal static class VerificationMessage
     {
         var expiresLocal = TimeZoneInfo.ConvertTime(expiresAt, ScreenValuesRules.ProductTimeZone);
 
+        // Bez wiersza z adresem e-mail: adresat zna własny adres.
         var body =
-            "Nowy wniosek o konto w TreeGrid.\n" +
+            "Oto kod do potwierdzenia Twojej rejestracji w TreeGrid.\n" +
             "\n" +
             $"{LoginLinePrefix}{login}\n" +
-            $"Adres e-mail: {email}\n" +
             $"{CodeLinePrefix}{code}\n" +
             $"Ważny do: {expiresLocal.ToString("yyyy-MM-dd HH:mm", CultureInfo.InvariantCulture)} (czas polski)\n" +
             "\n" +
-            "Jeśli akceptujesz wniosek, przekaż kod tej osobie — wpisze go w formularzu " +
-            "potwierdzenia rejestracji razem ze swoim loginem. Jeśli nie, zignoruj tę " +
-            "wiadomość: rejestracja wygaśnie sama.\n";
+            "Wpisz kod w formularzu potwierdzenia rejestracji razem ze swoim loginem.\n" +
+            "\n" +
+            "Jeśli nie zakładasz konta w TreeGrid, zignoruj tę wiadomość: rejestracja " +
+            "wygaśnie sama.\n";
 
         var message = new MimeMessage();
         message.From.Add(MailboxAddress.Parse(settings.From!));
-        message.To.Add(MailboxAddress.Parse(settings.AdminAddress!));
+        message.To.Add(MailboxAddress.Parse(email));
         message.Subject = $"TreeGrid — kod weryfikacyjny dla {login}";
         message.Body = new TextPart("plain")
         {

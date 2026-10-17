@@ -17,14 +17,15 @@ namespace Api.Auth;
 /// Routera (<c>infrastructure.md:81</c>), więc API nie ma tu nic do trzymania.
 /// </summary>
 /// <remarks>
-/// Rejestracja idzie w dwóch krokach (S-14, FR-001 w wersji z 2026-10-10).
-/// Krok 1 zakłada oczekującą rejestrację (<see cref="PendingRegistration"/>)
-/// i wysyła jednorazowy kod administratorowi; krok 2 zakłada konto dopiero po
-/// poprawnym kodzie. Kod jest jedyną rzeczą, która odróżnia osobę przyjętą
-/// przez administratora od przypadkowego gościa, który trafił pod publiczny
-/// adres tunelu — <c>trycloudflare.com</c> nie obsługuje Cloudflare Access
-/// (<c>infrastructure.md:222</c>), więc przed rejestracją nie stoi żadna inna
-/// bramka.
+/// Rejestracja idzie w dwóch krokach (S-14, S-15, FR-001 w wersji
+/// z 2026-10-17). Krok 1 zakłada oczekującą rejestrację
+/// (<see cref="PendingRegistration"/>) i wysyła jednorazowy kod na adres
+/// e-mail podany w formularzu; krok 2 zakłada konto dopiero po poprawnym
+/// kodzie. Kod potwierdza wyłącznie dostęp do tej skrzynki, a nie czyjąkolwiek
+/// zgodę (PRD <c>Access Control</c>, 2026-10-17): konto założy każdy, kto ma
+/// adres e-mail i zna adres aplikacji — <c>trycloudflare.com</c> nie obsługuje
+/// Cloudflare Access (<c>infrastructure.md:221</c>), więc przed rejestracją
+/// nie stoi żadna inna bramka.
 ///
 /// Zapisy otwierają transakcję <b>przed</b> pierwszym odczytem stanu, na którym
 /// opierają decyzję — na SQLite to <c>BEGIN IMMEDIATE</c>, więc dwa równoległe
@@ -63,7 +64,8 @@ internal static class AuthEndpoints
 
     /// <summary>
     /// Krok 1 rejestracji: rezerwuje login, zapisuje oczekującą rejestrację
-    /// i wysyła kod administratorowi. Konto jeszcze nie powstaje. Adres e-mail
+    /// i wysyła kod rejestrującemu na adres z formularza. Konto jeszcze nie
+    /// powstaje. Adres e-mail
     /// nie jest rezerwowany — może się powtarzać.
     /// </summary>
     /// <remarks>
@@ -71,8 +73,8 @@ internal static class AuthEndpoints
     /// z commitem, dopiero potem wysyłka — poza transakcją, bo SMTP trwa
     /// sekundy, a trzymanie blokady zapisu SQLite przez ten czas zderzyłoby
     /// się z <c>busy_timeout</c> każdego innego zapisu. Porażka wysyłki usuwa
-    /// wiersz, więc wniosek, o którym administrator się nie dowiedział, nie
-    /// trzyma loginu przez dobę.
+    /// wiersz, więc rejestracja, do której kod nie dotarł do rejestrującego,
+    /// nie trzyma loginu przez cały okres ważności.
     ///
     /// Hasła i kodu nie ma w żadnym logu ani w <c>context</c> koperty: w bazie
     /// leżą wyłącznie ich hasze, a kod jawny istnieje tylko w pamięci tego
@@ -140,8 +142,8 @@ internal static class AuthEndpoints
         {
             // Wiersze wczytywane w całości, a wygasłe odsiewane w pamięci:
             // dostawca SQLite nie tłumaczy porównań `DateTimeOffset` na SQL.
-            // Tabela jest mała z założenia — limit tempa kroku 1 i doba
-            // ważności trzymają ją w setkach wierszy najwyżej.
+            // Tabela jest mała z założenia — limit tempa kroku 1 i 30 minut
+            // ważności trzymają ją w kilku wierszach najwyżej.
             var pending = await db.PendingRegistrations.ToListAsync(cancellationToken);
             var expired = pending.Where(row => RegistrationRules.IsExpired(row.ExpiresAt, now)).ToList();
 
@@ -192,11 +194,11 @@ internal static class AuthEndpoints
             // do tego potrzebna. Poziom Error, więc wpis trafia do pliku logu.
             loggerFactory.CreateLogger(typeof(AuthEndpoints)).LogError(
                 exception,
-                "Nie udało się wysłać kodu weryfikacyjnego administratorowi. " +
+                "Nie udało się wysłać kodu weryfikacyjnego na adres z formularza. " +
                 "Oczekująca rejestracja została usunięta.");
 
             // Bez tokenu żądania: rozłączony klient nie może zostawić
-            // rezerwacji, o której administrator się nie dowie.
+            // rezerwacji, do której rejestrujący nie dostanie kodu.
             await db.PendingRegistrations
                 .Where(row => row.Id == registration.Id)
                 .ExecuteDeleteAsync(CancellationToken.None);

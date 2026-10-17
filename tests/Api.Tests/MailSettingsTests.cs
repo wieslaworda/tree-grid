@@ -19,7 +19,6 @@ public class MailSettingsTests
     private static readonly Dictionary<string, string?> CompleteSmtp = new()
     {
         ["Mail:Transport"] = "Smtp",
-        ["Mail:AdminAddress"] = "admin@example.com",
         ["Mail:From"] = "nadawca@example.com",
         ["Mail:Smtp:Host"] = "smtp.example.com",
         ["Mail:Smtp:Port"] = "587",
@@ -54,7 +53,6 @@ public class MailSettingsTests
         var values = new Dictionary<string, string?>
         {
             ["Mail:Transport"] = "Directory",
-            ["Mail:AdminAddress"] = "admin@example.com",
             ["Mail:From"] = "nadawca@example.com",
             ["Mail:Directory:Path"] = "MailOutbox",
         };
@@ -68,7 +66,6 @@ public class MailSettingsTests
         var values = new Dictionary<string, string?>
         {
             ["Mail:Transport"] = "Directory",
-            ["Mail:AdminAddress"] = "admin@example.com",
             ["Mail:From"] = "nadawca@example.com",
         };
 
@@ -84,7 +81,6 @@ public class MailSettingsTests
     [InlineData("Mail:Smtp:UserName", "Mail__Smtp__UserName")]
     [InlineData("Mail:Smtp:Password", "Mail__Smtp__Password")]
     [InlineData("Mail:From", "Mail__From")]
-    [InlineData("Mail:AdminAddress", "Mail__AdminAddress")]
     public void Each_missing_smtp_key_is_a_problem_named_by_the_key_without_any_value(string key, string environmentName)
     {
         var values = new Dictionary<string, string?>(CompleteSmtp) { [key] = "" };

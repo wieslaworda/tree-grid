@@ -98,18 +98,20 @@ try
     var authSecrets = AuthSecrets.FromConfiguration(builder.Configuration);
     builder.Services.AddSingleton(authSecrets);
 
-    // Wysyłka kodu weryfikacyjnego administratorowi (S-14). Transport wybiera
-    // `Mail:Transport` raz, przy starcie: SMTP albo pliki `.eml` w katalogu
-    // (pętla deweloperska, testy, E2E). Hasło SMTP jest sekretem na tych samych
-    // zasadach co klucz podpisu — szczegóły w `Api.Mail.MailSettings`.
+    // Wysyłka kodu weryfikacyjnego na adres rejestrującego (S-14, S-15).
+    // Transport wybiera `Mail:Transport` raz, przy starcie: SMTP albo pliki
+    // `.eml` w katalogu (pętla deweloperska, testy, E2E). Hasło SMTP jest
+    // sekretem na tych samych zasadach co klucz podpisu — szczegóły
+    // w `Api.Mail.MailSettings`.
     var mailSettings = MailSettings.FromConfiguration(builder.Configuration, builder.Environment.ContentRootPath);
     builder.Services.AddSingleton(mailSettings);
     builder.Services.AddSingleton<IVerificationMailSender>(mailSettings.UsesDirectory
         ? new DirectoryVerificationMailSender(mailSettings)
         : new SmtpVerificationMailSender(mailSettings));
 
-    // Limit tempa kroku 1 rejestracji: każde żądanie wysyła wiadomość do
-    // administratora, więc bez limitu formularz jest generatorem poczty
+    // Limit tempa kroku 1 rejestracji: każde żądanie wysyła wiadomość na adres
+    // wpisany w formularzu, więc bez limitu formularz jest generatorem poczty
+    // z konta nadawcy na dowolny adres podany przez gościa
     // (OWASP F-003, TG-SEC-04). Okno stałe i jeden licznik na cały proces, a nie
     // per adres — za tunelem API widzi wyłącznie `cloudflared`. Wartości są
     // decyzją produktową, więc mieszkają w konfiguracji; testy integracyjne

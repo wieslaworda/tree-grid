@@ -2,6 +2,7 @@ using System.ComponentModel.DataAnnotations;
 using System.Globalization;
 using System.Security.Cryptography;
 using Microsoft.AspNetCore.Identity;
+using MimeKit;
 
 namespace Api.Auth;
 
@@ -11,22 +12,24 @@ namespace Api.Auth;
 /// Endpointy (<see cref="AuthEndpoints"/>) czytają i zapisują oczekujące
 /// rejestracje oraz odwzorowują wynik na kopertę błędu, a kształt kodu,
 /// walidacja pól i ocena próby potwierdzenia zapadają tutaj, dzięki czemu
-/// sprawdza je test jednostkowy.
+/// sprawdza je test jednostkowy. MimeKit jest tu wyłącznie biblioteką
+/// parsowania adresu, nie wysyłki — reguły nadal nie dotykają poczty.
 /// </summary>
 internal static class RegistrationRules
 {
     /// <summary>
-    /// Czas ważności kodu i rezerwacji loginu oraz adresu. Doba daje
-    /// administratorowi czas na przekazanie kodu, a nie trzyma loginu zajętego
-    /// dłużej, niż ktokolwiek będzie na niego czekał.
+    /// Czas ważności kodu i rezerwacji loginu. Kod idzie do samego
+    /// rejestrującego i dochodzi w ciągu sekund, więc pół godziny wystarcza
+    /// z zapasem, a login zajęty rejestracją z błędnym adresem albo porzuconą
+    /// wraca do puli po 30 minutach.
     /// </summary>
-    internal static readonly TimeSpan CodeLifetime = TimeSpan.FromHours(24);
+    internal static readonly TimeSpan CodeLifetime = TimeSpan.FromMinutes(30);
 
     /// <summary>
     /// Najwięcej nieudanych prób potwierdzenia jednej rejestracji. Przy
     /// 8 cyfrach i 5 próbach szansa trafienia na ślepo to 5 na 100 milionów;
     /// po wyczerpaniu prób wiersz znika, a nowy kod wymaga ponownego kroku 1,
-    /// czyli nowej wiadomości do administratora.
+    /// czyli nowej wiadomości do rejestrującego.
     /// </summary>
     internal const int MaxCodeAttempts = 5;
 
@@ -94,10 +97,14 @@ internal static class RegistrationRules
         {
             fields[AuthFormFields.Email] = MissingEmailMessage;
         }
-        else if (!EmailShape.IsValid(trimmedEmail))
+        else if (!EmailShape.IsValid(trimmedEmail) || !IsBareMailbox(trimmedEmail))
         {
-            // Ten sam test kształtu, którym walidator użytkownika Identity
-            // sprawdzi adres przy zakładaniu konta w kroku 2.
+            // Dwa testy, oba potrzebne. Kształt `EmailAddressAttribute` to ten
+            // sam test, którym walidator użytkownika Identity sprawdzi adres
+            // przy zakładaniu konta w kroku 2 — adres przyjęty tutaj nie może
+            // tam odpaść. Drugi to parser, którym wysyłka ustawia odbiorcę:
+            // bez niego adres ze spacją albo średnikiem dochodziłby do wysyłki
+            // i kończył się 503 zamiast błędem pola.
             fields[AuthFormFields.Email] = InvalidEmailMessage;
         }
 
@@ -132,8 +139,22 @@ internal static class RegistrationRules
     }
 
     /// <summary>
+    /// Czy <paramref name="trimmedEmail"/> jest pojedynczym, gołym adresem
+    /// w rozumieniu MimeKit — tego samego parsera, którym
+    /// <c>Api.Mail.VerificationMessage.Build</c> ustawia odbiorcę. Sukces
+    /// parsowania nie wystarcza: <c>Jan &lt;jan@example.com&gt;</c> parsuje się
+    /// poprawnie, ale poczta poszłaby na <c>jan@example.com</c>, a kontu
+    /// zostałby zapisany surowy napis. Stąd wymóg braku nazwy wyświetlanej
+    /// i zwykłej (z rozróżnieniem wielkości liter) równości adresu z wejściem.
+    /// </summary>
+    private static bool IsBareMailbox(string trimmedEmail)
+        => MailboxAddress.TryParse(trimmedEmail, out var mailbox)
+            && string.IsNullOrEmpty(mailbox.Name)
+            && string.Equals(mailbox.Address, trimmedEmail, StringComparison.Ordinal);
+
+    /// <summary>
     /// Czy rejestracja jest po terminie. Moment równy <paramref name="expiresAt"/>
-    /// już jest — doba ważności to przedział prawostronnie otwarty.
+    /// już jest — okres ważności to przedział prawostronnie otwarty.
     /// </summary>
     internal static bool IsExpired(DateTimeOffset expiresAt, DateTimeOffset now) => now >= expiresAt;
 

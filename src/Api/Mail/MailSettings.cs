@@ -26,8 +26,6 @@ internal sealed class MailSettings
 {
     public const string TransportKey = "Mail:Transport";
 
-    public const string AdminAddressKey = "Mail:AdminAddress";
-
     public const string FromKey = "Mail:From";
 
     public const string SmtpHostKey = "Mail:Smtp:Host";
@@ -46,7 +44,6 @@ internal sealed class MailSettings
 
     private MailSettings(
         string? transport,
-        string? adminAddress,
         string? from,
         string? smtpHost,
         int? smtpPort,
@@ -55,7 +52,6 @@ internal sealed class MailSettings
         string? directoryPath)
     {
         Transport = transport;
-        AdminAddress = adminAddress;
         From = from;
         SmtpHost = smtpHost;
         SmtpPort = smtpPort;
@@ -66,9 +62,6 @@ internal sealed class MailSettings
 
     /// <summary>Transport w postaci z konfiguracji (może być pusty albo spoza listy).</summary>
     public string? Transport { get; }
-
-    /// <summary>Adres administratora — jedyny odbiorca kodu.</summary>
-    public string? AdminAddress { get; }
 
     /// <summary>Nadawca wiadomości. Dla Gmail — adres konta z <see cref="SmtpUserName"/>.</summary>
     public string? From { get; }
@@ -110,7 +103,6 @@ internal sealed class MailSettings
 
         return new MailSettings(
             configuration[TransportKey]?.Trim(),
-            configuration[AdminAddressKey],
             configuration[FromKey],
             configuration[SmtpHostKey],
             ParsePort(configuration[SmtpPortKey]),
@@ -122,9 +114,9 @@ internal sealed class MailSettings
     /// <summary>
     /// Wykaz braków w konfiguracji poczty — pusty, gdy wysyłka ma czym ruszyć.
     /// Poza Development transport musi być <see cref="SmtpTransport"/> z kompletem
-    /// kluczy: transport plikowy na serwerze oznaczałby, że kody lądują na dysku,
-    /// a administrator nie dostaje nic. W Development wystarczy kompletny
-    /// wybrany transport.
+    /// kluczy: transport plikowy na serwerze oznaczałby, że kody lądują na dysku
+    /// zamiast u rejestrującego. W Development wystarczy kompletny wybrany
+    /// transport.
     /// </summary>
     /// <remarks>
     /// Komunikaty nazywają klucz w obu zapisach — z dwukropkiem i jako zmienną
@@ -156,7 +148,6 @@ internal sealed class MailSettings
             return problems;
         }
 
-        AddIfMissing(problems, AdminAddressKey, AdminAddress);
         AddIfMissing(problems, FromKey, From);
 
         if (isSmtp)

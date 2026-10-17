@@ -205,7 +205,6 @@ public class TestApiFactory : WebApplicationFactory<Program>
         builder.UseSetting(MailSettings.SmtpUserNameKey, "treegrid-tests");
         builder.UseSetting(MailSettings.SmtpPasswordKey, _smtpPassword);
         builder.UseSetting(MailSettings.FromKey, "treegrid-tests@test.invalid");
-        builder.UseSetting(MailSettings.AdminAddressKey, "admin@test.invalid");
         builder.UseSetting(MailSettings.DirectoryPathKey, MailDirectory);
         builder.UseSetting(
             "Auth:RegistrationRateLimit:PermitLimit",
