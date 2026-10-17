@@ -70,7 +70,7 @@ Przy celu sekwencjonowania `speed` to również fragment, który najtaniej odpow
 | S-12 | `kontrola-drzewa`     | budować drzewo o wielu korzeniach, w którym korzeń występuje raz, a obiekt nie powtarza się pod tym samym korzeniem | S-03          | FR-004, US-01, Business Logic, Guardrails              | done |
 | S-14 | `zakladanie-konta`    | założyć konto loginem, hasłem i adresem e-mail, potwierdzając je kodem weryfikacyjnym wysłanym do administratora | S-01          | FR-001 (zmiana 2026-10-10), Access Control             | in-progress |
 | S-15 | `kod-do-rejestrujacego` | założyć konto bez udziału administratora, potwierdzając je kodem wysłanym od razu na adres e-mail z formularza | S-14          | FR-001 (zmiana 2026-10-17), Access Control             | in-progress |
-| S-16 | `drzewo-domyslne`     | po założeniu konta od razu oglądać własną kopię przykładowego ekranu z drzewem i gridem   | S-15, S-06    | FR-001 (zmiana 2026-10-17 — kopia przykładowego ekranu), FR-003, Access Control | in-progress |
+| S-16 | `drzewo-domyslne`     | po założeniu konta od razu oglądać własną kopię przykładowego ekranu z drzewem i gridem   | S-15, S-06    | FR-001 (zmiana 2026-10-17 — kopia przykładowego ekranu), FR-003, Access Control | done |
 
 ## Streams
 
@@ -343,7 +343,7 @@ Foundations below assume these are present and do NOT re-scaffold them.
 - **Blockers:** —
 - **Unknowns:** —
 - **Risk:** Kopia to jedyny odczyt w API bez filtra właściciela — operacja serwera przy zakładaniu konta, a nie dostęp użytkownika do cudzych danych. Rozszerzenie tego wyjątku na jakikolwiek endpoint dostępny dla użytkownika złamałoby izolację kont. Każde nowe konto dokłada drzewo (~95 węzłów) i ekran (~285 przypisań); wzrost ogranicza globalny limit tempa kroku 1. Każda kopia blokuje usunięcie obiektów wzorca ze słownika (`object_in_tree`). Kto zaloguje się na `test4`, zmienia to, co dostaną kolejne nowe konta. Porażka kopii daje użytkownikowi puste konto, widoczne wyłącznie w logu API.
-- **Status:** in-progress
+- **Status:** done
 
 ## Backlog Handoff
 
@@ -406,3 +406,4 @@ Rozstrzygnięte:
 (Empty on first generation. `/10x-archive` appends an entry here — and flips that item's `Status` to `done` — when a change whose `Change ID` matches the item is archived.)
 
 - **S-12: Dyspozytor buduje drzewo, które może mieć wiele korzeni, a aplikacja pilnuje reguł użycia obiektów** — Archived 2026-10-10 → `context/archive/2026-10-08-kontrola-drzewa/`. Lesson: —.
+- **S-16: Nowa osoba po założeniu konta od razu ogląda działający ekran zamiast pustego stanu (decyzja z 2026-10-17)** — Archived 2026-10-17 → `context/archive/2026-10-17-drzewo-domyslne/`. Lesson: —.
