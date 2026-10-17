@@ -3,7 +3,7 @@ project: TreeGrid
 version: 1
 status: draft
 created: 2026-09-21
-updated: 2026-10-10
+updated: 2026-10-17
 prd_version: 1
 main_goal: speed
 top_blocker: time
@@ -69,6 +69,7 @@ Przy celu sekwencjonowania `speed` to również fragment, który najtaniej odpow
 | S-11 | `logowanie-bledow-api` | (operacyjne) odnaleźć każdy błąd API w pliku logu w katalogu `Log`, także po restarcie API | F-01          | NFR (logowanie błędów backendu do plików)              | in-progress |
 | S-12 | `kontrola-drzewa`     | budować drzewo o wielu korzeniach, w którym korzeń występuje raz, a obiekt nie powtarza się pod tym samym korzeniem | S-03          | FR-004, US-01, Business Logic, Guardrails              | done |
 | S-14 | `zakladanie-konta`    | założyć konto loginem, hasłem i adresem e-mail, potwierdzając je kodem weryfikacyjnym wysłanym do administratora | S-01          | FR-001 (zmiana 2026-10-10), Access Control             | in-progress |
+| S-15 | `kod-do-rejestrujacego` | założyć konto bez udziału administratora, potwierdzając je kodem wysłanym od razu na adres e-mail z formularza | S-14          | FR-001 (zmiana 2026-10-17), Access Control             | in-progress |
 
 ## Streams
 
@@ -82,7 +83,7 @@ Navigation aid — groups items that share a Prerequisites chain. Canonical orde
 | D      | Edycja ekranu           | `S-04`                                              | Odgałęzia się od A przy `S-06` i idzie równolegle do `S-05` — edycja kategorii węzłów nie potrzebuje kolumn czasowych. |
 | E      | Diagnostyka backendu    | `F-01` → `S-11`                                     | Zależy tylko od istniejącego API, więc może iść równolegle do każdego innego strumienia; nie zmienia niczego, co widzi dyspozytor. |
 | F      | Reguły drzewa           | `S-03` → `S-12`                                     | Zaostrza regułę budowy drzewa z `S-03`; dotyka drzew wskazywanych przez ekrany (`S-06`), więc dane istniejących drzew trzeba ocenić przed wdrożeniem. |
-| G      | Zakładanie konta        | `S-01` → `S-14`                                     | Zmienia rejestrację i identyfikator logowania z `S-01`; nie dotyka drzew ani ekranów, więc może iść równolegle do każdego innego strumienia. |
+| G      | Zakładanie konta        | `S-01` → `S-14` → `S-15`                            | Zmienia rejestrację i identyfikator logowania z `S-01`; nie dotyka drzew ani ekranów, więc może iść równolegle do każdego innego strumienia. `S-15` zmienia tylko odbiorcę kodu z `S-14`. |
 
 ## Baseline
 
@@ -294,6 +295,8 @@ Foundations below assume these are present and do NOT re-scaffold them.
   - **Kod do administratora.** Aplikacja wysyła kod weryfikacyjny na adres administratora `wieslaworda@gmail.com`, a nie na adres z formularza. Administrator przekazuje kod osobie, której konto akceptuje. Kod zastępuje dotychczasowy wspólny kod rejestracyjny.
   - **Potwierdzenie.** W następnym kroku pojawia się formularz z polem na kod weryfikacyjny. Po poprawnym kodzie konto zostaje założone; bez niego konto nie istnieje.
   - **Logowanie.** Użytkownik loguje się loginem i hasłem.
+
+  > Zmienione 2026-10-17: odbiorcę kodu zmienia `S-15` — kod idzie na adres z formularza, a administrator przestaje uczestniczyć w rejestracji. Pozostałe punkty tego plastra obowiązują.
 - **Change ID:** `zakladanie-konta`
 - **PRD refs:** FR-001 (zmiana 2026-10-10), sekcja `Access Control`
 - **Prerequisites:** S-01
@@ -305,6 +308,24 @@ Foundations below assume these are present and do NOT re-scaffold them.
   - Co z istniejącymi kontami, które logują się dziś adresem e-mail: login równy dotychczasowemu adresowi czy nadanie loginu przy pierwszym logowaniu? — Owner: użytkownik. Block: no (rozstrzyga plan).
   - Gdzie czeka niepotwierdzona rejestracja (login, skrót hasła, e-mail) do chwili podania kodu i kiedy wygasa? Unikalność loginu trzeba sprawdzić już w pierwszym kroku, żeby kod nie trafił do administratora na próżno. — Owner: użytkownik. Block: no.
 - **Risk:** Wspólny kod rejestracyjny jest dziś jedną z trzech barier dostępu po uruchomieniu quick tunnelu (obok bramy logowania i blokady konta). Plaster zastępuje go kodem jednorazowym, więc w żadnym momencie przejścia rejestracja nie może zostać otwarta — ani na czas wdrożenia, ani po porażce wysyłki poczty. Porażka wysyłki ma kończyć się odmową założenia konta, a nie kontem bez weryfikacji. Kod musi być jednorazowy, krótko ważny i ograniczony liczbą prób, bo pole kodu jest publiczne. Adres administratora należy do konfiguracji, a nie do kodu. Dotychczasowe ryzyko z `S-01` („potwierdzanie adresu e-mail nie jest wymaganiem koniecznym") zmienia się w wymaganie FR-001 od 2026-10-10. Zmiana identyfikatora logowania z e-maila na login dotyka sesji, blokady konta po nieudanych próbach i testów E2E logowania (`tests/e2e/auth.setup.ts`).
+- **Status:** in-progress
+
+### S-15: Kod weryfikacyjny na adres rejestrującego
+
+- **Outcome:** Nowa osoba zakłada konto w dwóch krokach bez udziału administratora (uproszczenie aplikacji testowej MVP, decyzja z 2026-10-17):
+  - **Dane konta.** Formularz zakładania konta prosi — jak w `S-14` — o login, hasło i adres e-mail.
+  - **Kod do rejestrującego.** Po pierwszym kroku aplikacja od razu wysyła kod weryfikacyjny na adres e-mail podany w formularzu. Administrator nie dostaje żadnej wiadomości, a jego adres znika z konfiguracji API.
+  - **Potwierdzenie.** Drugi krok bez zmian: konto powstaje dopiero po poprawnym kodzie. Kod potwierdza dostęp do skrzynki, a nie zgodę administratora.
+  - **Bez zmian z `S-14`.** Kod jednorazowy, krótko ważny i z limitem prób, globalny limit tempa pierwszego kroku, porażka wysyłki kończy się odmową `mail_unavailable`, logowanie loginem, adres e-mail może się powtarzać.
+- **Change ID:** `kod-do-rejestrujacego`
+- **PRD refs:** FR-001 (zmiana 2026-10-17), sekcja `Access Control`
+- **Prerequisites:** S-14
+- **Parallel with:** S-04, S-10
+- **Blockers:** —
+- **Unknowns:**
+  - Jak ma brzmieć wiadomość do rejestrującego? Dzisiejsza treść jest pisana do administratora („przekaż kod tej osobie”), a wiersz z kodem czytają testy integracyjne i setup E2E. — Owner: użytkownik. Block: no (rozstrzyga plan).
+  - Czy globalny limit tempa pierwszego kroku (dziś 5 na godzinę) wystarczy, skoro formularz zaczyna wysyłać pocztę na dowolny adres? — Owner: użytkownik. Block: no.
+- **Risk:** Plaster świadomie zdejmuje jedną z trzech barier dostępu po uruchomieniu quick tunnelu (obok bramy logowania i blokady konta). Po zmianie konto założy każdy, kto zna adres tunelu i ma skrzynkę e-mail, więc dane innych użytkowników chroni już wyłącznie izolacja kont — którą testy integracyjne pokrywają dziś tylko częściowo (`CLAUDE.md`, „Znane luki”). Drugie ryzyko: formularz wysyła pocztę z konta Gmail nadawcy na adres wpisany przez anonimowego gościa. Może więc posłużyć do zasypywania cudzych skrzynek i psuć reputację nadawcy, a jedyną kontrolą jest globalny limit tempa. Trzecie: o kodzie do administratora mówią `CLAUDE.md` („Wdrożenie”, trzy bariery), komentarze w `src/Api/Auth/` i `src/Api/Mail/`, teksty widoków rejestracji, `context/foundation/infrastructure.md` i plan `zakladanie-konta`. Opis, który zostanie, podpowie następnemu agentowi „naprawę” przywracającą administratora. Porażka wysyłki nadal nie może dać konta bez kodu.
 - **Status:** in-progress
 
 ## Backlog Handoff
@@ -325,6 +346,7 @@ Foundations below assume these are present and do NOT re-scaffold them.
 | S-11       | `logowanie-bledow-api` | Logowanie błędów API do plików w katalogu `Log` (poziom Error, katalog w `appsettings.json`) | yes | `F-01` ma działający kod; cztery pytania w `Unknowns` rozstrzyga plan |
 | S-12       | `kontrola-drzewa`     | Reguły użycia obiektów w drzewie: wiele korzeni, korzeń raz w drzewie, brak powtórzeń pod jednym korzeniem | yes | Zastępuje regułę zapętlenia i duplikatu rodzeństwa z `S-03`; dane istniejących drzew — `Unknowns` |
 | S-14       | `zakladanie-konta`    | Zakładanie konta (login, hasło, e-mail) z kodem weryfikacyjnym wysyłanym do administratora | no | Blokuje wybór sposobu wysyłki poczty (`Unknowns`); zastępuje wspólny kod rejestracyjny z `S-01` |
+| S-15       | `kod-do-rejestrujacego` | Kod weryfikacyjny rejestracji na adres rejestrującego zamiast do administratora | yes | Kod `S-14` działa (fazy 1–2 zakomitowane); zmienia odbiorcę kodu i zdejmuje zgodę administratora — decyzja z 2026-10-17 |
 
 This table is the clean handoff to Jira/Linear or any MCP-backed backlog. It carries one row for every `F-NN` and `S-NN` and deliberately does not duplicate the detailed roadmap body.
 

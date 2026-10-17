@@ -72,6 +72,10 @@ Każdy dyspozytor ma inne potrzeby operacyjne, więc jeden uniwersalny, sztywny 
   > - Aplikacja wysyła kod weryfikacyjny na adres administratora `wieslaworda@gmail.com`, a nie na adres podany w formularzu. Administrator przekazuje kod osobie, której konto akceptuje. Kod zastępuje dotychczasowy wspólny kod rejestracyjny.
   > - W następnym kroku pojawia się formularz z polem na kod weryfikacyjny. Konto powstaje dopiero po poprawnym podaniu kodu.
   > - Użytkownik loguje się loginem i hasłem. Adres e-mail jest daną konta, a nie identyfikatorem logowania.
+  > Zmienione 2026-10-17 — kod weryfikacyjny na adres rejestrującego (uproszczenie aplikacji testowej MVP):
+  > - Po pierwszym kroku aplikacja od razu wysyła kod weryfikacyjny na adres e-mail podany w formularzu. Administrator nie dostaje wiadomości i nie akceptuje kont.
+  > - Kod potwierdza tylko, że rejestrujący ma dostęp do podanej skrzynki. Konto nadal powstaje dopiero po poprawnym podaniu kodu w drugim kroku.
+  > - Punkt o wysyłce kodu na adres administratora z poprzedniej zmiany przestaje obowiązywać; pozostałe punkty — login, hasło i e-mail w formularzu, drugi krok z kodem, logowanie loginem — zostają bez zmian.
 
 ### Obiekty i struktura drzewa
 - FR-002: Użytkownik może przeglądać, dodawać i edytować obiekty dostępne do budowy drzewa. Obiekt to kod i nazwa — słownik nie przechowuje relacji między obiektami (podobiektów); hierarchię buduje użytkownik w drzewie. Priority: must-have
@@ -136,7 +140,7 @@ Ekran wylicza swoje wiersze z aktualnej struktury wskazanego drzewa: każdy węz
 
 ## Access Control
 
-Logowanie login + hasło (od 2026-10-10; wcześniej e-mail + hasło). Konto powstaje dopiero po potwierdzeniu kodem weryfikacyjnym wysłanym na adres administratora (FR-001), więc nikt nie założy konta bez jego zgody. Model płaski — każdy zalogowany użytkownik ma te same uprawnienia i widzi wyłącznie własne drzewa i własne, zapisane ekrany; lista ekranów pokazuje tylko ekrany zalogowanego użytkownika, a ekran może wskazywać wyłącznie drzewo tego samego użytkownika. Brak ról administracyjnych w MVP. Wszystkie widoki wymagają zalogowania — brak dostępu dla niezalogowanych użytkowników.
+Logowanie login + hasło (od 2026-10-10; wcześniej e-mail + hasło). Konto powstaje dopiero po potwierdzeniu kodem weryfikacyjnym wysłanym na adres e-mail podany przy rejestracji (FR-001, zmiana 2026-10-17). Kod potwierdza dostęp do skrzynki, a nie zgodę administratora: konto może założyć każdy, kto ma adres e-mail i zna adres aplikacji. To świadome uproszczenie aplikacji testowej MVP — dane innych użytkowników chroni wyłącznie izolacja kont. Do 2026-10-17 kod trafiał na adres administratora i konto wymagało jego zgody. Model płaski — każdy zalogowany użytkownik ma te same uprawnienia i widzi wyłącznie własne drzewa i własne, zapisane ekrany; lista ekranów pokazuje tylko ekrany zalogowanego użytkownika, a ekran może wskazywać wyłącznie drzewo tego samego użytkownika. Brak ról administracyjnych w MVP. Wszystkie widoki wymagają zalogowania — brak dostępu dla niezalogowanych użytkowników.
 
 ## Non-Goals
 
