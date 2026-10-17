@@ -2,6 +2,7 @@ using System.Globalization;
 using Api.Data;
 using Api.Errors;
 using Api.Mail;
+using Api.Screens;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 
@@ -225,11 +226,20 @@ internal static class AuthEndpoints
     /// zwiększa licznik, a ten, który wyczerpuje limit, usuwa wiersz. Brak
     /// wiersza, termin i wyczerpany limit dają jedną odpowiedź na polu
     /// <c>form</c>: w każdym z tych przypadków jedyną drogą jest ponowny krok 1.
+    ///
+    /// Założone konto dostaje kopię wzorca ekranu i jego drzewa (S-16,
+    /// <see cref="ScreenTemplateClone"/>) w <b>drugiej</b> transakcji, otwartej
+    /// dopiero po zatwierdzeniu konta i po sprawdzeniu, że
+    /// <c>CreateAsync</c> się udało — przegrany wyścig o login nie ma czego
+    /// kopiować. Porażka kopii nie wycofuje konta: rejestracja nie może zależeć
+    /// od stanu cudzego zasobu, a konto bez kopii jest kontem takim jak przed
+    /// S-16 — zostaje wpis Error w logu i zwykła odpowiedź <c>200</c>.
     /// </remarks>
     private static async Task<IResult> ConfirmRegistrationAsync(
         ConfirmRegistrationRequest? request,
         UserManager<AppUser> userManager,
         AppDbContext db,
+        ILoggerFactory loggerFactory,
         CancellationToken cancellationToken)
     {
         var login = request?.Login?.Trim() ?? string.Empty;
@@ -333,6 +343,14 @@ internal static class AuthEndpoints
 
             return ValidationFailure(fields);
         }
+
+        // Kopia nie rzuca — porażkę zapisuje w logu sama i zostawia konto bez
+        // kopii. Nazwy kopii niosą login w postaci zapisanej na koncie.
+        await ScreenTemplateClone.CloneForAsync(
+            db,
+            user.Id,
+            user.UserName!,
+            loggerFactory.CreateLogger(typeof(ScreenTemplateClone)));
 
         return Results.Ok(AccountResponse(user));
     }

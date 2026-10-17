@@ -479,27 +479,27 @@ semantyką słowników wspólnych.
 
 #### Automated
 
-- [x] 2.1 `dotnet build TreeGrid.sln` przechodzi
-- [x] 2.2 `dotnet test tests/Api.Tests` przechodzi (świeże bazy testów migrują się z nową migracją)
-- [x] 2.3 Wygenerowana migracja zawiera wyłącznie `AddColumn`, `CreateIndex` i `Sql` w `Up` — bez `RenameTable`/przebudowy `Trees`
+- [x] 2.1 `dotnet build TreeGrid.sln` przechodzi — 71a39da
+- [x] 2.2 `dotnet test tests/Api.Tests` przechodzi (świeże bazy testów migrują się z nową migracją) — 71a39da
+- [x] 2.3 Wygenerowana migracja zawiera wyłącznie `AddColumn`, `CreateIndex` i `Sql` w `Up` — bez `RenameTable`/przebudowy `Trees` — 71a39da
 
 #### Manual
 
-- [x] 2.4 Na kopii `src/Api/db/treegrid.db` po `dotnet ef database update`: `Screens.Id=7` i `Trees.Id=9` mają `IsTemplate=1`, żaden inny wiersz nie ma, a `pragma table_info(Trees)` nadal pokazuje kolumnę `Version`
+- [x] 2.4 Na kopii `src/Api/db/treegrid.db` po `dotnet ef database update`: `Screens.Id=7` i `Trees.Id=9` mają `IsTemplate=1`, żaden inny wiersz nie ma, a `pragma table_info(Trees)` nadal pokazuje kolumnę `Version` — 71a39da
 
 ### Phase 3: Klon wzorca przy rejestracji
 
 #### Automated
 
-- [ ] 3.1 `dotnet test tests/Api.Tests --filter "FullyQualifiedName~ScreenTemplateRulesTests"` przechodzi
-- [ ] 3.2 `dotnet test tests/Api.Tests --filter "FullyQualifiedName~RegistrationTemplateIntegrationTests"` przechodzi
-- [ ] 3.3 `dotnet test tests/Api.Tests` przechodzi w całości (w tym `AuthIntegrationTests` bez zmian w asercjach)
-- [ ] 3.4 `npm run typecheck` przechodzi
+- [x] 3.1 `dotnet test tests/Api.Tests --filter "FullyQualifiedName~ScreenTemplateRulesTests"` przechodzi
+- [x] 3.2 `dotnet test tests/Api.Tests --filter "FullyQualifiedName~RegistrationTemplateIntegrationTests"` przechodzi
+- [x] 3.3 `dotnet test tests/Api.Tests` przechodzi w całości (w tym `AuthIntegrationTests` bez zmian w asercjach)
+- [x] 3.4 `npm run typecheck` przechodzi
 
 #### Manual
 
-- [ ] 3.5 Na kopii bazy deweloperskiej (`.\buduj_app_dev.ps1`) rejestracja nowego konta przez widok kończy się na `/prezentacja` z ekranem „Testowy ekran prezentacyjny dla {login}" i drzewem z 95 węzłami; grid pokazuje te same kategorie co wzorzec na `test4`
-- [ ] 3.6 Edycja drzewa klonu nie zmienia drzewa wzorca na `test4`
+- [x] 3.5 Na kopii bazy deweloperskiej (`.\buduj_app_dev.ps1`) rejestracja nowego konta przez widok kończy się na `/prezentacja` z ekranem „Testowy ekran prezentacyjny dla {login}" i drzewem z 95 węzłami; grid pokazuje te same kategorie co wzorzec na `test4`
+- [x] 3.6 Edycja drzewa klonu nie zmienia drzewa wzorca na `test4`
 
 ### Phase 4: Ochrona wzorca przed usunięciem
 

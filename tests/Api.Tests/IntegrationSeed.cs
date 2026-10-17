@@ -1,4 +1,5 @@
 using System.Net;
+using System.Net.Http.Json;
 using System.Text;
 using System.Text.Json;
 using Api.Data;
@@ -279,6 +280,63 @@ internal static class IntegrationSeed
         }
     }
 
+    /// <summary>
+    /// Ustawia wzorzec bazy (S-16) wprost w tabelach: zdejmuje flagę
+    /// <c>IsTemplate</c> ze wszystkich ekranów i drzew, a potem stawia ją na
+    /// wskazanych (<c>null</c> — żaden). Zdjęcie idzie pierwsze, bo schemat
+    /// dopuszcza najwyżej jeden wzorzec każdego rodzaju. Seed omija spójność —
+    /// wywołujący może celowo wskazać ekran bez jego drzewa.
+    /// </summary>
+    public static async Task SetTemplateAsync(TestApiFactory factory, int? screenId, int? treeId)
+    {
+        await using (factory.CreateDbScope(out var db))
+        {
+            await db.Screens
+                .Where(screen => screen.IsTemplate)
+                .ExecuteUpdateAsync(setters => setters.SetProperty(screen => screen.IsTemplate, false));
+            await db.Trees
+                .Where(tree => tree.IsTemplate)
+                .ExecuteUpdateAsync(setters => setters.SetProperty(tree => tree.IsTemplate, false));
+
+            if (screenId is { } templateScreenId)
+            {
+                await db.Screens
+                    .Where(screen => screen.Id == templateScreenId)
+                    .ExecuteUpdateAsync(setters => setters.SetProperty(screen => screen.IsTemplate, true));
+            }
+
+            if (treeId is { } templateTreeId)
+            {
+                await db.Trees
+                    .Where(tree => tree.Id == templateTreeId)
+                    .ExecuteUpdateAsync(setters => setters.SetProperty(tree => tree.IsTemplate, true));
+            }
+        }
+    }
+
+    /// <summary>
+    /// Rejestracja przez oba kroki, tak jak przeszedłby ją rejestrujący: krok 1
+    /// (oczekiwane 202), kod z pliku <c>.eml</c>
+    /// (<see cref="TestApiFactory.ReadLastVerificationCode"/>) i krok 2. Zwraca
+    /// odpowiedź kroku 2 do asercji wywołującego.
+    /// </summary>
+    public static async Task<HttpResponseMessage> RegisterThroughBothStepsAsync(
+        TestApiFactory factory,
+        HttpClient client,
+        string login,
+        string password)
+    {
+        var registered = await client.PostAsJsonAsync(
+            "/auth/register",
+            new { login, email = $"{login}@test.local", password });
+
+        Assert.Equal(HttpStatusCode.Accepted, registered.StatusCode);
+
+        var code = factory.ReadLastVerificationCode(login);
+
+        return await client.PostAsJsonAsync("/auth/register/confirm", new { login, code });
+    }
+
     // --- Migawki ------------------------------------------------------------
 
     /// <summary>
@@ -371,6 +429,29 @@ internal static class IntegrationSeed
             await ReadScreenHeaderAsync(factory, screenId),
             await ReadDefaultCategoriesAsync(factory, screenId),
             await ReadAssignmentsAsync(factory, screenId));
+
+    /// <summary>
+    /// Treść plików <c>api-*.log</c> katalogu fabryki — z
+    /// <see cref="FileShare.ReadWrite"/>, bo logger trzyma plik otwarty.
+    /// Brak katalogu jest błędem asercji.
+    /// </summary>
+    public static string ReadLog(TestApiFactory host)
+    {
+        Assert.True(Directory.Exists(host.LogDirectory), $"Katalog logu '{host.LogDirectory}' nie powstał.");
+
+        var content = new StringBuilder();
+
+        foreach (var file in Directory.GetFiles(host.LogDirectory, "api-*.log").Order())
+        {
+            using var stream = new FileStream(
+                file, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete);
+            using var reader = new StreamReader(stream, Encoding.UTF8);
+
+            content.Append(reader.ReadToEnd());
+        }
+
+        return content.ToString();
+    }
 
     // --- Koperta błędu ------------------------------------------------------
 

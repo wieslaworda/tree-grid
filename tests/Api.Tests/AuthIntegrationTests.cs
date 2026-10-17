@@ -1,6 +1,5 @@
 using System.Net;
 using System.Net.Http.Json;
-using System.Text;
 using System.Text.Json;
 using Api.Data;
 using Api.Errors;
@@ -339,7 +338,7 @@ public class AuthIntegrationTests(
         Assert.DoesNotContain(code, body);
 
         // Wpis jest — dopiero wtedy jego brak kodu cokolwiek znaczy.
-        var log = ReadLog(failingMailFactory);
+        var log = IntegrationSeed.ReadLog(failingMailFactory);
         Assert.Contains(FailingMailSender.Marker, log);
         Assert.DoesNotContain(code, log);
     }
@@ -450,28 +449,6 @@ public class AuthIntegrationTests(
         }
 
         return false;
-    }
-
-    /// <summary>
-    /// Treść plików <c>api-*.log</c> katalogu fabryki — z
-    /// <see cref="FileShare.ReadWrite"/>, bo logger trzyma plik otwarty.
-    /// </summary>
-    private static string ReadLog(TestApiFactory host)
-    {
-        Assert.True(Directory.Exists(host.LogDirectory), $"Katalog logu '{host.LogDirectory}' nie powstał.");
-
-        var content = new StringBuilder();
-
-        foreach (var file in Directory.GetFiles(host.LogDirectory, "api-*.log").Order())
-        {
-            using var stream = new FileStream(
-                file, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete);
-            using var reader = new StreamReader(stream, Encoding.UTF8);
-
-            content.Append(reader.ReadToEnd());
-        }
-
-        return content.ToString();
     }
 
     /// <summary>Host z limitem tempa kroku 1 obniżonym do <see cref="PermitLimit"/>.</summary>
