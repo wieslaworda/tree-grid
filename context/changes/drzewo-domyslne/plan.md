@@ -468,24 +468,24 @@ semantyką słowników wspólnych.
 
 #### Automated
 
-- [x] 1.1 `grep -n "S-16" context/foundation/roadmap.md` zwraca wiersz At a glance, blok slice'a i wiersz Backlog Handoff
-- [x] 1.2 `grep -n "2026-10-17 — konto startuje" context/foundation/prd.md` zwraca wpis przy FR-001
+- [x] 1.1 `grep -n "S-16" context/foundation/roadmap.md` zwraca wiersz At a glance, blok slice'a i wiersz Backlog Handoff — 70e8d62
+- [x] 1.2 `grep -n "2026-10-17 — konto startuje" context/foundation/prd.md` zwraca wpis przy FR-001 — 70e8d62
 
 #### Manual
 
-- [x] 1.3 Wpisy w PRD, roadmapie i słowniku są spójne z decyzjami z `plan-brief.md` (wzorzec na `test4`, porażka kopii nie blokuje konta, blokada usunięcia ekranu wzorca)
+- [x] 1.3 Wpisy w PRD, roadmapie i słowniku są spójne z decyzjami z `plan-brief.md` (wzorzec na `test4`, porażka kopii nie blokuje konta, blokada usunięcia ekranu wzorca) — 70e8d62
 
 ### Phase 2: Schemat i oznaczenie wzorca
 
 #### Automated
 
-- [ ] 2.1 `dotnet build TreeGrid.sln` przechodzi
-- [ ] 2.2 `dotnet test tests/Api.Tests` przechodzi (świeże bazy testów migrują się z nową migracją)
-- [ ] 2.3 Wygenerowana migracja zawiera wyłącznie `AddColumn`, `CreateIndex` i `Sql` w `Up` — bez `RenameTable`/przebudowy `Trees`
+- [x] 2.1 `dotnet build TreeGrid.sln` przechodzi
+- [x] 2.2 `dotnet test tests/Api.Tests` przechodzi (świeże bazy testów migrują się z nową migracją)
+- [x] 2.3 Wygenerowana migracja zawiera wyłącznie `AddColumn`, `CreateIndex` i `Sql` w `Up` — bez `RenameTable`/przebudowy `Trees`
 
 #### Manual
 
-- [ ] 2.4 Na kopii `src/Api/db/treegrid.db` po `dotnet ef database update`: `Screens.Id=7` i `Trees.Id=9` mają `IsTemplate=1`, żaden inny wiersz nie ma, a `pragma table_info(Trees)` nadal pokazuje kolumnę `Version`
+- [x] 2.4 Na kopii `src/Api/db/treegrid.db` po `dotnet ef database update`: `Screens.Id=7` i `Trees.Id=9` mają `IsTemplate=1`, żaden inny wiersz nie ma, a `pragma table_info(Trees)` nadal pokazuje kolumnę `Version`
 
 ### Phase 3: Klon wzorca przy rejestracji
 

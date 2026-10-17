@@ -111,6 +111,13 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options)
             // (niżej) tu nie występuje: dwa drzewa jednego konta o tej samej
             // nazwie zderzą się na indeksie zawsze.
             tree.HasIndex(t => new { t.UserId, t.NormalizedName }).IsUnique();
+
+            // Najwyżej jedno drzewo wzorcowe w całej bazie, nie w obrębie konta:
+            // klon przy rejestracji szuka wzorca bez filtra właściciela, więc
+            // drugi wzorzec uczyniłby wybór źródła niejednoznacznym. Filtr
+            // obejmuje tylko wartość prawdziwą — dowolnie wiele drzew bez flagi
+            // nie zderza się na indeksie.
+            tree.HasIndex(t => t.IsTemplate).IsUnique().HasFilter("\"IsTemplate\" = 1");
         });
 
         builder.Entity<TreeNode>(node =>
@@ -188,6 +195,10 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options)
             // Pod pytanie „czy któryś ekran wskazuje to drzewo" i pod
             // sprawdzenie klucza obcego przy usuwaniu drzewa.
             screen.HasIndex(s => s.TreeId);
+
+            // Najwyżej jeden ekran wzorcowy w całej bazie — z tego samego powodu
+            // i z tym samym filtrem co indeks wzorca przy drzewie.
+            screen.HasIndex(s => s.IsTemplate).IsUnique().HasFilter("\"IsTemplate\" = 1");
         });
 
         builder.Entity<ScreenDefaultCategory>(entry =>

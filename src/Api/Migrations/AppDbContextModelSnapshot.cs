@@ -212,6 +212,9 @@ namespace Api.Migrations
                     b.Property<int>("GrainMinutes")
                         .HasColumnType("INTEGER");
 
+                    b.Property<bool>("IsTemplate")
+                        .HasColumnType("INTEGER");
+
                     b.Property<string>("Name")
                         .IsRequired()
                         .HasMaxLength(200)
@@ -230,6 +233,10 @@ namespace Api.Migrations
                         .HasColumnType("TEXT");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("IsTemplate")
+                        .IsUnique()
+                        .HasFilter("\"IsTemplate\" = 1");
 
                     b.HasIndex("TreeId");
 
@@ -315,6 +322,9 @@ namespace Api.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("INTEGER");
 
+                    b.Property<bool>("IsTemplate")
+                        .HasColumnType("INTEGER");
+
                     b.Property<string>("Name")
                         .IsRequired()
                         .HasMaxLength(200)
@@ -330,6 +340,10 @@ namespace Api.Migrations
                         .HasColumnType("TEXT");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("IsTemplate")
+                        .IsUnique()
+                        .HasFilter("\"IsTemplate\" = 1");
 
                     b.HasIndex("UserId", "NormalizedName")
                         .IsUnique();

@@ -54,6 +54,15 @@ public sealed class UserTree
     /// </summary>
     public string NormalizedName { get; set; } = string.Empty;
 
+    /// <summary>
+    /// Drzewo wzorcowe — źródło kopii dla nowych kont, razem z ekranem wzorca
+    /// (<see cref="Screen.IsTemplate"/>), który je wskazuje. Najwyżej jedno
+    /// drzewo w całej bazie ma tę flagę (częściowy unikalny indeks). Ustawia ją
+    /// wyłącznie migracja <c>TemplateFlags</c> albo ręczny <c>UPDATE</c> —
+    /// interfejsu do tego nie ma. Kopie wzorca mają tu zawsze <c>false</c>.
+    /// </summary>
+    public bool IsTemplate { get; set; }
+
     /// <summary>Węzły drzewa; usunięcie drzewa usuwa je kaskadą.</summary>
     public ICollection<TreeNode> Nodes { get; set; } = [];
 }

@@ -79,6 +79,16 @@ public sealed class Screen
     public int GrainMinutes { get; set; }
 
     /// <summary>
+    /// Ekran wzorcowy — źródło kopii dla nowych kont: przy rejestracji konto
+    /// dostaje kopię tego ekranu i wskazywanego przez niego drzewa, które
+    /// musi mieć <see cref="UserTree.IsTemplate"/>. Najwyżej jeden ekran
+    /// w całej bazie ma tę flagę (częściowy unikalny indeks). Ustawia ją
+    /// wyłącznie migracja <c>TemplateFlags</c> albo ręczny <c>UPDATE</c> —
+    /// interfejsu do tego nie ma. Kopie wzorca mają tu zawsze <c>false</c>.
+    /// </summary>
+    public bool IsTemplate { get; set; }
+
+    /// <summary>
     /// Lista kategorii domyślnych w kolejności <see cref="ScreenDefaultCategory.Position"/>;
     /// usunięcie ekranu usuwa ją kaskadą.
     /// </summary>
