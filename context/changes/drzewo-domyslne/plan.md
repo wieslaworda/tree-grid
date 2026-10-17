@@ -491,25 +491,25 @@ semantyką słowników wspólnych.
 
 #### Automated
 
-- [x] 3.1 `dotnet test tests/Api.Tests --filter "FullyQualifiedName~ScreenTemplateRulesTests"` przechodzi
-- [x] 3.2 `dotnet test tests/Api.Tests --filter "FullyQualifiedName~RegistrationTemplateIntegrationTests"` przechodzi
-- [x] 3.3 `dotnet test tests/Api.Tests` przechodzi w całości (w tym `AuthIntegrationTests` bez zmian w asercjach)
-- [x] 3.4 `npm run typecheck` przechodzi
+- [x] 3.1 `dotnet test tests/Api.Tests --filter "FullyQualifiedName~ScreenTemplateRulesTests"` przechodzi — 5a07a25
+- [x] 3.2 `dotnet test tests/Api.Tests --filter "FullyQualifiedName~RegistrationTemplateIntegrationTests"` przechodzi — 5a07a25
+- [x] 3.3 `dotnet test tests/Api.Tests` przechodzi w całości (w tym `AuthIntegrationTests` bez zmian w asercjach) — 5a07a25
+- [x] 3.4 `npm run typecheck` przechodzi — 5a07a25
 
 #### Manual
 
-- [x] 3.5 Na kopii bazy deweloperskiej (`.\buduj_app_dev.ps1`) rejestracja nowego konta przez widok kończy się na `/prezentacja` z ekranem „Testowy ekran prezentacyjny dla {login}" i drzewem z 95 węzłami; grid pokazuje te same kategorie co wzorzec na `test4`
-- [x] 3.6 Edycja drzewa klonu nie zmienia drzewa wzorca na `test4`
+- [x] 3.5 Na kopii bazy deweloperskiej (`.\buduj_app_dev.ps1`) rejestracja nowego konta przez widok kończy się na `/prezentacja` z ekranem „Testowy ekran prezentacyjny dla {login}" i drzewem z 95 węzłami; grid pokazuje te same kategorie co wzorzec na `test4` — 5a07a25
+- [x] 3.6 Edycja drzewa klonu nie zmienia drzewa wzorca na `test4` — 5a07a25
 
 ### Phase 4: Ochrona wzorca przed usunięciem
 
 #### Automated
 
-- [ ] 4.1 `dotnet test tests/Api.Tests --filter "FullyQualifiedName~ScreenErrorContractTests"` przechodzi
-- [ ] 4.2 `dotnet test tests/Api.Tests` przechodzi w całości
-- [ ] 4.3 `npm run typecheck` przechodzi
+- [x] 4.1 `dotnet test tests/Api.Tests --filter "FullyQualifiedName~ScreenErrorContractTests"` przechodzi
+- [x] 4.2 `dotnet test tests/Api.Tests` przechodzi w całości
+- [x] 4.3 `npm run typecheck` przechodzi
 
 #### Manual
 
-- [ ] 4.4 Zalogowany jako `test4` na kopii bazy: „Usuń ekran" na „Testowy ekran prezentacyjny" pokazuje w widoku `/ekrany` komunikat odmowy, a ekran zostaje na liście
-- [ ] 4.5 Usunięcie klonu na nowym koncie działa jak dziś
+- [x] 4.4 Zalogowany jako `test4` na kopii bazy: „Usuń ekran" na „Testowy ekran prezentacyjny" pokazuje w widoku `/ekrany` komunikat odmowy, a ekran zostaje na liście
+- [x] 4.5 Usunięcie klonu na nowym koncie działa jak dziś

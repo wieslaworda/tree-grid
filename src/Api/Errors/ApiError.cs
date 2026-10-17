@@ -171,6 +171,15 @@ public static class ApiErrorCodes
     public const string TreeInScreen = "tree_in_screen";
 
     /// <summary>
+    /// Odmowa usunięcia ekranu, który jest wzorcem kopiowanym na nowe konta
+    /// przy rejestracji (409, <c>DELETE /screens/{id}</c>, S-16). Bez odmowy
+    /// jedno kliknięcie kuratora wyłączyłoby kopiowanie po cichu. Ekran należy
+    /// do konta żądającego, więc komunikat podaje jego nazwę, a <c>context</c>
+    /// jest pusty. Edycji wzorca kod nie dotyczy — jest dozwolona.
+    /// </summary>
+    public const string ScreenIsTemplate = "screen_is_template";
+
+    /// <summary>
     /// Odmowa usunięcia kategorii, która jest jedyną kategorią domyślną
     /// co najmniej jednego ekranu (409, <c>DELETE /categories/{id}</c>) — ekran
     /// z pustą listą domyślną nie jest dozwolony. Kategorię użytą obok innych

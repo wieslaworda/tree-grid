@@ -440,7 +440,10 @@ internal static class ScreenEndpoints
     /// <summary>
     /// Usuwa ekran. Listy domyślnej i przypisań endpoint nie wczytuje — usuwa
     /// je kaskada klucza obcego <c>ScreenId</c> w schemacie
-    /// (<see cref="AppDbContext"/>). Drzewo zostaje nietknięte.
+    /// (<see cref="AppDbContext"/>). Drzewo zostaje nietknięte. Ekranu wzorca
+    /// (<see cref="Screen.IsTemplate"/>) nie usuwa: odpowiada 409
+    /// <see cref="ApiErrorCodes.ScreenIsTemplate"/>, bo bez niego nowe konta
+    /// przestałyby po cichu dostawać kopię (<see cref="ScreenTemplateClone"/>).
     /// </summary>
     private static async Task<IResult> DeleteScreenAsync(
         int id,
@@ -464,6 +467,15 @@ internal static class ScreenEndpoints
         if (screen is null)
         {
             return ScreenNotFound(id);
+        }
+
+        // Po kontroli właściciela: cudzy wzorzec to ten sam 404 co każdy cudzy
+        // ekran, więc odmowa nie zdradza, gdzie wzorzec leży.
+        if (screen.IsTemplate)
+        {
+            return Results.Json(
+                ScreenResponses.IsTemplate(screen.Name),
+                statusCode: StatusCodes.Status409Conflict);
         }
 
         db.Screens.Remove(screen);
@@ -719,6 +731,28 @@ internal static class ScreenEndpoints
         int TreeId,
         string TreeName,
         int GrainMinutes);
+}
+
+/// <summary>
+/// Odmowy ekranu, które niosą regułę, a nie tylko tekst. Wydzielone
+/// z <see cref="ScreenEndpoints"/> wzorem <c>TreeResponses</c>: kształt koperty
+/// ma być sprawdzalny bez potoku HTTP.
+/// </summary>
+internal static class ScreenResponses
+{
+    /// <summary>
+    /// Odmowa <see cref="ApiErrorCodes.ScreenIsTemplate"/>: ekranu
+    /// <paramref name="screenName"/> nie da się usunąć, bo jest wzorcem dla
+    /// nowych kont. <c>context</c> jest pusty.
+    /// </summary>
+    /// <remarks>
+    /// Ekran należy do konta żądającego (odmowa pada po kontroli właściciela),
+    /// więc komunikat może podać jego nazwę.
+    /// </remarks>
+    public static ApiError IsTemplate(string screenName)
+        => ApiError.Create(
+            ApiErrorCodes.ScreenIsTemplate,
+            $"Ekran „{screenName}” jest wzorcem dla nowych kont i nie można go usunąć.");
 }
 
 /// <summary>

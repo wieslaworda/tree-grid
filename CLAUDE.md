@@ -81,10 +81,11 @@ Automatyczna weryfikacja to `npm run typecheck`, `npm run test:node`
 i `dotnet test`. Testy .NET
 pokrywają **reguły domenowe i kształt kontraktu błędów** (`*RulesTests`,
 `*ErrorContractTests`) oraz **potok HTTP drzew, ekranów, kaskady usunięcia
-kategorii i rejestracji z logowaniem na prawdziwym SQLite i zapis błędu 500
-do pliku logu** (`*IntegrationTests`: host z `TestApiFactory`, własny plik
-bazy, katalog logu i katalog poczty `.eml` tymczasowe na klasę, baza, log
-i skrzynka deweloperskie nietknięte; `AuthIntegrationTests` czytają kod
+kategorii, rejestracji z logowaniem, kopii wzorcowego ekranu i drzewa przy
+rejestracji oraz odmowy usunięcia ekranu wzorca (`screen_is_template`) na
+prawdziwym SQLite i zapis błędu 500 do pliku logu** (`*IntegrationTests`:
+host z `TestApiFactory`, własny plik bazy, katalog logu i katalog poczty
+`.eml` tymczasowe na klasę, baza, log i skrzynka deweloperskie nietknięte; `AuthIntegrationTests` czytają kod
 weryfikacyjny z pliku `.eml`) — bez widoku i bez izolacji kont (poza kontrolą
 właściciela drzewa przy `PUT /screens`). Frontend ma jedynie spec Node
 `tests/node/porazka-api.spec.ts`

@@ -2,6 +2,7 @@ using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json;
 using Api.Data;
+using Api.Errors;
 using Api.Tree;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Diagnostics;
@@ -13,7 +14,8 @@ namespace Api.Tests;
 /// z 2026-10-17) na prawdziwym potoku HTTP i SQLite: rejestracja przez oba
 /// kroki daje nowemu kontu wierną kopię wzorca o nazwach z loginem; brak
 /// wzorca, niespójny wzorzec i awaria zapisu kopii zostawiają konto bez kopii,
-/// a dwa ostatnie — wpis Error w logu.
+/// a dwa ostatnie — wpis Error w logu. Usunięcie ekranu wzorca dostaje 409
+/// <c>screen_is_template</c>, a usunięcie kopii przechodzi jak każde inne.
 ///
 /// Wyrocznią jest plan <c>context/changes/drzewo-domyslne/plan.md</c>
 /// („Testing Strategy", „Critical Implementation Details"): nazwy kopii
@@ -219,6 +221,42 @@ public class RegistrationTemplateIntegrationTests(
 
         Assert.Equal(treeBefore, await IntegrationSeed.ReadTreeAsync(failingFactory, template.TreeId));
         Assert.Equal(screenBefore, await IntegrationSeed.ReadScreenAsync(failingFactory, template.ScreenId));
+    }
+
+    // --- Ochrona wzorca przed usunięciem -----------------------------------
+
+    [Fact]
+    public async Task Deleting_the_template_screen_is_refused_while_deleting_its_copy_succeeds()
+    {
+        var template = await ArrangeTemplateAsync(factory);
+        var screenBefore = await IntegrationSeed.ReadScreenAsync(factory, template.ScreenId);
+
+        var refused = await template.Curator.Client.DeleteAsync($"/screens/{template.ScreenId}");
+
+        Assert.Equal(HttpStatusCode.Conflict, refused.StatusCode);
+        var error = (await refused.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("error");
+        Assert.Equal(ApiErrorCodes.ScreenIsTemplate, error.GetProperty("code").GetString());
+        Assert.Equal(
+            $"Ekran „{TemplateScreenName}” jest wzorcem dla nowych kont i nie można go usunąć.",
+            error.GetProperty("message").GetString());
+        Assert.Empty(error.GetProperty("context").EnumerateObject());
+
+        // Odmowa nie zmienia wzorca — ekran, lista domyślna i przypisania zostają.
+        Assert.Equal(screenBefore, await IntegrationSeed.ReadScreenAsync(factory, template.ScreenId));
+
+        // Kopia jest zwykłym ekranem konta (`IsTemplate = false`) — usuwa się jak każdy.
+        using var client = factory.CreateClient();
+        var response = await IntegrationSeed.RegisterThroughBothStepsAsync(factory, client, NewLogin(), Password);
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var accountId = await ReadAccountIdAsync(response);
+        var copy = Assert.Single((await ReadOwnedAsync(factory, accountId)).Screens);
+
+        using var owner = ClientFor(factory, accountId);
+        var deleted = await owner.DeleteAsync($"/screens/{copy.Id}");
+
+        Assert.Equal(HttpStatusCode.NoContent, deleted.StatusCode);
+        Assert.Empty((await ReadOwnedAsync(factory, accountId)).Screens);
+        Assert.Equal(screenBefore, await IntegrationSeed.ReadScreenAsync(factory, template.ScreenId));
     }
 
     // --- Pomocnicze ----------------------------------------------------------

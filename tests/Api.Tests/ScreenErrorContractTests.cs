@@ -1,6 +1,7 @@
 using System.Text.Json;
 using Api.Categories;
 using Api.Errors;
+using Api.Screens;
 using Api.Tree;
 
 namespace Api.Tests;
@@ -8,12 +9,14 @@ namespace Api.Tests;
 /// <summary>
 /// Kształt odmów, które ekran (S-06) wprowadza do istniejących obszarów:
 /// usunięcia drzewa wskazywanego przez ekran i usunięcia kategorii, która jest
-/// jedyną domyślną jakiegoś ekranu.
+/// jedyną domyślną jakiegoś ekranu — oraz odmowy usunięcia ekranu wzorca (S-16).
 ///
 /// Wzorem kopert w <see cref="TreeRulesTests"/> testy nie podnoszą hosta ani
-/// bazy: odmowy powstają w <see cref="TreeResponses"/>
-/// i <see cref="CategoryResponses"/>, a sama kontrola w transakcji, kaskady
-/// i pełna ścieżka HTTP mają weryfikację ręczną.
+/// bazy: odmowy powstają w <see cref="TreeResponses"/>,
+/// <see cref="CategoryResponses"/> i <see cref="ScreenResponses"/>, a sama
+/// kontrola w transakcji, kaskady i pełna ścieżka HTTP mają weryfikację ręczną
+/// — poza odmową wzorca, której ścieżkę HTTP sprawdza
+/// <see cref="RegistrationTemplateIntegrationTests"/>.
 /// </summary>
 public class ScreenErrorContractTests
 {
@@ -67,6 +70,19 @@ public class ScreenErrorContractTests
 
         // Słownik jest wspólny, ekrany prywatne — odmowa nie niesie niczego
         // o cudzym ekranie.
+        Assert.Empty(PropertyNames(error.GetProperty("context")));
+    }
+
+    [Fact]
+    public void Screen_is_template_refusal_names_the_screen_and_has_an_empty_context()
+    {
+        using var document = Serialize(ScreenResponses.IsTemplate("Testowy ekran prezentacyjny"));
+
+        var error = AssertEnvelope(document, "screen_is_template", ApiErrorCodes.ScreenIsTemplate);
+
+        Assert.Equal(
+            "Ekran „Testowy ekran prezentacyjny” jest wzorcem dla nowych kont i nie można go usunąć.",
+            error.GetProperty("message").GetString());
         Assert.Empty(PropertyNames(error.GetProperty("context")));
     }
 
