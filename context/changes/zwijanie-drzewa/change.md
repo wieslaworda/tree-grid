@@ -1,7 +1,7 @@
 ---
 change_id: zwijanie-drzewa
 title: Zapamiętanie stanu zwinięcia gałęzi drzewa w definicji i na ekranie z danymi
-status: implementing
+status: implemented
 created: 2026-10-18
 updated: 2026-10-18
 archived_at: null

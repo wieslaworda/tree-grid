@@ -566,9 +566,9 @@ strażnikiem — frontend i API wycofuje się razem.
 
 #### Automated
 
-- [x] 4.1 E2E przechodzi: `npx playwright test`
-- [x] 4.2 Typy przechodzą: `npm run typecheck`
+- [x] 4.1 E2E przechodzi: `npx playwright test` — c4eb89f
+- [x] 4.2 Typy przechodzą: `npm run typecheck` — c4eb89f
 
 #### Manual
 
-- [x] 4.3 Notki w PRD przy FR-003 i FR-008 opisują zachowanie zgodne z widokiem
+- [x] 4.3 Notki w PRD przy FR-003 i FR-008 opisują zachowanie zgodne z widokiem — c4eb89f
