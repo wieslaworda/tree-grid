@@ -78,7 +78,8 @@ internal static class ScreenTemplateClone
                 .AsNoTracking()
                 .Where(node => node.TreeId == tree.Id)
                 .OrderBy(node => node.Id)
-                .Select(node => new TemplateNode(node.Id, node.ParentId, node.ObjectId, node.Position))
+                .Select(node => new TemplateNode(
+                    node.Id, node.ParentId, node.ObjectId, node.Position, node.IsCollapsed))
                 .ToListAsync(cancellationToken);
 
             var defaults = await db.ScreenDefaultCategories

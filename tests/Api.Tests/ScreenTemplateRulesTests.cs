@@ -8,7 +8,8 @@ namespace Api.Tests;
 /// Regresja klonu wzorca ekranu (<see cref="ScreenTemplateRules"/>, plan
 /// <c>context/changes/drzewo-domyslne/plan.md</c>, faza 3, „Testing
 /// Strategy"): struktura drzewa, przypisania per węzeł, nazwy z loginem,
-/// flaga wzorca, właściciel i odmowa niespójnej migawki.
+/// flaga wzorca, właściciel i odmowa niespójnej migawki — oraz układ zwinięć
+/// węzłów (plan <c>zwijanie-drzewa</c>, faza 1).
 ///
 /// Wzorem <see cref="ScreenRulesTests"/> testy nie podnoszą hosta ani bazy.
 /// Kopia nie ma jeszcze identyfikatorów (nadaje je dopiero <c>SaveChanges</c>),
@@ -38,13 +39,13 @@ public class ScreenTemplateRulesTests
         // „rodzic przed dzieckiem", identyfikatory wzorca rozrzucone.
         var template = Snapshot(
         [
-            new TemplateNode(104, 102, D, 0),
-            new TemplateNode(101, null, A, 0),
-            new TemplateNode(106, 105, F, 0),
-            new TemplateNode(102, 101, B, 0),
-            new TemplateNode(103, 101, C, 1),
-            new TemplateNode(105, null, E, 1),
-            new TemplateNode(107, 105, B, 1),
+            new TemplateNode(104, 102, D, 0, false),
+            new TemplateNode(101, null, A, 0, false),
+            new TemplateNode(106, 105, F, 0, false),
+            new TemplateNode(102, 101, B, 0, false),
+            new TemplateNode(103, 101, C, 1, false),
+            new TemplateNode(105, null, E, 1, false),
+            new TemplateNode(107, 105, B, 1, false),
         ]);
 
         var (tree, _) = ScreenTemplateRules.Clone(template, UserId, Login);
@@ -75,6 +76,36 @@ public class ScreenTemplateRulesTests
         });
     }
 
+    [Fact]
+    public void Clone_keeps_the_collapsed_flag_of_every_node()
+    {
+        // A → [B → [D], C] oraz E. Zwinięte A (z dziećmi) i E (liść — flaga bez
+        // efektu w widoku, ale kopia ma być wierna wierszom); B, C i D
+        // rozwinięte, więc kopia nie może ustawić flagi wszystkim ani nikomu.
+        var template = Snapshot(
+        [
+            new TemplateNode(1, null, A, 0, true),
+            new TemplateNode(2, 1, B, 0, false),
+            new TemplateNode(3, 2, D, 0, false),
+            new TemplateNode(4, 1, C, 1, false),
+            new TemplateNode(5, null, E, 1, true),
+        ]);
+
+        var (tree, _) = ScreenTemplateRules.Clone(template, UserId, Login);
+
+        Assert.Equal(
+            [
+                ("A@0", true),
+                ("A@0/B@0", false),
+                ("A@0/B@0/D@0", false),
+                ("A@0/C@1", false),
+                ("E@1", true),
+            ],
+            tree.Nodes
+                .Select(node => (PathOf(node), node.IsCollapsed))
+                .OrderBy(entry => entry.Item1, StringComparer.Ordinal));
+    }
+
     // --- Przypisania --------------------------------------------------------
 
     [Fact]
@@ -84,10 +115,10 @@ public class ScreenTemplateRulesTests
         // C z zerem kategorii, A i D z domyślnymi.
         var template = Snapshot(
             [
-                new TemplateNode(1, null, A, 0),
-                new TemplateNode(2, 1, B, 0),
-                new TemplateNode(3, 1, C, 1),
-                new TemplateNode(4, null, D, 1),
+                new TemplateNode(1, null, A, 0, false),
+                new TemplateNode(2, 1, B, 0, false),
+                new TemplateNode(3, 1, C, 1, false),
+                new TemplateNode(4, null, D, 1, false),
             ],
             defaults: [new(K1, 0), new(K2, 1)],
             assignments:
@@ -120,7 +151,7 @@ public class ScreenTemplateRulesTests
     [Fact]
     public void Screen_of_the_clone_points_at_the_cloned_tree_and_keeps_the_grain()
     {
-        var template = Snapshot([new TemplateNode(1, null, A, 0)], grainMinutes: 5);
+        var template = Snapshot([new TemplateNode(1, null, A, 0, false)], grainMinutes: 5);
 
         var (tree, screen) = ScreenTemplateRules.Clone(template, UserId, Login);
 
@@ -133,7 +164,7 @@ public class ScreenTemplateRulesTests
     [Fact]
     public void Clone_names_carry_the_login_and_their_normalized_form()
     {
-        var template = Snapshot([new TemplateNode(1, null, A, 0)]);
+        var template = Snapshot([new TemplateNode(1, null, A, 0, false)]);
 
         var (tree, screen) = ScreenTemplateRules.Clone(template, UserId, Login);
 
@@ -156,7 +187,7 @@ public class ScreenTemplateRulesTests
         const int maxLength = 200;
         var login = new string('l', loginLength);
         var template = Snapshot(
-            [new TemplateNode(1, null, A, 0)],
+            [new TemplateNode(1, null, A, 0, false)],
             screenName: new string('e', 199),
             treeName: new string('d', 199));
 
@@ -176,7 +207,7 @@ public class ScreenTemplateRulesTests
     [Fact]
     public void Clone_is_not_a_template_and_belongs_to_the_given_account()
     {
-        var template = Snapshot([new TemplateNode(1, null, A, 0)]);
+        var template = Snapshot([new TemplateNode(1, null, A, 0, false)]);
 
         var (tree, screen) = ScreenTemplateRules.Clone(template, UserId, Login);
 
@@ -192,7 +223,7 @@ public class ScreenTemplateRulesTests
     public void Assignment_pointing_at_a_node_outside_the_snapshot_is_refused()
     {
         var template = Snapshot(
-            [new TemplateNode(1, null, A, 0)],
+            [new TemplateNode(1, null, A, 0, false)],
             defaults: [new(K1, 0)],
             assignments: [new(1, K1, 0), new(99, K1, 0)]);
 
@@ -202,7 +233,7 @@ public class ScreenTemplateRulesTests
     [Fact]
     public void Node_with_a_parent_outside_the_snapshot_is_refused()
     {
-        var template = Snapshot([new TemplateNode(1, null, A, 0), new TemplateNode(2, 99, B, 0)]);
+        var template = Snapshot([new TemplateNode(1, null, A, 0, false), new TemplateNode(2, 99, B, 0, false)]);
 
         Assert.Throws<InvalidOperationException>(() => ScreenTemplateRules.Clone(template, UserId, Login));
     }

@@ -64,4 +64,18 @@ public sealed class TreeNode
     /// prowadzi endpoint w tej samej transakcji co zmianę.
     /// </summary>
     public int Position { get; set; }
+
+    /// <summary>
+    /// Gałąź zwinięta w układzie widoku; domyślnie <c>false</c> — rozwinięta,
+    /// więc drzewa sprzed tej kolumny wyglądają po migracji tak jak przedtem.
+    /// </summary>
+    /// <remarks>
+    /// To układ widoku należący do drzewa, a nie do ekranu ani przeglądarki:
+    /// zapisuje go definicja drzewa (<c>/drzewo</c>, <c>PUT
+    /// /trees/{treeId}/layout</c>), a gridy każdego ekranu na tym drzewie tylko
+    /// z niego startują. Dodanie i przeniesienie pod węzeł zdejmuje flagę
+    /// rodzicowi w tej samej transakcji. Na liściu flaga nie ma efektu — liść
+    /// nie ma czego zwijać.
+    /// </remarks>
+    public bool IsCollapsed { get; set; }
 }

@@ -52,7 +52,8 @@ internal static class ScreenTemplateRules
 
     /// <summary>
     /// Buduje kopię wzorca dla konta <paramref name="userId"/>: drzewo
-    /// z węzłami (ta sama struktura, te same <c>ObjectId</c> i <c>Position</c>)
+    /// z węzłami (ta sama struktura, te same <c>ObjectId</c>, <c>Position</c>
+    /// i <c>IsCollapsed</c>)
     /// i ekran na tym drzewie (to samo ziarno, ta sama lista domyślna, te same
     /// przypisania na odpowiadających węzłach). Obie encje mają
     /// <c>IsTemplate = false</c>. Wywołujący dodaje je do kontekstu i zapisuje
@@ -88,6 +89,7 @@ internal static class ScreenTemplateRules
                 Tree = tree,
                 ObjectId = node.ObjectId,
                 Position = node.Position,
+                IsCollapsed = node.IsCollapsed,
             };
 
             if (!clones.TryAdd(node.Id, clone))
@@ -198,8 +200,11 @@ internal sealed record ScreenTemplateSnapshot(
     IReadOnlyList<TemplateDefaultCategory> DefaultCategories,
     IReadOnlyList<TemplateAssignment> Assignments);
 
-/// <summary>Węzeł drzewa wzorca; <see cref="ParentId"/> <c>null</c> — najwyższy poziom.</summary>
-internal readonly record struct TemplateNode(int Id, int? ParentId, int ObjectId, int Position);
+/// <summary>
+/// Węzeł drzewa wzorca; <see cref="ParentId"/> <c>null</c> — najwyższy poziom.
+/// <see cref="IsCollapsed"/> — układ zwinięć wzorca, który kopia przejmuje.
+/// </summary>
+internal readonly record struct TemplateNode(int Id, int? ParentId, int ObjectId, int Position, bool IsCollapsed);
 
 /// <summary>Pozycja listy kategorii domyślnych ekranu wzorca.</summary>
 internal readonly record struct TemplateDefaultCategory(int CategoryId, int Position);

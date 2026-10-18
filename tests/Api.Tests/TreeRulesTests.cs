@@ -514,6 +514,7 @@ public class TreeRulesTests
         Assert.Equal("objectId", TreeRequestFields.ObjectId);
         Assert.Equal("parentId", TreeRequestFields.ParentId);
         Assert.Equal("position", TreeRequestFields.Position);
+        Assert.Equal("collapsedNodeIds", TreeRequestFields.CollapsedNodeIds);
     }
 
     // --- Pomocnicze ---------------------------------------------------------

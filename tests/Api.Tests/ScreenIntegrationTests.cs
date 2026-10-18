@@ -91,6 +91,35 @@ public class ScreenIntegrationTests(TestApiFactory factory) : IClassFixture<Test
         Assert.Equal([k1, k0], assignments[n3]);
     }
 
+    [Fact]
+    public async Task Saved_screen_reads_back_the_collapsed_flag_of_every_node_of_its_tree()
+    {
+        // Układ należy do drzewa (plan `zwijanie-drzewa`): R → [A, B] z R
+        // zwiniętym; ekran na tym drzewie niesie flagę każdego węzła.
+        var arranged = await ArrangeAsync(objectCount: 3, categoryCount: 1);
+        using var client = arranged.Account.Client;
+
+        var top = await SeedNodesAsync(arranged, arranged.TreeId, parentId: null, 0);
+        var under = await SeedNodesAsync(arranged, arranged.TreeId, parentId: top[0], 1, 2);
+        await IntegrationSeed.CollapseNodesAsync(factory, top[0]);
+        var screenId = await SeedScreenAsync(arranged, arranged.TreeId, ScreenName, arranged.K(0));
+
+        var response = await client.GetAsync($"/screens/{screenId}");
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+
+        using var document = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
+
+        var collapsed = document.RootElement.GetProperty("nodes")
+            .EnumerateArray()
+            .ToDictionary(
+                node => node.GetProperty("id").GetInt32(),
+                node => node.GetProperty("collapsed").GetBoolean());
+
+        Assert.Equal(
+            new Dictionary<int, bool> { [top[0]] = true, [under[0]] = false, [under[1]] = false },
+            collapsed);
+    }
+
     // --- Kaskady od drzewa (FR-012) ------------------------------------------
 
     [Fact]

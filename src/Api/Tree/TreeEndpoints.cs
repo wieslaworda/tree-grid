@@ -8,7 +8,8 @@ namespace Api.Tree;
 /// <summary>
 /// Endpointy nazwanych drzew użytkownika (S-03, MS-03–MS-05): lista drzew
 /// z dodaniem, zmianą nazwy i usunięciem oraz — w obrębie drzewa z adresu —
-/// odczyt węzłów i trzy polecenia na nich: dodanie, przeniesienie, usunięcie.
+/// odczyt węzłów i trzy polecenia na nich: dodanie, przeniesienie, usunięcie
+/// — oraz zapis układu zwinięć całego drzewa.
 /// Wzorem <c>Api.Objects</c> endpoint wiąże żądanie, czyta i zapisuje w jednej
 /// transakcji oraz odwzorowuje werdykt reguły (<see cref="TreeRules"/>,
 /// <see cref="TreeNameRules"/>) na kopertę błędu.
@@ -57,6 +58,8 @@ internal static class TreeEndpoints
 
     private const string NodesPath = "/trees/{treeId:int}/nodes";
 
+    private const string LayoutPath = "/trees/{treeId:int}/layout";
+
     private const string ValidationMessage = "Przesłane dane są nieprawidłowe.";
 
     public static WebApplication MapTreeEndpoints(this WebApplication app)
@@ -72,6 +75,8 @@ internal static class TreeEndpoints
         app.MapPost(NodesPath, AddNodeAsync);
         app.MapPut($"{NodesPath}/{{id:int}}", MoveNodeAsync);
         app.MapDelete($"{NodesPath}/{{id:int}}", DeleteNodeAsync);
+
+        app.MapPut(LayoutPath, SaveLayoutAsync);
 
         return app;
     }
@@ -247,8 +252,9 @@ internal static class TreeEndpoints
     }
 
     /// <summary>
-    /// Całe drzewo z adresu jako płaska lista węzłów, posortowana po rodzicu
-    /// (najpierw najwyższy poziom) i pozycji. Nowe drzewo daje pustą listę.
+    /// Całe drzewo z adresu jako płaska lista węzłów z flagą zwinięcia
+    /// (<c>collapsed</c>), posortowana po rodzicu (najpierw najwyższy poziom)
+    /// i pozycji. Nowe drzewo daje pustą listę.
     /// </summary>
     /// <remarks>
     /// Bez transakcji — jak <c>GET /objects</c>: transakcja zapisowa
@@ -274,10 +280,9 @@ internal static class TreeEndpoints
             return TreeNotFound(treeId);
         }
 
-        var entries = (await LoadNodesAsync(db.TreeNodes.AsNoTracking(), treeId, cancellationToken))
-            .Select(ToEntry);
-
-        var nodes = entries
+        // Wprost z encji, nie przez `ToEntry`: odpowiedź niesie też flagę
+        // zwinięcia, której reguły drzewa nie znają.
+        var nodes = (await LoadNodesAsync(db.TreeNodes.AsNoTracking(), treeId, cancellationToken))
             .OrderBy(node => node.ParentId.HasValue)
             .ThenBy(node => node.ParentId)
             .ThenBy(node => node.Position)
@@ -288,6 +293,7 @@ internal static class TreeEndpoints
                 parentId = node.ParentId,
                 objectId = node.ObjectId,
                 position = node.Position,
+                collapsed = node.IsCollapsed,
             })
             .ToList();
 
@@ -301,7 +307,8 @@ internal static class TreeEndpoints
     /// i reguła użycia obiektów (<see cref="TreeRules.FindReuseOnAdd"/>) ocenia
     /// wyłącznie nowy węzeł. Nowy węzeł
     /// dostaje kategorie domyślne każdego ekranu na tym drzewie (FR-012) —
-    /// po wszystkich kontrolach, w tym samym <c>SaveChanges</c>.
+    /// po wszystkich kontrolach, w tym samym <c>SaveChanges</c> — a jego
+    /// rodzic przestaje być zwinięty.
     /// </summary>
     private static async Task<IResult> AddNodeAsync(
         int treeId,
@@ -380,6 +387,20 @@ internal static class TreeEndpoints
 
         db.TreeNodes.Add(node);
 
+        // Rodzic dodanego węzła rozwija się w układzie drzewa — tak jak w widoku
+        // po udanym dodaniu. Węzły wyżej są czytane bez śledzenia, więc rodzica
+        // pobieramy śledzonego dopiero tu, po wszystkich kontrolach: odmowa nie
+        // płaci za ten odczyt. Filtr po `TreeId` jak w `LoadNodesAsync` —
+        // walidacja wyżej potwierdziła, że rodzic jest w drzewie z adresu.
+        if (parentId is { } expandedParentId)
+        {
+            var parent = await db.TreeNodes.SingleAsync(
+                candidate => candidate.Id == expandedParentId && candidate.TreeId == treeId,
+                cancellationToken);
+
+            parent.IsCollapsed = false;
+        }
+
         await AssignScreenDefaultsAsync(db, treeId, node, cancellationToken);
 
         await db.SaveChangesAsync(cancellationToken);
@@ -399,7 +420,8 @@ internal static class TreeEndpoints
     /// Reguła użycia obiektów (<see cref="TreeRules.FindReuseOnMove"/>) ocenia
     /// przenoszony węzeł z całym poddrzewem, a cel w tym poddrzewie odrzuca.
     /// Przypisań kategorii ekranów przeniesienie nie dotyka: wiszą na
-    /// identyfikatorze węzła, a ten się nie zmienia.
+    /// identyfikatorze węzła, a ten się nie zmienia. Przyjęte przeniesienie
+    /// rozwija docelowego rodzica; odmowa niczego nie zmienia.
     /// </summary>
     private static async Task<IResult> MoveNodeAsync(
         int treeId,
@@ -493,6 +515,14 @@ internal static class TreeEndpoints
         ApplyPositions(entities, targetOrder);
         moved.ParentId = parentId;
 
+        // Docelowy rodzic rozwija się w układzie drzewa — tak jak w widoku po
+        // udanym przeniesieniu, także przy zmianie kolejności w jego obrębie.
+        // Najwyższy poziom nie ma czego rozwijać.
+        if (parentId is { } expandedParentId)
+        {
+            entities[expandedParentId].IsCollapsed = false;
+        }
+
         await db.SaveChangesAsync(cancellationToken);
         await transaction.CommitAsync(cancellationToken);
 
@@ -543,6 +573,68 @@ internal static class TreeEndpoints
         ApplyPositions(entities, TreeRules.Without(Order(tree, deleted.ParentId), id));
 
         db.TreeNodes.Remove(deleted);
+
+        await db.SaveChangesAsync(cancellationToken);
+        await transaction.CommitAsync(cancellationToken);
+
+        return Results.NoContent();
+    }
+
+    /// <summary>
+    /// Zapisuje układ zwinięć całego drzewa z adresu: każdy węzeł z
+    /// <c>collapsedNodeIds</c> staje się zwinięty, każdy pozostały —
+    /// rozwinięty. Żądanie niesie pełny zbiór, a nie pojedyncze przełączenie,
+    /// więc ostatni udany zapis zawsze wyrównuje bazę z widokiem, nawet gdy
+    /// klient przerwał wcześniejsze żądanie.
+    /// </summary>
+    /// <remarks>
+    /// Identyfikator spoza drzewa z adresu — węzeł usunięty w innej karcie,
+    /// węzeł innego drzewa, własnego albo cudzego — jest pomijany bez błędu.
+    /// Odpowiedź nie odróżnia go od własnego węzła, więc nie potwierdza
+    /// istnienia cudzych węzłów. Flaga na liściu jest zapisywana, ale nie ma
+    /// efektu (<see cref="TreeNode.IsCollapsed"/>).
+    /// </remarks>
+    private static async Task<IResult> SaveLayoutAsync(
+        int treeId,
+        TreeLayoutRequest? request,
+        HttpRequest httpRequest,
+        AppDbContext db,
+        CancellationToken cancellationToken)
+    {
+        // Przed pierwszym odczytem — patrz komentarz klasy.
+        await using var transaction = await db.Database.BeginTransactionAsync(cancellationToken);
+
+        var userId = await TreeIdentity.ResolveUserIdAsync(httpRequest, db, cancellationToken);
+
+        if (userId is null)
+        {
+            return TreeIdentity.Refusal();
+        }
+
+        if (await FindOwnedTreeAsync(db.Trees.AsNoTracking(), treeId, userId, cancellationToken) is null)
+        {
+            return TreeNotFound(treeId);
+        }
+
+        // Pusta lista to poprawne „nic nie zwinięte"; błędem jest wyłącznie
+        // brak pola — klient, który go nie wysłał, nie powiedział nic o układzie.
+        if (request?.CollapsedNodeIds is not { } collapsedNodeIds)
+        {
+            return ValidationFailure(new Dictionary<string, string>
+            {
+                [TreeRequestFields.CollapsedNodeIds] = "Podaj listę zwiniętych węzłów drzewa.",
+            });
+        }
+
+        var collapsed = collapsedNodeIds.ToHashSet();
+
+        // Śledzone, bo zmienia się flaga. Filtr wyłącznie po `TreeId` drzewa,
+        // które przeszło kontrolę właściciela — identyfikatory spoza niego nie
+        // trafiają na żaden wiersz.
+        foreach (var node in await LoadNodesAsync(db.TreeNodes, treeId, cancellationToken))
+        {
+            node.IsCollapsed = collapsed.Contains(node.Id);
+        }
 
         await db.SaveChangesAsync(cancellationToken);
         await transaction.CommitAsync(cancellationToken);
@@ -763,7 +855,8 @@ internal static class TreeEndpoints
 
 /// <summary>
 /// Nazwy pól w mapie naruszeń (<c>context.fields</c>) — te same co pola ciała
-/// żądań <c>/trees</c> i <c>/trees/{treeId}/nodes</c>.
+/// żądań <c>/trees</c>, <c>/trees/{treeId}/nodes</c> i
+/// <c>/trees/{treeId}/layout</c>.
 /// </summary>
 /// <remarks>
 /// Muszą być identyczne z nazwami, pod którymi klient drzewa po stronie React
@@ -793,6 +886,13 @@ internal static class TreeRequestFields
 
     /// <summary>Pozycja przeniesienia: brak pola albo wartość spoza 0…liczba rodzeństwa.</summary>
     public const string Position = "position";
+
+    /// <summary>
+    /// Zwinięte węzły układu drzewa (<c>PUT /trees/{treeId}/layout</c>): brak
+    /// pola. Pusta lista jest poprawna, a identyfikatory spoza drzewa są
+    /// pomijane, nie zgłaszane.
+    /// </summary>
+    public const string CollapsedNodeIds = "collapsedNodeIds";
 }
 
 /// <summary>Operacja, której dotyczy odmowa — od niej zależy początek komunikatu.</summary>
@@ -934,3 +1034,10 @@ internal sealed record AddTreeNodeRequest(int? ObjectId, int? ParentId);
 /// przenoszonego węzła.
 /// </summary>
 internal sealed record MoveTreeNodeRequest(int? ParentId, int? Position);
+
+/// <summary>
+/// Treść żądania zapisu układu drzewa: pełny zbiór zwiniętych węzłów. Pole
+/// nullowalne, żeby jego brak dawał błąd walidacji w kontrakcie, a nie błąd
+/// wiązania w kształcie frameworka; pusta lista — nic nie jest zwinięte.
+/// </summary>
+internal sealed record TreeLayoutRequest(IReadOnlyList<int>? CollapsedNodeIds);

@@ -263,7 +263,7 @@ internal static class ScreenEndpoints
         var nodes = (await db.TreeNodes
                 .AsNoTracking()
                 .Where(node => node.TreeId == screen.TreeId)
-                .Select(node => new { node.Id, node.ParentId, node.ObjectId, node.Position })
+                .Select(node => new { node.Id, node.ParentId, node.ObjectId, node.Position, node.IsCollapsed })
                 .ToListAsync(cancellationToken))
             .OrderBy(node => node.ParentId.HasValue)
             .ThenBy(node => node.ParentId)
@@ -304,6 +304,8 @@ internal static class ScreenEndpoints
                 parentId = node.ParentId,
                 objectId = node.ObjectId,
                 position = node.Position,
+                // Układ drzewa — grid ekranu tylko z niego startuje.
+                collapsed = node.IsCollapsed,
             }),
             assignments,
         });

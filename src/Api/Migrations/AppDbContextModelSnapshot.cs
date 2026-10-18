@@ -293,6 +293,9 @@ namespace Api.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("INTEGER");
 
+                    b.Property<bool>("IsCollapsed")
+                        .HasColumnType("INTEGER");
+
                     b.Property<int>("ObjectId")
                         .HasColumnType("INTEGER");
 

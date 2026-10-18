@@ -193,6 +193,21 @@ internal static class IntegrationSeed
     }
 
     /// <summary>
+    /// Zwija wskazane węzły (<c>IsCollapsed = true</c>) wprost w tabeli, bez
+    /// potoku HTTP — układ zastany przed żądaniem pod testem. Pozostałych
+    /// węzłów nie dotyka.
+    /// </summary>
+    public static async Task CollapseNodesAsync(TestApiFactory factory, params int[] nodeIds)
+    {
+        await using (factory.CreateDbScope(out var db))
+        {
+            await db.TreeNodes
+                .Where(node => nodeIds.Contains(node.Id))
+                .ExecuteUpdateAsync(setters => setters.SetProperty(node => node.IsCollapsed, true));
+        }
+    }
+
+    /// <summary>
     /// Zakłada ekran konta na drzewie <paramref name="treeId"/> z listą
     /// domyślną w podanej kolejności i — tak jak zapis nowego ekranu (FR-009) —
     /// przypisuje tę listę każdemu bieżącemu węzłowi drzewa, z pozycjami
@@ -361,6 +376,24 @@ internal static class IntegrationSeed
                 .ToListAsync();
 
             return new TreeStateSnapshot(name, nodes);
+        }
+    }
+
+    /// <summary>
+    /// Identyfikatory zwiniętych węzłów drzewa, odczytane wprost z tabeli,
+    /// rosnąco. Osobno od <see cref="ReadTreeAsync"/>, żeby migawki struktury
+    /// w testach sprzed układu zostały bez zmian.
+    /// </summary>
+    public static async Task<IReadOnlyList<int>> ReadCollapsedAsync(TestApiFactory factory, int treeId)
+    {
+        await using (factory.CreateDbScope(out var db))
+        {
+            return await db.TreeNodes
+                .AsNoTracking()
+                .Where(node => node.TreeId == treeId && node.IsCollapsed)
+                .OrderBy(node => node.Id)
+                .Select(node => node.Id)
+                .ToListAsync();
         }
     }
 

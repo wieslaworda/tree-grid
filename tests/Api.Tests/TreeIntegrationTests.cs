@@ -29,6 +29,11 @@ namespace Api.Tests;
 /// potem odmówić. Każde przyjęcie porównuje bazę z ręcznie wypisanym stanem
 /// oczekiwanym, nie z odpowiedzią <c>GET</c>.
 ///
+/// Ta sama zasada obejmuje układ zwinięć (plan <c>zwijanie-drzewa</c>):
+/// zapis układu, rozwinięcie rodzica przy dodaniu i przeniesieniu oraz izolację
+/// cudzego drzewa sprawdza odczyt flag wprost z tabeli
+/// (<see cref="IntegrationSeed.ReadCollapsedAsync"/>).
+///
 /// Testy w klasie dzielą jeden host i plik bazy (<see cref="TestApiFactory"/>),
 /// więc każdy zakłada własne konto, obiekty z unikalnym prefiksem i drzewo.
 /// </summary>
@@ -451,6 +456,182 @@ public class TreeIntegrationTests(TestApiFactory factory) : IClassFixture<TestAp
             after);
     }
 
+    // --- Układ zwinięć (zwijanie-drzewa/plan.md, faza 1) ---------------------
+
+    [Fact]
+    public async Task Saving_the_layout_collapses_exactly_the_given_nodes_expands_the_rest_and_reads_back_in_the_nodes()
+    {
+        // R → [A → [B], C] oraz Q. C i Q zwinięte przed zapisem — zapis bez nich
+        // ma je rozwinąć, a nie tylko dołożyć nowe zwinięcia.
+        const int R = 0, A = 1, B = 2, C = 3, Q = 4;
+        var arranged = await ArrangeAsync(objectCount: 5);
+        using var client = arranged.Account.Client;
+
+        var top = await SeedAsync(arranged, parentId: null, R, Q);
+        var underR = await SeedAsync(arranged, parentId: top[0], A, C);
+        await SeedAsync(arranged, parentId: underR[0], B);
+        await IntegrationSeed.CollapseNodesAsync(factory, underR[1], top[1]);
+
+        var structureBefore = await IntegrationSeed.ReadTreeAsync(factory, arranged.TreeId);
+
+        var response = await SaveLayoutAsync(client, arranged.TreeId, top[0], underR[0]);
+
+        Assert.Equal(HttpStatusCode.NoContent, response.StatusCode);
+        Assert.Equal(
+            [.. new[] { top[0], underR[0] }.Order()],
+            await IntegrationSeed.ReadCollapsedAsync(factory, arranged.TreeId));
+
+        // Układ nie rusza struktury.
+        Assert.Equal(structureBefore, await IntegrationSeed.ReadTreeAsync(factory, arranged.TreeId));
+
+        // Odczyt węzłów niesie flagę każdego węzła, zgodnie z zapisem.
+        var collapsed = await ReadCollapsedFromNodesAsync(client, arranged.TreeId);
+        Assert.Equal(5, collapsed.Count);
+        Assert.Equal(
+            [.. new[] { top[0], underR[0] }.Order()],
+            collapsed.Where(entry => entry.Value).Select(entry => entry.Key).Order());
+
+        // Pusta lista rozwija wszystko.
+        var cleared = await SaveLayoutAsync(client, arranged.TreeId);
+
+        Assert.Equal(HttpStatusCode.NoContent, cleared.StatusCode);
+        Assert.Empty(await IntegrationSeed.ReadCollapsedAsync(factory, arranged.TreeId));
+    }
+
+    [Fact]
+    public async Task Layout_ids_outside_the_tree_are_skipped_and_leave_another_own_tree_unchanged()
+    {
+        // Drzewo z adresu: R → A. Drugie drzewo tego konta: X → Y, Y zwinięty
+        // przed zapisem. Żądanie wskazuje R, X i identyfikator, którego nie ma.
+        const int R = 0, A = 1, X = 2, Y = 3;
+        var arranged = await ArrangeAsync(objectCount: 4);
+        using var client = arranged.Account.Client;
+        var otherTreeId = await IntegrationSeed.SeedTreeAsync(factory, arranged.Account.Id, "Drzewo drugie");
+
+        var top = await SeedAsync(arranged, parentId: null, R);
+        await SeedAsync(arranged, parentId: top[0], A);
+        var otherTop = await IntegrationSeed.SeedNodesAsync(factory, otherTreeId, null, [arranged.Objects[X]]);
+        var otherUnder = await IntegrationSeed.SeedNodesAsync(factory, otherTreeId, otherTop[0], [arranged.Objects[Y]]);
+        await IntegrationSeed.CollapseNodesAsync(factory, otherUnder[0]);
+
+        var otherBefore = await IntegrationSeed.ReadTreeAsync(factory, otherTreeId);
+
+        var response = await SaveLayoutAsync(client, arranged.TreeId, top[0], otherTop[0], int.MaxValue);
+
+        Assert.Equal(HttpStatusCode.NoContent, response.StatusCode);
+        Assert.Equal([top[0]], await IntegrationSeed.ReadCollapsedAsync(factory, arranged.TreeId));
+
+        // Drugie drzewo nietknięte: X nie został zwinięty, Y nie został rozwinięty.
+        Assert.Equal([otherUnder[0]], await IntegrationSeed.ReadCollapsedAsync(factory, otherTreeId));
+        Assert.Equal(otherBefore, await IntegrationSeed.ReadTreeAsync(factory, otherTreeId));
+    }
+
+    [Fact]
+    public async Task Layout_on_another_account_tree_is_not_found_and_leaves_its_flags_unchanged()
+    {
+        // Cudze drzewo: R → [A, B], A zwinięty. Konto z żądania wskazuje adres
+        // cudzego drzewa i jego węzły.
+        const int R = 0, A = 1, B = 2;
+        var foreign = await ArrangeAsync(objectCount: 3);
+        var intruder = await IntegrationSeed.CreateAccountAsync(factory);
+        using var foreignClient = foreign.Account.Client;
+        using var client = intruder.Client;
+
+        var top = await SeedAsync(foreign, parentId: null, R);
+        var under = await SeedAsync(foreign, parentId: top[0], A, B);
+        await IntegrationSeed.CollapseNodesAsync(factory, under[0]);
+
+        var before = await IntegrationSeed.ReadTreeAsync(factory, foreign.TreeId);
+
+        var response = await SaveLayoutAsync(client, foreign.TreeId, top[0], under[1]);
+
+        await IntegrationSeed.AssertRefusedAsync(response, HttpStatusCode.NotFound, ApiErrorCodes.NotFound);
+        Assert.Equal([under[0]], await IntegrationSeed.ReadCollapsedAsync(factory, foreign.TreeId));
+        Assert.Equal(before, await IntegrationSeed.ReadTreeAsync(factory, foreign.TreeId));
+    }
+
+    [Fact]
+    public async Task Layout_without_collapsed_node_ids_is_a_validation_error_on_that_field_and_changes_nothing()
+    {
+        const int R = 0, A = 1;
+        var arranged = await ArrangeAsync(objectCount: 2);
+        using var client = arranged.Account.Client;
+
+        var top = await SeedAsync(arranged, parentId: null, R);
+        await SeedAsync(arranged, parentId: top[0], A);
+        await IntegrationSeed.CollapseNodesAsync(factory, top[0]);
+
+        var response = await client.PutAsJsonAsync($"/trees/{arranged.TreeId}/layout", new { });
+
+        var error = await IntegrationSeed.AssertRefusedAsync(response, HttpStatusCode.BadRequest, ApiErrorCodes.ValidationError);
+        Assert.True(
+            error.Context.GetProperty(ApiErrorContextKeys.Fields).TryGetProperty(TreeRequestFields.CollapsedNodeIds, out _),
+            $"Odmowa bez błędu pola '{TreeRequestFields.CollapsedNodeIds}': {error.Context}");
+        Assert.Equal([top[0]], await IntegrationSeed.ReadCollapsedAsync(factory, arranged.TreeId));
+    }
+
+    [Fact]
+    public async Task Adding_under_a_collapsed_node_expands_it_and_leaves_other_collapsed_nodes_collapsed()
+    {
+        // R → A oraz Q; R i Q zwinięte. Dodanie X pod R rozwija R, Q zostaje.
+        const int R = 0, A = 1, Q = 2, X = 3;
+        var arranged = await ArrangeAsync(objectCount: 4);
+        using var client = arranged.Account.Client;
+
+        var top = await SeedAsync(arranged, parentId: null, R, Q);
+        await SeedAsync(arranged, parentId: top[0], A);
+        await IntegrationSeed.CollapseNodesAsync(factory, top[0], top[1]);
+
+        var response = await AddAsync(client, arranged.TreeId, arranged.Objects[X], parentId: top[0]);
+
+        Assert.Equal(HttpStatusCode.Created, response.StatusCode);
+        Assert.Equal([top[1]], await IntegrationSeed.ReadCollapsedAsync(factory, arranged.TreeId));
+    }
+
+    [Fact]
+    public async Task Accepted_move_under_a_collapsed_node_expands_it_and_leaves_the_collapsed_source_parent_collapsed()
+    {
+        // R1 → [A, D], R2 → B; R1 i R2 zwinięte. A idzie pod R2: rozwija się
+        // wyłącznie cel, źródło R1 zostaje zwinięte.
+        const int R1 = 0, R2 = 1, A = 2, B = 3, D = 4;
+        var arranged = await ArrangeAsync(objectCount: 5);
+        using var client = arranged.Account.Client;
+
+        var top = await SeedAsync(arranged, parentId: null, R1, R2);
+        var underR1 = await SeedAsync(arranged, parentId: top[0], A, D);
+        await SeedAsync(arranged, parentId: top[1], B);
+        await IntegrationSeed.CollapseNodesAsync(factory, top[0], top[1]);
+
+        var response = await MoveAsync(client, arranged.TreeId, underR1[0], parentId: top[1], position: 0);
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Equal([top[0]], await IntegrationSeed.ReadCollapsedAsync(factory, arranged.TreeId));
+    }
+
+    [Fact]
+    public async Task Refused_move_under_a_collapsed_node_leaves_it_collapsed()
+    {
+        // R1 → S; R2 → C → S (ten sam obiekt pod innym korzeniem). C zwinięty.
+        // S spod R1 pod C powtórzyłby S pod R2 — odmowa nie rozwija C.
+        const int R1 = 0, R2 = 1, S = 2, C = 3;
+        var arranged = await ArrangeAsync(objectCount: 4);
+        using var client = arranged.Account.Client;
+
+        var top = await SeedAsync(arranged, parentId: null, R1, R2);
+        var underR1 = await SeedAsync(arranged, parentId: top[0], S);
+        var underR2 = await SeedAsync(arranged, parentId: top[1], C);
+        await SeedAsync(arranged, parentId: underR2[0], S);
+        await IntegrationSeed.CollapseNodesAsync(factory, underR2[0]);
+
+        var before = await IntegrationSeed.ReadTreeAsync(factory, arranged.TreeId);
+
+        var response = await MoveAsync(client, arranged.TreeId, underR1[0], parentId: underR2[0], position: 0);
+
+        await IntegrationSeed.AssertRefusedAsync(response, HttpStatusCode.Conflict, ApiErrorCodes.TreeObjectReused);
+        Assert.Equal([underR2[0]], await IntegrationSeed.ReadCollapsedAsync(factory, arranged.TreeId));
+        Assert.Equal(before, await IntegrationSeed.ReadTreeAsync(factory, arranged.TreeId));
+    }
+
     // --- Pomocnicze ----------------------------------------------------------
 
     /// <summary>
@@ -528,6 +709,26 @@ public class TreeIntegrationTests(TestApiFactory factory) : IClassFixture<TestAp
         int? parentId,
         int position)
         => client.PutAsJsonAsync($"/trees/{treeId}/nodes/{nodeId}", new { parentId, position });
+
+    private static Task<HttpResponseMessage> SaveLayoutAsync(HttpClient client, int treeId, params int[] collapsedNodeIds)
+        => client.PutAsJsonAsync($"/trees/{treeId}/layout", new { collapsedNodeIds });
+
+    /// <summary>
+    /// <c>collapsed</c> każdego węzła z <c>GET /trees/{treeId}/nodes</c>.
+    /// Pole, które nie jest wartością logiczną, wywraca odczyt — typ jest
+    /// częścią kontraktu.
+    /// </summary>
+    private static async Task<Dictionary<int, bool>> ReadCollapsedFromNodesAsync(HttpClient client, int treeId)
+    {
+        var response = await client.GetAsync($"/trees/{treeId}/nodes");
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+
+        var body = await response.Content.ReadFromJsonAsync<JsonElement>();
+
+        return body.GetProperty("nodes").EnumerateArray().ToDictionary(
+            node => node.GetProperty("id").GetInt32(),
+            node => node.GetProperty("collapsed").GetBoolean());
+    }
 
     /// <summary>
     /// <c>context.objectCode</c> i <c>context.rootCode</c> odmowy reguły użycia

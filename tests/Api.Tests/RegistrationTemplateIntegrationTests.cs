@@ -107,6 +107,11 @@ public class RegistrationTemplateIntegrationTests(
             ["0@0", "0@0/1@0", "0@0/1@0/2@0", "0@0/3@1", "4@1", "4@1/1@0"],
             copy.NodePaths.Select(template.Relabel).Order(StringComparer.Ordinal));
 
+        // Układ zwinięć wzorca przechodzi na kopię: zwinięty jest dokładnie ten
+        // węzeł, który był zwinięty we wzorcu.
+        Assert.Equal(original.CollapsedPaths, copy.CollapsedPaths);
+        Assert.Equal(["0@0/1@0"], copy.CollapsedPaths.Select(template.Relabel));
+
         Assert.Equal(treeBefore, await IntegrationSeed.ReadTreeAsync(factory, template.TreeId));
         Assert.Equal(screenBefore, await IntegrationSeed.ReadScreenAsync(factory, template.ScreenId));
     }
@@ -265,8 +270,9 @@ public class RegistrationTemplateIntegrationTests(
     /// Wzorzec na koncie kuratora: drzewo o0 → [o1 → [o2], o3] oraz o4 → [o1]
     /// (o1 powtórzony pod innym korzeniem — dozwolone przez FR-004), ekran
     /// o ziarnie 15 min z listą domyślną [k0, k1], węzeł o3 dopasowany do
-    /// [k2, k0], węzeł o4 z zerem kategorii. Flagi stawiane na końcu, po
-    /// zdjęciu poprzednich.
+    /// [k2, k0], węzeł o4 z zerem kategorii. Węzeł o1 pod o0 zwinięty (układ
+    /// drzewa, plan <c>zwijanie-drzewa</c>), pozostałe rozwinięte. Flagi
+    /// wzorca stawiane na końcu, po zdjęciu poprzednich.
     /// </summary>
     private static async Task<ArrangedTemplate> ArrangeTemplateAsync(TestApiFactory host)
     {
@@ -280,6 +286,7 @@ public class RegistrationTemplateIntegrationTests(
         var level1 = await IntegrationSeed.SeedNodesAsync(host, treeId, roots[0], [objects[1], objects[3]]);
         await IntegrationSeed.SeedNodesAsync(host, treeId, level1[0], [objects[2]]);
         await IntegrationSeed.SeedNodesAsync(host, treeId, roots[1], [objects[1]]);
+        await IntegrationSeed.CollapseNodesAsync(host, level1[0]);
 
         var screenId = await IntegrationSeed.SeedScreenAsync(
             host, curator.Id, treeId, TemplateScreenName, 15, [categories[0], categories[1]]);
@@ -330,7 +337,8 @@ public class RegistrationTemplateIntegrationTests(
     /// <summary>
     /// <c>GET /screens/{id}</c> sprowadzony do postaci niezależnej od
     /// identyfikatorów węzłów: każdy węzeł to ścieżka od korzenia
-    /// „obiekt@pozycja/…", a przypisania — „ścieżka: kategorie w kolejności".
+    /// „obiekt@pozycja/…", przypisania — „ścieżka: kategorie w kolejności",
+    /// a układ — ścieżki zwiniętych węzłów.
     /// </summary>
     private static async Task<ScreenReadBack> ReadScreenAsync(HttpClient client, int screenId)
     {
@@ -348,6 +356,7 @@ public class RegistrationTemplateIntegrationTests(
                     : node.GetProperty("parentId").GetInt32(),
                 ObjectId = node.GetProperty("objectId").GetInt32(),
                 Position = node.GetProperty("position").GetInt32(),
+                Collapsed = node.GetProperty("collapsed").GetBoolean(),
             })
             .ToDictionary(node => node.Id);
 
@@ -378,7 +387,8 @@ public class RegistrationTemplateIntegrationTests(
             [.. body.GetProperty("defaultCategoryIds").EnumerateArray().Select(c => c.GetInt32())],
             [.. nodes.Keys.Select(PathOf).Order(StringComparer.Ordinal)],
             assignments,
-            [.. nodes.Keys]);
+            [.. nodes.Keys],
+            [.. nodes.Values.Where(node => node.Collapsed).Select(node => PathOf(node.Id)).Order(StringComparer.Ordinal)]);
     }
 
     /// <summary>
@@ -426,7 +436,8 @@ public class RegistrationTemplateIntegrationTests(
         IReadOnlyList<int> DefaultCategoryIds,
         IReadOnlyList<string> NodePaths,
         IReadOnlyList<string> Assignments,
-        IReadOnlyList<int> NodeIds);
+        IReadOnlyList<int> NodeIds,
+        IReadOnlyList<string> CollapsedPaths);
 
     /// <summary>
     /// <see cref="TestApiFactory"/> z interceptorem awarii kopii dołożonym do
