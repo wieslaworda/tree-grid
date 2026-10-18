@@ -536,31 +536,31 @@ strażnikiem — frontend i API wycofuje się razem.
 
 #### Automated
 
-- [x] 2.1 Typy przechodzą: `npm run typecheck`
-- [x] 2.2 Spec Node przechodzi: `npm run test:node`
-- [x] 2.3 Build produkcyjny przechodzi: `npm run build`
+- [x] 2.1 Typy przechodzą: `npm run typecheck` — 34292b6
+- [x] 2.2 Spec Node przechodzi: `npm run test:node` — 34292b6
+- [x] 2.3 Build produkcyjny przechodzi: `npm run build` — 34292b6
 
 #### Manual
 
-- [x] 2.4 Zwinięcie gałęzi w `/drzewo` i przeładowanie strony pokazuje gałąź zwiniętą; rozwinięcie i przeładowanie — rozwiniętą
-- [x] 2.5 Przełączenie drzewa na liście i powrót pokazuje zapisany układ
-- [x] 2.6 Zwinięcie/rozwinięcie nie pokazuje kręciołka nad drzewem
-- [x] 2.7 Dodanie obiektu pod zwinięty węzeł rozwija go, a po przeładowaniu zostaje rozwinięty
-- [x] 2.8 Przy zatrzymanym API zwinięcie gałęzi zostawia ją zwiniętą i pokazuje baner „Nie zapisano układu drzewa”; po wznowieniu API kolejny przełącznik zapisuje i baner znika
+- [x] 2.4 Zwinięcie gałęzi w `/drzewo` i przeładowanie strony pokazuje gałąź zwiniętą; rozwinięcie i przeładowanie — rozwiniętą — 34292b6
+- [x] 2.5 Przełączenie drzewa na liście i powrót pokazuje zapisany układ — 34292b6
+- [x] 2.6 Zwinięcie/rozwinięcie nie pokazuje kręciołka nad drzewem — 34292b6
+- [x] 2.7 Dodanie obiektu pod zwinięty węzeł rozwija go, a po przeładowaniu zostaje rozwinięty — 34292b6
+- [x] 2.8 Przy zatrzymanym API zwinięcie gałęzi zostawia ją zwiniętą i pokazuje baner „Nie zapisano układu drzewa”; po wznowieniu API kolejny przełącznik zapisuje i baner znika — 34292b6
 
 ### Phase 3: Grid ekranu — start z układu drzewa
 
 #### Automated
 
-- [ ] 3.1 Typy przechodzą: `npm run typecheck`
-- [ ] 3.2 Build produkcyjny przechodzi: `npm run build`
+- [x] 3.1 Typy przechodzą: `npm run typecheck`
+- [x] 3.2 Build produkcyjny przechodzi: `npm run build`
 
 #### Manual
 
-- [ ] 3.3 Gałąź zwinięta w `/drzewo` jest zwinięta po otwarciu ekranu na tym drzewie w `/prezentacja`
-- [ ] 3.4 Ten sam ekran w `/ekrany` startuje z tą samą gałęzią zwiniętą; podgląd nowego ekranu na tym drzewie też
-- [ ] 3.5 Rozwinięcie gałęzi w gridzie `/prezentacja`, przeładowanie — gałąź znów zwinięta (lokalne przełączenie nie zapisuje), a `/drzewo` bez zmian
-- [ ] 3.6 Zmiana doby w `/prezentacja` nie resetuje lokalnie przełączonych gałęzi
+- [x] 3.3 Gałąź zwinięta w `/drzewo` jest zwinięta po otwarciu ekranu na tym drzewie w `/prezentacja`
+- [x] 3.4 Ten sam ekran w `/ekrany` startuje z tą samą gałęzią zwiniętą; podgląd nowego ekranu na tym drzewie też
+- [x] 3.5 Rozwinięcie gałęzi w gridzie `/prezentacja`, przeładowanie — gałąź znów zwinięta (lokalne przełączenie nie zapisuje), a `/drzewo` bez zmian
+- [x] 3.6 Zmiana doby w `/prezentacja` nie resetuje lokalnie przełączonych gałęzi
 
 ### Phase 4: PRD i E2E
 

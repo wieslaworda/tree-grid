@@ -51,7 +51,9 @@ type Wlasciwosci = {
   tekstPusty: string;
   /**
    * Klucze węzłów zwiniętych na starcie (`w<nodeId>`). Czytane tylko przy
-   * montowaniu — dziś używa go wzornik, żeby pokazać stan „+”.
+   * montowaniu. Widoki ekranu (`/prezentacja`, `/ekrany`) podają tu układ
+   * zwinięć drzewa (`zwinieteNaStarcie` z `app/lib/ekran.ts`), a późniejsze
+   * przełączenia w gridzie zostają lokalne; wzornik — stan „+” do pokazania.
    */
   zwinietePoczatkowo?: readonly string[];
   /**

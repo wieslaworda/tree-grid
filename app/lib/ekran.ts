@@ -2,7 +2,8 @@
  * Czyste funkcje gridu ekranu: płaska lista węzłów, słowniki obiektów
  * i kategorii oraz przypisania kategorii do węzłów zamienione na drzewo
  * węzłów gridu, spłaszczenie tego drzewa do wierszy tabeli (`GridEkranu`)
- * ze scaloną komórką węzła, przypisania domyślne podglądu nowego ekranu,
+ * ze scaloną komórką węzła, klucze węzłów zwiniętych na starcie z układu
+ * drzewa, przypisania domyślne podglądu nowego ekranu,
  * liczba wierszy przy pełnym rozwinięciu i klucz serii wartości kolumn
  * czasowych.
  *
@@ -130,7 +131,7 @@ export function zbudujWezlyGridu(
       const obiekt = obiektyPoId.get(wezel.objectId);
 
       return {
-        key: `w${wezel.id}`,
+        key: kluczWezla(wezel.id),
         wezelId: wezel.id,
         obiektId: wezel.objectId,
         tytul:
@@ -143,6 +144,33 @@ export function zbudujWezlyGridu(
     });
 
   return zbuduj(null);
+}
+
+/**
+ * Klucz węzła gridu (`w<nodeId>`) — jedna funkcja dla drzewa węzłów
+ * ({@link zbudujWezlyGridu}) i dla kluczy zwinięć na starcie
+ * ({@link zwinieteNaStarcie}); format wpisany w dwóch miejscach rozjechałby
+ * się po cichu w grid rozwinięty w całości.
+ */
+function kluczWezla(wezelId: number): string {
+  return `w${wezelId}`;
+}
+
+/**
+ * Klucze węzłów zwiniętych na starcie gridu (`GridEkranu.zwinietePoczatkowo`)
+ * z zapisanego układu drzewa: `w<nodeId>` każdego węzła z flagą `collapsed`.
+ * Flaga na liściu nie przeszkadza — grid zwija tylko węzeł z dziećmi
+ * ({@link wierszeTabeli}).
+ *
+ * Typ strukturalny, a nie `TreeNode` — powód w nagłówku modułu; węzły
+ * `GET /trees/{treeId}/nodes` i `GET /screens/{id}` do niego pasują.
+ */
+export function zwinieteNaStarcie(
+  wezly: readonly { id: number; collapsed: boolean }[],
+): string[] {
+  return wezly
+    .filter((wezel) => wezel.collapsed)
+    .map((wezel) => kluczWezla(wezel.id));
 }
 
 /**

@@ -29,7 +29,12 @@ import { apiError, parseEntityId } from "~/lib/api.server";
 import { kontekstUzytkownika } from "~/lib/auth.server";
 import type { CatalogCategory } from "~/lib/categories.server";
 import { listCategories } from "~/lib/categories.server";
-import { type WezelGridu, liczbaWierszy, zbudujWezlyGridu } from "~/lib/ekran";
+import {
+  type WezelGridu,
+  liczbaWierszy,
+  zbudujWezlyGridu,
+  zwinieteNaStarcie,
+} from "~/lib/ekran";
 import type { CatalogObject } from "~/lib/objects.server";
 import { listObjects } from "~/lib/objects.server";
 import { dzisiejszaDoba, kolumnyDoby, poprawnaDoba } from "~/lib/prezentacja";
@@ -463,7 +468,10 @@ function useSzerokoscElementu(
  * liczba wierszy i kolumn czasowych.
  *
  * `key` gridu z identyfikatora ekranu: zwinięcia gałęzi należą do jednego
- * ekranu, a zmiana doby ich nie resetuje.
+ * ekranu, a zmiana doby ich nie resetuje. Grid startuje z układu drzewa
+ * ekranu (gałęzie zwinięte w widoku „Drzewo” są zwinięte), a przełączenia
+ * w gridzie zostają lokalne — niczego nie zapisują i znikają po przeładowaniu
+ * albo wyborze innego ekranu, który montuje grid od nowa z jego układu.
  */
 function GridDoby({
   ekran,
@@ -494,6 +502,13 @@ function GridDoby({
     [ekran, obiekty, kategorie],
   );
 
+  // Czytane przez grid tylko przy montowaniu (`key` niżej), więc nowa
+  // tożsamość po rewalidacji niczego nie resetuje.
+  const zwinietePoczatkowo = useMemo(
+    () => zwinieteNaStarcie(ekran.nodes),
+    [ekran.nodes],
+  );
+
   // Teksty wartości formatowane raz na odpowiedź — `wartosci` ma tożsamość
   // odpowiedzi `fetcher`a, więc grid przebudowuje kolumny tylko przy nowych
   // danych (`kolumnyCzasowe` w `GridEkranu`).
@@ -520,6 +535,7 @@ function GridDoby({
         <GridEkranu
           key={ekran.id}
           wezly={wezly}
+          zwinietePoczatkowo={zwinietePoczatkowo}
           tekstPusty={TEKST_PUSTY}
           kolumnyCzasowe={kolumnyCzasowe}
           tylkoNazwaKategorii

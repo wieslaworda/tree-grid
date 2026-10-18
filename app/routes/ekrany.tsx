@@ -45,6 +45,7 @@ import {
   liczbaWierszy,
   przypisaniaDomyslne,
   zbudujWezlyGridu,
+  zwinieteNaStarcie,
 } from "~/lib/ekran";
 import type { CatalogObject } from "~/lib/objects.server";
 import { listObjects } from "~/lib/objects.server";
@@ -673,6 +674,12 @@ function ZapisanyEkran({
   // Węzły drzewa z formularza: zapisane, dopóki drzewo się nie zmieniło,
   // a po zmianie — z podglądu (`null`, zanim przyjdą).
   const wezly = zmienioneDrzewo ? podglad.wezly : ekran.nodes;
+  // Grid startuje z układu zwinięć drzewa z formularza — tego samego źródła
+  // co węzły. Czytany tylko przy montowaniu gridu (`kluczGridu` niżej).
+  const zwinietePoczatkowo = useMemo(
+    () => (wezly === null ? [] : zwinieteNaStarcie(wezly)),
+    [wezly],
+  );
 
   function wybierzDrzewo(id: number) {
     ustawDrzewoId(id);
@@ -891,8 +898,9 @@ function ZapisanyEkran({
           nie ma — bez wyboru węzła, bo panel obok i tak jest nieczynny.
         */}
         <ObszarGridu
-          kluczGridu={`ekran-${ekran.id}-${drzewoId}`}
+          kluczGridu={kluczObszaru(`ekran-${ekran.id}-${drzewoId}`, wezly)}
           wiersze={wiersze}
+          zwinietePoczatkowo={zwinietePoczatkowo}
           tekstPusty={tekstPusty}
           wczytywanie={zmienioneDrzewo && podglad.wczytywanie}
           wybranyWezelId={wybranyWezel?.id ?? null}
@@ -958,6 +966,11 @@ function NowyEkran({
 
   const podglad = usePodgladDrzewa(drzewoId);
   const wezly = podglad.wezly;
+  // Podgląd startuje z układu zwinięć wybranego drzewa (`kluczGridu` niżej).
+  const zwinietePoczatkowo = useMemo(
+    () => (wezly === null ? [] : zwinieteNaStarcie(wezly)),
+    [wezly],
+  );
 
   const wiersze = useMemo<WezelGridu[]>(
     () =>
@@ -1048,8 +1061,12 @@ function NowyEkran({
       )}
 
       <ObszarGridu
-        kluczGridu={drzewoId === null ? "podglad" : `podglad-${drzewoId}`}
+        kluczGridu={kluczObszaru(
+          drzewoId === null ? "podglad" : `podglad-${drzewoId}`,
+          wezly,
+        )}
         wiersze={wiersze}
+        zwinietePoczatkowo={zwinietePoczatkowo}
         tekstPusty={tekstPusty}
         wczytywanie={podglad.wczytywanie}
       />
@@ -1274,12 +1291,14 @@ function PolaEkranu({
  * swój kontener (`GridEkranu`), więc wysokość musi dać mu układ, nie liczba.
  *
  * `kluczGridu` resetuje stan gridu (zwinięcia) przy zmianie ekranu albo
- * drzewa podglądu — `key` nadany tu, bo rodzic renderuje ten obszar, a nie
- * sam grid.
+ * drzewa podglądu i przy nadejściu węzłów podglądu ({@link kluczObszaru}) —
+ * `key` nadany tu, bo rodzic renderuje ten obszar, a nie sam grid. Każdy
+ * taki montaż startuje z `zwinietePoczatkowo`.
  */
 function ObszarGridu({
   kluczGridu,
   wiersze,
+  zwinietePoczatkowo,
   tekstPusty,
   wczytywanie,
   wybranyWezelId,
@@ -1287,6 +1306,11 @@ function ObszarGridu({
 }: {
   kluczGridu: string;
   wiersze: WezelGridu[];
+  /**
+   * Klucze węzłów zwiniętych na starcie — z układu drzewa, którego węzły
+   * pokazuje grid ({@link zwinieteNaStarcie}).
+   */
+  zwinietePoczatkowo: readonly string[];
   tekstPusty: string;
   wczytywanie: boolean;
   /** Wybór węzła — tylko w zapisanym ekranie; podgląd nowego go nie ma. */
@@ -1303,6 +1327,7 @@ function ObszarGridu({
       <GridEkranu
         key={kluczGridu}
         wezly={wiersze}
+        zwinietePoczatkowo={zwinietePoczatkowo}
         tekstPusty={tekstPusty}
         wybranyWezelId={wybranyWezelId}
         onWybierzWezel={onWybierzWezel}
@@ -1318,6 +1343,21 @@ function ObszarGridu({
       </div>
     </section>
   );
+}
+
+/**
+ * Klucz {@link ObszarGridu} z podstawy (ekran albo drzewo podglądu) i stanu
+ * węzłów. Wybór drzewa zmienia podstawę od razu, a węzły podglądu przychodzą
+ * później — bez znacznika wczytywania grid zamontowałby się raz, z pustym
+ * układem, i zwinięcia drzewa nie pokazałyby się nigdy, bo grid czyta je tylko
+ * przy montowaniu. Nadejście węzłów montuje go więc jeszcze raz, już z ich
+ * układem; kolejne odpowiedzi (rewalidacja) klucza nie zmieniają.
+ */
+function kluczObszaru(
+  podstawa: string,
+  wezly: readonly TreeNode[] | null,
+): string {
+  return wezly === null ? `${podstawa}-wczytywanie` : podstawa;
 }
 
 /**
