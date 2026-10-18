@@ -552,23 +552,23 @@ strażnikiem — frontend i API wycofuje się razem.
 
 #### Automated
 
-- [x] 3.1 Typy przechodzą: `npm run typecheck`
-- [x] 3.2 Build produkcyjny przechodzi: `npm run build`
+- [x] 3.1 Typy przechodzą: `npm run typecheck` — dd2d5af
+- [x] 3.2 Build produkcyjny przechodzi: `npm run build` — dd2d5af
 
 #### Manual
 
-- [x] 3.3 Gałąź zwinięta w `/drzewo` jest zwinięta po otwarciu ekranu na tym drzewie w `/prezentacja`
-- [x] 3.4 Ten sam ekran w `/ekrany` startuje z tą samą gałęzią zwiniętą; podgląd nowego ekranu na tym drzewie też
-- [x] 3.5 Rozwinięcie gałęzi w gridzie `/prezentacja`, przeładowanie — gałąź znów zwinięta (lokalne przełączenie nie zapisuje), a `/drzewo` bez zmian
-- [x] 3.6 Zmiana doby w `/prezentacja` nie resetuje lokalnie przełączonych gałęzi
+- [x] 3.3 Gałąź zwinięta w `/drzewo` jest zwinięta po otwarciu ekranu na tym drzewie w `/prezentacja` — dd2d5af
+- [x] 3.4 Ten sam ekran w `/ekrany` startuje z tą samą gałęzią zwiniętą; podgląd nowego ekranu na tym drzewie też — dd2d5af
+- [x] 3.5 Rozwinięcie gałęzi w gridzie `/prezentacja`, przeładowanie — gałąź znów zwinięta (lokalne przełączenie nie zapisuje), a `/drzewo` bez zmian — dd2d5af
+- [x] 3.6 Zmiana doby w `/prezentacja` nie resetuje lokalnie przełączonych gałęzi — dd2d5af
 
 ### Phase 4: PRD i E2E
 
 #### Automated
 
-- [ ] 4.1 E2E przechodzi: `npx playwright test`
-- [ ] 4.2 Typy przechodzą: `npm run typecheck`
+- [x] 4.1 E2E przechodzi: `npx playwright test`
+- [x] 4.2 Typy przechodzą: `npm run typecheck`
 
 #### Manual
 
-- [ ] 4.3 Notki w PRD przy FR-003 i FR-008 opisują zachowanie zgodne z widokiem
+- [x] 4.3 Notki w PRD przy FR-003 i FR-008 opisują zachowanie zgodne z widokiem

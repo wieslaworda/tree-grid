@@ -88,7 +88,10 @@ test.describe("#1 edycja drzewa zostawia spójną konfigurację", () => {
     };
     await zapisanaStruktura();
 
-    // Po przeładowaniu widok czyta drzewo z API i startuje rozwinięty w całości.
+    // Po przeładowaniu widok czyta drzewo z API i startuje z zapisanego układu
+    // zwinięć. W tym świeżym drzewie nic nie jest zwinięte, a rodzica węzła
+    // dodanego (P przy dodaniu C) i przeniesionego (Q przy przeniesieniu P)
+    // API rozwija także w bazie, więc oba rozwinięcia przeżywają przeładowanie.
     await page.reload();
     await zapisanaStruktura();
   });

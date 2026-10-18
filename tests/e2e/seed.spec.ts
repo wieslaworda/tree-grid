@@ -43,7 +43,10 @@ test("rejected root object repetition leaves the saved tree unchanged, also afte
   await expect(wezly).toHaveCount(2);
 
   // --- Akcja: obiekt korzenia P drugi raz, pod dzieckiem C ---
+  // Filtr „Bez obiektów drzewa” jest domyślnie zaznaczony i chowa P, którego
+  // nie da się dodać pod C — test celowo próbuje to zrobić, więc go odznacza.
   await wezelDziecka.click();
+  await slownik.getByRole("checkbox", { name: "Bez obiektów drzewa" }).uncheck();
   await slownik.getByRole("cell", { name: rodzic.kod, exact: true }).click();
   await drzewo.getByRole("button", { name: `Dodaj pod: ${dziecko.kod}` }).click();
 
@@ -53,11 +56,13 @@ test("rejected root object repetition leaves the saved tree unchanged, also afte
   );
   await expect(wezly).toHaveCount(2);
 
-  // Po przeładowaniu widok czyta drzewo z API (startuje rozwinięty w całości),
-  // więc węzeł zapisany mimo odmowy byłby tu widoczny — przed przeładowaniem
-  // widok go nie pokazuje. Liczba najpierw, żeby taka awaria padła na niej,
-  // a nie na niejednoznacznym lokatorze. Rozwinięty rodzic przy dwóch węzłach
-  // oznacza, że dziecko nadal wisi pod nim, a nie obok.
+  // Po przeładowaniu widok czyta drzewo z API i startuje z zapisanego układu
+  // zwinięć. W tym świeżym drzewie nic nie jest zwinięte, a dodanie C pod P
+  // rozwinęło P także w bazie, więc węzeł zapisany mimo odmowy (pod C) byłby
+  // tu widoczny — przed przeładowaniem widok go nie pokazuje. Liczba najpierw,
+  // żeby taka awaria padła na niej, a nie na niejednoznacznym lokatorze.
+  // Rozwinięty rodzic przy dwóch węzłach oznacza, że dziecko nadal wisi pod
+  // nim, a nie obok.
   await page.reload();
   await expect(wezly).toHaveCount(2);
   await expect(wezelRodzica).toHaveAttribute("aria-expanded", "true");
