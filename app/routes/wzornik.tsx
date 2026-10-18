@@ -139,14 +139,14 @@ const OBIEKTY: CatalogObject[] = [
  * stoi w dwóch miejscach: na najwyższym poziomie i pod EL-01.
  */
 const WEZLY: TreeNode[] = [
-  { id: 1, parentId: null, objectId: 10, position: 0 },
-  { id: 2, parentId: 1, objectId: 5, position: 0 },
-  { id: 3, parentId: 2, objectId: 11, position: 0 },
-  { id: 4, parentId: 1, objectId: 6, position: 1 },
-  { id: 5, parentId: 4, objectId: 12, position: 0 },
-  { id: 6, parentId: null, objectId: 1, position: 1 },
-  { id: 7, parentId: 6, objectId: 10, position: 0 },
-  { id: 8, parentId: 6, objectId: 3, position: 1 },
+  { id: 1, parentId: null, objectId: 10, position: 0, collapsed: false },
+  { id: 2, parentId: 1, objectId: 5, position: 0, collapsed: false },
+  { id: 3, parentId: 2, objectId: 11, position: 0, collapsed: false },
+  { id: 4, parentId: 1, objectId: 6, position: 1, collapsed: false },
+  { id: 5, parentId: 4, objectId: 12, position: 0, collapsed: false },
+  { id: 6, parentId: null, objectId: 1, position: 1, collapsed: false },
+  { id: 7, parentId: 6, objectId: 10, position: 0, collapsed: false },
+  { id: 8, parentId: 6, objectId: 3, position: 1, collapsed: false },
 ];
 
 /** Drzewa użytkownika w kolejności API (po nazwie). */
@@ -253,8 +253,8 @@ const DOMYSLNE_QPU = [Q, P, U];
  * (ST-01) z dzieckiem B (LN-01), kategorie domyślne [Q, P, U] — 6 wierszy.
  */
 const WEZLY_AB: TreeNode[] = [
-  { id: 101, parentId: null, objectId: 10, position: 0 },
-  { id: 102, parentId: 101, objectId: 5, position: 0 },
+  { id: 101, parentId: null, objectId: 10, position: 0, collapsed: false },
+  { id: 102, parentId: 101, objectId: 5, position: 0, collapsed: false },
 ];
 
 const WIERSZE_AB = zbudujWezlyGridu(
@@ -269,8 +269,8 @@ const WIERSZE_AB = zbudujWezlyGridu(
  * węzła nie ma w przypisaniach, tak jak API pomija go w `assignments`.
  */
 const WEZLY_BEZ_KATEGORII: TreeNode[] = [
-  { id: 201, parentId: null, objectId: 1, position: 0 },
-  { id: 202, parentId: 201, objectId: 3, position: 0 },
+  { id: 201, parentId: null, objectId: 1, position: 0, collapsed: false },
+  { id: 202, parentId: 201, objectId: 3, position: 0, collapsed: false },
 ];
 
 const WIERSZE_BEZ_KATEGORII = zbudujWezlyGridu(
@@ -286,6 +286,7 @@ const WEZLY_GLEBOKIE: TreeNode[] = [10, 5, 11, 6, 12, 7].map((objectId, i) => ({
   parentId: i === 0 ? null : 300 + i,
   objectId,
   position: 0,
+  collapsed: false,
 }));
 
 const WIERSZE_GLEBOKIE = zbudujWezlyGridu(
@@ -304,12 +305,19 @@ const WEZLY_DUZE: TreeNode[] = Array.from({ length: 20 }, (_, korzen) => {
   const id = 1001 + korzen * 4;
 
   return [
-    { id, parentId: null, objectId: OBIEKTY[korzen % OBIEKTY.length].id, position: korzen },
+    {
+      id,
+      parentId: null,
+      objectId: OBIEKTY[korzen % OBIEKTY.length].id,
+      position: korzen,
+      collapsed: false,
+    },
     ...[0, 1, 2].map((pozycja) => ({
       id: id + 1 + pozycja,
       parentId: id,
       objectId: OBIEKTY[(korzen + pozycja + 1) % OBIEKTY.length].id,
       position: pozycja,
+      collapsed: false,
     })),
   ];
 }).flat();
@@ -485,7 +493,7 @@ const WEZLY_WYDAJNOSCI: TreeNode[] = Array.from({ length: 10 }, (_, korzen) => {
   const obiekt = (n: number) => OBIEKTY[n % OBIEKTY.length].id;
 
   return [
-    { id, parentId: null, objectId: obiekt(korzen), position: korzen },
+    { id, parentId: null, objectId: obiekt(korzen), position: korzen, collapsed: false },
     ...[0, 1, 2].flatMap((pozycja) => {
       const idDziecka = id + 1 + pozycja * 3;
 
@@ -495,12 +503,14 @@ const WEZLY_WYDAJNOSCI: TreeNode[] = Array.from({ length: 10 }, (_, korzen) => {
           parentId: id,
           objectId: obiekt(korzen + pozycja + 1),
           position: pozycja,
+          collapsed: false,
         },
         ...[0, 1].map((wnuk) => ({
           id: idDziecka + 1 + wnuk,
           parentId: idDziecka,
           objectId: obiekt(korzen + pozycja + wnuk + 5),
           position: wnuk,
+          collapsed: false,
         })),
       ];
     }),

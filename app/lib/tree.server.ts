@@ -1,6 +1,7 @@
 /**
  * Klient nazwanych drzew — jedyne miejsce, z którego trasy rozmawiają
- * z `/trees` i `/trees/{treeId}/nodes` (`src/Api/Tree/TreeEndpoints.cs`).
+ * z `/trees`, `/trees/{treeId}/nodes` i `/trees/{treeId}/layout`
+ * (`src/Api/Tree/TreeEndpoints.cs`).
  *
  * Żądania idą przez wspólny {@link requestApi} z `api.server.ts`, więc
  * semantyka porażek jest ta sama co w klientach słowników: każda ścieżka,
@@ -52,6 +53,11 @@ function nodesPath(treeId: number): string {
   return `${TREES_PATH}/${treeId}/nodes`;
 }
 
+/** Endpoint układu zwinięć drzewa. */
+function layoutPath(treeId: number): string {
+  return `${TREES_PATH}/${treeId}/layout`;
+}
+
 /**
  * Nazwane drzewo — dokładnie kształt elementu `items` z `GET /trees`.
  * Nagłówek niesie wyłącznie identyfikator i nazwę (`src/Api/Data/UserTree.cs`).
@@ -75,13 +81,15 @@ export type TreePayload = {
 /**
  * Węzeł drzewa — dokładnie kształt elementu `nodes` z
  * `GET /trees/{treeId}/nodes`. `parentId` `null` — najwyższy poziom;
- * `position` — indeks od 0 wśród rodzeństwa.
+ * `position` — indeks od 0 wśród rodzeństwa; `collapsed` — zapisany układ
+ * widoku: gałąź zwinięta w definicji drzewa (na liściu bez efektu).
  */
 export type TreeNode = {
   id: number;
   parentId: number | null;
   objectId: number;
   position: number;
+  collapsed: boolean;
 };
 
 /**
@@ -103,6 +111,18 @@ export type AddNodePayload = {
 export type MoveNodePayload = {
   parentId: number | null;
   position: number;
+};
+
+/**
+ * Treść zapisu układu: **pełny** zbiór zwiniętych węzłów drzewa, a nie
+ * pojedyncze przełączenie — węzły spoza zbioru API rozwija. Pusta lista to
+ * „nic nie zwinięte”. Nazwa pola musi być identyczna
+ * z `TreeRequestFields.CollapsedNodeIds` (`src/Api/Tree/TreeEndpoints.cs`) —
+ * pod nią API adresuje naruszenie w `context.fields`. Zgodności nie sprawdza
+ * ani kompilator, ani `npm run typecheck`.
+ */
+export type TreeLayoutPayload = {
+  collapsedNodeIds: number[];
 };
 
 export type TreeListResult = { ok: true; trees: UserTree[] } | ApiFailure;
@@ -234,6 +254,22 @@ export async function deleteNode(
   return result.ok ? { ok: true } : result;
 }
 
+/**
+ * Zapisuje układ zwinięć drzewa `treeId`. Identyfikatory spoza drzewa API
+ * pomija bez błędu, więc węzeł usunięty w międzyczasie nie psuje zapisu.
+ */
+export async function saveTreeLayout(
+  userId: string,
+  treeId: number,
+  payload: TreeLayoutPayload,
+): Promise<TreeDeleteResult> {
+  const result = await requestApi("PUT", layoutPath(treeId), payload, {
+    userId,
+  });
+
+  return result.ok ? { ok: true } : result;
+}
+
 function toIdResult(path: string, result: ApiResult): TreeIdResult {
   if (!result.ok) {
     return result;
@@ -280,6 +316,7 @@ export function isTreeNode(value: unknown): value is TreeNode {
     Number.isInteger(candidate.id) &&
     (candidate.parentId === null || Number.isInteger(candidate.parentId)) &&
     Number.isInteger(candidate.objectId) &&
-    Number.isInteger(candidate.position)
+    Number.isInteger(candidate.position) &&
+    typeof candidate.collapsed === "boolean"
   );
 }

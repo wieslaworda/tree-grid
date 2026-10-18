@@ -1,9 +1,10 @@
 /**
  * Czyste funkcje widoku budowy drzewa: płaska lista węzłów z API i słownik
  * obiektów zamienione na dane antd `Tree`, liczba węzłów poddrzewa (do
- * potwierdzenia usunięcia), węzły z dziećmi (do startowego rozwinięcia
- * całego drzewa) oraz przeliczenie upuszczenia węzła w drzewie na
- * przeniesienie w semantyce API.
+ * potwierdzenia usunięcia), węzły z dziećmi (do rozwinięcia całego drzewa),
+ * tłumaczenie zapisanego układu zwinięć na `expandedKeys` antd i z powrotem
+ * oraz przeliczenie upuszczenia węzła w drzewie na przeniesienie w semantyce
+ * API.
  *
  * Moduł świadomie **bez** sufiksu `.server` i bez żadnego importu z modułów
  * `.server` — także bez `import type`: czytają go komponenty renderowane
@@ -216,6 +217,42 @@ export function wezlyZDziecmi(wezly: readonly WezelDrzewa[]): number[] {
   }
 
   return [...rodzice];
+}
+
+/**
+ * Węzeł z zapisanym układem zwinięć — kształt `GET /trees/{treeId}/nodes`.
+ * Osobny typ, a nie pole w {@link WezelDrzewa}: układ czyta wyłącznie widok
+ * definicji drzewa, a reszta modułu (dane antd, przeniesienia, grid ekranu)
+ * go nie potrzebuje.
+ */
+export type WezelZUkladem = WezelDrzewa & { collapsed: boolean };
+
+/**
+ * Startowe `expandedKeys` z zapisanego układu: węzły z dziećmi, które nie są
+ * zwinięte. Liście pominięte z tego samego powodu co w {@link wezlyZDziecmi};
+ * flaga na liściu nie ma znaczenia.
+ */
+export function rozwinieteZUkladu(wezly: readonly WezelZUkladem[]): number[] {
+  const zwiniete = new Set(
+    wezly.filter((wezel) => wezel.collapsed).map((wezel) => wezel.id),
+  );
+
+  return wezlyZDziecmi(wezly).filter((id) => !zwiniete.has(id));
+}
+
+/**
+ * Treść zapisu układu z bieżących `expandedKeys`: węzły z dziećmi spoza
+ * `rozwiniete`. Liście nigdy nie trafiają do zbioru — liść spoza
+ * `expandedKeys` nie jest zwinięty, tylko nie ma czego rozwijać, a bez tego
+ * filtra zapis oznaczałby jako zwinięty każdy z nich.
+ */
+export function zwinieteZRozwinietych(
+  wezly: readonly WezelDrzewa[],
+  rozwiniete: readonly number[],
+): number[] {
+  const otwarte = new Set(rozwiniete);
+
+  return wezlyZDziecmi(wezly).filter((id) => !otwarte.has(id));
 }
 
 /** Przeniesienie węzła w semantyce `PUT /tree/nodes/{id}`. */

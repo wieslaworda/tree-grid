@@ -524,29 +524,29 @@ strażnikiem — frontend i API wycofuje się razem.
 
 #### Automated
 
-- [x] 1.1 Migracja `TreeNodeCollapsed` istnieje i build przechodzi: `dotnet build TreeGrid.sln`
-- [x] 1.2 Wszystkie testy .NET przechodzą, w tym nowe przypadki układu: `dotnet test tests/Api.Tests`
-- [x] 1.3 Kopia wzorca przenosi flagę: `dotnet test tests/Api.Tests --filter "FullyQualifiedName~ScreenTemplateRulesTests|FullyQualifiedName~RegistrationTemplateIntegrationTests"`
+- [x] 1.1 Migracja `TreeNodeCollapsed` istnieje i build przechodzi: `dotnet build TreeGrid.sln` — 45f2547
+- [x] 1.2 Wszystkie testy .NET przechodzą, w tym nowe przypadki układu: `dotnet test tests/Api.Tests` — 45f2547
+- [x] 1.3 Kopia wzorca przenosi flagę: `dotnet test tests/Api.Tests --filter "FullyQualifiedName~ScreenTemplateRulesTests|FullyQualifiedName~RegistrationTemplateIntegrationTests"` — 45f2547
 
 #### Manual
 
-- [x] 1.4 Pętla deweloperska (`.\buduj_app_dev.ps1`) migruje bazę deweloperską bez błędu i `/drzewo` działa jak dotąd (wszystko rozwinięte)
+- [x] 1.4 Pętla deweloperska (`.\buduj_app_dev.ps1`) migruje bazę deweloperską bez błędu i `/drzewo` działa jak dotąd (wszystko rozwinięte) — 45f2547
 
 ### Phase 2: Widok drzewa — zapis i odczyt układu
 
 #### Automated
 
-- [ ] 2.1 Typy przechodzą: `npm run typecheck`
-- [ ] 2.2 Spec Node przechodzi: `npm run test:node`
-- [ ] 2.3 Build produkcyjny przechodzi: `npm run build`
+- [x] 2.1 Typy przechodzą: `npm run typecheck`
+- [x] 2.2 Spec Node przechodzi: `npm run test:node`
+- [x] 2.3 Build produkcyjny przechodzi: `npm run build`
 
 #### Manual
 
-- [ ] 2.4 Zwinięcie gałęzi w `/drzewo` i przeładowanie strony pokazuje gałąź zwiniętą; rozwinięcie i przeładowanie — rozwiniętą
-- [ ] 2.5 Przełączenie drzewa na liście i powrót pokazuje zapisany układ
-- [ ] 2.6 Zwinięcie/rozwinięcie nie pokazuje kręciołka nad drzewem
-- [ ] 2.7 Dodanie obiektu pod zwinięty węzeł rozwija go, a po przeładowaniu zostaje rozwinięty
-- [ ] 2.8 Przy zatrzymanym API zwinięcie gałęzi zostawia ją zwiniętą i pokazuje baner „Nie zapisano układu drzewa”; po wznowieniu API kolejny przełącznik zapisuje i baner znika
+- [x] 2.4 Zwinięcie gałęzi w `/drzewo` i przeładowanie strony pokazuje gałąź zwiniętą; rozwinięcie i przeładowanie — rozwiniętą
+- [x] 2.5 Przełączenie drzewa na liście i powrót pokazuje zapisany układ
+- [x] 2.6 Zwinięcie/rozwinięcie nie pokazuje kręciołka nad drzewem
+- [x] 2.7 Dodanie obiektu pod zwinięty węzeł rozwija go, a po przeładowaniu zostaje rozwinięty
+- [x] 2.8 Przy zatrzymanym API zwinięcie gałęzi zostawia ją zwiniętą i pokazuje baner „Nie zapisano układu drzewa”; po wznowieniu API kolejny przełącznik zapisuje i baner znika
 
 ### Phase 3: Grid ekranu — start z układu drzewa
 

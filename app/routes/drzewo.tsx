@@ -33,7 +33,8 @@ import {
   type Przeniesienie,
   liczbaWezlowPodrzednych,
   obiektyNiedostepneDoDodania,
-  wezlyZDziecmi,
+  rozwinieteZUkladu,
+  zwinieteZRozwinietych,
 } from "~/lib/drzewo";
 import type { CatalogObject } from "~/lib/objects.server";
 import { listObjects } from "~/lib/objects.server";
@@ -48,6 +49,7 @@ import {
   listTrees,
   moveNode,
   renameTree,
+  saveTreeLayout,
 } from "~/lib/tree.server";
 
 import type { Route } from "./+types/drzewo";
@@ -56,6 +58,12 @@ import type { Route } from "./+types/drzewo";
 const DODAJ = "dodaj";
 const USUN = "usun";
 const PRZENIES = "przenies";
+
+/**
+ * Wartość pola `intent` zapisu układu zwinięć wybranego drzewa. Idzie osobnym
+ * fetcherem i nie rewaliduje widoku ({@link shouldRevalidate}).
+ */
+const UKLAD = "uklad";
 
 /** Wartości pola `intent` dla operacji na samych drzewach. */
 const DODAJ_DRZEWO = "dodaj-drzewo";
@@ -72,6 +80,7 @@ const OPERACJE_NA_WYBRANYM: ReadonlySet<string> = new Set([
   DODAJ,
   USUN,
   PRZENIES,
+  UKLAD,
 ]);
 
 /**
@@ -109,6 +118,13 @@ const POLE_OBIEKTU = "objectId";
 const POLE_RODZICA = "parentId";
 const POLE_POZYCJI = "position";
 const POLE_WEZLA = "nodeId";
+
+/**
+ * Pole zapisu układu — ta sama nazwa co `TreeRequestFields.CollapsedNodeIds`,
+ * z tego samego powodu co pola wyżej. Powtarzane: jedna wartość na zwinięty
+ * węzeł, a brak wartości to „nic nie zwinięte”.
+ */
+const POLE_ZWINIETYCH = "collapsedNodeIds";
 
 /** Największa pozycja, jaką przyjmie API — `int` w C#, jak identyfikatory. */
 const MAX_POZYCJI = 2_147_483_647;
@@ -234,7 +250,8 @@ function widokPorazki(porazka: ApiFailure) {
  * nawigacją, więc sukces kończy się przekierowaniem: na nowe albo to samo
  * drzewo, a po usunięciu na {@link TREE_ROUTE}, z którego loader wybierze
  * pierwsze pozostałe. Polecenia na węzłach idą fetcherem: udane zwraca `null`
- * (drzewo odświeża rewalidacja), a porażka — kopertę razem ze statusem.
+ * (drzewo odświeża rewalidacja), a porażka — kopertę razem ze statusem. Zapis
+ * układu zwinięć (`uklad`) odpowiada tak samo, ale bez rewalidacji.
  *
  * Wszystko poza dodaniem drzewa działa na drzewie z `?drzewo=` w
  * `request.url` — wzorzec `routes/kategorie.tsx`. Brak albo nie-liczba to
@@ -373,6 +390,29 @@ export async function action({ request, context }: Route.ActionArgs) {
     return wynik.ok ? null : data(wynik.error, { status: wynik.status });
   }
 
+  if (intent === UKLAD) {
+    // Brak wartości to pusta lista — „nic nie zwinięte”, nie błąd. Czy
+    // identyfikatory należą do drzewa, rozstrzyga API (cudze i usunięte
+    // pomija).
+    const collapsedNodeIds: number[] = [];
+
+    for (const wartosc of formData.getAll(POLE_ZWINIETYCH)) {
+      const id = typeof wartosc === "string" ? parseEntityId(wartosc) : null;
+
+      if (id === null) {
+        return bladWalidacji({
+          [POLE_ZWINIETYCH]: "Nieprawidłowy identyfikator węzła.",
+        });
+      }
+
+      collapsedNodeIds.push(id);
+    }
+
+    const wynik = await saveTreeLayout(userId, treeId, { collapsedNodeIds });
+
+    return wynik.ok ? null : data(wynik.error, { status: wynik.status });
+  }
+
   // Nieosiągalne, dopóki każda wartość z `OPERACJE_NA_WYBRANYM` ma swoją
   // gałąź wyżej — zostaje, żeby wartość dopisana do zbioru bez gałęzi dała
   // odmowę, a nie `undefined` z `action`.
@@ -398,11 +438,21 @@ function nieznanaOperacja(intent: FormDataEntryValue | null) {
  * Po akcji zakończonej 4xx React Router domyślnie nie woła loaderów, więc bez
  * tego drzewo zostałoby w stanie sprzed zmiany do ręcznego odświeżenia
  * (wzorzec `shouldRevalidate` z `routes/obiekty.tsx`).
+ *
+ * Zapis układu zwinięć nie rewaliduje nigdy — ani po sukcesie (lokalny stan
+ * rozwinięć jest co najmniej tak świeży jak baza, a każde kliknięcie
+ * przeładowywałoby słownik, listę drzew i węzły przez tunel), ani po porażce
+ * (nieudany zapis układu nie znaczy, że struktura drzewa jest nieaktualna).
  */
 export function shouldRevalidate({
+  formData,
   actionStatus,
   defaultShouldRevalidate,
 }: ShouldRevalidateFunctionArgs) {
+  if (formData?.get("intent") === UKLAD) {
+    return false;
+  }
+
   return actionStatus === 409 || defaultShouldRevalidate;
 }
 
@@ -655,18 +705,26 @@ function BudowaDrzewa({
   wezly: TreeNode[];
 }) {
   const fetcher = useFetcher<typeof action>();
+  // Zapis układu zwinięć osobnym fetcherem, a nie fetcherem operacji: `Spin`
+  // nad drzewem, blokada przycisków i baner odmowy czytają tamten, a zapis
+  // układu idzie w tle. Kolejne kliknięcie przerywa poprzednie żądanie po
+  // stronie klienta — bez szkody, bo każde niesie pełny zbiór zwiniętych
+  // węzłów, więc ostatni udany zapis wyrównuje bazę z widokiem.
+  const fetcherUkladu = useFetcher<typeof action>();
   const adresWysylki = adresDrzewa(treeId);
 
   // Zaznaczenia w stanie widoku, a nie w adresie: żadne z nich nie jest
   // widokiem do udostępnienia, a oba mają przeżyć rewalidację po operacji.
   const [wybranyObiektId, ustawWybranyObiektId] = useState<number | null>(null);
   const [wybranyWezelId, ustawWybranyWezelId] = useState<number | null>(null);
-  // Drzewo startuje rozwinięte w całości. Start, a nie stała reguła: stan
-  // żyje w komponencie z `key` = identyfikator drzewa, więc każdy wybór
-  // (i odświeżenie) rozwija wszystko od nowa, a zwinięcia użytkownika
-  // przeżywają rewalidację po operacji.
+  // Drzewo startuje z zapisanego układu (`collapsed` węzłów z API) — świeże
+  // drzewo nie ma nic zwiniętego. Start, a nie źródło na bieżąco: stan żyje
+  // w komponencie z `key` = identyfikator drzewa, więc każdy wybór
+  // (i odświeżenie) czyta układ od nowa, a rewalidacja po operacji przynosi
+  // nowe flagi, ale stanu nie nadpisuje — lokalny stan jest co najmniej tak
+  // świeży jak baza. Każde przełączenie zapisuje układ ({@link rozwin}).
   const [rozwiniete, ustawRozwiniete] = useState<number[]>(() =>
-    wezlyZDziecmi(wezly),
+    rozwinieteZUkladu(wezly),
   );
 
   const oczekujace = useRef<OczekujaceRozwiniecie | null>(null);
@@ -703,10 +761,14 @@ function BudowaDrzewa({
   // Odmowa zostaje na ekranie do końca kolejnej operacji; udana zwraca `null`
   // i baner znika.
   const odmowa: ApiErrorBody | null = fetcher.data ?? null;
+  // Porażka zapisu układu — tak samo: zostaje do następnego udanego zapisu.
+  // Niezależna od `odmowa`, więc oba banery mogą stać jednocześnie.
+  const bladUkladu: ApiErrorBody | null = fetcherUkladu.data ?? null;
 
   // Rodzic, pod który dodano albo przeniesiono węzeł, rozwija się dopiero po
   // udanej operacji i rewalidacji — czyli gdy fetcher wróci do `idle`
-  // z `null`. Flaga `wToku`
+  // z `null`. Tylko lokalnie, bez zapisu układu: API rozwinęło rodzica w tej
+  // samej transakcji co operację. Flaga `wToku`
   // pilnuje, żeby render sprzed startu wysyłki nie wziął za wynik danych
   // z poprzedniej operacji.
   useEffect(() => {
@@ -735,6 +797,28 @@ function BudowaDrzewa({
       );
     }
   }, [fetcher.state, fetcher.data]);
+
+  /**
+   * Zwinięcie albo rozwinięcie przez użytkownika (także rozwinięcie węzła,
+   * nad którym przytrzymano przeciągany element): nowy stan i zapis układu
+   * w tym samym handlerze. Nie efektem na zmianę `rozwiniete` — ten
+   * odpaliłby się też przy lokalnym rozwinięciu rodzica po dodaniu, które API
+   * już zapisało. Przy porażce gałąź zostaje tak, jak ją ustawił użytkownik,
+   * a nad drzewem staje baner.
+   */
+  function rozwin(nowe: number[]) {
+    ustawRozwiniete(nowe);
+
+    const dane = new FormData();
+
+    dane.append("intent", UKLAD);
+
+    for (const id of zwinieteZRozwinietych(wezly, nowe)) {
+      dane.append(POLE_ZWINIETYCH, String(id));
+    }
+
+    fetcherUkladu.submit(dane, { method: "post", action: adresWysylki });
+  }
 
   /**
    * Jedyna ścieżka dodania obiektu pod węzeł (`parentId`) albo na najwyższy
@@ -872,6 +956,15 @@ function BudowaDrzewa({
             />
           )}
 
+          {bladUkladu === null ? null : (
+            <Alert
+              type="warning"
+              showIcon
+              title="Nie zapisano układu drzewa"
+              description={bladUkladu.error.message}
+            />
+          )}
+
           <ObszarPrzewijania>
             <DrzewoStruktury
               wezly={wezly}
@@ -879,7 +972,7 @@ function BudowaDrzewa({
               wybranyWezelId={wybranyWezel?.id ?? null}
               onWybierzWezel={ustawWybranyWezelId}
               rozwiniete={rozwiniete}
-              onRozwin={ustawRozwiniete}
+              onRozwin={rozwin}
               onUpuscObiekt={upuscObiekt}
               onPrzenies={przenies}
               zajete={zajete}
