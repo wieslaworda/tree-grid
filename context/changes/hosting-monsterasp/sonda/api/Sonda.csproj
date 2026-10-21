@@ -1,0 +1,17 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <!--
+    Sonda .NET (Faza 1 planu hosting-monsterasp), wdrażana jako aplikacja
+    podrzędna /tg-api pod witryną Node. Celowo poza TreeGrid.sln i bez
+    pakietów NuGet. Publikacja: dotnet publish -c Release -o <katalog>,
+    a zawartość katalogu do wwwroot\tg-api.
+  -->
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <RootNamespace>Sonda</RootNamespace>
+    <AssemblyName>Sonda</AssemblyName>
+  </PropertyGroup>
+
+</Project>
