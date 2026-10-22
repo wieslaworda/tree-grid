@@ -848,38 +848,38 @@ zmiany.
 
 #### Automated
 
-- [x] 3.1 Testy .NET przechodzą: `dotnet test tests/Api.Tests`
-- [x] 3.2 Typy przechodzą: `npm run typecheck`
-- [x] 3.3 Spec Node przechodzi: `npm run test:node`
-- [x] 3.4 Build lokalny zachowuje origins: `npm run build`, potem `grep -c 'allowedActionOrigins = \["\*.trycloudflare.com"\]' build/server/index.js` daje 1
-- [x] 3.5 Build MonsterASP wstawia dokładny host GUI: `TG_CEL=monsterasp TG_HOST=g.runasp.net npm run build`, potem `grep -c 'allowedActionOrigins = \["g.runasp.net"\]' build/server/index.js` daje 1
-- [x] 3.6 Build z `TG_CEL=monsterasp` bez `TG_HOST` kończy się błędem
-- [x] 3.7 E2E przechodzą: `npx playwright test`
-- [x] 3.8 E2E przechodzą na Node 22.20.0: `node -v` = `v22.20.0` w powłoce z tym Node na początku `PATH`, potem `npx playwright test`
-- [x] 3.9 Kontrakty renderowania 1 i 2 (CLAUDE.md) bez zmian: `curl` na `:3000` po `npm run build` + `npm run start`, `@layer antd` > 0, ostatni `data-css-hash` przed `</head>`
+- [x] 3.1 Testy .NET przechodzą: `dotnet test tests/Api.Tests` — f06a93d
+- [x] 3.2 Typy przechodzą: `npm run typecheck` — f06a93d
+- [x] 3.3 Spec Node przechodzi: `npm run test:node` — f06a93d
+- [x] 3.4 Build lokalny zachowuje origins: `npm run build`, potem `grep -c 'allowedActionOrigins = \["\*.trycloudflare.com"\]' build/server/index.js` daje 1 — f06a93d
+- [x] 3.5 Build MonsterASP wstawia dokładny host GUI: `TG_CEL=monsterasp TG_HOST=g.runasp.net npm run build`, potem `grep -c 'allowedActionOrigins = \["g.runasp.net"\]' build/server/index.js` daje 1 — f06a93d
+- [x] 3.6 Build z `TG_CEL=monsterasp` bez `TG_HOST` kończy się błędem — f06a93d
+- [x] 3.7 E2E przechodzą: `npx playwright test` — f06a93d
+- [x] 3.8 E2E przechodzą na Node 22.20.0: `node -v` = `v22.20.0` w powłoce z tym Node na początku `PATH`, potem `npx playwright test` — f06a93d
+- [x] 3.9 Kontrakty renderowania 1 i 2 (CLAUDE.md) bez zmian: `curl` na `:3000` po `npm run build` + `npm run start`, `@layer antd` > 0, ostatni `data-css-hash` przed `</head>` — f06a93d
 
 #### Manual
 
-- [x] 3.10 Pętla lokalna (`buduj_app_dev.ps1`) i tunel produkcyjny (`start-api.ps1` + `start-prod-tunnel.ps1`): logowanie ustawia ciasteczko `__Host-tg-sesja` (DevTools), akcje działają zza adresu tunelu
-- [x] 3.11 Po aktualizacji stara sesja `__session` jest ignorowana (jednorazowe ponowne logowanie)
+- [x] 3.10 Pętla lokalna (`buduj_app_dev.ps1`) i tunel produkcyjny (`start-api.ps1` + `start-prod-tunnel.ps1`): logowanie ustawia ciasteczko `__Host-tg-sesja` (DevTools), akcje działają zza adresu tunelu — f06a93d
+- [x] 3.11 Po aktualizacji stara sesja `__session` jest ignorowana (jednorazowe ponowne logowanie) — f06a93d
 
 ### Phase 4: Dwie paczki MonsterASP
 
 #### Automated
 
-- [ ] 4.1 `.\publikuj.ps1 -Cel Lokalny` kończy się kodem 0
-- [ ] 4.2 `.\publikuj.ps1 -Cel MonsterAsp -HostGui g.runasp.net -HostApi a.runasp.net` kończy się kodem 0 i tworzy dwa ZIP-y (`treegrid-gui-*`, `treegrid-api-*`)
-- [ ] 4.3 ZIP GUI zawiera `web.config`, `build/server/index.js`, `node_modules/@react-router/serve/dist/cli.js` i nie zawiera `devDependencies` (np. `node_modules/vite`) (sprawdzenie `Expand-Archive` + `Test-Path`)
-- [ ] 4.4 ZIP API zawiera `Api.exe`, `Api.dll`, `e_sqlite3.dll`, `web.config`, `appsettings.MonsterAsp.json` i nie zawiera `*.db`, `*.db-wal`, `Log/`, `MailOutbox/` ani `appsettings.Development.json`
-- [ ] 4.5 `web.config` GUI zawiera `https://a.runasp.net` i `https://g.runasp.net/{R:1}`, nie zawiera `{{`; `build/server/index.js` w ZIP GUI zawiera `allowedActionOrigins = ["g.runasp.net"]`
-- [ ] 4.6 `web.config` API zawiera `.\Api.exe` i `MonsterAsp`, nie zawiera `httpPlatformHandler`
-- [ ] 4.7 `.\publikuj.ps1 -Cel MonsterAsp` bez `-HostGui` albo bez `-HostApi`, z hostem ze schematem albo z identycznymi hostami kończy się błędem
-- [ ] 4.8 `git status` nie pokazuje `out/`
+- [x] 4.1 `.\publikuj.ps1 -Cel Lokalny` kończy się kodem 0
+- [x] 4.2 `.\publikuj.ps1 -Cel MonsterAsp -HostGui g.runasp.net -HostApi a.runasp.net` kończy się kodem 0 i tworzy dwa ZIP-y (`treegrid-gui-*`, `treegrid-api-*`)
+- [x] 4.3 ZIP GUI zawiera `web.config`, `build/server/index.js`, `node_modules/@react-router/serve/dist/cli.js` i nie zawiera `devDependencies` (np. `node_modules/vite`) (sprawdzenie `Expand-Archive` + `Test-Path`)
+- [x] 4.4 ZIP API zawiera `Api.exe`, `Api.dll`, `e_sqlite3.dll`, `web.config`, `appsettings.MonsterAsp.json` i nie zawiera `*.db`, `*.db-wal`, `Log/`, `MailOutbox/` ani `appsettings.Development.json`
+- [x] 4.5 `web.config` GUI zawiera `https://a.runasp.net` i `https://g.runasp.net/{R:1}`, nie zawiera `{{`; `build/server/index.js` w ZIP GUI zawiera `allowedActionOrigins = ["g.runasp.net"]`
+- [x] 4.6 `web.config` API zawiera `.\Api.exe` i `MonsterAsp`, nie zawiera `httpPlatformHandler`
+- [x] 4.7 `.\publikuj.ps1 -Cel MonsterAsp` bez `-HostGui` albo bez `-HostApi`, z hostem ze schematem albo z identycznymi hostami kończy się błędem
+- [x] 4.8 `git status` nie pokazuje `out/`
 
 #### Manual
 
-- [ ] 4.9 `-KopiaBazy` przy działającym API odmawia z czytelnym komunikatem; po `.\buduj_app_dev.ps1 -Stop` tworzy kopię
-- [ ] 4.10 Przegląd obu `web.config` w paczkach: brak jakiejkolwiek wartości sekretu
+- [x] 4.9 `-KopiaBazy` przy działającym API odmawia z czytelnym komunikatem; po `.\buduj_app_dev.ps1 -Stop` tworzy kopię
+- [x] 4.10 Przegląd obu `web.config` w paczkach: brak jakiejkolwiek wartości sekretu
 
 ### Phase 5: Pierwsze wdrożenie, weryfikacja i dokumentacja
 

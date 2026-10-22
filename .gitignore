@@ -34,6 +34,10 @@ Thumbs.db
 # --- run-tunel-app (logi, PID-y, kopia vite.config) ---
 .tunnel-run/
 
+# --- publikuj.ps1 (paczki ZIP i kopia bazy do pierwszego wgrania) ---
+# Kopia bazy niesie konta i hasze haseł, a paczki — zbudowaną aplikację.
+out/
+
 # --- .NET ---
 bin/
 obj/
