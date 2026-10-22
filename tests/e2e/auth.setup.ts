@@ -8,6 +8,12 @@ const authFile = "playwright/.auth/user.json";
 // stawia pod nim API na świeżej bazie `.e2e/`.
 const API_URL = "http://127.0.0.1:5180";
 
+// Wspólny sekret Node→API: API odrzuca bez niego każde żądanie poza
+// `GET /health`, a setup woła API wprost, z pominięciem serwera React Routera.
+// Nazwa nagłówka musi się zgadzać z `INTERNAL_HEADER` (`app/lib/api.server.ts`)
+// i `InternalCaller.Header` w C#; wartość losuje `playwright.config.ts`.
+const INTERNAL_HEADER = "X-TreeGrid-Internal";
+
 // Wiersz z kodem w treści wiadomości do rejestrującego. Brzmienie należy do
 // szablonu w C# — `VerificationMessage.CodeLinePrefix` i `CodePattern`
 // w `src/Api/Mail/IVerificationMailSender.cs` — i musi się z nim zgadzać:
@@ -47,9 +53,13 @@ setup("sign in once and save the session", async ({ page, request }) => {
   if (!username || !password) {
     throw new Error("Set E2E_USERNAME and E2E_PASSWORD (see context/foundation/test-stack.md, ## E2E)");
   }
-  if (!mailDir) {
-    throw new Error("E2E_MAIL_OUTBOX is set by playwright.config.ts — run through `npx playwright test`");
+  const internalSecret = process.env.E2E_INTERNAL_API_SECRET;
+  if (!mailDir || !internalSecret) {
+    throw new Error(
+      "E2E_MAIL_OUTBOX and E2E_INTERNAL_API_SECRET are set by playwright.config.ts — run through `npx playwright test`",
+    );
   }
+  const apiHeaders = { [INTERNAL_HEADER]: internalSecret };
 
   // Baza E2E jest świeża przy każdym uruchomieniu, więc konto zakładamy za
   // każdym razem — wprost w API, nowym przepływem w dwóch krokach. Rejestracji
@@ -57,6 +67,7 @@ setup("sign in once and save the session", async ({ page, request }) => {
   // logowanie niżej ponawiać trzeba. `E2E_USERNAME` może być adresem e-mail:
   // login go przyjmuje, więc ta sama wartość służy za login i za e-mail konta.
   const register = await request.post(`${API_URL}/auth/register`, {
+    headers: apiHeaders,
     data: { login: username, email: username, password },
   });
   expect(register.status(), `POST /auth/register → ${register.status()}`).toBe(202);
@@ -65,6 +76,7 @@ setup("sign in once and save the session", async ({ page, request }) => {
   const code = codeFromNewestMail(mailDir, username);
 
   const confirm = await request.post(`${API_URL}/auth/register/confirm`, {
+    headers: apiHeaders,
     data: { login: username, code },
   });
   expect(confirm.ok(), `POST /auth/register/confirm → ${confirm.status()}`).toBe(true);

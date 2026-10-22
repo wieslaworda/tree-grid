@@ -17,9 +17,9 @@
 import { createCookieSessionStorage, type SessionStorage } from "react-router";
 
 import {
-  API_BASE_URL,
   ROUTE_ERROR_CODES,
   apiError,
+  fetchApi,
   isApiErrorBody,
   readJson,
 } from "~/lib/api.server";
@@ -32,8 +32,10 @@ import {
 
 /**
  * Endpoint wydający klucz podpisu (`src/Api/Auth/AuthEndpoints.cs`). Jest
- * odpytywany wyłącznie stąd i wyłącznie po pętli zwrotnej. Nigdy nie powstaje
- * dla niego trasa zasobowa — byłaby tunelem do sekretu.
+ * odpytywany wyłącznie stąd, przez `fetchApi` ze wspólnym sekretem Node→API —
+ * bez sekretu API odpowiada 401. Nigdy nie powstaje dla niego trasa zasobowa:
+ * `fetchApi` dokleja sekret do każdego wywołania, więc taka trasa byłaby
+ * tunelem do klucza mimo bramki.
  */
 const SIGNING_KEY_PATH = "/internal/session-signing-key";
 
@@ -165,7 +167,7 @@ async function fetchSigningKey(): Promise<string> {
   let response: Response;
 
   try {
-    response = await fetch(`${API_BASE_URL}${SIGNING_KEY_PATH}`);
+    response = await fetchApi(SIGNING_KEY_PATH);
   } catch (cause) {
     logSigningKeyFailure({
       code: ROUTE_ERROR_CODES.ApiUnreachable,

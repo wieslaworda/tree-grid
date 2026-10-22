@@ -27,6 +27,12 @@
   Ten skrypt NIE uruchamia tunelu - lokalny tryb deweloperski. Wystawienie przez
   tunel obsluguja skrypty w .claude/skills/run-tunel-app/scripts/.
 
+  Wymaga zmiennej Auth__InternalApiSecret (wspolny sekret Node->API, co
+  najmniej 32 znaki). API odrzuca bez niego kazde zadanie poza GET /health,
+  takze w Development, wiec bez zmiennej skrypt zatrzymuje sie przed buildem.
+  Wartosc jest brana ze zmiennej procesu albo, gdy jej brak, z profilu
+  uzytkownika, i trafia do obu procesow potomnych. Skrypt jej nie wypisuje.
+
 .PARAMETER ApiPort
   Port API. Domyslnie 5180, zgodnie z src/Api/appsettings.json.
 
@@ -214,6 +220,35 @@ function Get-HttpStatus {
     }
 }
 
+function Resolve-InternalApiSecret {
+    # Wspolny sekret Node->API. Najpierw zmienna procesu, potem profil
+    # uzytkownika: zmienna ustawiona przez SetEnvironmentVariable(..., 'User')
+    # nie dociera do terminala otwartego wczesniej. Brak albo zbyt krotka
+    # wartosc konczy skrypt poleceniem ustawienia zmiennej - bez samej wartosci.
+    $value = $env:Auth__InternalApiSecret
+    if ([string]::IsNullOrEmpty($value)) {
+        $value = [Environment]::GetEnvironmentVariable('Auth__InternalApiSecret', 'User')
+    }
+    if ([string]::IsNullOrEmpty($value)) {
+        throw ("Brak zmiennej Auth__InternalApiSecret (wspolny sekret Node->API).`n" + (Get-InternalApiSecretHint))
+    }
+    if ($value.Length -lt 32) {
+        throw ("Zmienna Auth__InternalApiSecret jest krotsza niz 32 znaki.`n" + (Get-InternalApiSecretHint))
+    }
+    return $value
+}
+
+function Get-InternalApiSecretHint {
+    # Pojedyncze cudzyslowy: '$b' ma trafic do komunikatu doslownie.
+    return @'
+Ustaw ja raz w profilu uzytkownika (co najmniej 32 znaki), wpisujac wartosc samodzielnie:
+  [Environment]::SetEnvironmentVariable('Auth__InternalApiSecret', '<wartosc>', 'User')
+albo wygeneruj losowa wartosc bez wypisywania jej na ekran:
+  $b = New-Object byte[] 32; [Security.Cryptography.RandomNumberGenerator]::Create().GetBytes($b); [Environment]::SetEnvironmentVariable('Auth__InternalApiSecret', [Convert]::ToBase64String($b), 'User')
+Skrypt czyta profil uzytkownika sam - nowy terminal nie jest potrzebny.
+'@
+}
+
 function Backup-DatabaseIfPending {
     if (-not (Test-Path $DatabasePath)) {
         Write-Host 'Brak pliku bazy - API utworzy go przy starcie, kopia niepotrzebna.'
@@ -280,9 +315,20 @@ $npm = Get-Command 'npm.cmd' -ErrorAction SilentlyContinue
 if (-not $npm) { $npm = Get-Command 'npm' -ErrorAction SilentlyContinue }
 if (-not $npm) { throw 'Nie znaleziono npm w PATH.' }
 
+# Przed zatrzymaniem dzialajacych instancji i przed buildem: brak sekretu ma
+# zatrzymac skrypt, zanim cokolwiek zmieni.
+$internalApiSecret = Resolve-InternalApiSecret
+
 if (-not (Test-Path $StateDir)) {
     New-Item -ItemType Directory -Path $StateDir -Force | Out-Null
 }
+
+# Sekret dla obu procesow potomnych: start-api.ps1 dziala w tym samym procesie
+# i czyta go stad, a 'npm run dev' dziedziczy srodowisko przy Start-Process.
+# Poprzednia wartosc wraca w finally, wiec terminal zostaje taki jak przed
+# uruchomieniem skryptu.
+$prevInternalApiSecret = $env:Auth__InternalApiSecret
+$env:Auth__InternalApiSecret = $internalApiSecret
 
 Push-Location $ProjectRoot
 try {
@@ -352,6 +398,7 @@ try {
     }
     Write-Utf8NoBom -Path $DevPidFile -Content ($state | ConvertTo-Json -Depth 4)
 } finally {
+    $env:Auth__InternalApiSecret = $prevInternalApiSecret
     Pop-Location
 }
 

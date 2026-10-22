@@ -15,9 +15,68 @@ import { describeShape, logApiFailure, requestIdOf } from "~/lib/log.server";
  * Adres API. Pętla zwrotna i port 5180 pochodzą z
  * `src/Api/appsettings.json` (`Kestrel:Endpoints:Http:Url`) — quick tunnel
  * przyjmuje dokładnie jeden origin, więc API nie jest i nie ma być widoczne
- * spoza tej maszyny.
+ * spoza tej maszyny. Nie jest eksportowany: jedynym konsumentem jest
+ * {@link fetchApi}, żeby żadne wywołanie API nie ominęło nagłówka sekretu.
  */
-export const API_BASE_URL = "http://127.0.0.1:5180";
+const API_BASE_URL = "http://127.0.0.1:5180";
+
+/**
+ * Nagłówek wspólnego sekretu Node→API. Literał musi być identyczny
+ * z `InternalCaller.Header` (`src/Api/Auth/InternalCaller.cs`, przypięty tam
+ * testem); rozjazd nie daje błędu kompilacji, tylko 401
+ * `caller_unauthenticated` na każdym wywołaniu poza `GET /health`.
+ */
+export const INTERNAL_HEADER = "X-TreeGrid-Internal";
+
+/**
+ * Kod odmowy bramki sekretu (`ApiErrorCodes.CallerUnauthenticated` w C#).
+ * U poprawnie skonfigurowanego Node nie pojawia się nigdy, więc każde jego
+ * wystąpienie jest rozjazdem konfiguracji obu procesów i trafia do logu —
+ * także tam, gdzie zwykłe 401 jest wynikiem (złe hasło w `auth.server.ts`).
+ */
+export const CALLER_UNAUTHENTICATED = "caller_unauthenticated";
+
+/**
+ * Zmienna środowiskowa z sekretem — ta sama nazwa, z której .NET czyta
+ * `Auth:InternalApiSecret`, więc lokalnie (profil użytkownika) i w witrynie
+ * wystarcza jedna zmienna dla obu procesów.
+ */
+const INTERNAL_SECRET_ENV = "Auth__InternalApiSecret";
+
+/**
+ * Jedyna droga `fetch` do API: buduje adres z {@link API_BASE_URL} i dokleja
+ * nagłówek {@link INTERNAL_HEADER} z sekretem. Wołają ją wszystkie miejsca
+ * rozmawiające z API (`requestApi`, `postAuth` w `auth.server.ts`, pobranie
+ * klucza w `session.server.ts`, trasa `routes/api.health.ts`), więc nagłówka
+ * nie da się w żadnym z nich pominąć.
+ *
+ * API odrzuca bez sekretu każde żądanie poza `GET /health` — na tym, a nie na
+ * pętli zwrotnej, stoi wiarygodność {@link USER_HEADER} i wydania klucza
+ * podpisu sesji (`InternalCaller` po stronie C#).
+ *
+ * Sekret jest czytany przy każdym wywołaniu, nie przy ładowaniu modułu: moduł
+ * bywa importowany, zanim środowisko jest kompletne (spece, typegen), a odczyt
+ * na żądanie nie zostawia wartości w żadnej zmiennej modułu. Brak sekretu
+ * wysyła żądanie bez nagłówka — API odpowiada wtedy 401, a wywołujący
+ * zapisuje to w linii `api_failure` jak każdą inną porażkę. Sekret nie trafia
+ * do logu ani do `context` koperty: `log.server.ts` nie dostaje nagłówków
+ * żądania, a koperty budują wywołujący z kodu i ścieżki.
+ *
+ * Nagłówki od wywołującego są kopiowane, a sekret ustawiany na końcu, więc
+ * żaden z nich go nie nadpisze. Nigdy nie przekazuj tu nagłówków z żądania
+ * przeglądarki — trasa, która by to zrobiła, doklejałaby sekret do cudzych
+ * nagłówków i znosiła bramkę API od środka.
+ */
+export function fetchApi(path: string, init: RequestInit = {}): Promise<Response> {
+  const headers = new Headers(init.headers);
+  const secret = process.env[INTERNAL_SECRET_ENV];
+
+  if (secret !== undefined && secret.length > 0) {
+    headers.set(INTERNAL_HEADER, secret);
+  }
+
+  return fetch(`${API_BASE_URL}${path}`, { ...init, headers });
+}
 
 /**
  * Kształt odpowiedzi błędnej — ten sam po obu stronach granicy. Wzorzec
@@ -128,7 +187,8 @@ export type ApiResult = { ok: true; status: number; body: unknown } | ApiFailure
  *
  * Wartość pochodzi **wyłącznie** z sesji odczytanej przez bramę
  * (`kontekstUzytkownika`), nigdy z żądania przeglądarki — model zaufania
- * i trzy zakazy, od których zależy, opisuje komentarz `TreeIdentity`.
+ * (bramka wspólnego sekretu, {@link fetchApi}) i zakazy, od których zależy,
+ * opisuje komentarz `TreeIdentity`.
  */
 export const USER_HEADER = "X-TreeGrid-User";
 
@@ -178,7 +238,7 @@ export async function requestApi(
   }
 
   try {
-    response = await fetch(`${API_BASE_URL}${path}`, {
+    response = await fetchApi(path, {
       method,
       headers,
       body: payload === undefined ? undefined : JSON.stringify(payload),
@@ -222,8 +282,9 @@ export async function requestApi(
       });
     }
 
-    // 401 to rozjazd nagłówka tożsamości między Node a API, a nie odmowa,
-    // którą widok umie pokazać — dlatego trafia do logu obok 5xx.
+    // 401 to rozjazd między Node a API — nagłówka tożsamości albo wspólnego
+    // sekretu (`caller_unauthenticated`) — a nie odmowa, którą widok umie
+    // pokazać. Dlatego trafia do logu obok 5xx.
     if (response.status >= 500 || response.status === 401) {
       logApiFailure({
         code: body.error.code,

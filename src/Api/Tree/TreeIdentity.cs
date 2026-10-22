@@ -20,23 +20,31 @@ namespace Api.Tree;
 /// nigdy z przeglądarki. Nagłówek jest wiarygodny wyłącznie dlatego, że nikt
 /// poza tym serwerem nie może go do API dostarczyć:
 ///
-/// - Kestrel nasłuchuje wyłącznie na <c>127.0.0.1:5180</c>
-///   (<c>src/Api/appsettings.json</c>), więc do API dochodzą tylko procesy
-///   z tej samej maszyny;
-/// - tunel Cloudflare prowadzi wyłącznie na port 3000, czyli do serwera React
-///   Routera, nigdy na port API;
+/// - podstawą jest bramka wspólnego sekretu (<c>Api.Auth.InternalCaller</c>):
+///   do endpointu dochodzi tylko żądanie z nagłówkiem
+///   <c>X-TreeGrid-Internal</c> równym <c>Auth:InternalApiSecret</c>, a ten
+///   sekret zna wyłącznie serwer React Routera. Bramka działa w obu celach —
+///   także w celu MonsterASP, gdzie API ma publiczny hostname i topologia
+///   niczego nie gwarantuje;
 /// - nagłówek ustawia kod serwerowy React Routera z sesji, a żadna trasa
-///   zasobowa nie przepuszcza go z żądania przeglądarki.
+///   zasobowa nie przepuszcza go z żądania przeglądarki. Ten zakaz bramka
+///   nie zastępuje: trasa przekazująca nagłówki z przeglądarki doklejałaby
+///   do nich sekret i znosiła bramkę od środka;
+/// - w celu lokalnym zostaje warstwa dodatkowa: Kestrel nasłuchuje wyłącznie
+///   na <c>127.0.0.1:5180</c> (<c>src/Api/appsettings.json</c>), a tunel
+///   Cloudflare prowadzi wyłącznie na port 3000, nigdy na port API.
 ///
-/// To te same trzy warunki, na których stoi <c>/internal/session-signing-key</c>
+/// Na tych samych warunkach stoi <c>/internal/session-signing-key</c>
 /// (<c>context/foundation/lessons.md</c>, „Sekrety: konfiguracja .NET…"), i te
-/// same trzy zakazy: nie rozszerzaj adresu nasłuchu Kestrela poza pętlę
-/// zwrotną, nie kieruj tunelu na port API i nie twórz w React Routerze trasy
+/// same zakazy obowiązują dalej: nie wyłączaj bramki ani nie poszerzaj jej
+/// wyjątku poza <c>GET /health</c>, nie twórz w React Routerze trasy
 /// zasobowej, która przekazuje ten nagłówek (albo dowolne nagłówki) z żądania
-/// przeglądarki. Złamanie któregokolwiek zamienia nagłówek w podpis, który każdy
-/// może podrobić — i daje odczyt oraz zapis cudzego drzewa po samym
-/// identyfikatorze konta. Kryptografii w tym przekazaniu świadomie nie ma
-/// (plan <c>budowa-drzewa</c>, „What We're NOT Doing").
+/// przeglądarki, a w celu lokalnym nie rozszerzaj nasłuchu Kestrela poza pętlę
+/// zwrotną i nie kieruj tunelu na port API. Wyciek sekretu albo złamanie
+/// zakazu trasy zamienia nagłówek w podpis, który każdy może podrobić — i daje
+/// odczyt oraz zapis cudzego drzewa po samym identyfikatorze konta. Sam
+/// identyfikator konta nie jest podpisywany (plan <c>budowa-drzewa</c>, „What
+/// We're NOT Doing"); kryptografią jest wyłącznie wspólny sekret wywołującego.
 ///
 /// Identyfikator jest sprawdzany w <c>AspNetUsers</c>, a nie przyjmowany na
 /// wiarę: nieistniejące konto skończyłoby się przy zapisie błędem klucza obcego

@@ -113,7 +113,11 @@ try
     // wpisany w formularzu, więc bez limitu formularz jest generatorem poczty
     // z konta nadawcy na dowolny adres podany przez gościa
     // (OWASP F-003, TG-SEC-04). Okno stałe i jeden licznik na cały proces, a nie
-    // per adres — za tunelem API widzi wyłącznie `cloudflared`. Wartości są
+    // per adres — API widzi wyłącznie serwer React Routera: żądanie bez
+    // wspólnego sekretu odrzuca bramka `UseInternalCallerGate()` przed limiterem
+    // (w obu celach, także tam, gdzie API ma publiczny hostname), a każdy
+    // gość przychodzi przez ten sam proces Node. Adres gościa i tak nie
+    // dochodzi do API. Wartości są
     // decyzją produktową, więc mieszkają w konfiguracji; testy integracyjne
     // podnoszą limit tym samym kluczem.
     var registrationRateLimit = builder.Configuration.GetSection("Auth:RegistrationRateLimit");
@@ -150,9 +154,10 @@ try
     // przy pierwszej rejestracji. Sprawdzenie obejmuje każde środowisko poza
     // Development — tam sekretów może jeszcze nie być, a ścieżki, które ich
     // potrzebują, i tak odmawiają działania bez nich
-    // (`AuthSecrets.RequireSessionSigningKey`, `MailSettings.ThrowIfIncomplete`).
-    // Do logu trafiają wyłącznie nazwy kluczy; żadna wartość nie opuszcza
-    // konfiguracji.
+    // (`AuthSecrets.RequireSessionSigningKey`, `MailSettings.ThrowIfIncomplete`,
+    // bramka wspólnego sekretu, która bez niego odrzuca wszystko poza
+    // `GET /health`). Do logu trafiają wyłącznie nazwy kluczy; żadna wartość
+    // nie opuszcza konfiguracji.
     var mailProblems = mailSettings.FindProblems(app.Environment.IsDevelopment());
 
     if (!app.Environment.IsDevelopment())
@@ -164,7 +169,8 @@ try
             app.Logger.LogCritical(
                 "Konfiguracja sekretów i poczty jest niekompletna: {Problems} Start przerwany. " +
                 "Ustaw brakujące klucze zmiennymi środowiskowymi, zapisując dwukropek " +
-                "jako podwójne podkreślenie (np. Auth__SessionSigningKey, Mail__Smtp__Password).",
+                "jako podwójne podkreślenie (np. Auth__SessionSigningKey, Auth__InternalApiSecret, " +
+                "Mail__Smtp__Password).",
                 string.Join(" ", startProblems));
 
             // Odmowa kończy proces bez zwolnienia hosta, więc logger plikowy
@@ -173,13 +179,30 @@ try
             return 1;
         }
     }
-    else if (mailProblems.Count > 0)
+    else
     {
         // W Development start wstaje, ale brak ma być widoczny od razu na
         // konsoli, a nie dopiero jako 503 przy pierwszej rejestracji.
-        app.Logger.LogWarning(
-            "Konfiguracja poczty jest niekompletna: {Problems} Krok 1 rejestracji odpowie mail_unavailable.",
-            string.Join(" ", mailProblems));
+        if (mailProblems.Count > 0)
+        {
+            app.Logger.LogWarning(
+                "Konfiguracja poczty jest niekompletna: {Problems} Krok 1 rejestracji odpowie mail_unavailable.",
+                string.Join(" ", mailProblems));
+        }
+
+        // To samo dla wspólnego sekretu Node→API: bez niego bramka odrzuca
+        // każde wywołanie z serwera React Routera i objawem byłby wyłącznie
+        // ekran logowania, który nie przyjmuje żadnego hasła.
+        var callerProblems = authSecrets.FindInternalApiSecretProblems();
+
+        if (callerProblems.Count > 0)
+        {
+            app.Logger.LogWarning(
+                "Wspólny sekret Node→API jest nieustawiony albo za krótki: {Problems} " +
+                "Każde żądanie poza GET /health dostanie 401 caller_unauthenticated. " +
+                "Ustaw zmienną Auth__InternalApiSecret dla obu procesów.",
+                string.Join(" ", callerProblems));
+        }
     }
 
     // Ścieżki aplikowania migracji są rozdzielone świadomie. W Development schemat
@@ -223,6 +246,16 @@ try
     // w adresie w formacie ProblemDetails, czyli w kształcie sprzecznym z CLAUDE.md.
     app.UseApiErrorContract();
 
+    // Bramka wspólnego sekretu Node→API (`Api.Auth.InternalCaller`): żądanie
+    // bez sekretu dostaje 401 `caller_unauthenticated`, zanim wykona się
+    // jakikolwiek endpoint. Wyjątek to wyłącznie `GET /health` bez `fail`.
+    // Po kontrakcie błędów, żeby i tu wyjątek skończył się kopertą; przed
+    // limiterem, żeby żądania bez sekretu nie zużywały okna rejestracji.
+    // Dopasowanie trasy (niejawne `UseRouting` z `WebApplication`) biegnie
+    // wcześniej, ale niczego nie wykonuje — handler i limiter działają dopiero
+    // za bramką, a adres bez trasy też dostaje 401, nie 404.
+    app.UseInternalCallerGate();
+
     // Po kontrakcie błędów, żeby wyjątek w limiterze też skończył się kopertą.
     // Polityka działa wyłącznie tam, gdzie endpoint ją przypina
     // (`RequireRateLimiting` przy `POST /auth/register`).
@@ -235,7 +268,9 @@ try
 
     // Dowodzi dwóch rzeczy naraz: API żyje i baza jest osiągalna. Na tym endpoincie
     // opiera się wykrywanie gotowości API oraz trasa zasobowa `app/routes/api.health.ts`,
-    // która przepuszcza treść bez interpretacji.
+    // która przepuszcza treść bez interpretacji. Dlatego `GET /health` jako jedyny
+    // przechodzi bramkę wspólnego sekretu bez nagłówka — ale nie z `?fail=true`,
+    // bo ta ścieżka pisze do pliku logu.
     //
     // Sprawdzana jest osiągalność pliku bazy, a nie zawartość jakiejkolwiek tabeli.
     // Do F-01 endpoint liczył wiersze tabeli technicznej; ta tabela zniknęła razem

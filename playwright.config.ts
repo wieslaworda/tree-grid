@@ -41,6 +41,14 @@ if (!process.env.E2E_SESSION_SIGNING_KEY) {
   mkdirSync(DB_DIR, { recursive: true });
   process.env.E2E_SESSION_SIGNING_KEY = randomBytes(32).toString("hex");
 }
+// Wspólny sekret Node→API (`X-TreeGrid-Internal`), losowany tak jak klucz
+// podpisu i tak samo dziedziczony przez workery. Trafia do obu `webServer`
+// pod nazwą `Auth__InternalApiSecret` — jawnie, żeby wartość z profilu
+// dewelopera nie wkradła się do przebiegu — i do `auth.setup.ts`, który woła
+// API wprost. Nie zapisujemy go ani nie logujemy.
+if (!process.env.E2E_INTERNAL_API_SECRET) {
+  process.env.E2E_INTERNAL_API_SECRET = randomBytes(32).toString("hex");
+}
 
 export default defineConfig({
   testDir: "./tests/e2e",
@@ -77,6 +85,7 @@ export default defineConfig({
         ASPNETCORE_ENVIRONMENT: "Development",
         ConnectionStrings__Default: `Data Source=${DB_FILE}`,
         Auth__SessionSigningKey: process.env.E2E_SESSION_SIGNING_KEY!,
+        Auth__InternalApiSecret: process.env.E2E_INTERNAL_API_SECRET!,
         // Kod weryfikacyjny do pliku `.eml` w `.e2e/`, a nie przez SMTP — bez
         // skrzynki i bez hasła; `src/Api/MailOutbox/` z pętli deweloperskiej
         // zostaje nietknięty.
@@ -93,7 +102,12 @@ export default defineConfig({
       url: baseURL,
       reuseExistingServer: !process.env.CI,
       timeout: 180_000,
-      env: { PORT: String(PORT), HOST: "127.0.0.1", NODE_ENV: "production" },
+      env: {
+        PORT: String(PORT),
+        HOST: "127.0.0.1",
+        NODE_ENV: "production",
+        Auth__InternalApiSecret: process.env.E2E_INTERNAL_API_SECRET!,
+      },
     },
   ],
 });

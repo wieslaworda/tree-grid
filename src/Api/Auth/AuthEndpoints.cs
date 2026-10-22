@@ -446,16 +446,20 @@ internal static class AuthEndpoints
     /// Endpoint zwraca wyłącznie ten klucz i nic więcej.
     /// </summary>
     /// <remarks>
-    /// Bezpieczeństwo tego endpointu opiera się w całości na tym, że Kestrel
-    /// nasłuchuje wyłącznie na <c>127.0.0.1:5180</c>
-    /// (<c>src/Api/appsettings.json</c>) i że tunelowany jest wyłącznie port
-    /// 3000 (<c>.claude/skills/run-tunel-app/SKILL.md:262-277</c>) — nie na
-    /// tym, że ścieżki nikt nie zgadnie. Wystarczy złamać jeden z tych dwóch
-    /// warunków: zmienić adres nasłuchu Kestrela na taki, który obejmuje kartę
-    /// sieciową, albo skierować tunel na port API — i endpoint staje się
-    /// publicznym wyciekiem klucza podpisu, czyli wystawia każdemu możliwość
-    /// podrobienia dowolnej sesji. Z tego samego powodu nie wolno tworzyć dla
-    /// niego trasy zasobowej w React Routerze: byłaby tunelem do sekretu.
+    /// Bezpieczeństwo tego endpointu opiera się na bramce wspólnego sekretu
+    /// Node→API (<see cref="InternalCaller"/>): bez nagłówka
+    /// <see cref="InternalCaller.Header"/> z poprawnym sekretem żądanie dostaje
+    /// 401, zanim tu dotrze — nie na tym, że ścieżki nikt nie zgadnie. Bramka
+    /// działa w obu celach, także w celu MonsterASP, gdzie API ma publiczny
+    /// hostname. W celu lokalnym zostaje warstwa dodatkowa: Kestrel nasłuchuje
+    /// wyłącznie na <c>127.0.0.1:5180</c> (<c>src/Api/appsettings.json</c>),
+    /// a tunelowany jest wyłącznie port 3000
+    /// (<c>.claude/skills/run-tunel-app/SKILL.md</c>). Wyciek sekretu albo
+    /// wyjątek bramki obejmujący tę ścieżkę zamienia endpoint w publiczny
+    /// wyciek klucza podpisu, czyli wystawia każdemu możliwość podrobienia
+    /// dowolnej sesji. Z tego samego powodu nie wolno tworzyć dla niego trasy
+    /// zasobowej w React Routerze: Node dokleja sekret do każdego wywołania,
+    /// więc taka trasa byłaby tunelem do klucza mimo bramki.
     /// </remarks>
     private static IResult GetSessionSigningKey(HttpContext context, AuthSecrets secrets)
     {

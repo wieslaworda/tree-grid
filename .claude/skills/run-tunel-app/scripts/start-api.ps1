@@ -38,6 +38,16 @@
   w preflighcie jest dokladnie tym portem, pod ktorym API faktycznie nasluchuje.
   Bez tego -Port 5181 przeszedlby preflight, a API wstaloby na 5180.
 
+  Wspolny sekret Node->API (Auth__InternalApiSecret, co najmniej 32 znaki)
+  skrypt bierze ze zmiennej procesu albo, gdy jej brak, z profilu uzytkownika
+  i przekazuje procesowi API. Wartosci nie wypisuje. Bez sekretu:
+  - w Development skrypt zatrzymuje sie od razu, bo API wstaloby z samym
+    ostrzezeniem i odrzucalo kazde zadanie poza GET /health;
+  - w Production skrypt uruchamia API mimo to, bo API samo odmawia startu
+    i zapisuje nazwe brakujacego klucza (bez wartosci) w src/Api/Log/ -
+    ta odmowa jest glosnym bledem, a skrypt dokleja do niej polecenie
+    ustawienia zmiennej.
+
 .PARAMETER Port
   Port API. Domyslnie 5180, zgodnie z src/Api/appsettings.json.
 
@@ -167,6 +177,34 @@ function Stop-TrackedProcesses {
     Remove-Item $PidFile -Force -ErrorAction SilentlyContinue
 }
 
+function Resolve-InternalApiSecret {
+    # Wspolny sekret Node->API. Najpierw zmienna procesu (np. ustawiona przez
+    # buduj_app_dev.ps1), potem profil uzytkownika: zmienna ustawiona przez
+    # SetEnvironmentVariable(..., 'User') nie dociera do terminala otwartego
+    # wczesniej. Zwraca $null przy braku albo zbyt krotkiej wartosci - decyzje
+    # podejmuje wolajacy, zaleznie od srodowiska. Wartosc nie jest wypisywana.
+    $value = $env:Auth__InternalApiSecret
+    if ([string]::IsNullOrEmpty($value)) {
+        $value = [Environment]::GetEnvironmentVariable('Auth__InternalApiSecret', 'User')
+    }
+    if ([string]::IsNullOrEmpty($value) -or $value.Length -lt 32) {
+        return $null
+    }
+    return $value
+}
+
+function Get-InternalApiSecretHint {
+    # Pojedyncze cudzyslowy: '$b' ma trafic do komunikatu doslownie.
+    return @'
+Brak zmiennej Auth__InternalApiSecret (wspolny sekret Node->API) albo jest krotsza niz 32 znaki.
+Ustaw ja raz w profilu uzytkownika, wpisujac wartosc samodzielnie:
+  [Environment]::SetEnvironmentVariable('Auth__InternalApiSecret', '<wartosc>', 'User')
+albo wygeneruj losowa wartosc bez wypisywania jej na ekran:
+  $b = New-Object byte[] 32; [Security.Cryptography.RandomNumberGenerator]::Create().GetBytes($b); [Environment]::SetEnvironmentVariable('Auth__InternalApiSecret', [Convert]::ToBase64String($b), 'User')
+Skrypt czyta profil uzytkownika sam - nowy terminal nie jest potrzebny.
+'@
+}
+
 if ($Stop) {
     Stop-TrackedProcesses
     exit 0
@@ -189,6 +227,15 @@ if ($occupied) {
     throw "Port $Port jest juz zajety (PID: $holders). Zatrzymaj stary proces (-Stop) albo uruchom z innym -Port."
 }
 
+# Rozroznienie srodowisk - patrz .DESCRIPTION.
+$internalApiSecret = Resolve-InternalApiSecret
+if (-not $internalApiSecret) {
+    if ($Environment -eq 'Development') {
+        throw (Get-InternalApiSecretHint)
+    }
+    Write-Warning 'Brak poprawnej zmiennej Auth__InternalApiSecret - API w Production odmowi startu.'
+}
+
 if (-not (Test-Path $StateDir)) {
     New-Item -ItemType Directory -Path $StateDir -Force | Out-Null
 }
@@ -207,7 +254,11 @@ if ($SkipBuild) { $arguments += '--no-build' }
 $arguments += @('--', "--Kestrel:Endpoints:Http:Url=http://127.0.0.1:$Port")
 
 $prevEnvironment = $env:ASPNETCORE_ENVIRONMENT
+$prevInternalApiSecret = $env:Auth__InternalApiSecret
 $env:ASPNETCORE_ENVIRONMENT = $Environment
+# Sekret z profilu trafia do procesu API tylko przez srodowisko potomka;
+# bez niego Production odmawia startu (patrz .DESCRIPTION).
+if ($internalApiSecret) { $env:Auth__InternalApiSecret = $internalApiSecret }
 try {
     Write-Host "Uruchamiam API (ASPNETCORE_ENVIRONMENT=$Environment) na 127.0.0.1:$Port..."
     $apiProc = Start-Process -FilePath $dotnet.Source `
@@ -218,6 +269,7 @@ try {
         -WindowStyle Hidden -PassThru
 } finally {
     $env:ASPNETCORE_ENVIRONMENT = $prevEnvironment
+    $env:Auth__InternalApiSecret = $prevInternalApiSecret
 }
 
 # Czekamy na odpowiedz HTTP, nie na sam nasluch portu - patrz .DESCRIPTION.
@@ -232,7 +284,9 @@ while ((Get-Date) -lt $deadline) {
             (Get-Content $ApiOut -Tail 20 -ErrorAction SilentlyContinue)
             (Get-Content $ApiErr -Tail 20 -ErrorAction SilentlyContinue)
         ) -join "`n"
-        throw "API zakonczylo sie z kodem $($apiProc.ExitCode).`n$tail"
+        $hint = ''
+        if (-not $internalApiSecret) { $hint = "`n" + (Get-InternalApiSecretHint) }
+        throw "API zakonczylo sie z kodem $($apiProc.ExitCode).`n$tail$hint"
     }
     try {
         if ((Invoke-WebRequest "http://127.0.0.1:$Port$HealthPath" -UseBasicParsing -TimeoutSec 3).StatusCode -eq 200) {

@@ -310,12 +310,12 @@ którym broni reszta tego skilla. API startuje pierwsze.
 
 ### Sekrety, bez których API nie wstanie
 
-API czyta dwa sekrety — klucz podpisu ciasteczka sesji
-(`src/Api/Auth/AuthSecrets.cs`) i hasło aplikacji Gmail, którym wysyła kod
-weryfikacyjny rejestracji na adres e-mail podany przez rejestrującego
-w formularzu (`src/Api/Mail/MailSettings.cs`, plastry `zakladanie-konta`
-i `kod-do-rejestrujacego`). Poza środowiskiem `Development` brak klucza albo
-niekompletna sekcja `Mail` (transport musi być `Smtp`, a `Host`, `Port`,
+API czyta trzy sekrety — klucz podpisu ciasteczka sesji i wspólny sekret
+Node→API (oba w `src/Api/Auth/AuthSecrets.cs`) oraz hasło aplikacji Gmail,
+którym wysyła kod weryfikacyjny rejestracji na adres e-mail podany przez
+rejestrującego w formularzu (`src/Api/Mail/MailSettings.cs`, plastry
+`zakladanie-konta` i `kod-do-rejestrujacego`). Poza środowiskiem
+`Development` brak któregoś z kluczy `Auth` albo niekompletna sekcja `Mail` (transport musi być `Smtp`, a `Host`, `Port`,
 `UserName`, `Password` i `From` niepuste) **przerywa start**:
 proces zapisuje w `.tunnel-run/api.err.log` wpis krytyczny z nazwą brakującego
 klucza i kończy się kodem 1. `start-api.ps1` domyślnie ustawia
@@ -337,15 +337,41 @@ konfiguracji zapisuje się jako podwójne podkreślenie:
 
 ```powershell
 [Environment]::SetEnvironmentVariable('Auth__SessionSigningKey', '<wartość>', 'User')
+[Environment]::SetEnvironmentVariable('Auth__InternalApiSecret', '<wartość>', 'User')
 [Environment]::SetEnvironmentVariable('Mail__Smtp__UserName', '<wartość>', 'User')
 [Environment]::SetEnvironmentVariable('Mail__Smtp__Password', '<wartość>', 'User')
 [Environment]::SetEnvironmentVariable('Mail__From', '<wartość>', 'User')
 ```
 
-Klucz podpisu ma co najmniej 32 znaki. Zmienną widzą wyłącznie procesy
-uruchomione po jej ustawieniu, więc otwarty terminal trzeba otworzyć ponownie —
-inaczej skrypt dalej startuje w starym środowisku i odmawia z tym samym
-komunikatem. Dla `-Environment Development` odpowiednikiem jest
+`Auth__InternalApiSecret` to **wspólny sekret Node→API** (plan
+`hosting-monsterasp`, Faza 2): serwer React Routera wysyła go nagłówkiem
+`X-TreeGrid-Internal` przy każdym wywołaniu API, a API odrzuca bez niego
+każde żądanie poza `GET /health` — w każdym środowisku, także w Development —
+odpowiedzią `401` z kodem `caller_unauthenticated`
+(`src/Api/Auth/InternalCaller.cs`). Ta sama zmienna służy **obu** procesom,
+więc ustawia się ją zmienną profilu także dla pętli deweloperskiej
+(`user-secrets` .NET nie dociera do Node). Wartość wygenerowaną losowo,
+bez wypisywania jej na ekran, ustawia jedno polecenie:
+
+```powershell
+$b = New-Object byte[] 32; [Security.Cryptography.RandomNumberGenerator]::Create().GetBytes($b); [Environment]::SetEnvironmentVariable('Auth__InternalApiSecret', [Convert]::ToBase64String($b), 'User')
+```
+
+Skrypty (`start-api.ps1`, `start-prod-tunnel.ps1`, `buduj_app_dev.ps1`)
+biorą ją ze zmiennej procesu albo, gdy jej brak, wprost z profilu
+użytkownika i przekazują procesom potomnym, więc po ustawieniu nie trzeba
+otwierać nowego terminala. Bez niej `start-prod-tunnel.ps1`
+i `buduj_app_dev.ps1` zatrzymują się przed buildem z poleceniem ustawienia
+zmiennej, a `start-api.ps1` w Development też; w Production uruchamia API,
+które samo odmawia startu i zapisuje nazwę klucza (bez wartości)
+w `src/Api/Log/`. Po zmianie wartości trzeba zrestartować oba procesy — Node
+z nową wartością i API ze starą dają `401` na każdym wywołaniu.
+
+Klucz podpisu i wspólny sekret mają co najmniej 32 znaki. Pozostałe zmienne
+widzą wyłącznie procesy uruchomione po ich ustawieniu, więc otwarty terminal
+trzeba otworzyć ponownie — inaczej skrypt dalej startuje w starym środowisku
+i odmawia z tym samym komunikatem. Dla `-Environment Development`
+odpowiednikiem (poza wspólnym sekretem) jest
 `dotnet user-secrets set "<klucz>" "<wartość>" --project src/Api` (np.
 `Mail:Smtp:Password`). W Development transport domyślnie to `Directory`:
 wiadomość z kodem ląduje jako plik `.eml` w `src/Api/MailOutbox/`, bez SMTP

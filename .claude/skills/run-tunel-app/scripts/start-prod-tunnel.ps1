@@ -18,6 +18,13 @@
     build/server/index.js port otwiera sie normalnie, a kazde zadanie zwraca 500 -
     nasluch portu potwierdzilby wtedy gotowosc, ktorej nie ma.
 
+  Serwer wymaga zmiennej Auth__InternalApiSecret (wspolny sekret Node->API,
+  co najmniej 32 znaki, ta sama wartosc co dla start-api.ps1). Skrypt bierze
+  ja ze zmiennej procesu albo, gdy jej brak, z profilu uzytkownika i przekazuje
+  procesowi serwera. Bez niej zatrzymuje sie przed buildem: strona glowna
+  odpowiadalaby 200, a kazde wywolanie API konczyloby sie 401 - cichy falsz,
+  ktorego wykrywanie gotowosci nie widzi. Wartosci nie wypisuje.
+
 .PARAMETER Port
   Port serwera produkcyjnego. Domyslnie 3000.
 
@@ -145,6 +152,29 @@ function Stop-TrackedProcesses {
     Remove-Item $UrlFile -Force -ErrorAction SilentlyContinue
 }
 
+function Resolve-InternalApiSecret {
+    # Wspolny sekret Node->API. Najpierw zmienna procesu, potem profil
+    # uzytkownika: zmienna ustawiona przez SetEnvironmentVariable(..., 'User')
+    # nie dociera do terminala otwartego wczesniej. Brak albo zbyt krotka
+    # wartosc konczy skrypt poleceniem ustawienia zmiennej - bez samej wartosci.
+    $value = $env:Auth__InternalApiSecret
+    if ([string]::IsNullOrEmpty($value)) {
+        $value = [Environment]::GetEnvironmentVariable('Auth__InternalApiSecret', 'User')
+    }
+    if ([string]::IsNullOrEmpty($value) -or $value.Length -lt 32) {
+        # Pojedyncze cudzyslowy: '$b' ma trafic do komunikatu doslownie.
+        throw @'
+Brak zmiennej Auth__InternalApiSecret (wspolny sekret Node->API) albo jest krotsza niz 32 znaki.
+Ustaw ja raz w profilu uzytkownika (ta sama wartosc co dla start-api.ps1), wpisujac wartosc samodzielnie:
+  [Environment]::SetEnvironmentVariable('Auth__InternalApiSecret', '<wartosc>', 'User')
+albo wygeneruj losowa wartosc bez wypisywania jej na ekran:
+  $b = New-Object byte[] 32; [Security.Cryptography.RandomNumberGenerator]::Create().GetBytes($b); [Environment]::SetEnvironmentVariable('Auth__InternalApiSecret', [Convert]::ToBase64String($b), 'User')
+Po nowym ustawieniu uruchom ponownie takze API (start-api.ps1), zeby oba procesy mialy te sama wartosc.
+'@
+    }
+    return $value
+}
+
 if ($Stop) {
     Stop-TrackedProcesses
     exit 0
@@ -168,6 +198,9 @@ if (-not $cloudflared) {
 $npm = Get-Command 'npm.cmd' -ErrorAction SilentlyContinue
 if (-not $npm) { $npm = Get-Command 'npm' -ErrorAction SilentlyContinue }
 if (-not $npm) { throw 'Nie znaleziono npm w PATH.' }
+
+# Przed buildem - patrz .DESCRIPTION.
+$internalApiSecret = Resolve-InternalApiSecret
 
 # react-router-serve nie zwalnia portu, gdy ubijesz sam proces nadrzedny. Zajety
 # port 3000 to najczestsza przyczyna cichego falszu: tunel wstaje poprawnie, ale
@@ -229,12 +262,16 @@ if (-not (Test-Path $serverEntry)) {
 # NODE_ENV=production z tego samego powodu co przy buildzie: react-router-serve
 # ustawia go tylko przy pustej zmiennej, a loader wzornika zwraca 404 wylacznie
 # poza 'development'. Obie oslony wzornika czytaja ten sam sygnal.
+# Auth__InternalApiSecret z profilu trafia do serwera tylko przez srodowisko
+# potomka - app/lib/api.server.ts czyta go przy kazdym wywolaniu API.
 $prevPort = $env:PORT
 $prevHost = $env:HOST
 $prevNodeEnv = $env:NODE_ENV
+$prevInternalApiSecret = $env:Auth__InternalApiSecret
 $env:PORT = "$Port"
 $env:HOST = '127.0.0.1'
 $env:NODE_ENV = 'production'
+$env:Auth__InternalApiSecret = $internalApiSecret
 try {
     Write-Host "Uruchamiam serwer produkcyjny na 127.0.0.1:$Port..."
     $srvProc = Start-Process -FilePath $npm.Source `
@@ -247,6 +284,7 @@ try {
     $env:PORT = $prevPort
     $env:HOST = $prevHost
     $env:NODE_ENV = $prevNodeEnv
+    $env:Auth__InternalApiSecret = $prevInternalApiSecret
 }
 
 # Czekamy na HTTP 200, nie na sam nasluch portu - patrz .DESCRIPTION.

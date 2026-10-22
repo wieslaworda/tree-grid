@@ -1,7 +1,7 @@
 import {
-  API_BASE_URL,
   ROUTE_ERROR_CODES,
   apiError,
+  fetchApi,
   isApiErrorBody,
   readJson,
 } from "~/lib/api.server";
@@ -28,7 +28,11 @@ export async function loader() {
   let response: Response;
 
   try {
-    response = await fetch(`${API_BASE_URL}${HEALTH_PATH}`);
+    // Przez `fetchApi` jak każde wywołanie API, choć `GET /health` przechodzi
+    // bramkę wspólnego sekretu także bez nagłówka: jedna droga do API nie
+    // zostawia wyjątku, który trzeba by pamiętać. Query z adresu trasy nie
+    // jest przekazywane — `?fail=true` nie dochodzi do API tą drogą.
+    response = await fetchApi(HEALTH_PATH);
   } catch (cause) {
     // Zgaszone API to najczęstszy stan tej trasy przy dwóch procesach
     // uruchamianych osobno — ma być diagnozowalny, a nie wyglądać jak awaria

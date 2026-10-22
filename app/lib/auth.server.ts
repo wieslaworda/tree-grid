@@ -12,10 +12,11 @@
 import { createContext, redirect } from "react-router";
 
 import {
-  API_BASE_URL,
   type ApiFailure,
+  CALLER_UNAUTHENTICATED,
   ROUTE_ERROR_CODES,
   apiError,
+  fetchApi,
   isApiErrorBody,
   readJson,
 } from "~/lib/api.server";
@@ -208,8 +209,9 @@ export function requireSameOrigin(request: Request): void {
  * Do logu (`log.server.ts`) trafiają zgaszone API, 5xx i treść spoza
  * kontraktu — tak jak w `requestApi`. Każde 4xx, łącznie z 401, to tutaj
  * zwykły wynik (złe hasło, blokada konta, zły kod weryfikacyjny) i linii nie
- * zostawia. `payload` niesie login z hasłem albo login z kodem
- * weryfikacyjnym, więc do logu nie trafia nigdy.
+ * zostawia — poza 401 `caller_unauthenticated` z bramki wspólnego sekretu,
+ * które jest rozjazdem konfiguracji. `payload` niesie login z hasłem albo
+ * login z kodem weryfikacyjnym, więc do logu nie trafia nigdy.
  */
 export async function requestAccount(
   path: string,
@@ -266,7 +268,7 @@ async function postAuth(
   let response: Response;
 
   try {
-    response = await fetch(`${API_BASE_URL}${path}`, {
+    response = await fetchApi(path, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(payload),
@@ -299,7 +301,9 @@ async function postAuth(
       return invalidResponse(path, response.status, body);
     }
 
-    if (response.status >= 500) {
+    // 401 z bramki sekretu to nie złe hasło, tylko rozjazd konfiguracji Node
+    // i API — jedyne 4xx, które tutaj zostawia linię.
+    if (response.status >= 500 || body.error.code === CALLER_UNAUTHENTICATED) {
       logApiFailure({
         code: body.error.code,
         status: response.status,

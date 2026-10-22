@@ -108,6 +108,17 @@ public static class ApiErrorCodes
     public const string Unauthorized = "unauthorized";
 
     /// <summary>
+    /// Żądanie nie pochodzi od serwera React Routera (401): brak nagłówka
+    /// wspólnego sekretu Node→API albo wartość niezgodna z
+    /// <c>Auth:InternalApiSecret</c> (<c>Api.Auth.InternalCaller</c>). Odrębny
+    /// kod względem <see cref="Unauthorized"/> jest świadomy: tamten mówi
+    /// o koncie i bywa zwykłym wynikiem (złe hasło), ten — o wywołującym
+    /// i u poprawnie skonfigurowanego Node nie pojawia się nigdy, więc jest
+    /// sygnałem rozjazdu konfiguracji obu procesów. <c>context</c> jest pusty.
+    /// </summary>
+    public const string CallerUnauthenticated = "caller_unauthenticated";
+
+    /// <summary>
     /// Uwierzytelnione żądanie bez uprawnień do zasobu (403). Model dostępu
     /// jest dziś płaski i nic tego kodu nie zwraca, ale mapowanie statusów go
     /// zna, żeby 403 wygenerowane kiedykolwiek przez framework nie wypadło
@@ -191,8 +202,9 @@ public static class ApiErrorCodes
 
     /// <summary>
     /// Odmowa limitu tempa (429, <c>POST /auth/register</c>). Limit jest
-    /// globalny, nie per adres: za tunelem API widzi wyłącznie
-    /// <c>cloudflared</c>. Odmowę pisze limiter, a nie endpoint — żądanie do
+    /// globalny, nie per adres: za bramką wspólnego sekretu
+    /// (<c>Api.Auth.InternalCaller</c>) API widzi wyłącznie serwer React
+    /// Routera. Odmowę pisze limiter, a nie endpoint — żądanie do
     /// endpointu nie dochodzi — więc koperta powstaje w <c>OnRejected</c>
     /// w <c>Program.cs</c>. <c>context</c> jest pusty.
     /// </summary>

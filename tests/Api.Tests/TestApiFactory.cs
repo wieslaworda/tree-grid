@@ -56,6 +56,13 @@ namespace Api.Tests;
 /// samą kontrolę startu co produkcja. Z serwerem SMTP nic się nie łączy.
 /// Limit tempa kroku 1 jest podniesiony (<see cref="RegistrationPermitLimit"/>),
 /// bo licznik jest jeden na host, a testy klasy dzielą host.
+///
+/// Wspólny sekret Node→API też jest losowy i jedzie przez <c>UseSetting</c>,
+/// a <see cref="ConfigureClient"/> dokleja go nagłówkiem do każdego klienta
+/// z <c>CreateClient</c> — tak jak serwer React Routera do każdego wywołania.
+/// Dzięki temu testy sprzed bramki (<c>Api.Auth.InternalCaller</c>) biegną bez
+/// zmian; test, który sprawdza samą bramkę, zdejmuje albo podmienia nagłówek
+/// na swoim kliencie.
 /// </remarks>
 public class TestApiFactory : WebApplicationFactory<Program>
 {
@@ -70,6 +77,8 @@ public class TestApiFactory : WebApplicationFactory<Program>
     private const int BusyTimeoutMilliseconds = 5000;
 
     private readonly string _sessionSigningKey = RandomSecret(AuthSecrets.MinimumSessionSigningKeyLength * 2);
+
+    private readonly string _internalApiSecret = RandomSecret(AuthSecrets.MinimumInternalApiSecretLength * 2);
 
     /// <summary>
     /// Hasło SMTP tylko po to, żeby konfiguracja przeszła kontrolę startu —
@@ -194,6 +203,7 @@ public class TestApiFactory : WebApplicationFactory<Program>
         builder.UseEnvironment(EnvironmentName);
         builder.UseSetting("ConnectionStrings:Default", ConnectionString);
         builder.UseSetting(AuthSecrets.SessionSigningKeyKey, _sessionSigningKey);
+        builder.UseSetting(AuthSecrets.InternalApiSecretKey, _internalApiSecret);
         builder.UseSetting("FileLogging:Directory", LogDirectory);
 
         // Komplet `Smtp` dla kontroli startu — wartości techniczne, domena
@@ -219,6 +229,18 @@ public class TestApiFactory : WebApplicationFactory<Program>
             services.ConfigureDbContext<AppDbContext>(ConfigureAppDbContext);
             services.AddSingleton(provider => CreateMailSender(provider.GetRequiredService<MailSettings>()));
         });
+    }
+
+    /// <summary>
+    /// Każdy klient z <c>CreateClient</c> niesie wspólny sekret Node→API
+    /// nagłówkiem <see cref="InternalCaller.Header"/>. Sama wartość nie
+    /// opuszcza fabryki — test bramki potrzebuje jedynie jej braku albo
+    /// wartości innej.
+    /// </summary>
+    protected override void ConfigureClient(HttpClient client)
+    {
+        base.ConfigureClient(client);
+        client.DefaultRequestHeaders.Add(InternalCaller.Header, _internalApiSecret);
     }
 
     /// <summary>

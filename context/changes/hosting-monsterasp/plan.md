@@ -699,25 +699,25 @@ zmiany.
 
 #### Automated
 
-- [x] 1.1 Sonda .NET buduje się lokalnie: `dotnet build context/changes/hosting-monsterasp/sonda/api`
-- [x] 1.2 Sonda Node startuje lokalnie i odpowiada JSON-em: `node context/changes/hosting-monsterasp/sonda/node/server.js` z `PORT=3999`, potem `curl -s http://127.0.0.1:3999/`
+- [x] 1.1 Sonda .NET buduje się lokalnie: `dotnet build context/changes/hosting-monsterasp/sonda/api` — 66ad9dc
+- [x] 1.2 Sonda Node startuje lokalnie i odpowiada JSON-em: `node context/changes/hosting-monsterasp/sonda/node/server.js` z `PORT=3999`, potem `curl -s http://127.0.0.1:3999/` — 66ad9dc
 
 #### Manual
 
-- [x] 1.3 Konto Free założone, witryna utworzona, wysłane zgłoszenie o HTTPS dla `*.runasp.net`
-- [x] 1.4 Obie sondy wgrane, `/tg-api` skonfigurowane jako aplikacja w panelu, zmienna `TG_SONDA` ustawiona
-- [x] 1.5 Wszystkie bramki G1–G8 opisane w `research.md` z dowodem i werdyktem
-- [x] 1.6 Werdykt „go” potwierdzony przez użytkownika; przy „no-go” plan zatrzymany do ponownej decyzji
+- [x] 1.3 Konto Free założone, witryna utworzona, wysłane zgłoszenie o HTTPS dla `*.runasp.net` — 66ad9dc
+- [x] 1.4 Obie sondy wgrane, `/tg-api` skonfigurowane jako aplikacja w panelu, zmienna `TG_SONDA` ustawiona — 66ad9dc
+- [x] 1.5 Wszystkie bramki G1–G8 opisane w `research.md` z dowodem i werdyktem — 66ad9dc
+- [x] 1.6 Werdykt „go” potwierdzony przez użytkownika; przy „no-go” plan zatrzymany do ponownej decyzji — 66ad9dc
 
 ### Phase 2: Wspólny sekret Node→API (oba cele)
 
 #### Automated
 
-- [ ] 2.1 Testy .NET przechodzą: `dotnet test tests/Api.Tests`
-- [ ] 2.2 Nowe testy bramki przechodzą: `dotnet test tests/Api.Tests --filter "FullyQualifiedName~InternalCallerIntegrationTests"`
-- [ ] 2.3 Typy przechodzą: `npm run typecheck`
-- [ ] 2.4 Spec Node przechodzi: `npm run test:node`
-- [ ] 2.5 E2E przechodzą: `npx playwright test`
+- [x] 2.1 Testy .NET przechodzą: `dotnet test tests/Api.Tests`
+- [x] 2.2 Nowe testy bramki przechodzą: `dotnet test tests/Api.Tests --filter "FullyQualifiedName~InternalCallerIntegrationTests"`
+- [x] 2.3 Typy przechodzą: `npm run typecheck`
+- [x] 2.4 Spec Node przechodzi: `npm run test:node`
+- [x] 2.5 E2E przechodzą: `npx playwright test`
 
 #### Manual
 
