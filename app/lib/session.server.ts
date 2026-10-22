@@ -39,8 +39,18 @@ import {
  */
 const SIGNING_KEY_PATH = "/internal/session-signing-key";
 
-/** Nazwa ciasteczka sesji. */
-const SESSION_COOKIE_NAME = "__session";
+/**
+ * Nazwa ciasteczka sesji, ta sama w obu celach wdrożenia. Prefiks `__Host-`
+ * każe przeglądarce przyjąć ciasteczko wyłącznie z `Secure`, `Path=/` i bez
+ * `Domain` — i dzięki temu odrzucić ciasteczko o tej nazwie podrzucone przez
+ * sąsiednią witrynę z `Domain=runasp.net` (cookie tossing; `runasp.net` nie
+ * jest na Public Suffix List). Dotyczy to także naszej własnej witryny API.
+ * Atrybuty w `createStorage` spełniają wymagania prefiksu; zmiana
+ * któregokolwiek z nich sprawi, że przeglądarka po cichu nie zapisze sesji,
+ * a logowanie zapętli się na `/logowanie`. Zmiana nazwy wylogowuje raz
+ * wszystkich — sesja pod starą nazwą jest ignorowana.
+ */
+const SESSION_COOKIE_NAME = "__Host-tg-sesja";
 
 /**
  * Tożsamość zalogowanego dyspozytora — dokładnie tyle, ile zwraca API.
@@ -138,15 +148,22 @@ async function createStorage(): Promise<TreeGridSessionStorage> {
       // Edge Cloudflare terminuje TLS, więc przeglądarka zawsze widzi HTTPS
       // (`infrastructure.md:91`). Przeglądarki traktują `localhost` jako
       // kontekst bezpieczny, więc `Secure` nie przeszkadza w pracy lokalnej.
+      // Na MonsterASP witryna GUI odpowiada także po `http://`, a tam
+      // przeglądarka ciasteczko `Secure` odrzuca po cichu — HTTPS wymusza
+      // reguła przekierowania w `web.config` witryny GUI. `Secure` jest też
+      // warunkiem prefiksu `__Host-` w nazwie.
       secure: true,
       // `lax`, a nie `strict`: przejście z zewnętrznego linku na chroniony
       // adres ma zastać zalogowanego, a nie wyrzucić go na formularz.
       sameSite: "lax",
       path: "/",
       secrets: [secret],
-      // Brak `domain` jest świadomy: adres quick tunnelu zmienia się przy
-      // każdym restarcie i nie da się go przypiąć, więc ciasteczko z wpisaną
-      // domeną przestałoby działać po pierwszym ponownym uruchomieniu.
+      // Brak `domain` jest świadomy i nie wolno go dodać. Adres quick tunnelu
+      // zmienia się przy każdym restarcie, więc ciasteczko z wpisaną domeną
+      // przestałoby działać po pierwszym ponownym uruchomieniu. Przede
+      // wszystkim jednak prefiks `__Host-` zabrania atrybutu `Domain`:
+      // przeglądarka odrzuci takie ciasteczko w całości, a `Domain=runasp.net`
+      // i tak wysyłałby sesję każdej sąsiedniej witrynie hostingu.
       //
       // Brak `maxAge` i brak `expires` też jest świadomy — to jest zapis
       // cyklu życia „do zamknięcia przeglądarki". Ustawienie któregokolwiek

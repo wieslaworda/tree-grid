@@ -12,13 +12,45 @@
 import { describeShape, logApiFailure, requestIdOf } from "~/lib/log.server";
 
 /**
- * Adres API. Pętla zwrotna i port 5180 pochodzą z
+ * Zmienna środowiskowa z adresem bazowym API: schemat i host, bez ścieżki
+ * i bez końcowego `/`. Adres zależy od celu wdrożenia:
+ *
+ * - **lokalnie** (pętla deweloperska, tunel produkcyjny, E2E) zmiennej nie
+ *   ma i obowiązuje {@link DEFAULT_API_BASE_URL};
+ * - **na MonsterASP** API jest osobną witryną z publicznym hostname, a
+ *   wartość to `https://<HostApi>` z `web.config` witryny GUI. Zawsze
+ *   `https://`: po `http://` wspólny sekret Node→API szedłby otwartym tekstem.
+ *   Podścieżki `/tg-api` nie ma — ten wariant odpadł w sondzie.
+ *
+ * Adres nie jest sekretem, ale przeglądarka nadal nigdy nie woła API: ten
+ * moduł jest wycięty z bundla klienckiego, a każde wywołanie idzie przez
+ * {@link fetchApi} z sekretem, którego przeglądarka nie ma.
+ */
+const API_URL_ENV = "TREEGRID_API_URL";
+
+/**
+ * Adres API w celu lokalnym. Pętla zwrotna i port 5180 pochodzą z
  * `src/Api/appsettings.json` (`Kestrel:Endpoints:Http:Url`) — quick tunnel
  * przyjmuje dokładnie jeden origin, więc API nie jest i nie ma być widoczne
- * spoza tej maszyny. Nie jest eksportowany: jedynym konsumentem jest
- * {@link fetchApi}, żeby żadne wywołanie API nie ominęło nagłówka sekretu.
+ * spoza tej maszyny.
  */
-const API_BASE_URL = "http://127.0.0.1:5180";
+const DEFAULT_API_BASE_URL = "http://127.0.0.1:5180";
+
+/**
+ * Adres bazowy API dla bieżącego wywołania. Czytany przy każdym wywołaniu,
+ * jak sekret, a nie przy ładowaniu modułu — z tego samego powodu: moduł bywa
+ * importowany, zanim środowisko jest kompletne. Pusta wartość znaczy „brak".
+ * Końcowe `/` jest obcinane, żeby `https://host/` nie dało `//ścieżki`.
+ * Nie jest eksportowany: jedynym konsumentem jest {@link fetchApi}, żeby
+ * żadne wywołanie API nie ominęło nagłówka sekretu.
+ */
+function apiBaseUrl(): string {
+  const configured = process.env[API_URL_ENV]?.trim().replace(/\/+$/, "");
+
+  return configured !== undefined && configured.length > 0
+    ? configured
+    : DEFAULT_API_BASE_URL;
+}
 
 /**
  * Nagłówek wspólnego sekretu Node→API. Literał musi być identyczny
@@ -44,7 +76,7 @@ export const CALLER_UNAUTHENTICATED = "caller_unauthenticated";
 const INTERNAL_SECRET_ENV = "Auth__InternalApiSecret";
 
 /**
- * Jedyna droga `fetch` do API: buduje adres z {@link API_BASE_URL} i dokleja
+ * Jedyna droga `fetch` do API: buduje adres z {@link apiBaseUrl} i dokleja
  * nagłówek {@link INTERNAL_HEADER} z sekretem. Wołają ją wszystkie miejsca
  * rozmawiające z API (`requestApi`, `postAuth` w `auth.server.ts`, pobranie
  * klucza w `session.server.ts`, trasa `routes/api.health.ts`), więc nagłówka
@@ -75,7 +107,7 @@ export function fetchApi(path: string, init: RequestInit = {}): Promise<Response
     headers.set(INTERNAL_HEADER, secret);
   }
 
-  return fetch(`${API_BASE_URL}${path}`, { ...init, headers });
+  return fetch(`${apiBaseUrl()}${path}`, { ...init, headers });
 }
 
 /**

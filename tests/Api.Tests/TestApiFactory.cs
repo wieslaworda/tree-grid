@@ -91,6 +91,16 @@ public class TestApiFactory : WebApplicationFactory<Program>
     private string? _hostConnectionString;
 
     public TestApiFactory()
+        : this(migrateDatabase: true)
+    {
+    }
+
+    /// <summary>
+    /// Fabryka z wyborem stanu pliku bazy. <paramref name="migrateDatabase"/>
+    /// = <c>false</c> zostawia plik w trybie WAL, ale bez schematu — dla testów
+    /// ścieżek migracji przy starcie (<c>MigrateOnStartupIntegrationTests</c>).
+    /// </summary>
+    protected TestApiFactory(bool migrateDatabase)
     {
         var directory = Path.Combine(Path.GetTempPath(), "treegrid-tests");
         Directory.CreateDirectory(directory);
@@ -105,7 +115,7 @@ public class TestApiFactory : WebApplicationFactory<Program>
         // Gdy konstruktor rzuci, xUnit nie zwolni fixture — sprzątanie tutaj.
         try
         {
-            InitializeDatabaseFile();
+            InitializeDatabaseFile(migrateDatabase);
         }
         catch
         {
@@ -177,6 +187,17 @@ public class TestApiFactory : WebApplicationFactory<Program>
 
         return string.Empty;
     }
+
+    /// <summary>
+    /// Pliki kopii bazy sprzed migracji przy starcie
+    /// (<c>&lt;plik bazy&gt;.pre-*.bak</c>), leżące obok pliku tej instancji.
+    /// </summary>
+    public IReadOnlyList<string> FindBackupFiles()
+        => Directory.GetFiles(
+                Path.GetDirectoryName(DatabasePath)!,
+                Path.GetFileName(DatabasePath) + ".pre-*.bak")
+            .Order(StringComparer.Ordinal)
+            .ToList();
 
     /// <summary>
     /// Punkt rozszerzenia dla klas pochodnych: nadawca kodu weryfikacyjnego
@@ -308,9 +329,10 @@ public class TestApiFactory : WebApplicationFactory<Program>
 
     /// <summary>
     /// Plik w trybie WAL (jak <c>InitializeDatabaseFile</c> w <c>Program.cs</c>)
-    /// i ze schematem — host w <c>Testing</c> nie migruje sam.
+    /// i — gdy <paramref name="migrate"/> — ze schematem: host w <c>Testing</c>
+    /// bez flagi <c>Database:MigrateOnStartup</c> nie migruje sam.
     /// </summary>
-    private void InitializeDatabaseFile()
+    private void InitializeDatabaseFile(bool migrate)
     {
         using (var connection = new SqliteConnection(ConnectionString))
         {
@@ -319,6 +341,11 @@ public class TestApiFactory : WebApplicationFactory<Program>
             using var pragma = connection.CreateCommand();
             pragma.CommandText = "PRAGMA journal_mode=WAL;";
             pragma.ExecuteScalar();
+        }
+
+        if (!migrate)
+        {
+            return;
         }
 
         var options = new DbContextOptionsBuilder<AppDbContext>()
@@ -359,6 +386,13 @@ public class TestApiFactory : WebApplicationFactory<Program>
         foreach (var suffix in new[] { string.Empty, "-wal", "-shm" })
         {
             TryDeleteFile(DatabasePath + suffix);
+        }
+
+        // Kopie sprzed migracji przy starcie (`Database:MigrateOnStartup`)
+        // leżą obok pliku bazy.
+        foreach (var backup in FindBackupFiles())
+        {
+            TryDeleteFile(backup);
         }
 
         TryDeleteDirectory(LogDirectory);

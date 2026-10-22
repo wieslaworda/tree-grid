@@ -13,6 +13,7 @@ using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Diagnostics;
+using Microsoft.EntityFrameworkCore.Infrastructure;
 using Serilog;
 using Serilog.Core;
 
@@ -20,6 +21,11 @@ using Serilog.Core;
 // pozwala czytać w trakcie zapisu, ale dwa zapisy nadal się wykluczają i bez
 // tego limitu drugi z nich dostaje SQLITE_BUSY natychmiast, zamiast poczekać.
 const int busyTimeoutMilliseconds = 5000;
+
+// Flaga migracji przy starcie poza Development (trzecia ścieżka migracji, opis
+// przy jej użyciu niżej). Domyślnie `false`: bez niej start odmawia na
+// niezmigrowanej bazie.
+const string migrateOnStartupKey = "Database:MigrateOnStartup";
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -211,6 +217,15 @@ try
     // po cichu na niezmigrowanej bazie, bo to zamienia błąd konfiguracji w mylący
     // błąd 500 przy pierwszym żądaniu. O tym, która ścieżka obowiązuje, decyduje
     // ASPNETCORE_ENVIRONMENT ustawiany jawnie przez skrypt uruchomieniowy.
+    //
+    // Trzecia ścieżka jest dla hostingu bez powłoki (MonsterASP), gdzie nie ma
+    // jak uruchomić `dotnet ef database update`: poza Development z jawną flagą
+    // `Database:MigrateOnStartup` (w repo `true` wyłącznie
+    // w `appsettings.MonsterAsp.json`) start sam migruje bazę — ale najpierw
+    // robi jej spójną kopię obok pliku (`BackupDatabaseFile`), bo migracji na
+    // takim hoście nie da się cofnąć inaczej niż podmianą pliku przez FTP.
+    // Porażka kopii albo migracji kończy start odmową, tak jak brak flagi.
+    // W Development flaga nie ma znaczenia — tam migracja biegnie zawsze.
     using (var scope = app.Services.CreateScope())
     {
         var database = scope.ServiceProvider.GetRequiredService<AppDbContext>().Database;
@@ -223,7 +238,7 @@ try
         {
             var pending = database.GetPendingMigrations().ToList();
 
-            if (pending.Count > 0)
+            if (pending.Count > 0 && !app.Configuration.GetValue(migrateOnStartupKey, false))
             {
                 app.Logger.LogCritical(
                     "Baza danych nie jest zmigrowana — oczekujące migracje: {Pending}. " +
@@ -234,6 +249,54 @@ try
                 // Jak przy odmowie z braku sekretów — logger zwalniamy sami.
                 fileLogger.Dispose();
                 return 1;
+            }
+
+            if (pending.Count > 0)
+            {
+                // Nazwa kopii mówi, przed którą migracją powstała: przy kilku
+                // oczekujących jest to ostatnia z nich, czyli stan docelowy.
+                var backupPath = BackupPathFor(database, pending[^1]);
+
+                try
+                {
+                    BackupDatabaseFile(database, backupPath);
+                }
+                catch (Exception ex)
+                {
+                    app.Logger.LogCritical(
+                        ex,
+                        "Kopia bazy przed migracją do {Backup} nie powiodła się — migracje {Pending} " +
+                        "nie zostały zastosowane. Start przerwany. Jeśli plik kopii już istnieje " +
+                        "(np. po wcześniejszej nieudanej migracji), przenieś go albo usuń.",
+                        backupPath,
+                        string.Join(", ", pending));
+
+                    fileLogger.Dispose();
+                    return 1;
+                }
+
+                try
+                {
+                    database.Migrate();
+                }
+                catch (Exception ex)
+                {
+                    app.Logger.LogCritical(
+                        ex,
+                        "Migracja bazy przy starcie nie powiodła się — oczekujące migracje: {Pending}. " +
+                        "Start przerwany. Kopia sprzed migracji: {Backup}.",
+                        string.Join(", ", pending),
+                        backupPath);
+
+                    fileLogger.Dispose();
+                    return 1;
+                }
+
+                app.Logger.LogInformation(
+                    "Baza zmigrowana przy starcie ({MigrateOnStartupKey}): {Pending}. Kopia sprzed migracji: {Backup}.",
+                    migrateOnStartupKey,
+                    string.Join(", ", pending),
+                    backupPath);
             }
         }
     }
@@ -386,6 +449,46 @@ static string InitializeDatabaseFile(string connectionString, string contentRoot
     pragma.ExecuteScalar();
 
     return parsed.ConnectionString;
+}
+
+// Ścieżka kopii bazy sprzed migracji: obok pliku bazy, z nazwą ostatniej
+// oczekującej migracji (`treegrid.db.pre-<migracja>.bak`). Plik bazy jest tu
+// już bezwzględny — connection string zbudował `InitializeDatabaseFile`. Na
+// MonsterASP kopia ląduje więc w `tg-data`, poza `wwwroot` i poza HTTP.
+static string BackupPathFor(DatabaseFacade database, string lastPendingMigration)
+{
+    var databasePath = new SqliteConnectionStringBuilder(database.GetConnectionString()).DataSource;
+
+    return $"{databasePath}.pre-{lastPendingMigration}.bak";
+}
+
+// Spójna kopia pliku bazy przez `VACUUM INTO`, a nie kopiowanie pliku: przy WAL
+// część zatwierdzonych zmian leży jeszcze w `-wal`, więc sam plik `.db` nie jest
+// spójnym obrazem bazy, a `VACUUM INTO` czyta bazę jak każde zapytanie, razem
+// z WAL. Ścieżka idzie parametrem, nie sklejonym literałem SQL, więc apostrof
+// w nazwie katalogu niczego nie psuje. Połączenie otwiera EF, więc dostaje
+// `busy_timeout` z interceptora. SQLite odmawia zapisu do istniejącego,
+// niepustego pliku — istniejąca kopia nie zostanie nadpisana.
+static void BackupDatabaseFile(DatabaseFacade database, string backupPath)
+{
+    database.OpenConnection();
+
+    try
+    {
+        using var command = database.GetDbConnection().CreateCommand();
+        command.CommandText = "VACUUM INTO $path;";
+
+        var parameter = command.CreateParameter();
+        parameter.ParameterName = "$path";
+        parameter.Value = backupPath;
+        command.Parameters.Add(parameter);
+
+        command.ExecuteNonQuery();
+    }
+    finally
+    {
+        database.CloseConnection();
+    }
 }
 
 // Buduje logger plikowy błędów API: jeden plik na dobę `api-YYYYMMDD.log`,

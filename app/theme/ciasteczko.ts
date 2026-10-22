@@ -41,7 +41,7 @@ export const NAZWA_CIASTECZKA = "tg-motyw";
  * nazwa wyżej.
  *
  * `Max-Age` na rok jest świadomy i jest **przeciwieństwem** decyzji podjętej
- * przy ciasteczku sesji `__session` w `app/lib/`: tam brak `maxAge` i `expires`
+ * przy ciasteczku sesji `__Host-tg-sesja` w `app/lib/`: tam brak `maxAge` i `expires`
  * zapisuje cykl życia „do zamknięcia przeglądarki", bo poświadczenie ma
  * wygasać. Tutaj wygaszanie preferencji wyświetlania byłoby wyłącznie
  * dolegliwością. Nie ujednolicaj jednego z drugim — to nie jest niespójność,

@@ -15,10 +15,12 @@ const PORT = Number(process.env.E2E_PORT ?? 3000);
 // uznaje wyłącznie `localhost`.
 const baseURL = `http://localhost:${PORT}`;
 
-// API nie da się przenieść na inny port: adres jest stały w
-// `app/lib/api.server.ts` (`127.0.0.1:5180`). Dlatego wpis API ma
-// `reuseExistingServer: false` — działające API deweloperskie daje głośny błąd
-// zajętego portu, zamiast po cichu podpiąć testy pod bazę deweloperską.
+// API stoi na adresie domyślnym z `app/lib/api.server.ts` (`127.0.0.1:5180`,
+// port z `src/Api/appsettings.json`), a serwer aplikacji dostaje go jawnie
+// zmienną `TREEGRID_API_URL`, żeby wartość z profilu dewelopera nie skierowała
+// testów do innego API. Wpis API ma `reuseExistingServer: false` — działające
+// API deweloperskie daje głośny błąd zajętego portu, zamiast po cichu podpiąć
+// testy pod bazę deweloperską.
 const API_URL = "http://127.0.0.1:5180";
 
 // Świeża baza, pusta skrzynka i nowy klucz podpisu sesji na każde uruchomienie.
@@ -106,6 +108,7 @@ export default defineConfig({
         PORT: String(PORT),
         HOST: "127.0.0.1",
         NODE_ENV: "production",
+        TREEGRID_API_URL: API_URL,
         Auth__InternalApiSecret: process.env.E2E_INTERNAL_API_SECRET!,
       },
     },
