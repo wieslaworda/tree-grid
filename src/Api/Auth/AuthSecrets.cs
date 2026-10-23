@@ -104,6 +104,17 @@ internal sealed class AuthSecrets
 
         AddProblem(problems, InternalApiSecretKey, InternalApiSecret, MinimumInternalApiSecretLength);
 
+        // Sekret jedzie wartością nagłówka HTTP, więc dozwolone są wyłącznie
+        // widoczne znaki ASCII. Inaczej Node odrzuca nagłówek wyjątkiem, którego
+        // komunikat niesie całą wartość (znak nowej linii), albo przycina spacje
+        // na brzegach i każde wywołanie kończy się 401.
+        if (problems.Count == 0 && InternalApiSecret!.Any(c => c < '!' || c > '~'))
+        {
+            problems.Add(
+                $"Wartość konfiguracji '{InternalApiSecretKey}' zawiera znaki spoza widocznego ASCII " +
+                "(spacje, znaki nowej linii, litery narodowe).");
+        }
+
         return problems;
     }
 

@@ -197,14 +197,19 @@ function Assert-DatabaseCopyAllowed {
 function Copy-DatabaseSnapshot {
     param([string]$TargetDir)
     Assert-DatabaseCopyAllowed
-    New-Item -ItemType Directory -Path $TargetDir -Force | Out-Null
-    Get-ChildItem -LiteralPath $TargetDir -Filter 'treegrid.db*' -File -ErrorAction SilentlyContinue |
-        Remove-Item -Force
-    $target = Join-Path $TargetDir 'treegrid.db'
+
+    # Kopia nigdy nie trafia do katalogu, z ktorego czyta: kasowanie plikow
+    # celu (nizej) usuneloby wtedy zywa baze razem z WAL (np. -Wyjscie src\Api).
+    $sourceDir = [System.IO.Path]::GetFullPath((Split-Path -Parent $DatabasePath)).TrimEnd('\')
+    $targetFull = [System.IO.Path]::GetFullPath($TargetDir).TrimEnd('\')
+    if ($targetFull -ieq $sourceDir) {
+        throw "Katalog kopii '$targetFull' to katalog bazy zrodlowej. Wskaz inny -Wyjscie."
+    }
 
     # FileShare.None: otwarcie udaje sie tylko wtedy, gdy zaden inny proces nie
     # trzyma pliku (API na innym porcie, narzedzie SQLite), i nikt go nie
-    # otworzy, dopoki kopia trwa.
+    # otworzy, dopoki kopia trwa. Zrodlo jest otwierane, zanim cokolwiek w celu
+    # zostanie usuniete - porazka nie zostawia po sobie skasowanej kopii.
     try {
         $source = [System.IO.File]::Open($DatabasePath, 'Open', 'Read', 'None')
     } catch {
@@ -212,6 +217,14 @@ function Copy-DatabaseSnapshot {
                "Zamknij go i uruchom skrypt ponownie. Szczegoly: $($_.Exception.Message)")
     }
     try {
+        New-Item -ItemType Directory -Path $TargetDir -Force | Out-Null
+        # Tylko pliki poprzedniej kopii, nie wildcard: obok moga lezec pobrane
+        # z tg-data kopie *.pre-*.bak.
+        foreach ($suffix in '', '-wal', '-shm') {
+            $old = Join-Path $TargetDir "treegrid.db$suffix"
+            if (Test-Path -LiteralPath $old) { Remove-Item -LiteralPath $old -Force }
+        }
+        $target = Join-Path $TargetDir 'treegrid.db'
         $destination = [System.IO.File]::Open($target, 'Create', 'Write', 'None')
         try {
             $source.CopyTo($destination)

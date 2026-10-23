@@ -211,7 +211,10 @@ adres API z `TREEGRID_API_URL`, a bez niej używa `http://127.0.0.1:5180`.
   Trzeci przypadek to `Database:MigrateOnStartup` = `true` (w repo wyłącznie
   w `appsettings.MonsterAsp.json`). Wtedy API najpierw robi kopię
   `treegrid.db.pre-<migracja>.bak` (`VACUUM INTO`), a potem migruje. Porażka
-  któregoś z tych kroków zatrzymuje start.
+  któregoś z tych kroków zatrzymuje start. Poza Development brak pliku bazy
+  też zatrzymuje start, zanim API cokolwiek utworzy. Inaczej API wstałoby po
+  cichu na pustej bazie, bez kont i bez wzorca ekranu. Świadomie pustą
+  instalację włącza się raz ustawieniem `Database:AllowCreate=true`.
   Brak sekretu `Auth:SessionSigningKey` albo niekompletna sekcja `Mail`
   (transport `Smtp` z hasłem) poza Development też zatrzymuje start. W Development
   sekrety ustawia się przez `dotnet user-secrets --project src/Api`

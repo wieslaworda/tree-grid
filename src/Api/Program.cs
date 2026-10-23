@@ -27,6 +27,10 @@ const int busyTimeoutMilliseconds = 5000;
 // niezmigrowanej bazie.
 const string migrateOnStartupKey = "Database:MigrateOnStartup";
 
+// Zgoda na założenie nowego pliku bazy poza Development (opis przy
+// `InitializeDatabaseFile`). Domyślnie `false`: brak pliku odmawia startu.
+const string allowCreateDatabaseKey = "Database:AllowCreate";
+
 var builder = WebApplication.CreateBuilder(args);
 
 // Błędy API trafiają dodatkowo do pliku w katalogu z `FileLogging:Directory`
@@ -52,11 +56,17 @@ try
     // Learn more about configuring OpenAPI at https://aka.ms/aspnet/openapi
     builder.Services.AddOpenApi();
 
+    // Poza Development brak pliku bazy jest błędem wdrożenia (np. kopia wgrana
+    // obok `tg-data\treegrid.db`), a nie sygnałem do założenia pustej bazy —
+    // z `Database:MigrateOnStartup` taka baza wstałaby po cichu, bez kont
+    // i bez wzorca ekranu.
     var connectionString = InitializeDatabaseFile(
         builder.Configuration.GetConnectionString("Default")
             ?? throw new InvalidOperationException(
                 "Brak connection stringu 'ConnectionStrings:Default' w konfiguracji."),
-        builder.Environment.ContentRootPath);
+        builder.Environment.ContentRootPath,
+        allowCreate: builder.Environment.IsDevelopment()
+            || builder.Configuration.GetValue(allowCreateDatabaseKey, false));
 
     builder.Services.AddDbContext<AppDbContext>(options => options
         .UseSqlite(connectionString)
@@ -430,13 +440,27 @@ catch (Exception ex) when (ex is not HostAbortedException)
 // `PRAGMA journal_mode=WAL` zapisuje się w nagłówku pliku bazy i obowiązuje
 // każde kolejne połączenie, więc wystarczy raz przy inicjalizacji. Bez WAL
 // równoległy odczyt gridu i zapis ekranu dają SQLITE_BUSY (infrastructure.md:219).
-static string InitializeDatabaseFile(string connectionString, string contentRootPath)
+//
+// Bez `allowCreate` brak pliku kończy start wyjątkiem, zanim cokolwiek go
+// utworzy. Kontrola musi stać tutaj, a nie po `Build()`: otwarcie połączenia
+// zakłada plik, więc odmowa po nim zostawiłaby pusty plik, na którym kolejny
+// start (np. automatyczny restart IIS) wstałby już bez przeszkód. Wyjątek
+// zapisuje `catch` startu jako Fatal w pliku logu.
+static string InitializeDatabaseFile(string connectionString, string contentRootPath, bool allowCreate)
 {
     var parsed = new SqliteConnectionStringBuilder(connectionString);
 
     if (!Path.IsPathRooted(parsed.DataSource))
     {
         parsed.DataSource = Path.GetFullPath(Path.Combine(contentRootPath, parsed.DataSource));
+    }
+
+    if (!allowCreate && !File.Exists(parsed.DataSource))
+    {
+        throw new InvalidOperationException(
+            $"Plik bazy '{parsed.DataSource}' nie istnieje. Poza Development API nie zakłada nowej bazy " +
+            "samo. Wgraj plik bazy we właściwe miejsce (na MonsterASP: tg-data\\treegrid.db) albo — " +
+            "świadomie, dla pustej instalacji — uruchom raz z Database:AllowCreate=true.");
     }
 
     Directory.CreateDirectory(Path.GetDirectoryName(parsed.DataSource)!);

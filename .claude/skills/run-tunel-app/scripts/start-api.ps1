@@ -187,7 +187,8 @@ function Resolve-InternalApiSecret {
     if ([string]::IsNullOrEmpty($value)) {
         $value = [Environment]::GetEnvironmentVariable('Auth__InternalApiSecret', 'User')
     }
-    if ([string]::IsNullOrEmpty($value) -or $value.Length -lt 32) {
+    # Wartosc naglowka HTTP: tylko widoczne ASCII (ta sama regula co AuthSecrets).
+    if ([string]::IsNullOrEmpty($value) -or $value.Length -lt 32 -or $value -cnotmatch '^[\x21-\x7E]+$') {
         return $null
     }
     return $value
@@ -196,7 +197,8 @@ function Resolve-InternalApiSecret {
 function Get-InternalApiSecretHint {
     # Pojedyncze cudzyslowy: '$b' ma trafic do komunikatu doslownie.
     return @'
-Brak zmiennej Auth__InternalApiSecret (wspolny sekret Node->API) albo jest krotsza niz 32 znaki.
+Brak zmiennej Auth__InternalApiSecret (wspolny sekret Node->API), jest krotsza niz 32 znaki
+albo zawiera znaki spoza widocznego ASCII.
 Ustaw ja raz w profilu uzytkownika, wpisujac wartosc samodzielnie:
   [Environment]::SetEnvironmentVariable('Auth__InternalApiSecret', '<wartosc>', 'User')
 albo wygeneruj losowa wartosc bez wypisywania jej na ekran:

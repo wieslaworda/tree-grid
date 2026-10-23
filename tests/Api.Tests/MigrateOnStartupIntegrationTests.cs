@@ -34,6 +34,12 @@ public class MigrateOnStartupIntegrationTests
     /// <summary>Fragment komunikatu odmowy startu na niezmigrowanej bazie.</summary>
     private const string RefusalMessage = "Baza danych nie jest zmigrowana";
 
+    /// <summary>Klucz zgody na nowy plik bazy — literałem, jak flaga migracji.</summary>
+    private const string AllowCreateKey = "Database:AllowCreate";
+
+    /// <summary>Fragment komunikatu odmowy startu bez pliku bazy.</summary>
+    private const string MissingDatabaseMessage = "Poza Development API nie zakłada nowej bazy samo";
+
     [Fact]
     public async Task Empty_database_with_the_flag_is_backed_up_and_migrated_and_the_api_starts()
     {
@@ -84,6 +90,34 @@ public class MigrateOnStartupIntegrationTests
 
         Assert.True(HasStarted(factory), "Host z flagą nie wystartował na aktualnej bazie.");
         Assert.Empty(factory.FindBackupFiles());
+
+        using var client = factory.CreateClient();
+        Assert.Equal(HttpStatusCode.OK, (await client.GetAsync("/health")).StatusCode);
+    }
+
+    [Fact]
+    public async Task Missing_database_file_refuses_to_start_and_is_not_created()
+    {
+        await using var factory = new StartupApiFactory(
+            migrateDatabase: false, migrateOnStartup: "true", deleteDatabaseFile: true);
+
+        // Odmowa jest wyjątkiem startu sprzed `Build()`, więc fabryka go przekazuje.
+        var exception = Record.Exception(() => factory.Services);
+
+        Assert.NotNull(exception);
+        Assert.Contains(MissingDatabaseMessage, exception.ToString());
+        Assert.False(File.Exists(factory.DatabasePath), "Start bez zgody założył plik bazy.");
+        Assert.Contains(MissingDatabaseMessage, ReadLog(factory));
+    }
+
+    [Fact]
+    public async Task Missing_database_file_with_allow_create_is_created_and_the_api_starts()
+    {
+        await using var factory = new StartupApiFactory(
+            migrateDatabase: false, migrateOnStartup: "true", deleteDatabaseFile: true, allowCreate: "true");
+
+        Assert.True(HasStarted(factory), "Host ze zgodą na utworzenie bazy nie wystartował.");
+        Assert.True(File.Exists(factory.DatabasePath), "Plik bazy nie powstał.");
 
         using var client = factory.CreateClient();
         Assert.Equal(HttpStatusCode.OK, (await client.GetAsync("/health")).StatusCode);
@@ -152,18 +186,53 @@ public class MigrateOnStartupIntegrationTests
     /// <summary>
     /// Host na pliku bazy bez schematu albo ze schematem i z flagą migracji
     /// przy starcie ustawioną na podaną wartość (<c>null</c> — klucza brak,
-    /// obowiązuje domyślne <c>false</c>).
+    /// obowiązuje domyślne <c>false</c>). <paramref name="deleteDatabaseFile"/>
+    /// usuwa plik założony przez fabrykę, a <paramref name="allowCreate"/>
+    /// ustawia zgodę na jego ponowne utworzenie przez start.
     /// </summary>
-    private sealed class StartupApiFactory(bool migrateDatabase, string? migrateOnStartup)
-        : TestApiFactory(migrateDatabase)
+    private sealed class StartupApiFactory : TestApiFactory
     {
+        private readonly string? _migrateOnStartup;
+
+        private readonly string? _allowCreate;
+
+        public StartupApiFactory(
+            bool migrateDatabase,
+            string? migrateOnStartup,
+            bool deleteDatabaseFile = false,
+            string? allowCreate = null)
+            : base(migrateDatabase)
+        {
+            _migrateOnStartup = migrateOnStartup;
+            _allowCreate = allowCreate;
+
+            if (deleteDatabaseFile)
+            {
+                // Pula trzyma na Windows uchwyt do pliku po inicjalizacji fabryki.
+                using (var connection = new SqliteConnection(ConnectionString))
+                {
+                    SqliteConnection.ClearPool(connection);
+                }
+
+                foreach (var suffix in new[] { "", "-wal", "-shm" })
+                {
+                    File.Delete(DatabasePath + suffix);
+                }
+            }
+        }
+
         protected override void ConfigureWebHost(IWebHostBuilder builder)
         {
             base.ConfigureWebHost(builder);
 
-            if (migrateOnStartup is not null)
+            if (_migrateOnStartup is not null)
             {
-                builder.UseSetting(MigrateOnStartupKey, migrateOnStartup);
+                builder.UseSetting(MigrateOnStartupKey, _migrateOnStartup);
+            }
+
+            if (_allowCreate is not null)
+            {
+                builder.UseSetting(AllowCreateKey, _allowCreate);
             }
         }
     }

@@ -43,13 +43,30 @@ const DEFAULT_API_BASE_URL = "http://127.0.0.1:5180";
  * Końcowe `/` jest obcinane, żeby `https://host/` nie dało `//ścieżki`.
  * Nie jest eksportowany: jedynym konsumentem jest {@link fetchApi}, żeby
  * żadne wywołanie API nie ominęło nagłówka sekretu.
+ *
+ * Wymóg `https://` jest tu egzekwowany, a nie tylko opisany: adres spoza
+ * pętli zwrotnej po `http://` rzuca, zanim sekret wyjdzie otwartym tekstem
+ * (lekcja „Wiarygodność nagłówków Node→API…”). Wyjątek łapie wywołujący
+ * i zapisuje go jak każdą porażkę wywołania — komunikat niesie adres, nigdy
+ * sekret.
  */
 function apiBaseUrl(): string {
   const configured = process.env[API_URL_ENV]?.trim().replace(/\/+$/, "");
 
-  return configured !== undefined && configured.length > 0
-    ? configured
-    : DEFAULT_API_BASE_URL;
+  if (configured === undefined || configured.length === 0) {
+    return DEFAULT_API_BASE_URL;
+  }
+
+  const { protocol, hostname } = new URL(configured);
+  const loopback = hostname === "127.0.0.1" || hostname === "localhost";
+
+  if (protocol !== "https:" && !(protocol === "http:" && loopback)) {
+    throw new Error(
+      `${API_URL_ENV}=${configured}: adres API spoza pętli zwrotnej musi używać https://.`,
+    );
+  }
+
+  return configured;
 }
 
 /**
@@ -98,16 +115,30 @@ const INTERNAL_SECRET_ENV = "Auth__InternalApiSecret";
  * żaden z nich go nie nadpisze. Nigdy nie przekazuj tu nagłówków z żądania
  * przeglądarki — trasa, która by to zrobiła, doklejałaby sekret do cudzych
  * nagłówków i znosiła bramkę API od środka.
+ *
+ * `redirect: "error"`: API nigdy nie przekierowuje, a `fetch` przy
+ * przekierowaniu na inny origin zdejmuje tylko nagłówki uwierzytelnienia
+ * i ciasteczka — {@link INTERNAL_HEADER} pojechałby dalej, pod adres, który
+ * wskazał ktoś inny.
  */
 export function fetchApi(path: string, init: RequestInit = {}): Promise<Response> {
   const headers = new Headers(init.headers);
   const secret = process.env[INTERNAL_SECRET_ENV];
 
   if (secret !== undefined && secret.length > 0) {
-    headers.set(INTERNAL_HEADER, secret);
+    // Komunikat błędu `Headers.set` niesie całą odrzuconą wartość, a wywołujący
+    // zapisuje przyczynę porażki do logu — stąd własny błąd, bez wartości
+    // i bez `cause`. API przy takim sekrecie odmawia startu (`AuthSecrets`).
+    try {
+      headers.set(INTERNAL_HEADER, secret);
+    } catch {
+      throw new Error(
+        `Wartość ${INTERNAL_SECRET_ENV} nie jest poprawną wartością nagłówka HTTP (dozwolone wyłącznie widoczne znaki ASCII).`,
+      );
+    }
   }
 
-  return fetch(`${apiBaseUrl()}${path}`, { ...init, headers });
+  return fetch(`${apiBaseUrl()}${path}`, { ...init, headers, redirect: "error" });
 }
 
 /**

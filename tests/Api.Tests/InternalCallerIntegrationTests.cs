@@ -232,6 +232,21 @@ public class InternalCallerIntegrationTests(
         Assert.Null(secrets.FindInternalApiSecret());
     }
 
+    [Theory]
+    [InlineData(" ssssssssssssssssssssssssssssssss")]
+    [InlineData("ssssssssssssssss\nssssssssssssssss")]
+    [InlineData("ssssssssssssssssąssssssssssssssss")]
+    public void Internal_secret_with_characters_outside_visible_ascii_is_a_start_problem_without_its_value(string value)
+    {
+        var secrets = Secrets(internalApiSecret: value);
+
+        var problems = secrets.FindProblems();
+
+        Assert.Contains(problems, problem => problem.Contains("zawiera znaki spoza widocznego ASCII"));
+        Assert.All(problems, problem => Assert.DoesNotContain(value, problem));
+        Assert.Null(secrets.FindInternalApiSecret());
+    }
+
     [Fact]
     public void Internal_secret_of_32_characters_is_not_a_problem()
     {

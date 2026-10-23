@@ -1,7 +1,7 @@
 ---
 change_id: hosting-monsterasp
 title: Hosting całej aplikacji (backend + frontend) na MonsterASP
-status: implemented
+status: impl_reviewed
 created: 2026-10-21
 updated: 2026-10-23
 archived_at: null

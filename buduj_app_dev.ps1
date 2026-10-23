@@ -235,6 +235,11 @@ function Resolve-InternalApiSecret {
     if ($value.Length -lt 32) {
         throw ("Zmienna Auth__InternalApiSecret jest krotsza niz 32 znaki.`n" + (Get-InternalApiSecretHint))
     }
+    # Wartosc naglowka HTTP: tylko widoczne ASCII (ta sama regula co AuthSecrets).
+    if ($value -cnotmatch '^[\x21-\x7E]+$') {
+        throw ("Zmienna Auth__InternalApiSecret zawiera znaki spoza widocznego ASCII (spacje, nowe linie, litery narodowe).`n" +
+               (Get-InternalApiSecretHint))
+    }
     return $value
 }
 
