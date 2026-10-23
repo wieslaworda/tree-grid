@@ -1,0 +1,1 @@
+.\publikuj.ps1 -Cel MonsterAsp -HostGui tgmvp.runasp.net -HostApi tgapimvc.runasp.net -KopiaBazy
