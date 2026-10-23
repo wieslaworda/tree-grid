@@ -1,4 +1,5 @@
 using System.Globalization;
+using System.Security.Cryptography;
 using Api.Data;
 using Api.Errors;
 using Api.Mail;
@@ -45,6 +46,14 @@ internal static class AuthEndpoints
     internal const string RegistrationRateLimitPolicy = "registration";
 
     /// <summary>
+    /// Nazwa polityki limitu tempa <c>POST /auth/login</c>. Blokada konta
+    /// ogranicza zgadywanie hasła jednego konta, ale nie zgadywanie po wielu
+    /// loginach ani wyliczanie loginów z czasu odpowiedzi — to ogranicza
+    /// dopiero ten limit (impl-review konto-i-logowanie, F2).
+    /// </summary>
+    internal const string LoginRateLimitPolicy = "login";
+
+    /// <summary>
     /// Ścieżka endpointu wydającego klucz podpisu sesji. Prefiks <c>/internal/</c>
     /// mówi wprost, do czego służy — ale to nie on jest zabezpieczeniem.
     /// </summary>
@@ -57,7 +66,8 @@ internal static class AuthEndpoints
         app.MapPost("/auth/register", RegisterAsync)
             .RequireRateLimiting(RegistrationRateLimitPolicy);
         app.MapPost("/auth/register/confirm", ConfirmRegistrationAsync);
-        app.MapPost("/auth/login", LoginAsync);
+        app.MapPost("/auth/login", LoginAsync)
+            .RequireRateLimiting(LoginRateLimitPolicy);
         app.MapGet(SessionSigningKeyPath, GetSessionSigningKey);
 
         return app;
@@ -370,13 +380,22 @@ internal static class AuthEndpoints
     /// licznika), a na końcu — zależnie od wyniku — <c>AccessFailedAsync</c>
     /// albo <c>ResetAccessFailedCountAsync</c>.
     ///
+    /// Licznik i blokada są czytane i zapisywane w transakcji — patrz komentarz
+    /// klasy. Bez niej równoległe złe hasła czytają ten sam licznik, a konflikt
+    /// <c>ConcurrencyStamp</c> kasuje po cichu wszystkie zapisy poza jednym,
+    /// więc blokada nie zapada nigdy. Weryfikacja hasła stoi przed transakcją:
+    /// PBKDF2 trwa dziesiątki milisekund, a w transakcji trzymałby blokadę
+    /// zapisu całej bazy i szeregował wszystkie logowania.
+    ///
     /// Identyfikatorem logowania jest login (<c>UserName</c>). Konta sprzed
     /// S-14 mają login równy adresowi e-mail, więc logują się adresem wpisanym
     /// w pole loginu.
     /// </remarks>
     private static async Task<IResult> LoginAsync(
         LoginRequest? request,
-        UserManager<AppUser> userManager)
+        UserManager<AppUser> userManager,
+        AppDbContext db,
+        CancellationToken cancellationToken)
     {
         var login = request?.Login?.Trim() ?? string.Empty;
         var password = request?.Password ?? string.Empty;
@@ -403,13 +422,29 @@ internal static class AuthEndpoints
         if (user is null)
         {
             // Ta sama odpowiedź, co przy złym haśle — patrz
-            // AuthResponses.DescribeLoginFailure. Różnica w czasie odpowiedzi
-            // pozostaje możliwym kanałem obserwacji (tutaj nie liczy się żaden
-            // hasz); zamyka ją dopiero ograniczenie tempa prób logowania,
-            // którego API nie ma — limit tempa obejmuje wyłącznie krok 1
-            // rejestracji.
+            // AuthResponses.DescribeLoginFailure. Hasz-atrapa wyrównuje też
+            // czas odpowiedzi: bez niego nieistniejący login wracałby bez
+            // PBKDF2, czyli wyraźnie szybciej niż istniejący.
+            VerifyDummyPassword(userManager, password);
+
             return LoginFailureResult(LoginOutcome.UserNotFound, lockoutEnd: null);
         }
+
+        // Szybka odmowa bez liczenia hasza. Wiążący odczyt blokady jest niżej,
+        // w transakcji.
+        if (await userManager.IsLockedOutAsync(user))
+        {
+            return LoginFailureResult(
+                LoginOutcome.LockedOut,
+                await userManager.GetLockoutEndDateAsync(user));
+        }
+
+        var passwordMatches = await userManager.CheckPasswordAsync(user, password);
+
+        await using var transaction = await db.Database.BeginTransactionAsync(cancellationToken);
+
+        // Licznik i termin blokady mogły się zmienić od pierwszego odczytu.
+        await db.Entry(user).ReloadAsync(cancellationToken);
 
         if (await userManager.IsLockedOutAsync(user))
         {
@@ -418,9 +453,10 @@ internal static class AuthEndpoints
                 await userManager.GetLockoutEndDateAsync(user));
         }
 
-        if (!await userManager.CheckPasswordAsync(user, password))
+        if (!passwordMatches)
         {
-            await userManager.AccessFailedAsync(user);
+            EnsureLockoutStateSaved(await userManager.AccessFailedAsync(user));
+            await transaction.CommitAsync(cancellationToken);
 
             // Próba, która właśnie przekroczyła próg, od razu mówi o blokadzie.
             // Odłożenie tego do następnego podejścia kazałoby użytkownikowi
@@ -436,9 +472,43 @@ internal static class AuthEndpoints
         // Bez wyzerowania licznik nigdy nie wraca do zera: kolejne pojedyncze
         // pomyłki, rozłożone choćby na tygodnie, zsumują się do progu i konto
         // zablokuje się samo z siebie, bez żadnego ataku.
-        await userManager.ResetAccessFailedCountAsync(user);
+        EnsureLockoutStateSaved(await userManager.ResetAccessFailedCountAsync(user));
+        await transaction.CommitAsync(cancellationToken);
 
         return Results.Ok(AccountResponse(user));
+    }
+
+    /// <summary>
+    /// Hasz hasła-atrapy, liczony raz na proces tym samym hasherem co hasła
+    /// kont, więc jego weryfikacja kosztuje tyle samo co weryfikacja
+    /// prawdziwego hasła. Wyścig przy pierwszym przypisaniu jest nieszkodliwy:
+    /// oba wątki policzą równoważny hasz.
+    /// </summary>
+    private static string? _dummyPasswordHash;
+
+    private static void VerifyDummyPassword(UserManager<AppUser> userManager, string password)
+    {
+        var dummyUser = new AppUser();
+        var hash = _dummyPasswordHash ??= userManager.PasswordHasher.HashPassword(
+            dummyUser,
+            Convert.ToBase64String(RandomNumberGenerator.GetBytes(32)));
+
+        userManager.PasswordHasher.VerifyHashedPassword(dummyUser, hash, password);
+    }
+
+    /// <summary>
+    /// <c>UserManager</c> zgłasza porażkę zapisu wynikiem, a nie wyjątkiem.
+    /// Zignorowana porażka to próba, która nie trafiła do licznika, więc kończy
+    /// żądanie odmową 500 z wpisem w logu.
+    /// </summary>
+    private static void EnsureLockoutStateSaved(IdentityResult result)
+    {
+        if (!result.Succeeded)
+        {
+            throw new InvalidOperationException(
+                "Nie zapisano licznika nieudanych prób logowania: " +
+                string.Join(", ", result.Errors.Select(error => error.Code)));
+        }
     }
 
     /// <summary>
@@ -636,6 +706,9 @@ internal static class AuthResponses
     internal const string RateLimitedMessage =
         "Zbyt wiele prób rejestracji w krótkim czasie. Spróbuj ponownie później.";
 
+    internal const string LoginRateLimitedMessage =
+        "Zbyt wiele prób logowania w krótkim czasie. Spróbuj ponownie za chwilę.";
+
     internal const string MailUnavailableMessage =
         "Nie udało się wysłać kodu weryfikacyjnego. Spróbuj ponownie później.";
 
@@ -679,6 +752,10 @@ internal static class AuthResponses
     /// </summary>
     public static ApiError RateLimited()
         => ApiError.Create(ApiErrorCodes.RateLimited, RateLimitedMessage);
+
+    /// <summary>Koperta odmowy limitu tempa logowania (429), z tego samego <c>OnRejected</c>.</summary>
+    public static ApiError LoginRateLimited()
+        => ApiError.Create(ApiErrorCodes.RateLimited, LoginRateLimitedMessage);
 
     /// <summary>Koperta porażki wysyłki kodu (503). <c>context</c> jest pusty — przyczyna zostaje w logu.</summary>
     public static ApiError MailUnavailable()

@@ -138,6 +138,12 @@ try
     // podnoszą limit tym samym kluczem.
     var registrationRateLimit = builder.Configuration.GetSection("Auth:RegistrationRateLimit");
 
+    // Limit logowania ma ten sam kształt i z tego samego powodu jest jeden na
+    // proces. Ceną jest to, że zalew prób blokuje logowanie wszystkim do końca
+    // okna — przyjęta w impl-review konto-i-logowanie (F2) w zamian za górną
+    // granicę zgadywania haseł po wielu loginach i wyliczania loginów.
+    var loginRateLimit = builder.Configuration.GetSection("Auth:LoginRateLimit");
+
     builder.Services.AddRateLimiter(options =>
     {
         options.AddFixedWindowLimiter(AuthEndpoints.RegistrationRateLimitPolicy, limiter =>
@@ -149,6 +155,13 @@ try
             limiter.QueueLimit = 0;
         });
 
+        options.AddFixedWindowLimiter(AuthEndpoints.LoginRateLimitPolicy, limiter =>
+        {
+            limiter.PermitLimit = loginRateLimit.GetValue("PermitLimit", 20);
+            limiter.Window = TimeSpan.FromMinutes(loginRateLimit.GetValue("WindowMinutes", 1));
+            limiter.QueueLimit = 0;
+        });
+
         // Odmowa nie przechodzi przez żaden endpoint ani przez obsługę statusów
         // z `UseApiErrorContract` (treść jest już zapisana), więc kopertę
         // w kontrakcie błędów trzeba napisać tutaj.
@@ -156,8 +169,13 @@ try
         {
             context.HttpContext.Response.StatusCode = StatusCodes.Status429TooManyRequests;
 
+            var policy = context.HttpContext.GetEndpoint()?.Metadata
+                .GetMetadata<EnableRateLimitingAttribute>()?.PolicyName;
+
             return new ValueTask(context.HttpContext.Response.WriteAsJsonAsync(
-                AuthResponses.RateLimited(),
+                policy == AuthEndpoints.LoginRateLimitPolicy
+                    ? AuthResponses.LoginRateLimited()
+                    : AuthResponses.RateLimited(),
                 cancellationToken));
         };
     });
@@ -331,7 +349,7 @@ try
 
     // Po kontrakcie błędów, żeby wyjątek w limiterze też skończył się kopertą.
     // Polityka działa wyłącznie tam, gdzie endpoint ją przypina
-    // (`RequireRateLimiting` przy `POST /auth/register`).
+    // (`RequireRateLimiting` przy `POST /auth/register` i `POST /auth/login`).
     app.UseRateLimiter();
 
     if (app.Environment.IsDevelopment())

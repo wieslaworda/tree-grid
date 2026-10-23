@@ -1,9 +1,9 @@
 ---
 change_id: konto-i-logowanie
 title: Konto i logowanie — rejestracja, sesja i brama na widokach
-status: implementing
+status: impl_reviewed
 created: 2026-09-22
-updated: 2026-09-22
+updated: 2026-10-23
 archived_at: null
 ---
 

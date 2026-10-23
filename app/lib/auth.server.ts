@@ -69,10 +69,21 @@ export type AccountResult = { ok: true; user: SessionUser } | ApiFailure;
 export type RegistrationResult = { ok: true; login: string } | ApiFailure;
 
 /**
+ * Maksymalny wiek sesji: jedna zmiana dyspozytora. Ciasteczko nie ma `maxAge`
+ * ani `expires` (znika z przeglądarką), ale samo podpisane ciasteczko byłoby
+ * ważne do rotacji klucza — także przechwycone albo przywrócone przez
+ * przeglądarkę razem z kartami. Ten limit jest jedynym terminem ważności,
+ * którego pilnuje serwer (impl-review konto-i-logowanie, F3).
+ */
+export const SESSION_MAX_AGE_MS = 12 * 60 * 60 * 1000;
+
+/**
  * Zwraca zalogowanego użytkownika albo `null`.
  *
  * Sesji, której nie da się odczytać — bo podpis się nie zgadza, bo treść ma
- * inny kształt albo bo klucza podpisu chwilowo nie ma — traktuje jak jej brak.
+ * inny kształt, bo jest starsza niż {@link SESSION_MAX_AGE_MS} albo bo klucza
+ * podpisu chwilowo nie ma — traktuje jak jej brak. Sesja sprzed znacznika
+ * `issuedAt` wyloguje użytkownika raz.
  * To jest zachowanie bezpieczne: żaden z tych przypadków nie może wpuścić
  * dalej, a wszystkie mają tę samą, jedyną sensowną odpowiedź — pokaż formularz
  * logowania.
@@ -86,8 +97,13 @@ export async function getUser(request: Request): Promise<SessionUser | null> {
 
   const session = await storage.getSession(request.headers.get("Cookie"));
   const user = session.get("user");
+  const issuedAt = session.get("issuedAt");
 
-  return isSessionUser(user) ? user : null;
+  return isSessionUser(user) &&
+    typeof issuedAt === "number" &&
+    Date.now() - issuedAt < SESSION_MAX_AGE_MS
+    ? user
+    : null;
 }
 
 /**
@@ -141,6 +157,7 @@ export async function createUserSession(
   const session = await storage.getSession();
 
   session.set("user", user);
+  session.set("issuedAt", Date.now());
 
   return redirect(redirectTo, {
     headers: { "Set-Cookie": await storage.commitSession(session) },

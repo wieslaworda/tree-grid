@@ -66,11 +66,13 @@ export type SessionUser = {
 };
 
 /**
- * Zawartość sesji. Jeden klucz, bo model dostępu jest płaski (PRD, sekcja
- * `Access Control`) — nie ma ról ani uprawnień, które byłoby co tu trzymać.
+ * Zawartość sesji. Tożsamość bez ról i uprawnień, bo model dostępu jest płaski
+ * (PRD, sekcja `Access Control`), oraz moment wystawienia w milisekundach
+ * epoki — z niego `getUser` w `auth.server.ts` liczy maksymalny wiek sesji.
  */
 type SessionContent = {
   user: SessionUser;
+  issuedAt: number;
 };
 
 export type TreeGridSessionStorage = SessionStorage<SessionContent>;

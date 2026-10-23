@@ -351,7 +351,8 @@ każdym restarcie** i nie da się go przypiąć, więc nie zapisuj go na sztywno
 nigdzie w kodzie ani w ciasteczkach; **Cloudflare Access na `trycloudflare.com`
 nie działa**, więc od chwili uruchomienia tunelu jedyną kontrolą dostępu są
 dwie bariery samej aplikacji — brama w `chronione.tsx` i blokada konta po
-nieudanych próbach logowania. Nie osłabiaj żadnej z nich „na chwilę".
+nieudanych próbach logowania (plus globalny limit tempa `POST /auth/login`).
+Nie osłabiaj żadnej z nich „na chwilę".
 Jednorazowy kod weryfikacyjny rejestracji idzie na adres e-mail z formularza
 i potwierdza tylko dostęp do tej skrzynki — konto powstaje dopiero po jego
 wpisaniu, a krok 1 ma globalny limit tempa. Od 2026-10-17 konto może więc
@@ -461,8 +462,9 @@ Nie traktuj ich jako błędów do naprawienia przy okazji — to zaległa praca:
   rejestrację z kodem weryfikacyjnym i logowanie loginem
   (`AuthIntegrationTests`: rezerwacja loginu — adres e-mail może się
   powtarzać — limit prób kodu,
-  wygaśnięcie, limit tempa, porażka wysyłki). Blokada konta po nieudanych
-  próbach logowania, izolacja kont (IDOR) poza kontrolą właściciela drzewa przy
+  wygaśnięcie, limit tempa, porażka wysyłki, limit tempa logowania, blokada
+  konta przy równoległych złych hasłach i zerowanie licznika po udanym
+  logowaniu). Wygaśnięcie blokady konta, izolacja kont (IDOR) poza kontrolą właściciela drzewa przy
   `PUT /screens` oraz endpointy kategorii i obiektów poza kaskadami ekranu są
   nadal weryfikowane ręcznie; dwa pierwsze to Faza 2 rolloutu
   (`context/foundation/test-plan.md` §3).

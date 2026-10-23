@@ -735,8 +735,8 @@ klucza podpisu sesji, inaczej API odmówi startu w Production.
 
 #### Manual
 
-- [ ] 1.7 `/health` odpowiada poprawnie po migracji i nie odwołuje się do tabeli technicznej
-- [ ] 1.8 `/health?fail=true` nadal zwraca kontrakt błędu z F-01
+- [x] 1.7 `/health` odpowiada poprawnie po migracji i nie odwołuje się do tabeli technicznej — `ApiHostIntegrationTests.Health_endpoint_answers_ok` (impl-review 2026-10-23)
+- [x] 1.8 `/health?fail=true` nadal zwraca kontrakt błędu z F-01 — `FileLoggingIntegrationTests` (500 `internal_error`, impl-review 2026-10-23)
 
 ### Phase 2: Endpointy uwierzytelniania i rozszerzenie kontraktu błędów
 
@@ -748,13 +748,13 @@ klucza podpisu sesji, inaczej API odmówi startu w Production.
 
 #### Manual
 
-- [ ] 2.4 Rejestracja z poprawnym kodem zakłada konto; z niepoprawnym zwraca `validation_error` z polem w `context`
-- [ ] 2.5 Rejestracja na zajęty adres e-mail i ze zbyt krótkim hasłem zwraca `validation_error`
-- [ ] 2.6 Logowanie złym hasłem i na nieistniejące konto dają odpowiedzi nieodróżnialne co do znaku
-- [ ] 2.7 Po przekroczeniu progu nieudanych prób konto jest zablokowane, a odpowiedź niesie kod blokady i moment jej wygaśnięcia
-- [ ] 2.8 Udane logowanie po wcześniejszych nieudanych próbach zeruje licznik
-- [ ] 2.9 Odpowiedź 401 niesie kod `unauthorized`, a nie `http_error`
-- [ ] 2.10 Endpoint klucza sesji odpowiada na pętli zwrotnej i nie odpowiada z sieci lokalnej
+- [x] 2.4 Rejestracja z poprawnym kodem zakłada konto; z niepoprawnym zwraca `validation_error` z polem w `context` — nieaktualne po `zakladanie-konta` (kod rejestracyjny zastąpiony kodem e-mail); odpowiednik w `AuthIntegrationTests`
+- [x] 2.5 Rejestracja na zajęty adres e-mail i ze zbyt krótkim hasłem zwraca `validation_error` — nieaktualne po `zakladanie-konta` (adres e-mail może się powtarzać); słabe hasło i zajęty login w `AuthIntegrationTests`
+- [x] 2.6 Logowanie złym hasłem i na nieistniejące konto dają odpowiedzi nieodróżnialne co do znaku — `AuthErrorContractTests.Nonexistent_account_and_wrong_password_are_indistinguishable`
+- [x] 2.7 Po przekroczeniu progu nieudanych prób konto jest zablokowane, a odpowiedź niesie kod blokady i moment jej wygaśnięcia — `AuthIntegrationTests.Parallel_wrong_passwords_lock_the_account_after_exactly_five_attempts`, `AuthErrorContractTests.Locked_account_error_carries_its_own_code_and_the_lockout_end` (impl-review F1)
+- [x] 2.8 Udane logowanie po wcześniejszych nieudanych próbach zeruje licznik — `AuthIntegrationTests.Successful_login_resets_the_failed_attempt_counter` (impl-review F4)
+- [x] 2.9 Odpowiedź 401 niesie kod `unauthorized`, a nie `http_error` — `AuthErrorContractTests.Unauthorized_error_has_the_contract_shape_and_an_empty_context`
+- [x] 2.10 Endpoint klucza sesji odpowiada na pętli zwrotnej i nie odpowiada z sieci lokalnej — zastąpione bramką wspólnego sekretu (`hosting-monsterasp`), `InternalCallerIntegrationTests`
 
 ### Phase 3: Sesja i brama po stronie React Routera
 
@@ -784,8 +784,8 @@ klucza podpisu sesji, inaczej API odmówi startu w Production.
 
 #### Manual
 
-- [ ] 4.4 Formularze renderują się komponentami antd, a komunikaty walidacji są polskie
-- [ ] 4.5 `start-prod-tunnel.ps1` nadal zgłasza gotowość, mimo że `/` odpowiada przekierowaniem
-- [ ] 4.6 Przez adres tunelu żaden widok produktu nie jest dostępny bez zalogowania, a pełna ścieżka działa
-- [ ] 4.7 API nie jest osiągalne spoza tej maszyny, w szczególności endpoint klucza sesji
-- [ ] 4.8 Decyzja o zdjęciu bramki z `infrastructure.md:243` podjęta świadomie i odnotowana
+- [x] 4.4 Formularze renderują się komponentami antd, a komunikaty walidacji są polskie — `tests/e2e/auth.setup.ts` loguje się przez formularz; `pl_PL` w jedynym `ConfigProvider`
+- [x] 4.5 `start-prod-tunnel.ps1` nadal zgłasza gotowość, mimo że `/` odpowiada przekierowaniem — weryfikacja przez tunel w `a26f230`
+- [x] 4.6 Przez adres tunelu żaden widok produktu nie jest dostępny bez zalogowania, a pełna ścieżka działa — weryfikacja przez tunel w `a26f230`
+- [x] 4.7 API nie jest osiągalne spoza tej maszyny, w szczególności endpoint klucza sesji — zastąpione bramką wspólnego sekretu (`hosting-monsterasp`), `InternalCallerIntegrationTests`
+- [x] 4.8 Decyzja o zdjęciu bramki z `infrastructure.md:243` podjęta świadomie i odnotowana — podjęta w praktyce: publiczne wdrożenia (tunel, MonsterASP) i PRD `Access Control` z 2026-10-17; `infrastructure.md:243` nie zaktualizowano (impl-review 2026-10-23, F4)

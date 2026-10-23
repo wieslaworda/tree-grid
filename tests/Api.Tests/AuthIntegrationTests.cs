@@ -313,7 +313,26 @@ public class AuthIntegrationTests(
         var error = await IntegrationSeed.AssertRefusedAsync(
             response, HttpStatusCode.TooManyRequests, ApiErrorCodes.RateLimited);
         Assert.Empty(error.Context.EnumerateObject());
+        Assert.Equal("Zbyt wiele prób rejestracji w krótkim czasie. Spróbuj ponownie później.", error.Message);
         Assert.Null(await ReadPendingAsync(rateLimitedFactory, refusedLogin));
+    }
+
+    [Fact]
+    public async Task Login_over_the_login_rate_limit_is_refused_with_rate_limited()
+    {
+        using var client = rateLimitedFactory.CreateClient();
+
+        for (var request = 1; request <= RateLimitedApiFactory.PermitLimit; request++)
+        {
+            Assert.Equal(HttpStatusCode.Unauthorized, (await LoginAsync(client, NewLogin(), Password)).StatusCode);
+        }
+
+        var response = await LoginAsync(client, NewLogin(), Password);
+
+        var error = await IntegrationSeed.AssertRefusedAsync(
+            response, HttpStatusCode.TooManyRequests, ApiErrorCodes.RateLimited);
+        Assert.Empty(error.Context.EnumerateObject());
+        Assert.Equal("Zbyt wiele prób logowania w krótkim czasie. Spróbuj ponownie za chwilę.", error.Message);
     }
 
     // --- Porażka wysyłki ----------------------------------------------------
@@ -357,6 +376,63 @@ public class AuthIntegrationTests(
         var account = await response.Content.ReadFromJsonAsync<JsonElement>();
         Assert.Equal(email, account.GetProperty("login").GetString());
         Assert.Equal(email, account.GetProperty("email").GetString());
+    }
+
+    // --- Blokada konta -------------------------------------------------------
+
+    [Fact]
+    public async Task Parallel_wrong_passwords_lock_the_account_after_exactly_five_attempts()
+    {
+        // Próg 5 prób z `appsettings.json` (`Identity:Lockout`). Równoległe
+        // próby nie mogą czytać tego samego licznika: bez szeregowania konflikt
+        // `ConcurrencyStamp` gubi po cichu zapisy i licznik rośnie wolniej,
+        // niż przychodzą próby (impl-review konto-i-logowanie, F1).
+        using var client = factory.CreateClient();
+        var email = await IntegrationSeed.CreateLegacyAccountAsync(factory, Password);
+
+        var responses = await Task.WhenAll(
+            Enumerable.Range(0, 10).Select(_ => LoginAsync(client, email, "Zle-Haslo-123")));
+
+        var statuses = responses.Select(response => response.StatusCode).ToList();
+        Assert.Equal(4, statuses.Count(status => status == HttpStatusCode.Unauthorized));
+        Assert.Equal(6, statuses.Count(status => status == HttpStatusCode.Locked));
+
+        await using (factory.CreateDbScope(out var db))
+        {
+            var user = await db.Users.AsNoTracking().SingleAsync(row => row.Email == email);
+
+            Assert.NotNull(user.LockoutEnd);
+            Assert.True(user.LockoutEnd > DateTimeOffset.UtcNow, "Blokada nie trafiła do bazy.");
+        }
+
+        await IntegrationSeed.AssertRefusedAsync(
+            await LoginAsync(client, email, Password),
+            HttpStatusCode.Locked,
+            ApiErrorCodes.AccountLocked);
+    }
+
+    [Fact]
+    public async Task Successful_login_resets_the_failed_attempt_counter()
+    {
+        // Bez zerowania pomyłki rozłożone w czasie sumują się do progu i konto
+        // blokuje się samo z siebie. 4 + udane + 4 to 8 złych haseł, a próg
+        // to 5 — blokada po drugiej serii znaczyłaby, że licznik nie wrócił do zera.
+        using var client = factory.CreateClient();
+        var email = await IntegrationSeed.CreateLegacyAccountAsync(factory, Password);
+
+        for (var attempt = 0; attempt < 4; attempt++)
+        {
+            Assert.Equal(HttpStatusCode.Unauthorized, (await LoginAsync(client, email, "Zle-Haslo-123")).StatusCode);
+        }
+
+        Assert.Equal(HttpStatusCode.OK, (await LoginAsync(client, email, Password)).StatusCode);
+
+        for (var attempt = 0; attempt < 4; attempt++)
+        {
+            Assert.Equal(HttpStatusCode.Unauthorized, (await LoginAsync(client, email, "Zle-Haslo-123")).StatusCode);
+        }
+
+        Assert.Equal(HttpStatusCode.OK, (await LoginAsync(client, email, Password)).StatusCode);
     }
 
     // --- Pomocnicze ----------------------------------------------------------
@@ -451,12 +527,18 @@ public class AuthIntegrationTests(
         return false;
     }
 
-    /// <summary>Host z limitem tempa kroku 1 obniżonym do <see cref="PermitLimit"/>.</summary>
+    /// <summary>
+    /// Host z limitami tempa kroku 1 i logowania obniżonymi do
+    /// <see cref="PermitLimit"/>. Okna są osobne, więc oba testy limitu
+    /// dzielą host bez wpływu na siebie.
+    /// </summary>
     public sealed class RateLimitedApiFactory : TestApiFactory
     {
         public const int PermitLimit = 2;
 
         protected override int RegistrationPermitLimit => PermitLimit;
+
+        protected override int LoginPermitLimit => PermitLimit;
     }
 
     /// <summary>Host, którego nadawca poczty zawsze rzuca wyjątek.</summary>

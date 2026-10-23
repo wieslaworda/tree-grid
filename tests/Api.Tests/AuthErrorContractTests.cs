@@ -142,6 +142,7 @@ public class AuthErrorContractTests
         var cases = new[]
         {
             (Error: AuthResponses.RateLimited(), Code: "rate_limited"),
+            (Error: AuthResponses.LoginRateLimited(), Code: "rate_limited"),
             (Error: AuthResponses.MailUnavailable(), Code: "mail_unavailable"),
         };
 
