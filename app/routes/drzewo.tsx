@@ -707,10 +707,14 @@ function BudowaDrzewa({
   const fetcher = useFetcher<typeof action>();
   // Zapis układu zwinięć osobnym fetcherem, a nie fetcherem operacji: `Spin`
   // nad drzewem, blokada przycisków i baner odmowy czytają tamten, a zapis
-  // układu idzie w tle. Kolejne kliknięcie przerywa poprzednie żądanie po
-  // stronie klienta — bez szkody, bo każde niesie pełny zbiór zwiniętych
-  // węzłów, więc ostatni udany zapis wyrównuje bazę z widokiem.
+  // układu idzie w tle. Najwyżej jeden zapis naraz: ponowne `submit` przerwałoby
+  // poprzednie żądanie tylko w przeglądarce, a API i tak by je zatwierdziło —
+  // starsze mogłoby wtedy wygrać z nowszym i baza rozjechałaby się z widokiem
+  // bez banera. Przełączenie w trakcie zapisu czeka w kolejce, a ponieważ każde
+  // żądanie niesie pełny zbiór zwiniętych węzłów, wystarczy wysłać najnowsze.
   const fetcherUkladu = useFetcher<typeof action>();
+  const ukladWToku = useRef(false);
+  const kolejkaUkladu = useRef<FormData | null>(null);
   const adresWysylki = adresDrzewa(treeId);
 
   // Zaznaczenia w stanie widoku, a nie w adresie: żadne z nich nie jest
@@ -798,6 +802,27 @@ function BudowaDrzewa({
     }
   }, [fetcher.state, fetcher.data]);
 
+  // Koniec zapisu układu zwalnia miejsce dla zakolejkowanego przełączenia.
+  useEffect(() => {
+    if (fetcherUkladu.state !== "idle") {
+      return;
+    }
+
+    ukladWToku.current = false;
+
+    const nastepny = kolejkaUkladu.current;
+
+    if (nastepny !== null) {
+      kolejkaUkladu.current = null;
+      wyslijUklad(nastepny);
+    }
+  }, [fetcherUkladu.state]);
+
+  function wyslijUklad(dane: FormData) {
+    ukladWToku.current = true;
+    fetcherUkladu.submit(dane, { method: "post", action: adresWysylki });
+  }
+
   /**
    * Zwinięcie albo rozwinięcie przez użytkownika (także rozwinięcie węzła,
    * nad którym przytrzymano przeciągany element): nowy stan i zapis układu
@@ -817,7 +842,12 @@ function BudowaDrzewa({
       dane.append(POLE_ZWINIETYCH, String(id));
     }
 
-    fetcherUkladu.submit(dane, { method: "post", action: adresWysylki });
+    if (ukladWToku.current) {
+      kolejkaUkladu.current = dane;
+      return;
+    }
+
+    wyslijUklad(dane);
   }
 
   /**
