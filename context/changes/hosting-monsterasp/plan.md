@@ -867,38 +867,38 @@ zmiany.
 
 #### Automated
 
-- [x] 4.1 `.\publikuj.ps1 -Cel Lokalny` kończy się kodem 0
-- [x] 4.2 `.\publikuj.ps1 -Cel MonsterAsp -HostGui g.runasp.net -HostApi a.runasp.net` kończy się kodem 0 i tworzy dwa ZIP-y (`treegrid-gui-*`, `treegrid-api-*`)
-- [x] 4.3 ZIP GUI zawiera `web.config`, `build/server/index.js`, `node_modules/@react-router/serve/dist/cli.js` i nie zawiera `devDependencies` (np. `node_modules/vite`) (sprawdzenie `Expand-Archive` + `Test-Path`)
-- [x] 4.4 ZIP API zawiera `Api.exe`, `Api.dll`, `e_sqlite3.dll`, `web.config`, `appsettings.MonsterAsp.json` i nie zawiera `*.db`, `*.db-wal`, `Log/`, `MailOutbox/` ani `appsettings.Development.json`
-- [x] 4.5 `web.config` GUI zawiera `https://a.runasp.net` i `https://g.runasp.net/{R:1}`, nie zawiera `{{`; `build/server/index.js` w ZIP GUI zawiera `allowedActionOrigins = ["g.runasp.net"]`
-- [x] 4.6 `web.config` API zawiera `.\Api.exe` i `MonsterAsp`, nie zawiera `httpPlatformHandler`
-- [x] 4.7 `.\publikuj.ps1 -Cel MonsterAsp` bez `-HostGui` albo bez `-HostApi`, z hostem ze schematem albo z identycznymi hostami kończy się błędem
-- [x] 4.8 `git status` nie pokazuje `out/`
+- [x] 4.1 `.\publikuj.ps1 -Cel Lokalny` kończy się kodem 0 — 18cd156
+- [x] 4.2 `.\publikuj.ps1 -Cel MonsterAsp -HostGui g.runasp.net -HostApi a.runasp.net` kończy się kodem 0 i tworzy dwa ZIP-y (`treegrid-gui-*`, `treegrid-api-*`) — 18cd156
+- [x] 4.3 ZIP GUI zawiera `web.config`, `build/server/index.js`, `node_modules/@react-router/serve/dist/cli.js` i nie zawiera `devDependencies` (np. `node_modules/vite`) (sprawdzenie `Expand-Archive` + `Test-Path`) — 18cd156
+- [x] 4.4 ZIP API zawiera `Api.exe`, `Api.dll`, `e_sqlite3.dll`, `web.config`, `appsettings.MonsterAsp.json` i nie zawiera `*.db`, `*.db-wal`, `Log/`, `MailOutbox/` ani `appsettings.Development.json` — 18cd156
+- [x] 4.5 `web.config` GUI zawiera `https://a.runasp.net` i `https://g.runasp.net/{R:1}`, nie zawiera `{{`; `build/server/index.js` w ZIP GUI zawiera `allowedActionOrigins = ["g.runasp.net"]` — 18cd156
+- [x] 4.6 `web.config` API zawiera `.\Api.exe` i `MonsterAsp`, nie zawiera `httpPlatformHandler` — 18cd156
+- [x] 4.7 `.\publikuj.ps1 -Cel MonsterAsp` bez `-HostGui` albo bez `-HostApi`, z hostem ze schematem albo z identycznymi hostami kończy się błędem — 18cd156
+- [x] 4.8 `git status` nie pokazuje `out/` — 18cd156
 
 #### Manual
 
-- [x] 4.9 `-KopiaBazy` przy działającym API odmawia z czytelnym komunikatem; po `.\buduj_app_dev.ps1 -Stop` tworzy kopię
-- [x] 4.10 Przegląd obu `web.config` w paczkach: brak jakiejkolwiek wartości sekretu
+- [x] 4.9 `-KopiaBazy` przy działającym API odmawia z czytelnym komunikatem; po `.\buduj_app_dev.ps1 -Stop` tworzy kopię — 18cd156
+- [x] 4.10 Przegląd obu `web.config` w paczkach: brak jakiejkolwiek wartości sekretu — 18cd156
 
 ### Phase 5: Pierwsze wdrożenie, weryfikacja i dokumentacja
 
 #### Automated
 
-- [ ] 5.1 Pełna weryfikacja repo: `npm run typecheck`, `npm run test:node`, `dotnet test tests/Api.Tests`
-- [ ] 5.2 `curl -s -o /dev/null -w "%{http_code}" https://<api>/internal/session-signing-key` zwraca 401
-- [ ] 5.3 `curl -s https://<api>/objects` zwraca 401 z kodem `caller_unauthenticated`
-- [ ] 5.4 `curl -s https://<api>/health` zwraca 200, a `https://<api>/health?fail=true` zwraca 401
-- [ ] 5.5 `curl -s https://<gui>/api/health` zwraca 200 przez trasę React Routera
-- [ ] 5.6 `curl -sI http://<gui>/logowanie` zwraca 301 z `Location: https://<gui>/logowanie`, a `curl -sI https://<gui>/logowanie` zwraca 200 (brak pętli przekierowań)
+- [x] 5.1 Pełna weryfikacja repo: `npm run typecheck`, `npm run test:node`, `dotnet test tests/Api.Tests`
+- [x] 5.2 `curl -s -o /dev/null -w "%{http_code}" https://<api>/internal/session-signing-key` zwraca 401
+- [x] 5.3 `curl -s https://<api>/objects` zwraca 401 z kodem `caller_unauthenticated`
+- [x] 5.4 `curl -s https://<api>/health` zwraca 200, a `https://<api>/health?fail=true` zwraca 401
+- [x] 5.5 `curl -s https://<gui>/api/health` zwraca 200 przez trasę React Routera
+- [x] 5.6 `curl -sI http://<gui>/logowanie` zwraca 301 z `Location: https://<gui>/logowanie`, a `curl -sI https://<gui>/logowanie` zwraca 200 (brak pętli przekierowań)
 
 #### Manual
 
-- [ ] 5.7 Zmienne obu witryn ustawione samodzielnie przez użytkownika (API: `Auth__InternalApiSecret`, `Auth__SessionSigningKey`, `Mail__Smtp__UserName`, `Mail__Smtp__Password`, `Mail__From`; GUI: `Auth__InternalApiSecret`); żadna wartość nie przeszła przez rozmowę z agentem
-- [ ] 5.8 Pula witryny API przełączona na 64-bit, kopia bazy wgrana do `tg-data`, obie paczki wgrane, pierwszy start API bez odmowy (brak wpisu `FTL` (LogCritical) w `tg-data/Log`)
-- [ ] 5.9 Logowanie istniejącym kontem, rejestracja nowego konta z kodem z e-maila, budowa drzewa, zapis ekranu, grid 288 kolumn przewija się płynnie
-- [ ] 5.10 Ciasteczko `__Host-tg-sesja` z `Secure`; POST akcji z obcym `Origin` (np. inna witryna `*.runasp.net`) odrzucony
-- [ ] 5.11 Żądanie do API z `X-TreeGrid-User` innego konta bez sekretu odrzucone 401
-- [ ] 5.12 Pamięć każdej witryny po kilku minutach użycia mieści się w jej 256 MB (panel); zimny start po uśpieniu obu witryn zanotowany
-- [ ] 5.13 Linie `api_failure` widoczne w `wwwroot/logs/node-stdout*` witryny GUI po celowo wywołanej porażce (np. chwilowe zatrzymanie witryny API)
-- [ ] 5.14 Powrót do celu lokalnego: `.\publikuj.ps1 -Cel Lokalny`, `start-api.ps1` + `start-prod-tunnel.ps1` działają jak przed zmianą
+- [x] 5.7 Zmienne obu witryn ustawione samodzielnie przez użytkownika (API: `Auth__InternalApiSecret`, `Auth__SessionSigningKey`, `Mail__Smtp__UserName`, `Mail__Smtp__Password`, `Mail__From`; GUI: `Auth__InternalApiSecret`); żadna wartość nie przeszła przez rozmowę z agentem
+- [x] 5.8 Pula witryny API przełączona na 64-bit, kopia bazy wgrana do `tg-data`, obie paczki wgrane, pierwszy start API bez odmowy (brak wpisu `FTL` (LogCritical) w `tg-data/Log`)
+- [x] 5.9 Logowanie istniejącym kontem, rejestracja nowego konta z kodem z e-maila, budowa drzewa, zapis ekranu, grid 288 kolumn przewija się płynnie
+- [x] 5.10 Ciasteczko `__Host-tg-sesja` z `Secure`; POST akcji z obcym `Origin` (np. inna witryna `*.runasp.net`) odrzucony
+- [x] 5.11 Żądanie do API z `X-TreeGrid-User` innego konta bez sekretu odrzucone 401
+- [x] 5.12 Pamięć każdej witryny po kilku minutach użycia mieści się w jej 256 MB (panel); zimny start po uśpieniu obu witryn zanotowany
+- [x] 5.13 Linie `api_failure` widoczne w `wwwroot/logs/node-stdout*` witryny GUI po celowo wywołanej porażce (np. chwilowe zatrzymanie witryny API)
+- [x] 5.14 Powrót do celu lokalnego: `.\publikuj.ps1 -Cel Lokalny`, `start-api.ps1` + `start-prod-tunnel.ps1` działają jak przed zmianą

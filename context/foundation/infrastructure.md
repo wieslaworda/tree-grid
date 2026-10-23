@@ -253,3 +253,83 @@ Ten research nie obejmował:
 - Konfiguracji pipeline'u CI/CD. `ci_provider: github-actions` z `tech-stack.md` pozostaje niezrealizowane — przy self-hostingu wdrożenie z CI wymaga runnera na maszynie docelowej i jest osobną decyzją.
 - Architektury produkcyjnej: wielu regionów, wysokiej dostępności, odtwarzania po awarii.
 - Wyboru silnika bazy danych. Plikowy SQLite przyjęto jako ograniczenie wejściowe zadeklarowane przez dewelopera; większość pozycji w rejestrze ryzyk wynika z tej decyzji, a nie z wyboru platformy.
+
+## Drugi cel: dwie witryny MonsterASP.NET Free (2026-10-22)
+
+**Decyzja**: obok self-hostingu z quick tunnelem (który zostaje celem
+domyślnym) dochodzi drugi cel wdrożenia: **dwie witryny MonsterASP.NET Free
+na jednym koncie**. Witryna GUI uruchamia `react-router-serve` pod
+HttpPlatformHandlerem. Witryna API uruchamia API ASP.NET Core jako
+self-contained `win-x64` przez ANCM InProcess. Plik SQLite leży w `tg-data`,
+rodzicu `wwwroot` witryny API. Cel wybiera parametr `publikuj.ps1 -Cel`.
+Szczegóły realizacji są w `context/changes/hosting-monsterasp/plan.md`.
+
+**Powód**: aplikacja ma działać bez włączonego komputera dewelopera i nadal
+za $0. To usuwa najwyżej oceniane ryzyko self-hostingu, czyli niedostępny
+origin. Plikowy SQLite zostaje obok aplikacji, bo witryna Windows/IIS ma
+trwały, zapisywalny dysk lokalny. Twardy filtr z tego dokumentu jest więc
+spełniony.
+
+**Pierwsze wdrożenie (2026-10-22)**: GUI pod `https://tgmvp.runasp.net`,
+API pod `https://tgapimvc.runasp.net`. Weryfikacja `curl` z 2026-10-23:
+- API bez sekretu odpowiada 401 `caller_unauthenticated`, także na
+  `/internal/session-signing-key` i z obcym `X-TreeGrid-User`;
+- `/health` daje 200, a `/health?fail=true` daje 401;
+- `/api/health` przez GUI daje 200;
+- `http://` daje 301 na `https://` z zachowaną ścieżką i query, bez pętli,
+  więc TLS kończy się w IIS;
+- POST akcji z obcym `Origin` z `*.runasp.net` dostaje 400 z kontroli
+  frameworka.
+
+Dwie pomyłki przy wdrożeniu, obie ciche:
+- literówka w `-HostGui` dała build z błędnym `allowedActionOrigins`. Strona
+  się wyświetlała, ale każda akcja kończyła się 400;
+- pierwsza rejestracja na serwerze nie dostała kopii wzorca ekranu
+  i drzewa. Wgrana kopia bazy wzorzec miała, a problem ustąpił po sprawdzeniu
+  pliku `tg-data\treegrid.db`. Brak tego pliku nie zatrzymuje startu: API
+  zakłada wtedy pustą bazę bez wzorca (luka do rozważenia: odmowa startu
+  w środowisku `MonsterAsp`).
+
+### Wyniki bramek sondy (2026-10-21)
+
+Pełne dowody są w `context/changes/hosting-monsterasp/research.md`, „Wyniki
+sondy (Faza 1)”.
+
+| Bramka | Wynik |
+|---|---|
+| G1 Node `>=22.22.0` | Formalnie FAIL: serwer ma `v22.20.0`. Zaakceptowane jako ryzyko po pełnym E2E na 22.20.0 |
+| G2 `/tg-api` jako aplikacja podrzędna | Nie dotyczy. Wybrano wariant dwóch witryn, `/tg-api` nie był mierzony |
+| G3 HTTPS na `*.runasp.net` | PASS na obu witrynach, choć tuż po utworzeniu witryny TLS jeszcze nie działał |
+| G4 Node widzi oryginalny `Host` | PASS. Witryna odpowiada też po `http://` |
+| G5 Zmienne panelu widzą oba procesy | PASS |
+| G6 Node dociera do API po `https://` | PASS (osobna witryna API) |
+| G7 Katalog poza `wwwroot`: zapisywalny, lokalny, przeżywa ZIP | PASS (`D:` `Fixed`, NTFS, nie UNC) |
+| G8 Wyjście TCP na `smtp.gmail.com:587` | PASS |
+
+Pomiary bez bramki: framework-dependent .NET 10 daje `500.31`, więc API musi
+być self-contained na puli 64-bit. Pamięć tuż po starcie sond wynosiła
+~54 MB (Node) i ~62 MB (API) przy limicie 256 MB na witrynę.
+
+### Zmiana modelu zaufania
+
+Dotychczasowe zabezpieczenie API opierało się na topologii: Kestrel tylko na
+`127.0.0.1`, tunel tylko na port 3000. Na MonsterASP API ma publiczny
+hostname, więc to założenie nie obowiązuje. W obu celach zastąpił je
+**wspólny sekret Node→API** (`X-TreeGrid-Internal`, `Auth:InternalApiSecret`).
+Bramka odrzuca 401 wszystko poza `GET /health` bez `fail`. Ciasteczko sesji
+ma prefiks `__Host-`, a `allowedActionOrigins` to dokładny host GUI, bo
+`runasp.net` nie jest na Public Suffix List.
+
+### Rejestr ryzyk — cel MonsterASP
+
+| Ryzyko | Źródło | Prawd. | Wpływ | Mitygacja |
+|---|---|---|---|---|
+| Brak kopii zapasowych na planie Free. Plik bazy w `tg-data` ma tylko kopie `.bak` sprzed migracji | Cennik MonsterASP | Ś | **W** | Okresowo pobierać `tg-data/treegrid.db` przez FTP przy zatrzymanej witrynie API. Przed każdym wgraniem z migracją polegać na automatycznym `.bak` i nie kasować go ręcznie |
+| Archiwizacja witryny Free po 6 miesiącach bezczynności | Warunki planu Free | Ś | Ś | Używać aplikacji albo wgrać ją ponownie. Baza i tak powinna mieć kopię poza serwerem (wiersz wyżej) |
+| Dwie witryny Free na jednym koncie są niezgodne z cennikiem („1 witryna”). Panel pozwala założyć 4 witryny (stan 2026-10-22) | Werdykt sondy | N | N | Przy zablokowaniu drugiej witryny wrócić do decyzji: Premium albo cel lokalny, który działa niezależnie |
+| Node 22.20.0 na serwerze jest poniżej `engines` (`>=22.22.0`) React Routera 8.4.0 | G1 | Ś | Ś | Pełne E2E na 22.20.0 przed każdym podniesieniem React Routera. `engines` jest deklaracją, nie blokadą |
+| Wspólny site `runasp.net` (poza Public Suffix List): sąsiednia witryna może podrzucić ciasteczko z `Domain=runasp.net` albo udawać origin | Research | Ś | Ś | Ciasteczko `__Host-tg-sesja` (bez `Domain`, `Secure`, `path=/`), dokładny host GUI w `allowedActionOrigins` i `requireSameOrigin` w każdej akcji |
+| Publiczny hostname API chroni wyłącznie wspólny sekret | Zmiana modelu zaufania | N | **W** | Sekret ≥ 32 znaki, tylko w zmiennych panelu, porównanie stałoczasowe, bramka bez wyłącznika. `ipSecurity` świadomie odłożone. Przy podejrzeniu wycieku rotacja w obu witrynach naraz |
+| Ręczny deploy (ZIP przez panel/FTP): pomyłka kolejności albo wgranie na żywą witrynę API z zablokowanymi plikami | Plan | Ś | N | `publikuj.ps1` wypisuje kolejność wgrania. Przed wgraniem API zatrzymać witrynę albo wgrać `app_offline.htm` |
+| Usypianie obu witryn Free: zimne starty się sumują, a limiter rejestracji zeruje się przy starcie | Warunki planu Free | **W** | N | Zaakceptowany skutek wariantu $0 |
+| Reguła HTTP→HTTPS zakłada TLS terminowany w IIS. Inaczej powstaje pętla przekierowań, a bez URL Rewrite błąd 500.19 | Plan | N | Ś | Sprawdzane `curl` przy wdrożeniu (oba kierunki). Alternatywny warunek `{HTTP_X_FORWARDED_PROTO}` opisany we wzorcu `web.config` |

@@ -75,7 +75,17 @@ dotnet ef database update --project src/Api
 
 # oba procesy naraz, lokalnie (bez tunelu): build, kopia bazy, API :5180 + Vite :5173
 .\buduj_app_dev.ps1          # -Stop zatrzymuje oba
+
+# build celu wdrożenia (niczego nie uruchamia i niczego nie wysyła)
+.\publikuj.ps1                                                      # cel lokalny: typecheck, build, dotnet build
+.\publikuj.ps1 -Cel MonsterAsp -HostGui <g>.runasp.net -HostApi <a>.runasp.net [-KopiaBazy]
+                             # dwa ZIP-y w out\monsterasp\ (GUI i API), -KopiaBazy przy zatrzymanym API
 ```
+
+Po `-Cel MonsterAsp` katalog `build/` zawiera build MonsterASP
+(`allowedActionOrigins` = host GUI), więc akcje zza quick tunnelu kończą się
+400. Przed `start-prod-tunnel.ps1 -SkipBuild` uruchom `.\publikuj.ps1` bez
+parametrów.
 
 Automatyczna weryfikacja to `npm run typecheck`, `npm run test:node`
 i `dotnet test`. Testy .NET
@@ -152,9 +162,15 @@ cicho kłamie. `netstat -ano | grep ":3000.*LISTENING"` pokaże wiszący PID.
 
 ```
 przeglądarka ──► react-router-serve :3000 ──(loader/action, fetch)──► Kestrel 127.0.0.1:5180 ──► SQLite (WAL)
-                 sesja w ciasteczku,           nagłówek X-TreeGrid-User
-                 brama w middleware
+                 sesja w ciasteczku,           X-TreeGrid-Internal (sekret)
+                 brama w middleware            + X-TreeGrid-User
+
+cel MonsterASP:  witryna GUI <g>.runasp.net ──(https://<a>.runasp.net)──► witryna API <a>.runasp.net ──► SQLite w tg-data
 ```
+
+Dwa cele wdrożenia, ten sam kod: lokalny (domyślny, pętla zwrotna + quick
+tunnel) i MonsterASP (dwie witryny Free, sekcja „Wdrożenie”). Node bierze
+adres API z `TREEGRID_API_URL`, a bez niej używa `http://127.0.0.1:5180`.
 
 - **Przeglądarka nigdy nie woła API.** Każde wywołanie idzie przez
   `requestApi` z `@app/lib/api.server.ts`. Sufiks `.server.ts` jest nośny —
@@ -165,11 +181,19 @@ przeglądarka ──► react-router-serve :3000 ──(loader/action, fetch)─
   mieć. Klucz podpisu ciasteczka React Router pobiera z API
   (`/internal/session-signing-key`).
 - **Tożsamość do API niesie nagłówek `X-TreeGrid-User`**, ustawiany z sesji.
-  Jest wiarygodny tylko dzięki trzem warunkom opisanym w
-  `src/Api/Tree/TreeIdentity.cs`: Kestrel wyłącznie na pętli zwrotnej, tunel
-  wyłącznie na port 3000, żadna trasa zasobowa nie przepuszcza nagłówków
-  z przeglądarki. Złamanie któregokolwiek daje odczyt i zapis cudzych drzew.
-  Stała nazwy nagłówka jest zdublowana w C# i TS — zmieniaj obie.
+  Jego wiarygodność i bezpieczeństwo `/internal/session-signing-key` stoją
+  w obu celach na **bramce wspólnego sekretu** (`src/Api/Auth/InternalCaller.cs`,
+  `UseInternalCallerGate()` w `Program.cs`). Każde żądanie bez nagłówka
+  `X-TreeGrid-Internal` równego `Auth:InternalApiSecret` dostaje 401
+  `caller_unauthenticated`, zanim dotrze do routingu i limitera. Jedynym
+  wyjątkiem jest `GET /health` bez `fail`. Node dokleja sekret w `fetchApi`
+  (`app/lib/api.server.ts`), jedynej drodze `fetch` do API. Obie strony czytają
+  go ze zmiennej `Auth__InternalApiSecret`. Żadna trasa zasobowa nie
+  przepuszcza nagłówków z przeglądarki, bo doklejałaby do nich sekret.
+  Kestrel tylko na pętli zwrotnej i tunel tylko na port 3000 to dodatkowa
+  warstwa wyłącznie w celu lokalnym. Na MonsterASP API ma publiczny hostname,
+  a Node woła je po `https://`. Szczegóły są w `src/Api/Tree/TreeIdentity.cs`.
+  Stałe obu nagłówków są zdublowane w C# i TS — zmieniaj obie.
 - **Brama to `middleware`, nie `loader`** — `app/routes/chronione.tsx`. Wszystko
   wewnątrz `layout("routes/chronione.tsx", …)` w `@app/routes.ts` wymaga sesji;
   trasa wpisana obok jest publiczna. Pusty `loader` w bramie jest celowy
@@ -178,9 +202,16 @@ przeglądarka ──► react-router-serve :3000 ──(loader/action, fetch)─
 - **Każda `action` zmieniająca stan woła `requireSameOrigin`**
   (`app/lib/auth.server.ts`). Wildcard `*.trycloudflare.com`
   w `allowedActionOrigins` (`@react-router.config.ts`) jest bezpieczny tylko
-  razem z tą kontrolą.
+  razem z tą kontrolą. Lista trafia do builda: `TG_CEL=monsterasp`
+  + `TG_HOST=<host GUI>` daje dokładnie host GUI, bez wildcardu, bo
+  `runasp.net` nie jest na Public Suffix List. Z tego samego powodu ciasteczko
+  sesji nazywa się `__Host-tg-sesja` (`Secure`, bez `Domain`).
 - **Migracje:** w Development API migruje bazę przy starcie; w Production
   odmawia startu przy oczekujących migracjach (`dotnet ef database update`).
+  Trzeci przypadek to `Database:MigrateOnStartup` = `true` (w repo wyłącznie
+  w `appsettings.MonsterAsp.json`). Wtedy API najpierw robi kopię
+  `treegrid.db.pre-<migracja>.bak` (`VACUUM INTO`), a potem migruje. Porażka
+  któregoś z tych kroków zatrzymuje start.
   Brak sekretu `Auth:SessionSigningKey` albo niekompletna sekcja `Mail`
   (transport `Smtp` z hasłem) poza Development też zatrzymuje start. W Development
   sekrety ustawia się przez `dotnet user-secrets --project src/Api`
@@ -192,12 +223,14 @@ przeglądarka ──► react-router-serve :3000 ──(loader/action, fetch)─
   w `src/Api/appsettings.json`, zostaje 31 plików. Wpis łączy się z odpowiedzią
   500 przez `requestId` (`grep <requestId> src/Api/Log/*.log`). Testy .NET
   piszą do katalogu tymczasowego `TestApiFactory`, E2E do `.e2e/Log/` — nie
-  szukaj tam błędów z pętli deweloperskiej i odwrotnie.
+  szukaj tam błędów z pętli deweloperskiej i odwrotnie. Na MonsterASP log
+  API leży w `tg-data/Log` witryny API.
 - **Porażki wywołań API po stronie Node** (zgaszone API, treść spoza
   kontraktu, 5xx i 401 z API, porażka klucza sesji) to linie JSON
   `event:"api_failure"` na stderr serwera React Routera
   (`.tunnel-run/prod.err.log`, poprzednie przebiegi jako
-  `prod.err.<yyyyMMdd-HHmmss>.log`), łączone z wpisem API przez `requestId`
+  `prod.err.<yyyyMMdd-HHmmss>.log`; na MonsterASP
+  `wwwroot/logs/node-stdout*` witryny GUI), łączone z wpisem API przez `requestId`
   (`app/lib/log.server.ts`). Przyczyna zgaszonego API (`ECONNREFUSED`)
   i ścieżka API są **tylko** w tej linii — koperta `api_unreachable` dla
   przeglądarki ma pusty `context`, także na publicznym `/api/health`.
@@ -270,9 +303,12 @@ jest przepięty na ten atrybut i **nie reaguje** na ustawienie motywu w systemie
 
 ## Wdrożenie
 
-Cel MVP to **self-hosting z Cloudflare Quick Tunnel**, wybrany dlatego, że
-plikowy SQLite ma leżeć obok aplikacji, a to eliminuje wszystkie platformy
-bezstanowe. Decyzję, punktację i rejestr ryzyk opisuje
+Są dwa cele wdrożenia. Domyślny to **self-hosting z Cloudflare Quick
+Tunnel**, opisany poniżej. Drugi to **dwie witryny MonsterASP.NET Free**
+(podsekcja „Cel MonsterASP” na końcu tej sekcji). Ten działa bez komputera
+dewelopera. Self-hosting wybrano dlatego, że plikowy SQLite ma leżeć obok
+aplikacji, a to eliminuje wszystkie platformy bezstanowe. Decyzję, punktację
+i rejestr ryzyk opisuje
 `@context/foundation/infrastructure.md`; faktyczny przebieg pierwszego wdrożenia
 — `@context/deployment/deploy-plan.md`. **Fly.io jest runner-upem** i pozostaje
 ścieżką wyjścia: architektura dwóch kontenerów plus wolumen jest przenośna, więc
@@ -286,8 +322,9 @@ działa w izolacie V8, a dysk kontenera jest efemeryczny — plikowy SQLite by t
 nie przetrwał, i to po cichu. Obie ścieżki nazywają się podobnie i łatwo je
 pomylić; ta pomyłka jest w rejestrze ryzyk wpisem o wysokim wpływie.
 
-Port produkcyjny to **3000** (`react-router-serve`), nie 5173 i nie 5000; API
-stoi na **5180**, wyłącznie na `127.0.0.1`, i **nigdy** nie jest tunelowane.
+W celu lokalnym port produkcyjny to **3000** (`react-router-serve`), nie 5173
+i nie 5000; API stoi na **5180**, wyłącznie na `127.0.0.1`, i **nigdy** nie
+jest tunelowane.
 Wystawienie obsługuje `.claude/skills/run-tunel-app/scripts/start-prod-tunnel.ps1`
 (`-Stop` zatrzymuje), a API — osobny `start-api.ps1` z tego samego katalogu,
 domyślnie w `Production` (czyli z odmową startu na niezmigrowanej bazie). Skrypt ustawia jawnie `PORT` i `HOST=127.0.0.1` — pierwsze
@@ -340,6 +377,74 @@ W Development odpowiednikiem jest
 pętla deweloperska ma wysyłać prawdziwą pocztę (`Mail:Transport` = `Smtp`);
 domyślnie Development pisze `.eml` do `src/Api/MailOutbox/`. Szczegóły
 uruchomienia: `.claude/skills/run-tunel-app/SKILL.md`, sekcja o sekretach.
+
+Oba procesy lokalne wymagają też zmiennej profilu `Auth__InternalApiSecret`
+(co najmniej 32 znaki, wpisywana samodzielnie tym samym poleceniem
+`SetEnvironmentVariable`). Bez niej `buduj_app_dev.ps1`, `start-api.ps1`
+i `start-prod-tunnel.ps1` zatrzymują się z poleceniem ustawienia.
+
+### Cel MonsterASP: dwie witryny Free
+
+Topologię ustaliła sonda z planu `context/changes/hosting-monsterasp/`
+(`research.md`, „Wyniki sondy (Faza 1)”). Witryna **GUI** uruchamia
+`react-router-serve` pod HttpPlatformHandlerem. Witryna **API** uruchamia
+`Api.exe` przez ANCM InProcess. Obie stoją na jednym koncie Free. Wariant
+jednej witryny z API jako aplikacją podrzędną `/tg-api` odpadł
+w werdykcie i nie był mierzony. Wzorce `web.config` leżą
+w `deploy/monsterasp/`, a `publikuj.ps1 -Cel MonsterAsp` składa z nich
+dwa ZIP-y. Wgrywa się je ręcznie (panel albo FTP).
+
+- **API jest self-contained `win-x64`.** Na serwerze nie ma współdzielonego
+  .NET 10, więc framework-dependent daje `HTTP Error 500.31` na każdej
+  ścieżce. Self-contained nie wstanie w domyślnej puli 32-bit. Pulę witryny
+  API trzeba przełączyć na 64-bit (panel: Scripting → Bitness) **przed
+  pierwszym wgraniem**. Paczka tego nie niesie.
+- **Zmienne panelu** (Scripting → Environment variables) ustawia wyłącznie
+  użytkownik, nigdy agent i nigdy w repo:
+  - witryna API: `Auth__InternalApiSecret`, `Auth__SessionSigningKey`,
+    `Mail__Smtp__UserName`, `Mail__Smtp__Password`, `Mail__From`;
+  - witryna GUI: `Auth__InternalApiSecret`, ta sama wartość.
+
+  `TREEGRID_API_URL` i `ASPNETCORE_ENVIRONMENT=MonsterAsp` nie są sekretami
+  i niesie je `web.config`. Środowisko `MonsterAsp` jest różne od
+  `Development`, więc obowiązują wszystkie ochrony produkcyjne.
+- **Kolejność wgrania:**
+  1. pula 64-bit;
+  2. zmienne obu witryn;
+  3. kopia bazy (`-KopiaBazy`) do `tg-data` przez FTP przy zatrzymanej
+     witrynie API;
+  4. ZIP API;
+  5. ZIP GUI.
+
+  `tg-data` to rodzic `wwwroot` witryny API (`D:\Sites\siteNNN\tg-data`). Nie
+  jest serwowany przez HTTP i przeżywa ponowne wgranie ZIP. InProcess trzyma
+  `Api.dll` w `w3wp`. Przed ponownym wgraniem API zatrzymaj więc witrynę
+  w panelu albo wgraj `app_offline.htm`.
+- **Migracje** stosuje API przy starcie (`Database:MigrateOnStartup`). Stan
+  sprzed każdej migracji zostaje w `tg-data/treegrid.db.pre-<migracja>.bak`.
+  Bazy lokalna i MonsterASP rozchodzą się od pierwszego wgrania. Synchronizacji
+  nie ma.
+- **Logi:** API w `tg-data/Log`, Node (z liniami `api_failure`)
+  w `wwwroot/logs/node-stdout*` witryny GUI. Porażki samego ANCM (500.30,
+  500.31) pokazuje event log panelu.
+- **HTTPS wymusza reguła URL Rewrite w `web.config` GUI.** Witryna odpowiada
+  także po `http://`, a tam przeglądarka po cichu odrzuca ciasteczko
+  `__Host-tg-sesja`. Objawem jest pętla na `/logowanie` bez komunikatu. Reguła
+  daje 301 na stały host GUI. Jeśli `https://` też dostanie 301, TLS kończy
+  się przed IIS. Warunek trzeba wtedy przepiąć na `{HTTP_X_FORWARDED_PROTO}`
+  (komentarz we wzorcu).
+- **Ograniczenia Free:**
+  - obie witryny usypiają po bezczynności, a zimne starty mogą się sumować
+    (GUI, potem API); limiter rejestracji zeruje się przy każdym starcie;
+  - brak kopii zapasowych poza plikami `.bak` sprzed migracji;
+  - archiwizacja witryny po 6 miesiącach bezczynności;
+  - 256 MB pamięci na witrynę;
+  - Node na serwerze to 22.20.0, poniżej `engines` React Routera 8.4.0. To
+    zaakceptowane ryzyko, sprawdzone pełnym E2E na tej wersji.
+
+Zakazy z celu lokalnego obowiązują dalej. Bramki sekretu nie wolno wyłączać
+konfiguracją ani rozszerzać jej wyjątku. Hosta API nie dopisuj do
+`allowedActionOrigins`, bo przeglądarka nigdy nie wysyła z niego akcji.
 
 ## Znane luki
 
