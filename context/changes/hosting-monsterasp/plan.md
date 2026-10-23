@@ -839,10 +839,10 @@ zmiany.
 
 #### Manual
 
-- [ ] 2.6 `.\buduj_app_dev.ps1` z ustawioną zmienną: logowanie, drzewo, ekrany działają jak przed zmianą
-- [ ] 2.7 `.\buduj_app_dev.ps1` bez zmiennej: skrypt zatrzymuje się z czytelnym poleceniem i nie wypisuje żadnej wartości
-- [ ] 2.8 `curl http://127.0.0.1:5180/internal/session-signing-key` bez nagłówka zwraca 401 w kopercie
-- [ ] 2.9 `start-api.ps1` w Production bez sekretu odmawia startu, a wpis z nazwą klucza (bez wartości) jest w `src/Api/Log/`
+- [x] 2.6 `.\buduj_app_dev.ps1` z ustawioną zmienną: logowanie, drzewo, ekrany działają jak przed zmianą — 02c2a47
+- [x] 2.7 `.\buduj_app_dev.ps1` bez zmiennej: skrypt zatrzymuje się z czytelnym poleceniem i nie wypisuje żadnej wartości — 02c2a47
+- [x] 2.8 `curl http://127.0.0.1:5180/internal/session-signing-key` bez nagłówka zwraca 401 w kopercie — 02c2a47
+- [x] 2.9 `start-api.ps1` w Production bez sekretu odmawia startu, a wpis z nazwą klucza (bez wartości) jest w `src/Api/Log/` — 02c2a47
 
 ### Phase 3: Konfigurowalny cel
 
@@ -885,20 +885,20 @@ zmiany.
 
 #### Automated
 
-- [x] 5.1 Pełna weryfikacja repo: `npm run typecheck`, `npm run test:node`, `dotnet test tests/Api.Tests`
-- [x] 5.2 `curl -s -o /dev/null -w "%{http_code}" https://<api>/internal/session-signing-key` zwraca 401
-- [x] 5.3 `curl -s https://<api>/objects` zwraca 401 z kodem `caller_unauthenticated`
-- [x] 5.4 `curl -s https://<api>/health` zwraca 200, a `https://<api>/health?fail=true` zwraca 401
-- [x] 5.5 `curl -s https://<gui>/api/health` zwraca 200 przez trasę React Routera
-- [x] 5.6 `curl -sI http://<gui>/logowanie` zwraca 301 z `Location: https://<gui>/logowanie`, a `curl -sI https://<gui>/logowanie` zwraca 200 (brak pętli przekierowań)
+- [x] 5.1 Pełna weryfikacja repo: `npm run typecheck`, `npm run test:node`, `dotnet test tests/Api.Tests` — ebcec3f
+- [x] 5.2 `curl -s -o /dev/null -w "%{http_code}" https://<api>/internal/session-signing-key` zwraca 401 — ebcec3f
+- [x] 5.3 `curl -s https://<api>/objects` zwraca 401 z kodem `caller_unauthenticated` — ebcec3f
+- [x] 5.4 `curl -s https://<api>/health` zwraca 200, a `https://<api>/health?fail=true` zwraca 401 — ebcec3f
+- [x] 5.5 `curl -s https://<gui>/api/health` zwraca 200 przez trasę React Routera — ebcec3f
+- [x] 5.6 `curl -sI http://<gui>/logowanie` zwraca 301 z `Location: https://<gui>/logowanie`, a `curl -sI https://<gui>/logowanie` zwraca 200 (brak pętli przekierowań) — ebcec3f
 
 #### Manual
 
-- [x] 5.7 Zmienne obu witryn ustawione samodzielnie przez użytkownika (API: `Auth__InternalApiSecret`, `Auth__SessionSigningKey`, `Mail__Smtp__UserName`, `Mail__Smtp__Password`, `Mail__From`; GUI: `Auth__InternalApiSecret`); żadna wartość nie przeszła przez rozmowę z agentem
-- [x] 5.8 Pula witryny API przełączona na 64-bit, kopia bazy wgrana do `tg-data`, obie paczki wgrane, pierwszy start API bez odmowy (brak wpisu `FTL` (LogCritical) w `tg-data/Log`)
-- [x] 5.9 Logowanie istniejącym kontem, rejestracja nowego konta z kodem z e-maila, budowa drzewa, zapis ekranu, grid 288 kolumn przewija się płynnie
-- [x] 5.10 Ciasteczko `__Host-tg-sesja` z `Secure`; POST akcji z obcym `Origin` (np. inna witryna `*.runasp.net`) odrzucony
-- [x] 5.11 Żądanie do API z `X-TreeGrid-User` innego konta bez sekretu odrzucone 401
-- [x] 5.12 Pamięć każdej witryny po kilku minutach użycia mieści się w jej 256 MB (panel); zimny start po uśpieniu obu witryn zanotowany
-- [x] 5.13 Linie `api_failure` widoczne w `wwwroot/logs/node-stdout*` witryny GUI po celowo wywołanej porażce (np. chwilowe zatrzymanie witryny API)
-- [x] 5.14 Powrót do celu lokalnego: `.\publikuj.ps1 -Cel Lokalny`, `start-api.ps1` + `start-prod-tunnel.ps1` działają jak przed zmianą
+- [x] 5.7 Zmienne obu witryn ustawione samodzielnie przez użytkownika (API: `Auth__InternalApiSecret`, `Auth__SessionSigningKey`, `Mail__Smtp__UserName`, `Mail__Smtp__Password`, `Mail__From`; GUI: `Auth__InternalApiSecret`); żadna wartość nie przeszła przez rozmowę z agentem — ebcec3f
+- [x] 5.8 Pula witryny API przełączona na 64-bit, kopia bazy wgrana do `tg-data`, obie paczki wgrane, pierwszy start API bez odmowy (brak wpisu `FTL` (LogCritical) w `tg-data/Log`) — ebcec3f
+- [x] 5.9 Logowanie istniejącym kontem, rejestracja nowego konta z kodem z e-maila, budowa drzewa, zapis ekranu, grid 288 kolumn przewija się płynnie — ebcec3f
+- [x] 5.10 Ciasteczko `__Host-tg-sesja` z `Secure`; POST akcji z obcym `Origin` (np. inna witryna `*.runasp.net`) odrzucony — ebcec3f
+- [x] 5.11 Żądanie do API z `X-TreeGrid-User` innego konta bez sekretu odrzucone 401 — ebcec3f
+- [x] 5.12 Pamięć każdej witryny po kilku minutach użycia mieści się w jej 256 MB (panel); zimny start po uśpieniu obu witryn zanotowany — ebcec3f
+- [x] 5.13 Linie `api_failure` widoczne w `wwwroot/logs/node-stdout*` witryny GUI po celowo wywołanej porażce (np. chwilowe zatrzymanie witryny API) — ebcec3f
+- [x] 5.14 Powrót do celu lokalnego: `.\publikuj.ps1 -Cel Lokalny`, `start-api.ps1` + `start-prod-tunnel.ps1` działają jak przed zmianą — ebcec3f
