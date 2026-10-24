@@ -11,11 +11,13 @@ import dayjs, { type Dayjs } from "dayjs";
 import { type RefObject, useEffect, useMemo, useRef, useState } from "react";
 import {
   Link,
+  type ShouldRevalidateFunctionArgs,
   data,
   redirect,
   useFetcher,
   useNavigate,
   useNavigation,
+  useSearchParams,
 } from "react-router";
 
 import { GridEkranu } from "~/components/GridEkranu";
@@ -184,6 +186,34 @@ export async function loader({ request, context }: Route.LoaderArgs) {
 }
 
 /**
+ * Zmiana samej doby (ten sam ekran, nowa poprawna doba) nie przeładowuje
+ * loadera: lista ekranów, słowniki i drzewo ekranu od doby nie zależą,
+ * a każde kliknięcie w `DatePicker` wołałoby je ponownie przez tunel razem
+ * z przebudową wierszy gridu. Wartości nowej doby i tak dociąga
+ * {@link useDaneDoby}, a widok czyta dobę z adresu, nie z danych loadera.
+ * Zwrot `false` obejmuje też rewalidację fetchera danych poprzedniej doby.
+ * Zmiana ekranu, goły adres i niepoprawna doba (przekierowanie) — domyślnie.
+ */
+export function shouldRevalidate({
+  currentUrl,
+  nextUrl,
+  formMethod,
+  defaultShouldRevalidate,
+}: ShouldRevalidateFunctionArgs) {
+  const przed = currentUrl.searchParams;
+  const po = nextUrl.searchParams;
+  const tylkoDoba =
+    formMethod === undefined &&
+    currentUrl.pathname === nextUrl.pathname &&
+    !po.has(PARAMETR_DANYCH) &&
+    przed.get(PARAMETR_EKRANU) === po.get(PARAMETR_EKRANU) &&
+    przed.get(PARAMETR_DOBY) !== po.get(PARAMETR_DOBY) &&
+    poprawnaDoba(po.get(PARAMETR_DOBY)) !== null;
+
+  return tylkoDoba ? false : defaultShouldRevalidate;
+}
+
+/**
  * Odpowiedź gałęzi `?dane`. `ekranId` i `doba` to para, o którą prosił
  * widok — z nią widok porównuje porażkę; sukces porównuje po `screenId`
  * i `day` z samej odpowiedzi API.
@@ -268,6 +298,12 @@ function widokPorazki(porazka: ApiFailure) {
  * wybiera węzłów (zwijanie gałęzi zostaje).
  */
 export default function Prezentacja({ loaderData }: Route.ComponentProps) {
+  // Doba z adresu, a dane loadera tylko jako zapas: po zmianie samej doby
+  // loader nie biegnie ({@link shouldRevalidate}), więc `loaderData.doba`
+  // zostaje sprzed zmiany.
+  const [parametry] = useSearchParams();
+  const doba = poprawnaDoba(parametry.get(PARAMETR_DOBY)) ?? loaderData.doba;
+
   return (
     // Układ i odstępy jak w `routes/ekrany.tsx`: widok mieści się w oknie,
     // a grid przewija się u siebie.
@@ -314,7 +350,7 @@ export default function Prezentacja({ loaderData }: Route.ComponentProps) {
                 : String(loaderData.wybrany.id)
             }
             wybranyId={loaderData.wybrany?.id}
-            doba={loaderData.doba}
+            doba={doba}
           />
 
           {loaderData.wybrany === null ? (
@@ -326,7 +362,7 @@ export default function Prezentacja({ loaderData }: Route.ComponentProps) {
           ) : (
             <GridDoby
               ekran={loaderData.wybrany}
-              doba={loaderData.doba}
+              doba={doba}
               kategorie={loaderData.kategorie}
               obiekty={loaderData.obiekty}
             />

@@ -230,10 +230,6 @@ export default function Obiekty({
     // widokach. Tytuł bez własnego dolnego marginesu (`mb-0` zeruje margines
     // nagłówka antd), bo sumowałby się z tym odstępem.
     <main className="mx-auto flex max-w-4xl flex-col gap-tg-sekcja p-tg-strona">
-      {/*
-        Bez linku „← Strona główna": do strony głównej prowadzi nazwa aplikacji
-        w nagłówku powłoki (`routes/powloka.tsx`).
-      */}
       <Typography.Title level={1} className="mb-0">
         Obiekty
       </Typography.Title>

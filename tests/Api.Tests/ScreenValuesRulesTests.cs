@@ -236,10 +236,30 @@ public class ScreenValuesRulesTests
         Assert.False(ScreenValuesRules.TryParseDay(value, out _));
     }
 
+    // 9999-12-31 wysadzało AddDays(1) w BuildPoints (500), 0001-01-01 dawało
+    // obciętą dobę (impl-review prezentacja-ekranu, F1).
+    [Theory]
+    [InlineData("9999-12-31")]
+    [InlineData("0001-01-01")]
+    [InlineData("1999-12-31")]
+    [InlineData("2101-01-01")]
+    public void Day_outside_the_supported_years_is_rejected(string value)
+    {
+        Assert.False(ScreenValuesRules.TryParseDay(value, out _));
+    }
+
+    [Theory]
+    [InlineData("2000-01-01")]
+    [InlineData("2100-12-31")]
+    public void Days_at_the_edges_of_the_supported_years_are_accepted(string value)
+    {
+        Assert.True(ScreenValuesRules.TryParseDay(value, out _));
+    }
+
     [Fact]
     public void Day_refusal_message_names_the_expected_format()
     {
-        Assert.Equal("Doba musi być datą w formacie RRRR-MM-DD.", ScreenValuesRules.InvalidDayMessage);
+        Assert.Equal("Doba musi być datą w formacie RRRR-MM-DD z lat 2000–2100.", ScreenValuesRules.InvalidDayMessage);
     }
 
     [Fact]
@@ -292,6 +312,24 @@ public class ScreenValuesRulesTests
         Assert.Equal(
             ScreenValuesRules.Value(3, 5, endUtc),
             ScreenValuesRules.Value(3, 5, endUtc));
+    }
+
+    // Wyrocznia spoza procesu testu: liczby odczytane 2026-10-24 z odpowiedzi
+    // działającego API (`GET /screens/3/values?day=2026-10-25`, obiekt 12,
+    // kategorie 16 i 17; impl-review prezentacja-ekranu, F8). Przypinają
+    // obietnicę planu „ta sama liczba po restarcie API” — test wyżej porównuje
+    // funkcję samą ze sobą w jednym procesie, więc zmiana mieszania (albo
+    // powrót do losowanego per proces `HashCode`) by go nie wywaliła.
+    [Theory]
+    [InlineData(12, 16, "2026-10-24T23:00:00Z", 164.6)] // 01:00 CEST
+    [InlineData(12, 16, "2026-10-25T02:00:00Z", 840.7)] // 03:00* CET
+    [InlineData(12, 16, "2026-10-25T23:00:00Z", 758.8)] // 24:00
+    [InlineData(12, 17, "2026-10-24T23:00:00Z", 424.5)] // 01:00 CEST
+    public void Value_is_the_same_as_in_another_api_process(int objectId, int categoryId, string endUtc, double expected)
+    {
+        var end = DateTime.Parse(endUtc, CultureInfo.InvariantCulture, DateTimeStyles.AdjustToUniversal);
+
+        Assert.Equal(expected, ScreenValuesRules.Value(objectId, categoryId, end));
     }
 
     [Fact]

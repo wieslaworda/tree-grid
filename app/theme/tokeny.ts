@@ -115,7 +115,8 @@ type Metryki = {
   sizeStep: number;
   lineHeight: number;
   wysokoscWiersza: number;
-  wysokoscNaglowka: number;
+  odstepPrzelacznikaMotywu: number;
+  szerokoscPrzelacznikaMotywu: number;
   odstepStrony: number;
   odstepSekcji: number;
   odstepElementow: number;
@@ -149,14 +150,9 @@ type Metryki = {
  * tej liczby w dwóch miejscach zamiast czytania stąd rozjeżdża drzewo z gridem
  * po kilku wierszach, a to jest rdzeń produktu, nie kosmetyka.
  *
- * `wysokoscNaglowka` też nie jest tokenem antd — z niej wyprowadza się
- * `Menu.horizontalLineHeight`, a menu wyznacza wysokość nagłówka powłoki
- * (`app/routes/powloka.tsx`). Wartość **musi pomieścić w pionie przełącznik
- * motywu**: ten jest `fixed top-3` (12 px) i ma wysokość `controlHeight`
- * (24 px, `app/components/PrzelacznikMotywu.tsx`), a nie należy do nagłówka,
- * więc nagłówek nie ma jak się do niego dopasować sam. `12 + 24 + 12` = **48**
- * to jedyna wartość, przy której przełącznik stoi w nagłówku wyśrodkowany;
- * niższa przykleja go do dolnej krawędzi albo wypuszcza pod nią.
+ * Wysokości nagłówka powłoki tu nie ma i to jest celowe — jest
+ * **wyprowadzana** z geometrii przełącznika motywu, opis przy
+ * `odstepPrzelacznikaMotywu` niżej.
  */
 export const METRYKI: Metryki = {
   fontSize: 12,
@@ -200,7 +196,34 @@ export const METRYKI: Metryki = {
   // przy `components.Table` w `app/theme/antd.ts`.
   lineHeight: 1.75,
   wysokoscWiersza: 24,
-  wysokoscNaglowka: 48,
+  // ——— PRZEŁĄCZNIK MOTYWU I NAGŁÓWEK POWŁOKI ———
+  // Przełącznik motywu (`app/components/PrzelacznikMotywu.tsx`) stoi `fixed`
+  // nad każdą trasą i do nagłówka powłoki (`app/routes/powloka.tsx`) nie
+  // należy, więc nagłówek nie ma jak się do niego dopasować sam. Obie
+  // wielkości, które nagłówek musi mu zostawić, są więc **wyliczane** z tych
+  // dwóch liczb, a nie wpisywane obok nich:
+  //
+  // - wysokość nagłówka = `2 × odstepPrzelacznikaMotywu + controlHeight`
+  //   (`Menu.horizontalLineHeight` w `app/theme/antd.ts`; `Segmented` ma
+  //   wysokość `controlHeight`) — przełącznik stoi w nagłówku wyśrodkowany;
+  // - miejsce po prawej = `2 × odstepPrzelacznikaMotywu +
+  //   szerokoscPrzelacznikaMotywu` (`--tg-miejscePrzelacznikaMotywu`
+  //   w `app/theme/zmienne.ts`, klasa `pr-tg-miejsce-przelacznika`) — login
+  //   i „Wyloguj się” nie wchodzą pod kontrolkę.
+  //
+  // Zmiana `controlHeight` przesuwa więc nagłówek sama. Liczba wpisana
+  // zamiast tego wzoru (dawniej `wysokoscNaglowka: 48`, `pr-36`, `top-3`)
+  // rozjeżdża się po cichu: przełącznik zjeżdża z osi nagłówka albo wchodzi
+  // na login, a build przechodzi.
+  //
+  // Odstęp kontrolki od górnej i prawej krawędzi okna (`top-tg-przelacznik`,
+  // `right-tg-przelacznik`).
+  odstepPrzelacznikaMotywu: 12,
+  // Szerokość `Segmented` z „Ciemny”/„Jasny” — **szacunek**, nie pomiar:
+  // ok. 100 px w kroju Inter plus zapas na szerszy krój zastępczy, zanim
+  // Inter dojedzie. Zmiana etykiet przełącznika wymaga sprawdzenia tej
+  // liczby na ekranie.
+  szerokoscPrzelacznikaMotywu: 120,
   // ——— METRYKI UKŁADU ———
   // Nie idą do antd — czyta je wyłącznie Tailwind, przez zmienne `--tg-*`
   // z `app/theme/zmienne.ts` i klasy `p-tg-strona`, `gap-tg-sekcja`,

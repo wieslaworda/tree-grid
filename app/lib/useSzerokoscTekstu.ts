@@ -1,19 +1,15 @@
+import { theme } from "antd";
 import { useEffect, useState } from "react";
 
 import { METRYKI } from "~/theme/tokeny";
 
 /**
- * Grubość tekstu nagłówka tabeli — `fontWeightStrong` antd, którego motyw
- * nie nadpisuje (`app/theme/antd.ts`), więc obowiązuje domyślne 600.
- */
-const GRUBOSC_NAGLOWKA = 600;
-
-/**
  * Szerokość w pikselach najszerszego z `teksty` i z tekstu `naglowek`
- * (pogrubionego jak nagłówek tabeli), w czcionce komórki tabeli
- * (`METRYKI.fontSize` i `METRYKI.fontFamily` — te same, które motyw daje
- * `Table` w `app/theme/antd.ts`). Bez odstępów komórki — dokłada je
- * wołający.
+ * (pogrubionego jak nagłówek tabeli — `fontWeightStrong` z tokenu motywu,
+ * a nie literał, żeby zmiana tokenu nie rozjechała pomiaru z renderem),
+ * w czcionce komórki tabeli (`METRYKI.fontSize` i `METRYKI.fontFamily` — te
+ * same, które motyw daje `Table` w `app/theme/antd.ts`). Bez odstępów
+ * komórki — dokłada je wołający.
  *
  * Mierzy płótno (`measureText`), a nie DOM: pomiar nie dotyka układu tabeli
  * wirtualnej i nie zależy od tego, które wiersze są akurat wyrenderowane.
@@ -30,6 +26,7 @@ export function useSzerokoscTekstu(
   naglowek: string,
 ): number | undefined {
   const [szerokosc, ustawSzerokosc] = useState<number>();
+  const { fontWeightStrong } = theme.useToken().token;
 
   useEffect(() => {
     if (teksty === null) {
@@ -44,7 +41,7 @@ export function useSzerokoscTekstu(
     }
 
     const czcionka = `${METRYKI.fontSize}px ${METRYKI.fontFamily}`;
-    const czcionkaNaglowka = `${GRUBOSC_NAGLOWKA} ${czcionka}`;
+    const czcionkaNaglowka = `${fontWeightStrong} ${czcionka}`;
     let aktualny = true;
 
     // Odmowa wczytania czcionki nie blokuje pomiaru — mierzy wtedy czcionka,
@@ -79,7 +76,7 @@ export function useSzerokoscTekstu(
     return () => {
       aktualny = false;
     };
-  }, [teksty, naglowek]);
+  }, [teksty, naglowek, fontWeightStrong]);
 
   return szerokosc;
 }

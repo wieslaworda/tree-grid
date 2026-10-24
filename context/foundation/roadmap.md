@@ -60,7 +60,7 @@ Przy celu sekwencjonowania `speed` to również fragment, który najtaniej odpow
 | S-01 | `konto-i-logowanie`   | założyć konto, zalogować się i wylogować; żaden widok nie jest dostępny bez logowania      | F-01          | FR-001, Access Control, NFR (izolacja kont)            | in-progress |
 | S-02 | `lista-obiektow`      | przeglądać, dodawać i edytować obiekty dostępne do budowy drzewa                           | F-01          | FR-002                                                 | in-progress |
 | S-03 | `budowa-drzewa`       | prowadzić własne nazwane drzewa i składać w wybranym drzewie strukturę; zapętlenie jest odrzucane | S-02          | FR-003, FR-004, US-01, Business Logic, Access Control, NFR (izolacja kont), MS-03, MS-04, MS-05, MS-06, MS-07 | in-progress |
-| S-07 | `menu-glowne`         | po zalogowaniu przechodzić między funkcjami z menu głównego; pierwsza pozycja to „Obiekty" | S-01, S-02    | MS-01, FR-002, Access Control                          | in-progress |
+| S-07 | `menu-glowne`         | po zalogowaniu przechodzić między funkcjami z menu głównego; pierwsza pozycja to „Obiekty" | S-01, S-02    | MS-01, FR-002, Access Control                          | done |
 | S-09 | `lista-kategorii`     | przeglądać, dodawać, edytować i usuwać kategorie danych (kod, nazwa, funkcja agregująca)  | F-01, S-07    | MS-02, MS-01, FR-006                                   | in-progress |
 | S-06 | `zapisane-ekrany`     | utworzyć ekran (nazwa, własne drzewo, ziarno, domyślne kategorie), widzieć na bieżąco wiersze węzły × kategorie, zapisać go, wybrać z listy własnych ekranów, odtworzyć i usunąć | S-03, S-09    | FR-009, FR-010, FR-012, FR-007, FR-008, US-01, Access Control, NFR (izolacja kont), MS-01 | in-progress |
 | S-05 | `prezentacja-ekranu`  | wybrać dobę dla ekranu i zobaczyć kolumny czasowe wynikające z ziarna (288 / 96 / 24)       | S-06, F-02    | FR-007, FR-008, US-01, NFR (288 kolumn, feedback >2 s, gęstość odczytu liczb) | in-progress |
@@ -181,7 +181,7 @@ Foundations below assume these are present and do NOT re-scaffold them.
 - **Blockers:** —
 - **Unknowns:** —
 - **Risk:** Menu staje się jedynym miejscem, do którego dopisuje się każdy kolejny widok, więc jego kształt musi przyjmować nowe pozycje bez przerabiania — a przy tym nie wolno dopisywać pozycji na zapas, zanim funkcja istnieje (`S-03`–`S-06` dodają swoje pozycje same). Drugie ryzyko: menu żyje obok bramy logowania z `S-01`, a nie w niej — zmieszanie powłoki wizualnej z regułą dostępu sprawiłoby, że każda zmiana menu wymagałaby ponownego czytania kodu bramy jako reguły bezpieczeństwa.
-- **Status:** in-progress
+- **Status:** done
 
 ### S-09: Słownik kategorii danych
 
@@ -212,10 +212,10 @@ Foundations below assume these are present and do NOT re-scaffold them.
 
 ### S-05: Kolumny czasowe gridu dla wybranej doby i ekranu
 
-- **Outcome:** Dyspozytor wybiera dobę (domyślnie dzisiejszą ).  NAstępnie wybiera ekran ( z listy dostępnych ekranów). Na podstawie wybranego doby i ekranu pod spodem generuje się grid w której piersze 2 kolumny są identyczne jak kolumny drzewa z definicji ekranu 
-  Za kolumną kategorii widzi klumny punktów czasowych wygenerowane na podstawie ziarna z definicji ekranu , 5 min → 288, 15 min → 96, 60 min → 24 kolumny. 
+- **Outcome:** Dyspozytor wybiera dobę (domyślnie dzisiejszą ).  Następnie wybiera ekran ( z listy dostępnych ekranów). Na podstawie wybranego doby i ekranu pod spodem generuje się grid w której piersze 2 kolumny są identyczne jak kolumny drzewa z definicji ekranu 
+  Za kolumną kategorii widzi kolumny punktów czasowych wygenerowane na podstawie ziarna z definicji ekranu , 5 min → 288, 15 min → 96, 60 min → 24 kolumny. 
    Wariant 288-kolumnowy przewija się płynnie razem z drzewem w kolumnie 1. Ilość wierszy wynika z definicji ekranu (obiekty drzewa x przypisane kategorie).  Operacja dłuższa niż 2 sekundy pokazuje postęp.
-   Etykiety kolumn czasowych generowane sa na podstawie ziarna w wybranego ekranu z etykietami w hormacie gg:mm. Dane gridu od 3 kolumny i drugiego wiersza  mają białe tło.
+   Etykiety kolumn czasowych generowane sa na podstawie ziarna w wybranego ekranu z etykietami w formacie gg:mm. Dane gridu od 3 kolumny i drugiego wiersza  mają białe tło.
    Wartości danych od 3 kolumny są pisane kolorem kategorii wiersza — kolorem przypisanym kategorii w słowniku (`S-09`); kategoria spoza słownika zostaje w domyślnym kolorze tekstu danych (zmiana 2026-10-02, FR-008).
    Funkcja uruchamia się z ostatniej pozycji menu "Prezentacja ekranu"
 - **Change ID:** `prezentacja-ekranu`
@@ -252,7 +252,7 @@ Foundations below assume these are present and do NOT re-scaffold them.
 - **Blockers:** —
 - **Unknowns:**
   - Od jakiej liczby wierszy pobranie całej doby jednym żądaniem przestaje wystarczać? Punktem wyjścia jest pomiar z `S-05` w `context/changes/prezentacja-ekranu/plan.md`, sekcja *Performance Considerations* (rozmiar odpowiedzi największego ekranu 5 min, wynik przewijania syntetycznego gridu 288 × 300 we wzorniku i czas od wyboru do danych w widoku). — Owner: użytkownik. Block: no.
-- **Risk:** Decyzja użytkownika z planu `prezentacja-ekranu` (*What We're NOT Doing*): `S-05` pobiera całą dobę ekranu jednym żądaniem i bez limitu wierszy, a doczytywanie okna przychodzi osobno. Plaster zmienia regułę „jedno żądanie na ekran, nie na kolumnę ani wiersz” (`context/foundation/infrastructure.md`), więc przy ciągłym przewijaniu żądania okien trzeba łączyć i odrzucać spóźnione — inaczej limit 200 równoległych żądań tunelu i dane z okna, które już zniknęło, wracają jako błędy widoczne dla użytkownika. Kontrakt `GET /screens/{id}/values` dostaje zakres wierszy; jego nazwy pól wchodzą razem z endpointem, który je emituje (`context/foundation/lessons.md`, „Kontrakt API nie wyprzedza emitenta”).
+- **Risk:** Decyzja użytkownika z planu `prezentacja-ekranu` (*What We're NOT Doing*): `S-05` pobiera całą dobę ekranu jednym żądaniem i bez limitu wierszy, a doczytywanie okna przychodzi osobno. Plaster zmienia regułę „jedno żądanie na ekran, nie na kolumnę ani wiersz” (`context/foundation/infrastructure.md`), więc przy ciągłym przewijaniu żądania okien trzeba łączyć i odrzucać spóźnione — inaczej limit 200 równoległych żądań tunelu i dane z okna, które już zniknęło, wracają jako błędy widoczne dla użytkownika. Kontrakt `GET /screens/{id}/values` dostaje zakres wierszy; jego nazwy pól wchodzą razem z endpointem, który je emituje (`context/foundation/lessons.md`, „Kontrakt API nie wyprzedza emitenta”). Do czasu tego plastra odpowiedź nie ma górnej granicy: pomiar z 2026-10-24 to 557 KB dla 321 par obiekt × kategoria przy ziarnie 5 min (579 KB w dobie 25 h), a drzewo 2000 węzłów × 3 kategorie to ok. 10 MB budowane w pamięci API i Node (MonsterASP Free: 256 MB na witrynę); liczba kategorii na węzeł nie ma limitu, więc i to nie jest sufit (impl-review `prezentacja-ekranu`, F4).
 - **Status:** proposed
 
 ### S-11: Logowanie błędów API do plików w katalogu `Log`

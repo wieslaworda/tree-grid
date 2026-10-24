@@ -138,6 +138,7 @@ public class ScreenValuesIntegrationTests(TestApiFactory factory) : IClassFixtur
     [InlineData("2026-1-5")]
     [InlineData("")]
     [InlineData(null)]
+    [InlineData("9999-12-31")]
     public async Task Bad_or_missing_day_is_a_validation_error_under_the_day_field(string? day)
     {
         var arranged = await ArrangeAsync(objectCount: 1, categoryCount: 1);

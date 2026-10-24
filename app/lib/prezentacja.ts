@@ -49,6 +49,13 @@ const FORMAT_WARTOSCI = new Intl.NumberFormat("pl-PL", {
 const WZORZEC_DOBY = /^(\d{4})-(\d{2})-(\d{2})$/;
 
 /**
+ * Zakres lat doby, którą przyjmuje API — `ScreenValuesRules.MinDay`
+ * i `MaxDay`; zmieniaj obie strony.
+ */
+const NAJWCZESNIEJSZY_ROK = 2000;
+const NAJPOZNIEJSZY_ROK = 2100;
+
+/**
  * Seria wartości jednej pary obiekt × kategoria w kształcie elementu
  * `series` z `GET /screens/{id}/values` — tyle, ile widok potrzebuje.
  */
@@ -75,13 +82,14 @@ export function dzisiejszaDoba(teraz: Date = new Date()): string {
 
 /**
  * Parametr doby, jeśli jest dobą, którą przyjmie API — dokładnie
- * `RRRR-MM-DD` i data, która istnieje w kalendarzu (`2026-02-30` nie) —
- * a w każdym innym przypadku `null`. Ta sama reguła co
+ * `RRRR-MM-DD`, data, która istnieje w kalendarzu (`2026-02-30` nie),
+ * z lat {@link NAJWCZESNIEJSZY_ROK}–{@link NAJPOZNIEJSZY_ROK} — a w każdym
+ * innym przypadku `null`. Ta sama reguła co
  * `ScreenValuesRules.TryParseDay`; wiążąca zostaje odmowa API, a tutaj
  * rozstrzyga się tylko, czy adres trzeba poprawić przekierowaniem.
  *
  * Rok przez `setUTCFullYear`, a nie `Date.UTC`: ten drugi zamienia lata
- * 0–99 na 1900–1999. Rok `0000` odpada, bo `DateOnly` w API go nie zna.
+ * 0–99 na 1900–1999.
  */
 export function poprawnaDoba(wartosc: string | null): string | null {
   const dopasowanie = wartosc === null ? null : WZORZEC_DOBY.exec(wartosc);
@@ -96,7 +104,8 @@ export function poprawnaDoba(wartosc: string | null): string | null {
   data.setUTCFullYear(rok, miesiac - 1, dzien);
 
   const istnieje =
-    rok >= 1 &&
+    rok >= NAJWCZESNIEJSZY_ROK &&
+    rok <= NAJPOZNIEJSZY_ROK &&
     data.getUTCFullYear() === rok &&
     data.getUTCMonth() === miesiac - 1 &&
     data.getUTCDate() === dzien;

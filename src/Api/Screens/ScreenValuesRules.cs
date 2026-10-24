@@ -28,8 +28,23 @@ internal static class ScreenValuesRules
     /// <summary>Format doby w adresie i w odpowiedzi.</summary>
     internal const string DayFormat = "yyyy-MM-dd";
 
-    /// <summary>Komunikat dla braku doby, złego formatu i daty, której nie ma w kalendarzu.</summary>
-    internal const string InvalidDayMessage = "Doba musi być datą w formacie RRRR-MM-DD.";
+    /// <summary>
+    /// Komunikat dla braku doby, złego formatu, daty, której nie ma
+    /// w kalendarzu, i doby spoza <see cref="MinDay"/>–<see cref="MaxDay"/>.
+    /// </summary>
+    internal const string InvalidDayMessage = "Doba musi być datą w formacie RRRR-MM-DD z lat 2000–2100.";
+
+    /// <summary>
+    /// Najwcześniejsza i najpóźniejsza doba, którą przyjmuje API. Brzegi
+    /// <see cref="DateOnly"/> nie są dobą do policzenia: <c>9999-12-31</c>
+    /// wysadzało <c>day.AddDays(1)</c> w <see cref="BuildPoints"/> (500 zamiast
+    /// 400), a <c>0001-01-01</c> dawało obciętą, 23-godzinną dobę. Ten sam
+    /// zakres ma <c>poprawnaDoba</c> w <c>app/lib/prezentacja.ts</c>.
+    /// </summary>
+    internal static readonly DateOnly MinDay = new(2000, 1, 1);
+
+    /// <inheritdoc cref="MinDay"/>
+    internal static readonly DateOnly MaxDay = new(2100, 12, 31);
 
     /// <summary>
     /// Etykieta końca ostatniego punktu doby — koniec równy północy kolejnej
@@ -47,16 +62,19 @@ internal static class ScreenValuesRules
     /// <summary>
     /// Rozpoznaje dobę z adresu: wyłącznie <c>RRRR-MM-DD</c> w kulturze
     /// niezmiennej, bez spacji na brzegach. Data spoza kalendarza
-    /// (<c>2026-02-30</c>) i miesiąc albo dzień jedną cyfrą (<c>2026-1-5</c>)
-    /// to odmowa z <see cref="InvalidDayMessage"/>.
+    /// (<c>2026-02-30</c>), miesiąc albo dzień jedną cyfrą (<c>2026-1-5</c>)
+    /// i doba spoza <see cref="MinDay"/>–<see cref="MaxDay"/> to odmowa
+    /// z <see cref="InvalidDayMessage"/>.
     /// </summary>
     internal static bool TryParseDay(string? value, out DateOnly day)
         => DateOnly.TryParseExact(
-            value,
-            DayFormat,
-            CultureInfo.InvariantCulture,
-            DateTimeStyles.None,
-            out day);
+               value,
+               DayFormat,
+               CultureInfo.InvariantCulture,
+               DateTimeStyles.None,
+               out day)
+           && day >= MinDay
+           && day <= MaxDay;
 
     /// <summary>
     /// Punkty czasowe doby <paramref name="day"/> w strefie

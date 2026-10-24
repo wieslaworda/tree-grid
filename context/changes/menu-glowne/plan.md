@@ -234,6 +234,13 @@ formularz wylogowania z komentarzem (przeniesionym w fazie 1). Akapit mówi, że
 funkcje aplikacji są w menu głównym. Treść nadal renderowana przez antd
 (komentarz o ćwiczeniu ścieżki SSR z warstwą `antd` zostaje).
 
+**Addendum (impl-review 2026-10-24, F2)**: Zrealizowane inaczej. Po obejrzeniu
+ekranu użytkownik zdecydował przy `ff9a44b`, że widok zostaje pusty
+(`return null`), bez akapitu powitalnego. Ścieżkę SSR z warstwą `antd` na `/`
+ćwiczą od tej pory menu i przycisk wylogowania w nagłówku powłoki. Ręczne
+sprawdzenie 2.4 dotyczy więc pustego widoku, nie powitania. Później
+`a615397` zastąpił widok przekierowaniem na `HOME_ROUTE` (`/prezentacja`).
+
 #### 2. Lista obiektów bez linku powrotnego
 
 **File**: `app/routes/obiekty.tsx`

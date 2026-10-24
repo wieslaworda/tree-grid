@@ -1,9 +1,9 @@
 ---
 change_id: menu-glowne
 title: Menu główne aplikacji po zalogowaniu — pierwsza pozycja „Obiekty"
-status: implemented
+status: impl_reviewed
 created: 2026-09-23
-updated: 2026-09-23
+updated: 2026-10-24
 archived_at: null
 ---
 

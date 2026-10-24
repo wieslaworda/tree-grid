@@ -182,6 +182,27 @@ try
 
     var app = builder.Build();
 
+    // Strefa produktu (`ScreenValuesRules.ProductTimeZone`) to pole statyczne
+    // rozwiązywane przy pierwszym użyciu. Bez danych strefy na hoście (Windows
+    // bez ICU) pierwsze żądanie wartości ekranu i każda wysyłka kodu
+    // rejestracji kończyłyby się `TypeInitializationException` (500), a nie
+    // odmową startu. Sprawdzenie tutaj, w każdym środowisku, zamienia to
+    // w głośną odmowę z wpisem w logu, jak przy brakujących sekretach niżej.
+    try
+    {
+        _ = ScreenValuesRules.ProductTimeZone;
+    }
+    catch (TypeInitializationException exception)
+    {
+        app.Logger.LogCritical(
+            exception.InnerException ?? exception,
+            "Strefa czasowa produktu {ZoneId} jest niedostępna na tym hoście. Start przerwany.",
+            ScreenValuesRules.ProductTimeZoneId);
+
+        fileLogger.Dispose();
+        return 1;
+    }
+
     // Ten sam wzorzec, którym niżej odmawia startu niezmigrowana baza: brak sekretu
     // albo niekompletna poczta są błędem konfiguracji, więc mają zatrzymać start
     // i nazwać brakujący klucz, zamiast zamienić się w cichą podatność albo w 503

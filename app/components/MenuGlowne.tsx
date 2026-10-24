@@ -16,7 +16,7 @@ import { Link, useLocation } from "react-router";
  * „Prezentacji ekranu” tu nie ma: stoi w nagłówku powłoki na miejscu nazwy
  * aplikacji (`routes/powloka.tsx`), jako widok startowy po zalogowaniu.
  */
-export const POZYCJE_MENU: { sciezka: string; etykieta: string }[] = [
+const POZYCJE_MENU: { sciezka: string; etykieta: string }[] = [
   { sciezka: "/obiekty", etykieta: "Obiekty" },
   { sciezka: "/kategorie", etykieta: "Kategorie" },
   { sciezka: "/drzewo", etykieta: "Drzewo" },
@@ -57,7 +57,7 @@ function aktywnaPozycja(pathname: string): string[] {
 
 /**
  * Menu główne powłoki. Wysokość bierze z motywu (`Menu.horizontalLineHeight`
- * ← `METRYKI.wysokoscNaglowka` w `app/theme/antd.ts`), kolory z ziaren — nic
+ * ← geometria przełącznika motywu w `app/theme/antd.ts`), kolory z ziaren — nic
  * z tego nie jest ustawiane tutaj.
  */
 export function MenuGlowne() {

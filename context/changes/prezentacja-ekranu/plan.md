@@ -44,7 +44,7 @@ Weryfikacja: testy jednostkowe osi czasu i wartości, testy integracyjne endpoin
 - **Limitu wierszy** (PRD `## Open Questions` #5) — decyzja użytkownika: bez limitu; rozmiar odpowiedzi i płynność są mierzone i zapisane.
 - **Wirtualizacji kolumn** (renderowania tylko widocznych kolumn czasowych) — antd tego nie robi; wraca tylko, jeśli pomiar w fazie 2 nie przejdzie.
 - **Kolumn czasowych w widoku „Ekrany”** — grid tam zostaje dwukolumnowy; czas pokazuje wyłącznie „Prezentacja ekranu”.
-- **Kolorowania wartości** (wzrost/spadek/ostrzeżenie), agregacji i funkcji agregującej kategorii (PRD `## Non-Goals`).
+- **Kolorowania wartości** (wzrost/spadek/ostrzeżenie), agregacji i funkcji agregującej kategorii (PRD `## Non-Goals`). Kolor kategorii ze słownika na wartościach wszedł później decyzją użytkownika — *Korekta po fazie 3 (2026-10-02)*; sygnałów wzrostu/spadku/ostrzeżenia nadal nie ma.
 - **Wyboru węzła i edycji** w prezentacji — grid jest tylko do oglądania (zwijanie gałęzi zostaje).
 - **Zmian w PRD** — rzeczywista doba (23/25 h) rozjeżdża się z liczbami 288/96/24 w FR-007 i US-01; naniesienie należy do `/10x-prd`.
 - **Testów frontendu i Playwright** (znana luka, `context/changes/testy-procesowe-playwright/`).
@@ -68,6 +68,14 @@ Po stronie widoku `GridEkranu` dostaje opcjonalny prop kolumn czasowych; bez nie
 **Wydajność: koszt jednej komórki czasowej jest mnożony przez ~290 × widoczne wiersze przy każdym przewinięciu.** Render komórki czasowej to wyłącznie odczyt gotowego tekstu z tablicy; `onCell` kolumn czasowych zwraca jeden z dwóch stałych obiektów (z linią sekcji albo bez), a tablica kolumn powstaje w `useMemo` tylko przy zmianie punktów albo danych. Jeśli pomiar w fazie 2 (kryterium 2.6) nie przejdzie, **zatrzymaj implementację i wróć do planowania** — kolejnym krokiem jest wirtualizacja kolumn, która zmienia kształt komponentu.
 
 > **Korekta po fazie 3 (2026-10-01).** Kryterium nie przeszło: widok przewijał się bardzo wolno. Tania komórka nie wystarcza, bo lista wirtualna antd przy **każdym** kroku przewijania renderuje od nowa wszystkie komórki widocznych wierszy (szczegóły w *Performance Considerations*). Kolumny czasowe są odtąd jednym pasem komórek w jednej kolumnie tabeli (`PasDanych` i `PasNaglowka` w `app/components/GridEkranu.tsx`, opakowane w `memo`), a nie kolumną antd na punkt. Wirtualizacja wierszy zostaje. Wzór `scroll.x` się nie zmienia — szerokość kolumny danych to `n × szerokoscKolumnyCzasowej`.
+
+> **Korekta po fazie 3 (2026-10-02, dopisana po impl-review 2026-10-24).** Trzy decyzje użytkownika podjęte po zamknięciu kodu faz, w commitach poza planem:
+>
+> - **Kolor kategorii na wartościach** (`a615397`): komórki danych piszą wartość kolorem kategorii wiersza ze słownika kategorii; kategoria spoza słownika zostaje w `tekstDanych`. Biała rola `tloDanych` zostaje. Kontrast ≥ 4,5:1 obiecany roli `tekstDanych` nie obowiązuje koloru wybranego przez użytkownika — to otwarte pytanie PRD `## Open Questions` #6. PRD (notka FR-008 z 2026-10-02) i roadmapa (MS-02, S-09) opisują to zachowanie; zmiana PRD poszła wbrew punktowi *Zmian w PRD* z *What We're NOT Doing* — rozjazd 23/25 h z FR-007 i US-01 nadal czeka na `/10x-prd`.
+> - **„Prezentacja ekranu” jako widok startowy** (`a615397`): zamiast pozycji na końcu `POZYCJE_MENU` (krok 3.4) jest linkiem w nagłówku powłoki w miejscu nazwy aplikacji (`app/routes/powloka.tsx`), a po zalogowaniu i rejestracji aplikacja otwiera `/prezentacja` (`HOME_ROUTE` w `app/lib/auth.server.ts`); `/` przekierowuje tam za bramą.
+> - **Kolumna „Kategoria” w prezentacji** (`476b88e`, `9f84428`): pokazuje samą nazwę kategorii i ma szerokość najdłuższej nazwy (`app/lib/useSzerokoscTekstu.ts`), więc kolumny 1–2 nie są już identyczne z widokiem „Ekrany”; `scroll.x` dalej jest dokładną sumą szerokości. Pole wyboru ekranu jest co najmniej tak szerokie jak pole doby.
+>
+> Kryteria ręczne 3.5 i 3.6 sprawdza się według tej korekty (dopiski w *Progress*).
 
 **Dane doby należą do jednej pary (ekran, doba).** Odpowiedź `fetcher`a dla poprzedniego wyboru nie może pokazać się pod nowym — widok porównuje `screenId` i `day` z odpowiedzi z bieżącym wyborem (wzorzec `podglad.treeId` w `ekrany.tsx:1070-1081`).
 
@@ -315,7 +323,7 @@ Klient API wartości, trasa `/prezentacja` z paskiem wyboru doby i ekranu, wczyt
   - każdy wiersz ze scaloną komórką węzła renderuje się drugi raz w warstwie `extraRender` (`VirtualTable/BodyGrid.js`), ze wszystkimi komórkami ukrytymi przez `visibility: hidden`, a pętle tej warstwy wołają `onCell` każdej kolumny dla wierszy z zakresu.
 - **Poprawka.** Jedna kolumna danych z pasem komórek (`PasDanych`, `memo` po tablicy tekstów serii) i pas etykiet w nagłówku (`PasNaglowka`). Na krok przewijania antd renderuje 3 komórki na wiersz, a pas pomija render, dopóki nie przyjdą nowe dane doby. Szerokość i odstęp komórki pasa czytają z `METRYKI` przez `--tg-szerokoscKolumnyCzasowej` i `--tg-odstepKomorkiGridu` (`app/theme/zmienne.ts`). Płynność potwierdzona ręcznie przez użytkownika 2026-10-01; liczby z nagrania DevTools nadal do wpisania niżej.
 - Transfer: ~6 B na wartość, więc 300 wierszy × 288 punktów ≈ 0,5 MB; bez limitu wierszy 2000 węzłów × 3 kategorie dałoby kilka MB — świadomie przyjęte do czasu plastra doczytywania okna.
-- Wyniki pomiarów (uzupełnia implementacja): rozmiar odpowiedzi największego ekranu 5 min — _do wpisania w fazie 1_; najdłuższe zadanie i liczba komórek w DOM we wzorniku — _do wpisania w fazie 2_; czas od wyboru do danych w widoku — _do wpisania w fazie 3_.
+- Wyniki pomiarów (uzupełnia implementacja): rozmiar odpowiedzi największego ekranu 5 min — **556 802 B dla 2026-10-01 (288 punktów) i 578 947 B dla 2026-10-25 (300 punktów), bez kompresji, 509 / 619 ms przez pętlę zwrotną na API Development** (ekran 9 z lokalnej bazy: 107 węzłów, 321 par obiekt × kategoria; pomiar 2026-10-24 podczas impl-review) — ok. 6 B na wartość, zgodnie z szacunkiem wyżej; ekstrapolacja na 2000 węzłów × 3 kategorie to ok. 10 MB (impl-review F4); najdłuższe zadanie i liczba komórek w DOM we wzorniku — _do wpisania w fazie 2_; czas od wyboru do danych w widoku — _do wpisania w fazie 3_.
 
 ## Migration Notes
 
@@ -345,8 +353,8 @@ Brak zmian schematu bazy — wartości nie są przechowywane.
 
 #### Manual
 
-- [ ] 1.5 `curl` na `127.0.0.1:5180/screens/<id>/values?day=2026-10-25` z nagłówkiem `X-TreeGrid-User` dla ekranu z ziarnem 60 zwraca 25 punktów z etykietą `03:00` raz bez i raz z `repeated: true`, a dwa kolejne wywołania dają identyczne `values`
-- [ ] 1.6 Rozmiar odpowiedzi dla największego dostępnego ekranu z ziarnem 5 min zapisany w tym planie (sekcja *Performance Considerations*)
+- [x] 1.5 `curl` na `127.0.0.1:5180/screens/<id>/values?day=2026-10-25` z nagłówkiem `X-TreeGrid-User` dla ekranu z ziarnem 60 zwraca 25 punktów z etykietą `03:00` raz bez i raz z `repeated: true`, a dwa kolejne wywołania dają identyczne `values` — 2026-10-24 (impl-review): ekran 3, 25 punktów, `03:00` (+120) i `03:00*` (+60), ostatni `24:00`, 28 serii identycznych w dwóch wywołaniach
+- [x] 1.6 Rozmiar odpowiedzi dla największego dostępnego ekranu z ziarnem 5 min zapisany w tym planie (sekcja *Performance Considerations*) — 2026-10-24 (impl-review): 557 KB / 579 KB
 
 ### Phase 2: Kolumny czasowe w gridzie i role motywu
 
@@ -367,15 +375,15 @@ Brak zmian schematu bazy — wartości nie są przechowywane.
 
 #### Automated
 
-- [x] 3.1 Typy przechodzą (w tym typegen nowej trasy): `npm run typecheck`
-- [x] 3.2 Build produkcyjny przechodzi: `npm run build`
-- [x] 3.3 Testy API nadal przechodzą: `dotnet test tests/Api.Tests`
+- [x] 3.1 Typy przechodzą (w tym typegen nowej trasy): `npm run typecheck` — e1c2a04
+- [x] 3.2 Build produkcyjny przechodzi: `npm run build` — e1c2a04
+- [x] 3.3 Testy API nadal przechodzą: `dotnet test tests/Api.Tests` — e1c2a04
 - [ ] 3.4 Kontrakty renderowania nienaruszone: po `npm run build` i `npm run start` wynik `curl -s http://localhost:3000/prezentacja?ekran=<id>&doba=2026-10-01` (z ciasteczkiem sesji) zawiera `@layer antd`, a offset ostatniego `data-css-hash` jest mniejszy niż offset `</head>`
 
 #### Manual
 
-- [ ] 3.5 „Prezentacja ekranu” to ostatnia pozycja menu; goły `/prezentacja` przekierowuje na pierwszy ekran i dzisiejszą dobę, a konto bez ekranów widzi pusty stan z linkiem do „Ekrany”
-- [ ] 3.6 Dla ekranu z ziarnem 15 min doba 2026-10-01 daje 96 kolumn od `00:15` do `24:00`, a 2026-10-25 — 100 kolumn z `02:15*`–`03:00*`; kolumny 1–2 i liczba wierszy są takie same jak w widoku „Ekrany” dla tego ekranu
+- [ ] 3.5 „Prezentacja ekranu” to ostatnia pozycja menu; goły `/prezentacja` przekierowuje na pierwszy ekran i dzisiejszą dobę, a konto bez ekranów widzi pusty stan z linkiem do „Ekrany” — po korekcie 2026-10-02: zamiast pozycji menu link w nagłówku powłoki, a logowanie i `/` otwierają `/prezentacja`
+- [ ] 3.6 Dla ekranu z ziarnem 15 min doba 2026-10-01 daje 96 kolumn od `00:15` do `24:00`, a 2026-10-25 — 100 kolumn z `02:15*`–`03:00*`; kolumny 1–2 i liczba wierszy są takie same jak w widoku „Ekrany” dla tego ekranu — po korekcie 2026-10-02: kolumna 1 i liczba wierszy jak w „Ekrany”, kolumna 2 z samą nazwą kategorii na szerokość najdłuższej, wartości kolorem kategorii
 - [ ] 3.7 Zmiana doby albo ekranu pokazuje postęp i podmienia dane bez mieszania z poprzednim wyborem; odświeżenie strony daje te same liczby
 - [ ] 3.8 Ten sam obiekt w dwóch gałęziach drzewa pokazuje w tej samej kategorii te same wartości
 - [ ] 3.9 Wpisanie `?ekran=<id>` ekranu innego użytkownika daje ostrzeżenie „nieznany ekran”, bez danych

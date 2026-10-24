@@ -74,9 +74,11 @@ const OPCJE: { value: Wariant; label: string }[] = [
  * Przeniesienie wymagałoby więc drugiego miejsca montowania, czyli dokładnie
  * tego rozgałęzienia, przed którym ostrzega sekcja wyżej. Zostaje jedno
  * wystąpienie w `App`, `fixed` nad każdą trasą, a nagłówek robi mu miejsce:
- * `METRYKI.wysokoscNaglowka` mieści kontrolkę w pionie, a prawy klaster
- * nagłówka zostawia jej odstęp w poziomie. Zmiana pozycji, rozmiaru albo
- * etykiet tej kontrolki pociąga za sobą oba te miejsca.
+ * wysokość nagłówka i odstęp jego prawego klastra są wyliczane z pozycji
+ * i rozmiaru tej kontrolki (`odstepPrzelacznikaMotywu`,
+ * `szerokoscPrzelacznikaMotywu` i `controlHeight` w `app/theme/tokeny.ts`).
+ * Pozycję zmienia się tam, nie klasą tutaj; zmiana etykiet wymaga
+ * sprawdzenia szacowanej szerokości.
  */
 export function PrzelacznikMotywu() {
   const { wariant, ustawWariant } = useContext(KontekstMotywu);
@@ -88,7 +90,7 @@ export function PrzelacznikMotywu() {
       // potwierdzić, że kontrolki tam nie ma. Bez etykiety `Segmented` podaje
       // czytnikowi własne domyślne `aria-label="segmented control"`.
       aria-label="Motyw interfejsu"
-      className="fixed top-3 right-3 z-50"
+      className="fixed top-tg-przelacznik right-tg-przelacznik z-50"
       // Stan bieżącego wariantu komunikuje semantyka komponentu: `Segmented`
       // renderuje `role="radiogroup"` z zaznaczonym `input[type=radio]`, więc
       // czytnik ekranu mówi „zaznaczone" bez żadnego `aria-*` od nas.

@@ -53,20 +53,18 @@ export default function Powloka({ loaderData }: Route.ComponentProps) {
     <div className="flex h-dvh flex-col">
       {/*
         Wysokości nagłówek nie ma w żadnej klasie: wyznacza ją menu, którego
-        `horizontalLineHeight` pochodzi z `METRYKI.wysokoscNaglowka`
+        `horizontalLineHeight` jest wyliczane z geometrii przełącznika motywu
         (`app/theme/antd.ts`). Pozostałe części są niższe i centruje je
         `items-center`.
 
-        `pr-36` to jedyny świadomy wyjątek od „żadnych rozmiarów w widoku"
-        i nie jest metryką gęstości, tylko przesunięciem układu: przełącznik
-        motywu stoi nad nagłówkiem jako `fixed top-3 right-3` i do nagłówka
-        nie należy (`app/components/PrzelacznikMotywu.tsx`). Prawy klaster
-        musi mu zostawić miejsce — `Segmented` z „Ciemny"/„Jasny" ma ok.
-        100 px plus 12 px odstępu od krawędzi; 144 px daje zapas na szerszy
-        krój zastępczy, zanim dojedzie Inter. Zmiana etykiet przełącznika
-        albo jego pozycji wymaga poprawienia tej klasy.
+        `pr-tg-miejsce-przelacznika`: przełącznik motywu stoi nad nagłówkiem
+        jako `fixed` i do nagłówka nie należy
+        (`app/components/PrzelacznikMotywu.tsx`), więc prawy klaster musi mu
+        zostawić miejsce. Ile — wylicza `app/theme/zmienne.ts` z pozycji
+        i szacowanej szerokości kontrolki; uzasadnienie przy
+        `odstepPrzelacznikaMotywu` w `app/theme/tokeny.ts`.
       */}
-      <header className="flex shrink-0 items-center gap-4 border-b border-tg-linia bg-tg-panel pr-36 pl-3">
+      <header className="flex shrink-0 items-center gap-tg-sekcja border-b border-tg-linia bg-tg-panel pr-tg-miejsce-przelacznika pl-tg-strona">
         {/*
           Miejsce nazwy aplikacji zajmuje „Prezentacja ekranu” — widok, który
           zalogowany dostaje na starcie (`HOME_ROUTE`). Poza menu głównym, więc
@@ -85,7 +83,7 @@ export default function Powloka({ loaderData }: Route.ComponentProps) {
 
         <MenuGlowne />
 
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-tg-sekcja">
           <span className="text-tg-tekst-drugorzedny">{login}</span>
 
           {/*

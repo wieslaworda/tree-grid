@@ -323,9 +323,10 @@ function zbudujMotyw(wariant: Wariant): ThemeConfig {
        * a przy naszym `controlHeight: 24` ułamkowe 34,5 px, za mało na
        * przełącznik motywu (12 px od góry + 24 px wysokości). Wartość
        * wyprowadzona z ziarna nie ma więc związku z tym, co nagłówek musi
-       * pomieścić. Stąd `METRYKI.wysokoscNaglowka`, z tego samego powodu co
-       * `wysokoscWiersza` przy `Tree`: liczba wpisana tutaj byłaby drugim
-       * źródłem prawdy.
+       * pomieścić. Stąd wzór z geometrii przełącznika
+       * (`2 × odstepPrzelacznikaMotywu + controlHeight` = 48 px, opis przy
+       * `odstepPrzelacznikaMotywu` w `app/theme/tokeny.ts`): liczba wpisana
+       * tutaj byłaby drugim źródłem prawdy i nie poszłaby za `controlHeight`.
        *
        * Jednostka jest jawna, a nie dopisywana przez antd: token trafia do CSS
        * jako `line-height`, a gołe `48` byłoby tam **mnożnikiem** rozmiaru
@@ -336,7 +337,7 @@ function zbudujMotyw(wariant: Wariant): ThemeConfig {
        * pozycji aktywnej wyprowadza się z ziarna `colorPrimary`.
        */
       Menu: {
-        horizontalLineHeight: `${METRYKI.wysokoscNaglowka}px`,
+        horizontalLineHeight: `${2 * METRYKI.odstepPrzelacznikaMotywu + METRYKI.controlHeight}px`,
       },
     },
   };

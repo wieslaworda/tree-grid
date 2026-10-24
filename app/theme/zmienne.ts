@@ -73,6 +73,11 @@ function blokWspolny(): string {
     `  --tg-rozmiarPrzelacznika: ${px(METRYKI.rozmiarPrzelacznika)};`,
     `  --tg-promienPolaWyboru: ${px(METRYKI.promienPolaWyboru)};`,
     `  --tg-szerokoscPaneluKategoriiWezla: ${px(METRYKI.szerokoscPaneluKategoriiWezla)};`,
+    // Geometria przełącznika motywu i miejsce, które zostawia mu nagłówek
+    // powłoki. Miejsce wyliczone tutaj, jak `--tg-minWysokoscBudowy` niżej —
+    // uzasadnienie przy `odstepPrzelacznikaMotywu` w `app/theme/tokeny.ts`.
+    `  --tg-odstepPrzelacznikaMotywu: ${px(METRYKI.odstepPrzelacznikaMotywu)};`,
+    `  --tg-miejscePrzelacznikaMotywu: ${px(2 * METRYKI.odstepPrzelacznikaMotywu + METRYKI.szerokoscPrzelacznikaMotywu)};`,
     // Wyliczona tutaj, a nie wpisana w `METRYKI`: źródłem jest liczba wierszy
     // i wysokość wiersza, więc zmiana wiersza przesuwa ją sama.
     `  --tg-minWysokoscBudowy: ${px(METRYKI.wierszeMinimalnejBudowy * METRYKI.wysokoscWiersza)};`,

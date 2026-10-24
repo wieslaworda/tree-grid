@@ -77,6 +77,8 @@
   --spacing-tg-element: var(--tg-odstepElementow);
   --spacing-tg-budowa: var(--tg-minWysokoscBudowy);
   --spacing-tg-panel-wezla: var(--tg-szerokoscPaneluKategoriiWezla);
+  --spacing-tg-przelacznik: var(--tg-odstepPrzelacznikaMotywu);
+  --spacing-tg-miejsce-przelacznika: var(--tg-miejscePrzelacznikaMotywu);
 }
 
 /* Tło i kolor tekstu dokumentu biorą się ze zmiennych, a nie z klas wariantu:
