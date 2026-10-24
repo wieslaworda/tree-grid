@@ -553,7 +553,7 @@ tej zmianie wykonaj `dotnet ef database update --project src/Api`.
 - [ ] 2.7 Na pustym słowniku tabela pokazuje pusty stan; dodanie z domyślnym SUM wybiera nową kategorię i pokazuje ją w tabeli
 - [ ] 2.8 Duplikat kodu (inna wielkość liter) daje komunikat pod polem kodu w obu wariantach motywu
 - [ ] 2.9 Edycja nazwy i funkcji zapisuje się i formularz pokazuje zapisane wartości; usunięcie po potwierdzeniu wraca do dodawania, a „Anuluj" jest obrysowany
-- [x] 2.10 Filtry tekstowe i lista funkcji zawężają tabelę (MIN nie pokazuje MAX), sortowanie po każdej kolumnie przechodzi rosnąco → malejąco → bez, stronicowanie po 10 i przeskok na stronę wybranej kategorii działają — 78ed006
+- [ ] 2.10 Filtry tekstowe i lista funkcji zawężają tabelę (MIN nie pokazuje MAX), sortowanie po każdej kolumnie przechodzi rosnąco → malejąco → bez, stronicowanie po 10 i przeskok na stronę wybranej kategorii działają
 - [ ] 2.11 Lista obiektów działa bez zmian: filtry, sortowanie, stronicowanie, przeskok, podświetlenie, zapis i usuwanie
 - [ ] 2.12 Źródło strony `/kategorie` zawiera `@layer antd`, a ostatni `data-css-hash` stoi przed `</head>`
 - [ ] 2.13 Przez adres tunelu dodanie, edycja i usunięcie kategorii przechodzą bez 400 i bez `origin_mismatch`
