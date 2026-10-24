@@ -52,6 +52,15 @@ zapisuje samą nazwę, tryb nowego drzewa ma nieaktywną budowę, a usunięcie
 przeciągnięciem trafia do bazy od razu. Fazy 7 i 8 opisują niżej, co z tego
 już jest i co przepinają na szkic.
 
+**Fazy 6–7 wyłączone z planu (2026-10-24, impl-review F1).** Plan zamyka się
+na fazach 1–5 i 8. Na API pojedynczych operacji zbudowano od tego czasu
+`kontrola-drzewa`, `zwijanie-drzewa` (`PUT /trees/{treeId}/layout`),
+`zapisane-ekrany` i `drzewo-domyslne`, więc przejście na zapis całości
+wymagałoby nowego planu na dzisiejszym HEAD, a nie dokończenia tego.
+Zostaje „ostatni zapis wygrywa” na poziomie pojedynczej operacji. Szkic
+z wykrywaniem nieaktualnej wersji (`tree_stale`) stoi w *Parked* roadmapy.
+Wiersze 6.x i 7.x w Progress zostają nieodhaczone jako zapis historyczny.
+
 ## Current State Analysis
 
 Stan zweryfikowany w kodzie przy planowaniu:
@@ -1324,6 +1333,9 @@ czy portu 3000 nie trzyma stary proces.
 
 ## Faza 6: API zapisu całego drzewa
 
+> **Wyłączona z planu 2026-10-24** — zobacz Overview, „Fazy 6–7 wyłączone
+> z planu”. Treść poniżej jest historyczna.
+
 ### Overview
 
 Licznik wersji drzewa, reguły i diff całego drzewa jako czyste funkcje
@@ -1480,6 +1492,9 @@ identyfikatora konta ani hasła nie przekazuje się agentowi.
 ---
 
 ## Faza 7: Szkic drzewa i panel jak w Kategoriach
+
+> **Wyłączona z planu 2026-10-24** — zobacz Overview, „Fazy 6–7 wyłączone
+> z planu”. Treść poniżej jest historyczna.
 
 ### Overview
 
@@ -1923,6 +1938,73 @@ więc przed pierwszym startem trzeba wykonać `dotnet ef database update` (po
 kopii pliku bazy). Między wdrożeniem fazy 6 a fazy 7 widok `/drzewo` nie
 zapisuje (stary klient woła usunięte endpointy węzłów i `PUT /trees/{id}` bez
 `version`) — obie fazy wdraża się przez tunel razem.
+
+## Mapa kroków ręcznych po przeglądzie (2026-10-24, impl-review F3)
+
+Kroki ręczne faz 1, 2, 4, 5 i 8 opisują API i widok z września. Od tego czasu
+FR-005 wycofano (`48a60fe`), regułę zapętlenia i duplikatu rodzeństwa
+zastąpiło `kontrola-drzewa` (`tree_object_reused`), a fazy 6–7 (szkic)
+wyłączono z planu. Tytuły w Progress zostają bez zmian, a tabela mówi, jak
+dziś czytać każdy nieodhaczony krok. Odhacza je `/10x-implement`, nie przegląd.
+
+- **Pokryty** — test w repozytorium sprawdza dzisiejszy odpowiednik kroku.
+  Można go odhaczyć, powołując się na ten test.
+- **Nieaktualny** — krok opisuje usuniętą funkcję. Odhacza się go z dopiskiem
+  „nieaktualny” albo zostawia jako zapis historyczny.
+- **Historyczny** — jednorazowa migracja danych, zastosowana w każdej bazie;
+  powtórzyć ją można wyłącznie na kopii sprzed migracji.
+- **Do wykonania** — nic tego nie sprawdza; w nawiasie dzisiejsze brzmienie,
+  jeśli różni się od tytułu.
+
+| Krok | Status | Dowód albo dzisiejsze brzmienie |
+|---|---|---|
+| 1.5 | Pokryty | `ApiHostIntegrationTests.Trees_request_without_identity_header_is_refused_in_the_error_contract` (`/tree` zastąpiło `/trees`) |
+| 1.6 | Nieaktualny | `includeBranch` usunięte z FR-005 |
+| 1.7 | Pokryty | `TreeIntegrationTests.Adding_an_object_again_deep_under_the_same_root_is_refused…`, kod `tree_object_reused` zamiast `tree_cycle` |
+| 1.8 | Pokryty | `TreeIntegrationTests.Adding_the_same_object_under_a_second_root_is_accepted` |
+| 1.9 | Pokryty | `TreeIntegrationTests.Adding_a_root_object_under_another_root_or_again_at_the_top_level_is_refused…` (`tree_duplicate_sibling` nie istnieje) |
+| 1.10 | Pokryty | `TreeIntegrationTests.Moving_a_node_under_its_own_child_or_a_root_under_its_own_descendant_is_refused…` i `…Accepted_subtree_move_lands_whole…contiguous_sibling_positions` |
+| 1.11 | Do wykonania | (`PUT`/`DELETE /trees/{cudze}/nodes/{id}` → 404) — izolacja kont, Faza 2 rolloutu `test-plan.md` §3; razem z 4.10 |
+| 1.12 | Częściowo | Usunięcie poddrzewa: `TreeIntegrationTests.Accepted_delete_of_a_middle_sibling…`; `DELETE /objects/{id}` → 409 `object_in_tree` do wykonania |
+| 1.13 | Do wykonania | Jednym przebiegiem z 4.13: `dotnet ef database update`, potem `start-api.ps1` wstaje (dziś ostatnia migracja to `DropTreeVersion`) |
+| 2.5 | Do wykonania | Brama na `/drzewo`: dokument i `.data` |
+| 2.6 | Do wykonania | — |
+| 2.7 | Do wykonania | — |
+| 2.8 | Nieaktualny | Dialog gałęzi usunięty z FR-005 |
+| 2.9 | Pokryty | `tests/e2e/seed.spec.ts` (odmowa powtórzenia korzenia zostawia drzewo nietknięte); baner ze ścieżką zapętlenia nie istnieje |
+| 2.10 | Do wykonania | — |
+| 2.11 | Częściowo | Przeżycie odświeżenia: `tests/e2e/przeniesienie-poddrzewa.spec.ts`; drugie konto — do wykonania (razem z 5.11) |
+| 2.12 | Do wykonania | Baner przy zgaszonym API (`tests/node/porazka-api.spec.ts` sprawdza tylko kopertę i log) |
+| 2.13 | Do wykonania | — |
+| 2.14 | Częściowo | Wiersz drzewa w obu wariantach: `tests/e2e/motyw-wymiary-wiersza.spec.ts`; wiersz listy obiektów — do wykonania |
+| 2.15 | Do wykonania | `curl` wg CLAUDE.md na `/drzewo` (E2E `warstwa-stylow-antd.spec.ts` sprawdza `/ekrany?nowy`); razem z 5.13 |
+| 2.16 | Do wykonania | Tunel, za zgodą; razem z 5.14 i 8.11 |
+| 4.6 | Historyczny | Wykonalny na `src/Api/db/treegrid-kopia-przed-NamedTrees-*.db` |
+| 4.7 | Częściowo | 401: `ApiHostIntegrationTests.Trees_request_without_identity_header…`; pusta lista dla konta bez drzew — do wykonania |
+| 4.8 | Częściowo | Reguły w `TreeNameRulesTests`; przez API (i ta sama nazwa na drugim koncie) — do wykonania |
+| 4.9 | Częściowo | Jak 4.8 |
+| 4.10 | Częściowo | Węzeł innego własnego drzewa w adresie: `TreeIntegrationTests.Moving_a_node_of_another_own_tree_through_this_tree_address_is_not_found…`; drzewo drugiego konta → 404 — do wykonania (izolacja kont) |
+| 4.11 | Do wykonania | (ten sam obiekt jako korzeń dwóch drzew przechodzi; powtórzenie w jednym drzewie → 409 `tree_object_reused`) |
+| 4.12 | Do wykonania | — |
+| 4.13 | Do wykonania | Razem z 1.13 |
+| 5.5 | Historyczny | Jak 4.6 |
+| 5.6 | Do wykonania | — |
+| 5.7 | Do wykonania | — |
+| 5.8 | Do wykonania | — |
+| 5.9 | Do wykonania | — |
+| 5.10 | Do wykonania | (bez dialogu gałęzi); przeciągnięcie poddrzewa w wybranym drzewie częściowo: `przeniesienie-poddrzewa.spec.ts` |
+| 5.11 | Do wykonania | Izolacja kont w widoku |
+| 5.12 | Częściowo | Jak 2.14 |
+| 5.13 | Do wykonania | Razem z 2.15 |
+| 5.14 | Do wykonania | Razem z 2.16 |
+| 8.4 | Do wykonania | (w zapisanym drzewie, nie w szkicu) |
+| 8.5 | Do wykonania | — |
+| 8.6 | Do wykonania | (przeciągnięcie węzła na listę usuwa go z bazy od razu, bez pytania i bez „Niezapisanych zmian”) |
+| 8.7 | Do wykonania | — |
+| 8.8 | Częściowo | (jak po fazie 3, nie 7); przeniesienie: `przeniesienie-poddrzewa.spec.ts` |
+| 8.9 | Do wykonania | (w trakcie wysyłania operacji, nie zapisu szkicu) |
+| 8.10 | Do wykonania | Firefox — E2E biegnie tylko w Chromium |
+| 8.11 | Do wykonania | (usunięcie przeciągnięciem przez tunel; „Zapisz zmiany” zapisuje tylko nazwę) |
 
 ## References
 

@@ -255,7 +255,7 @@ export function zwinieteZRozwinietych(
   return wezlyZDziecmi(wezly).filter((id) => !otwarte.has(id));
 }
 
-/** Przeniesienie węzła w semantyce `PUT /tree/nodes/{id}`. */
+/** Przeniesienie węzła w semantyce `PUT /trees/{treeId}/nodes/{id}`. */
 export type Przeniesienie = {
   nodeId: number;
   /** Nowy rodzic albo `null` — najwyższy poziom. */
@@ -280,7 +280,7 @@ export type UpuszczenieWDrzewie = {
 
 /**
  * Zamienia upuszczenie węzła w drzewie na przeniesienie w semantyce
- * `PUT /tree/nodes/{id}` albo `null`, gdy nie ma czego wysyłać (węzeł wraca
+ * `PUT /trees/{treeId}/nodes/{id}` albo `null`, gdy nie ma czego wysyłać (węzeł wraca
  * na swoje miejsce, cel nie istnieje na liście).
  *
  * `info.dropPosition` z rc-tree to indeks celu wśród rodzeństwa **plus**

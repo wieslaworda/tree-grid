@@ -1,9 +1,9 @@
 namespace Api.Tree;
 
 /// <summary>
-/// Reguły drzewa roboczego jako czyste funkcje: bez bazy, bez hosta i bez
-/// encji EF. Endpointy (<see cref="TreeEndpoints"/>) wczytują całe drzewo
-/// użytkownika i słownik, pytają te reguły o werdykt i zapisują albo zwracają
+/// Reguły jednego nazwanego drzewa jako czyste funkcje: bez bazy, bez hosta
+/// i bez encji EF. Endpointy (<see cref="TreeEndpoints"/>) wczytują całe
+/// drzewo z adresu i słownik, pytają te reguły o werdykt i zapisują albo zwracają
 /// kopertę błędu — dzięki temu każdą decyzję sprawdza test jednostkowy.
 /// </summary>
 /// <remarks>

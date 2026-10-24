@@ -341,9 +341,9 @@ internal static class TreeEndpoints
             fields[TreeRequestFields.ObjectId] = "Wskaż obiekt do dodania.";
         }
 
-        var catalog = await LoadCatalogAsync(db, cancellationToken);
-
-        if (objectId is { } requestedObjectId && !catalog.ContainsKey(requestedObjectId))
+        if (objectId is { } requestedObjectId
+            && !await db.CatalogObjects.AnyAsync(
+                candidate => candidate.Id == requestedObjectId, cancellationToken))
         {
             fields[TreeRequestFields.ObjectId] =
                 $"Obiekt o identyfikatorze {requestedObjectId} nie istnieje w słowniku.";
@@ -365,8 +365,12 @@ internal static class TreeEndpoints
         // Walidacja wyżej przepuszcza wyłącznie komplet pól.
         var addedObjectId = objectId!.Value;
 
+        // Słownik dopiero po wykryciu konfliktu — przyjęte dodanie go nie
+        // potrzebuje (jak w `MoveNodeAsync`).
         if (TreeRules.FindReuseOnAdd(tree, parentId, addedObjectId) is { } reuse)
         {
+            var catalog = await LoadCatalogAsync(db, cancellationToken);
+
             return Conflict(ObjectReused(TreeOperation.Add, catalog[addedObjectId].Code, reuse, catalog));
         }
 
@@ -730,7 +734,7 @@ internal static class TreeEndpoints
     }
 
     /// <summary>
-    /// Nazwy drzew jednego konta — do listy i do kontroli duplikatu nazwy.
+    /// Nazwy drzew jednego konta — do listy.
     /// </summary>
     private static async Task<List<TreeNameEntry>> LoadTreeNamesAsync(
         AppDbContext db,
@@ -762,17 +766,22 @@ internal static class TreeEndpoints
 
         var normalizedName = TreeNameRules.Normalize(name);
 
-        // Porównanie porządkowe, tak jak porównuje unikalny indeks. Drzewo
+        // Porównanie w bazie (kolacja `BINARY`), tak jak porównuje unikalny
+        // indeks — wzorem `ScreenEndpoints.FindNameHolderAsync`. Drzewo
         // edytowane nie koliduje samo ze sobą — zmiana samej wielkości liter
         // własnej nazwy jest dozwolona. Drzewa innych kont nie wchodzą do
         // porównania wcale: dwa konta mogą mieć drzewa o tej samej nazwie.
-        var holder = (await LoadTreeNamesAsync(db, userId, cancellationToken))
-            .FirstOrDefault(tree => tree.Id != editedId
-                && string.Equals(tree.NormalizedName, normalizedName, StringComparison.Ordinal));
+        var holder = await db.Trees
+            .AsNoTracking()
+            .Where(tree => tree.UserId == userId
+                && tree.NormalizedName == normalizedName
+                && tree.Id != editedId)
+            .Select(tree => tree.Name)
+            .FirstOrDefaultAsync(cancellationToken);
 
         return holder is null
             ? new NameVerdict(name, Refusal: null)
-            : new NameVerdict(name, NameFailure($"Drzewo o nazwie „{holder.Name}” już istnieje."));
+            : new NameVerdict(name, NameFailure($"Drzewo o nazwie „{holder}” już istnieje."));
     }
 
     private static IResult NameFailure(string message)

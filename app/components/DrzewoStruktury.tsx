@@ -29,7 +29,7 @@ type Wlasciwosci = {
    * poziom (`null`). Ta sama ścieżka co „Dodaj".
    */
   onUpuscObiekt: (objectId: number, parentId: number | null) => void;
-  /** Węzeł przeciągnięty w drzewie, już w semantyce `PUT /tree/nodes/{id}`. */
+  /** Węzeł przeciągnięty w drzewie, już w semantyce `PUT /trees/{treeId}/nodes/{id}`. */
   onPrzenies: (przeniesienie: Przeniesienie) => void;
   /** Trwa operacja na drzewie — drzewo pokazuje stan ładowania. */
   zajete: boolean;

@@ -433,11 +433,14 @@ function nieznanaOperacja(intent: FormDataEntryValue | null) {
 }
 
 /**
- * Odmowa z API (409: powtórzenie obiektu w drzewie, limit) znaczy, że widok
- * mógł pokazywać nieaktualny stan — np. drzewo zmienione w drugiej karcie.
+ * Odmowa z API (4xx) znaczy, że widok mógł pokazywać nieaktualny stan — np.
+ * drzewo zmienione w drugiej karcie: 409 przy powtórzeniu obiektu albo
+ * limicie, 404 przy węźle usuniętym gdzie indziej, 400 pod `parentId`
+ * albo `position` przy równoległym dodaniu. 5xx nie rewaliduje: loader
+ * zamieniłby widok na baner porażki API i przykrył odmowę operacji.
  * Po akcji zakończonej 4xx React Router domyślnie nie woła loaderów, więc bez
  * tego drzewo zostałoby w stanie sprzed zmiany do ręcznego odświeżenia
- * (wzorzec `shouldRevalidate` z `routes/obiekty.tsx`).
+ * (ten sam wzorzec w `routes/ekrany.tsx`).
  *
  * Zapis układu zwinięć nie rewaliduje nigdy — ani po sukcesie (lokalny stan
  * rozwinięć jest co najmniej tak świeży jak baza, a każde kliknięcie
@@ -453,7 +456,10 @@ export function shouldRevalidate({
     return false;
   }
 
-  return actionStatus === 409 || defaultShouldRevalidate;
+  const odmowa =
+    actionStatus !== undefined && actionStatus >= 400 && actionStatus < 500;
+
+  return odmowa || defaultShouldRevalidate;
 }
 
 /** Kolumny listy drzew — stała modułu, bo tabela porównuje je po referencji. */
