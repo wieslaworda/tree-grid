@@ -397,8 +397,8 @@ zostawia katalog, który można usunąć ręcznie.
 
 #### Manual
 
-- [ ] 1.6 API w Development (`.\buduj_app_dev.ps1`): `curl http://127.0.0.1:5180/health?fail=true` zwraca 500, a `requestId` z odpowiedzi występuje w `src/Api/Log/api-<data>.log` razem ze stosem wyjątku
-- [ ] 1.7 W pliku nie ma wpisów informacyjnych ani zapytań SQL, a konsola (`.tunnel-run/api.out.log`) nadal je pokazuje w tym samym formacie co przed zmianą
+- [x] 1.6 API w Development (`.\buduj_app_dev.ps1`): `curl http://127.0.0.1:5180/health?fail=true` zwraca 500, a `requestId` z odpowiedzi występuje w `src/Api/Log/api-<data>.log` razem ze stosem wyjątku — 2026-10-24, impl-review F1 (`/health?fail=true` od hosting-monsterasp wymaga nagłówka `X-TreeGrid-Internal`)
+- [x] 1.7 W pliku nie ma wpisów informacyjnych ani zapytań SQL, a konsola (`.tunnel-run/api.out.log`) nadal je pokazuje w tym samym formacie co przed zmianą — 2026-10-24, impl-review F1
 
 ### Phase 2: Błędy startu w pliku, izolacja E2E i dokumentacja
 
@@ -411,7 +411,7 @@ zostawia katalog, który można usunąć ręcznie.
 
 #### Manual
 
-- [ ] 2.5 Odmowa startu: `dotnet run --project src/Api --no-launch-profile` z `ASPNETCORE_ENVIRONMENT=Production` i bez zmiennych `Auth__*` kończy się kodem 1, a plik zawiera wpis `[CRT]` z nazwami brakujących kluczy i bez żadnej wartości sekretu
-- [ ] 2.6 Wyjątek przed `Build()`: start z `--ConnectionStrings:Default="Data Source=Z:\nie\istnieje\t.db"` (nieistniejący dysk) zostawia wpis `[FTL]` ze stosem w pliku, a wyjątek nadal widać na stderr i kod wyjścia jest niezerowy
-- [ ] 2.7 Drugi start API przy działającym pierwszym (zajęty port 5180) dopisuje swój błąd do tego samego pliku dobowego
-- [ ] 2.8 Restart: wpis z `/health?fail=true` sprzed `.\buduj_app_dev.ps1 -Stop` i ponownego startu jest nadal w pliku, a nowy błąd dopisuje się do niego
+- [x] 2.5 Odmowa startu: `dotnet run --project src/Api --no-launch-profile` z `ASPNETCORE_ENVIRONMENT=Production` i bez zmiennych `Auth__*` kończy się kodem 1, a plik zawiera wpis `[CRT]` z nazwami brakujących kluczy i bez żadnej wartości sekretu — 2026-10-24, impl-review F1 (wpis ma poziom `[FTL]`, bo Serilog mapuje Critical na Fatal)
+- [x] 2.6 Wyjątek przed `Build()`: start z `--ConnectionStrings:Default="Data Source=Z:\nie\istnieje\t.db"` (nieistniejący dysk) zostawia wpis `[FTL]` ze stosem w pliku, a wyjątek nadal widać na stderr i kod wyjścia jest niezerowy — 2026-10-24, impl-review F1
+- [x] 2.7 Drugi start API przy działającym pierwszym (zajęty port 5180) dopisuje swój błąd do tego samego pliku dobowego — 2026-10-24, impl-review F1
+- [x] 2.8 Restart: wpis z `/health?fail=true` sprzed `.\buduj_app_dev.ps1 -Stop` i ponownego startu jest nadal w pliku, a nowy błąd dopisuje się do niego — 2026-10-24, impl-review F1

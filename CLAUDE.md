@@ -221,7 +221,7 @@ adres API z `TREEGRID_API_URL`, a bez niej używa `http://127.0.0.1:5180`.
   (polecenia w `src/Api/Auth/AuthSecrets.cs`) — nie proś o ich wartości i nie
   zapisuj ich w repo.
 - **Błędy API są w pliku** `src/Api/Log/api-YYYYMMDD.log` — wyłącznie Error
-  i wyżej: nieobsłużone wyjątki żądań (odpowiedź 500), obie odmowy startu
+  i wyżej: nieobsłużone wyjątki żądań (odpowiedź 500), odmowy startu
   i wyjątek startu. Katalog ustawia `FileLogging:Directory`
   w `src/Api/appsettings.json`, zostaje 31 plików. Wpis łączy się z odpowiedzią
   500 przez `requestId` (`grep <requestId> src/Api/Log/*.log`). Testy .NET

@@ -200,9 +200,11 @@ internal static class AuthEndpoints
         }
         catch (Exception exception)
         {
-            // Wpis bez loginu, adresu i kodu: wyjątek transportu mówi, co
-            // zawiodło (serwer, uwierzytelnienie, katalog), a reszta nie jest
-            // do tego potrzebna. Poziom Error, więc wpis trafia do pliku logu.
+            // Treść wpisu nie dodaje loginu, adresu ani kodu: wyjątek transportu
+            // mówi, co zawiodło (serwer, uwierzytelnienie, katalog), a reszta nie
+            // jest do tego potrzebna. Komunikat wyjątku SMTP to jednak odpowiedź
+            // serwera, a ta przy odmowie odbiorcy bywa z adresem — wtedy adres
+            // trafia do wpisu. Poziom Error, więc wpis trafia do pliku logu.
             loggerFactory.CreateLogger(typeof(AuthEndpoints)).LogError(
                 exception,
                 "Nie udało się wysłać kodu weryfikacyjnego na adres z formularza. " +

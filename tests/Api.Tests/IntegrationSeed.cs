@@ -464,17 +464,20 @@ internal static class IntegrationSeed
             await ReadAssignmentsAsync(factory, screenId));
 
     /// <summary>
-    /// Treść plików <c>api-*.log</c> katalogu fabryki — z
-    /// <see cref="FileShare.ReadWrite"/>, bo logger trzyma plik otwarty.
-    /// Brak katalogu jest błędem asercji.
+    /// Treść plików <c>api-*.log</c> katalogu fabryki (przejście przez północ
+    /// daje drugi plik) — z <see cref="FileShare.ReadWrite"/>, bo logger trzyma
+    /// plik otwarty. Brak katalogu albo plików jest błędem asercji.
     /// </summary>
     public static string ReadLog(TestApiFactory host)
     {
         Assert.True(Directory.Exists(host.LogDirectory), $"Katalog logu '{host.LogDirectory}' nie powstał.");
 
+        var files = Directory.GetFiles(host.LogDirectory, "api-*.log").Order().ToList();
+        Assert.NotEmpty(files);
+
         var content = new StringBuilder();
 
-        foreach (var file in Directory.GetFiles(host.LogDirectory, "api-*.log").Order())
+        foreach (var file in files)
         {
             using var stream = new FileStream(
                 file, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete);

@@ -570,6 +570,13 @@ static Logger CreateFileLogger(IConfiguration configuration, string contentRootP
         directory = Path.GetFullPath(Path.Combine(contentRootPath, directory));
     }
 
+    // Ujście tworzy katalog i plik dopiero przy pierwszym wpisie, a porażkę zapisu
+    // (np. brak uprawnień do katalogu) zgłasza wyłącznie do `SelfLog`. Na stderr
+    // zbieranym przez `start-api.ps1` i panel MonsterASP jest ona widoczna, a start
+    // nadal nie pada. `SelfLog` jest statyczny, więc hosty testowe w jednym
+    // procesie tylko ustawiają ponownie to samo wyjście.
+    Serilog.Debugging.SelfLog.Enable(Console.Error);
+
     return new LoggerConfiguration()
         .MinimumLevel.Error()
         .WriteTo.File(

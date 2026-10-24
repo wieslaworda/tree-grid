@@ -1,5 +1,4 @@
 using System.Net;
-using System.Text;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
@@ -80,7 +79,7 @@ public class MigrateOnStartupIntegrationTests
         }
 
         Assert.Empty(factory.FindBackupFiles());
-        Assert.Contains(RefusalMessage, ReadLog(factory));
+        Assert.Contains(RefusalMessage, IntegrationSeed.ReadLog(factory));
     }
 
     [Fact]
@@ -107,7 +106,7 @@ public class MigrateOnStartupIntegrationTests
         Assert.NotNull(exception);
         Assert.Contains(MissingDatabaseMessage, exception.ToString());
         Assert.False(File.Exists(factory.DatabasePath), "Start bez zgody założył plik bazy.");
-        Assert.Contains(MissingDatabaseMessage, ReadLog(factory));
+        Assert.Contains(MissingDatabaseMessage, IntegrationSeed.ReadLog(factory));
     }
 
     [Fact]
@@ -157,30 +156,6 @@ public class MigrateOnStartupIntegrationTests
             "SELECT count(*) FROM sqlite_master WHERE type = 'table' AND name = '__EFMigrationsHistory';";
 
         return Convert.ToInt64(command.ExecuteScalar()) > 0;
-    }
-
-    /// <summary>
-    /// Treść wszystkich plików <c>api-*.log</c> fabryki. Odczyt z
-    /// <see cref="FileShare.ReadWrite"/>, jak w <c>FileLoggingIntegrationTests</c>.
-    /// </summary>
-    private static string ReadLog(TestApiFactory factory)
-    {
-        Assert.True(
-            Directory.Exists(factory.LogDirectory),
-            $"Katalog logu '{factory.LogDirectory}' nie powstał.");
-
-        var content = new StringBuilder();
-
-        foreach (var file in Directory.GetFiles(factory.LogDirectory, "api-*.log").Order())
-        {
-            using var stream = new FileStream(
-                file, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete);
-            using var reader = new StreamReader(stream, Encoding.UTF8);
-
-            content.Append(reader.ReadToEnd());
-        }
-
-        return content.ToString();
     }
 
     /// <summary>
