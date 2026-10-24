@@ -86,6 +86,19 @@ public class ScreenErrorContractTests
         Assert.Empty(PropertyNames(error.GetProperty("context")));
     }
 
+    [Fact]
+    public void Screen_changed_refusal_names_the_screen_and_has_an_empty_context()
+    {
+        using var document = Serialize(ScreenResponses.Changed("Sieć północ"));
+
+        var error = AssertEnvelope(document, "screen_changed", ApiErrorCodes.ScreenChanged);
+
+        Assert.Equal(
+            "Ekran „Sieć północ” zmieniono w innym oknie. Wczytaj go ponownie i powtórz zmianę.",
+            error.GetProperty("message").GetString());
+        Assert.Empty(PropertyNames(error.GetProperty("context")));
+    }
+
     // --- Pomocnicze ---------------------------------------------------------
 
     private static JsonElement AssertEnvelope(JsonDocument document, string expectedCode, string constant)

@@ -557,6 +557,29 @@ Trasa `/ekrany` w układzie widoku drzew: lista własnych ekranów, panel nowego
 - Motyw: `app/theme/tokeny.ts:99-187`, `app/theme/antd.ts:137-205`
 - Poprzednie plany: `context/changes/budowa-drzewa/plan.md:384-387`, `:435-436`, `context/changes/lista-kategorii/plan.md:108-110`, `context/changes/motyw-terminalowy/plan.md:18`, `:102`
 
+## Aneks A1 (2026-10-24): model wierszy i zwijania gridu
+
+Dopisany przy przeglądzie implementacji (`reviews/impl-review.md`, F4). Faza 3 dostarczyła grid w kształcie opisanym wyżej (c4def03). Commit f3bb258, wykonany bez planu, zastąpił go modelem, który obowiązuje dziś i na którym budują `prezentacja-ekranu` oraz `zwijanie-drzewa`. Ten aneks ma pierwszeństwo przed *Desired End State* („Kształt wierszy”) i przed kontraktem fazy 3, pkt 1 i 4.
+
+- **Wiersze są płaskie, a nie drzewiaste.** `app/lib/ekran.ts`:
+  - `zbudujWezlyGridu` buduje drzewo `WezelGridu` (węzeł z listą kategorii i dziećmi);
+  - `wierszeTabeli(wezly, zwiniete)` rozwija je w `WierszTabeli[]`: po jednym wierszu na kategorię węzła (co najmniej jeden), a za nimi wiersze rozwiniętego poddrzewa.
+  - Klucze zostają bez zmian: `w<nodeId>` dla pierwszego wiersza węzła i `w<nodeId>k<categoryId>` dla kolejnych.
+- **Komórka węzła jest scalona** (`rowSpan` = liczba kategorii węzła) nad wszystkimi jego wierszami. Nad pierwszym wierszem węzła stoi linia sekcji.
+- **Rozwijanie jest własne, nie z `expandable` antd** (`GridEkranu.tsx`, komentarz komponentu):
+  - przełącznik +/− mają wyłącznie węzły z dziećmi;
+  - zwinięcie chowa **tylko poddrzewo**, a kategorie węzła zostają widoczne;
+  - stan to zbiór zwiniętych kluczy, startowo z zapisanego układu drzewa (`zwinieteNaStarcie`, zmiana `zwijanie-drzewa`).
+- `kluczeRozwijalne` i `WierszGridu` nie istnieją. `liczbaWierszy` liczy wiersze przy pełnym rozwinięciu, tak jak wcześniej.
+
+Przykład [Q, P, U], A z dzieckiem B: pełne rozwinięcie daje nadal 6 wierszy (A·Q, A·P, A·U, B·Q, B·P, B·U). Zwinięcie A zostawia wiersze A·Q, A·P, A·U i chowa trzy wiersze B.
+
+Kroki ręczne w *Progress* zachowują tytuły (konwencja), a sprawdza się je w tym brzmieniu:
+
+- **3.3:** zwinięcie A chowa poddrzewo B, a wiersze P i U węzła A zostają.
+- **3.6:** wcięcie rośnie o `wciecieWezla` na poziom w scalonej komórce węzła.
+- **4.6:** węzły × 3 wiersze w kolejności Q, P, U, z komórką węzła scaloną nad trzema wierszami.
+
 ## Progress
 
 > Convention: `- [ ]` pending, `- [x]` done. Append ` — <commit sha>` when a step lands. Do not rename step titles. See `references/progress-format.md`.
@@ -587,10 +610,10 @@ Trasa `/ekrany` w układzie widoku drzew: lista własnych ekranów, panel nowego
 #### Manual
 
 - [ ] 2.3 `DELETE /trees/{id}` drzewa wskazywanego przez dwa ekrany zwraca 409 `tree_in_screen` z obiema nazwami, a po usunięciu obu ekranów zwraca 204
-- [ ] 2.4 `POST /trees/{treeId}/nodes` na drzewie z ekranem daje nowemu węzłowi w `GET /screens/{id}` przypisania równe liście domyślnej, w jej kolejności
+- [x] 2.4 `POST /trees/{treeId}/nodes` na drzewie z ekranem daje nowemu węzłowi w `GET /screens/{id}` przypisania równe liście domyślnej, w jej kolejności — `ScreenIntegrationTests.Adding_a_node_gives_it_each_screen_own_default_list_in_order_and_leaves_other_assignments_unchanged` (testing-integracja-api)
 - [ ] 2.5 `PUT` (przeniesienie) węzła zachowuje jego przypisania, a `DELETE` węzła z poddrzewem usuwa przypisania całego poddrzewa z `GET /screens/{id}`
 - [ ] 2.6 `DELETE /categories/{id}` kategorii będącej jedyną domyślną jakiegoś ekranu zwraca 409 `category_sole_screen_default` z pustym `context`, także gdy ekran należy do innego użytkownika
-- [ ] 2.7 `DELETE /categories/{id}` kategorii użytej obok innych domyślnych zwraca 204, a kategoria znika z `defaultCategoryIds` i ze wszystkich `assignments` tego ekranu
+- [x] 2.7 `DELETE /categories/{id}` kategorii użytej obok innych domyślnych zwraca 204, a kategoria znika z `defaultCategoryIds` i ze wszystkich `assignments` tego ekranu — `ScreenIntegrationTests.Deleting_a_category_used_beside_others_removes_its_rows_from_both_tables_and_keeps_the_remaining_order` (testing-integracja-api)
 
 ### Phase 3: Komponent drzewo+grid
 
@@ -612,10 +635,10 @@ Trasa `/ekrany` w układzie widoku drzew: lista własnych ekranów, panel nowego
 
 #### Automated
 
-- [x] 4.1 Typy przechodzą (w tym typegen nowej trasy): `npm run typecheck`
-- [x] 4.2 Build produkcyjny przechodzi: `npm run build`
-- [x] 4.3 Testy API nadal przechodzą: `dotnet test tests/Api.Tests`
-- [x] 4.4 Kontrakty renderowania nienaruszone: po `npm run build` i `npm run start` wynik `curl -s http://localhost:3000/ekrany` (z ciasteczkiem sesji) zawiera `@layer antd`, a offset ostatniego `data-css-hash` jest mniejszy niż offset `</head>`
+- [x] 4.1 Typy przechodzą (w tym typegen nowej trasy): `npm run typecheck` — a47c96d
+- [x] 4.2 Build produkcyjny przechodzi: `npm run build` — a47c96d
+- [x] 4.3 Testy API nadal przechodzą: `dotnet test tests/Api.Tests` — a47c96d
+- [x] 4.4 Kontrakty renderowania nienaruszone: po `npm run build` i `npm run start` wynik `curl -s http://localhost:3000/ekrany` (z ciasteczkiem sesji) zawiera `@layer antd`, a offset ostatniego `data-css-hash` jest mniejszy niż offset `</head>` — a47c96d
 
 #### Manual
 

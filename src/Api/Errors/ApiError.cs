@@ -191,6 +191,17 @@ public static class ApiErrorCodes
     public const string ScreenIsTemplate = "screen_is_template";
 
     /// <summary>
+    /// Odmowa zmiany nagłówka ekranu wysłanej z nieaktualnego widoku (409,
+    /// <c>PUT /screens/{id}</c>): drzewo albo lista domyślna, które formularz
+    /// wczytał (<c>baseTreeId</c>, <c>baseDefaultCategoryIds</c>), różnią się
+    /// już od zapisanych. Bez odmowy zapis samej nazwy z drugiej karty
+    /// nadpisałby po cichu przypisania wszystkich węzłów starą listą. Brak
+    /// stanu bazowego daje tę samą odmowę. Ekran należy do konta żądającego,
+    /// więc komunikat podaje jego nazwę, a <c>context</c> jest pusty.
+    /// </summary>
+    public const string ScreenChanged = "screen_changed";
+
+    /// <summary>
     /// Odmowa usunięcia kategorii, która jest jedyną kategorią domyślną
     /// co najmniej jednego ekranu (409, <c>DELETE /categories/{id}</c>) — ekran
     /// z pustą listą domyślną nie jest dozwolony. Kategorię użytą obok innych

@@ -230,7 +230,7 @@ internal static class TreeEndpoints
         // równolegle między kontrolą a usunięciem zamieniłby odmowę w błąd
         // klucza obcego (`Restrict` na `Screens.TreeId`). Filtr po samym
         // drzewie wystarcza, bo ekran wskazuje wyłącznie drzewo własnego konta
-        // (pilnuje tego `POST /screens`), a drzewo przeszło kontrolę
+        // (pilnują tego `POST` i `PUT /screens`), a drzewo przeszło kontrolę
         // właściciela wyżej — nazwy nie należą więc do nikogo innego.
         var screenNames = await db.Screens
             .AsNoTracking()

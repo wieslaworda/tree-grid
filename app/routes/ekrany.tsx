@@ -57,6 +57,7 @@ import {
   getScreen,
   listScreens,
   readScreenForm,
+  readScreenUpdateForm,
   setNodeCategories,
   updateScreen,
 } from "~/lib/screens.server";
@@ -108,6 +109,15 @@ const POLE_NAZWY = "name";
 const POLE_DRZEWA = "treeId";
 const POLE_ZIARNA = "grainMinutes";
 const POLE_KATEGORII = "defaultCategoryIds";
+
+/**
+ * Stan bazowy formularza edycji — drzewo i lista domyślna wczytanego ekranu,
+ * te same nazwy co w `readScreenUpdateForm` (`app/lib/screens.server.ts`).
+ * API porównuje je z zapisanym ekranem i przy rozjeździe odpowiada 409
+ * `screen_changed`, zamiast nadpisać przypisania zmienione w innej karcie.
+ */
+const POLE_BAZOWEGO_DRZEWA = "baseTreeId";
+const POLE_BAZOWYCH_KATEGORII = "baseDefaultCategoryIds";
 
 /**
  * Pola zmiany kategorii jednego węzła. `categoryIds` to nazwa, pod którą
@@ -403,7 +413,7 @@ export async function action({ request, context }: Route.ActionArgs) {
   }
 
   if (intent === ZAPISZ_EKRAN) {
-    const formularz = readScreenForm(formData);
+    const formularz = readScreenUpdateForm(formData);
 
     if (!formularz.ok) {
       return data(formularz.error, { status: formularz.status });
@@ -813,6 +823,15 @@ function ZapisanyEkran({
         <RouterForm method="post" preventScrollReset>
           <input type="hidden" name="intent" value={ZAPISZ_EKRAN} />
           <input type="hidden" name={POLE_DRZEWA} value={drzewoId} />
+          {/*
+            Stan, który ten formularz wczytał — nie bieżący wybór. Ekran
+            zmieniony w innej karcie daje odmowę w banerze zamiast cichego
+            nadpisania kategorii węzłów.
+          */}
+          <input type="hidden" name={POLE_BAZOWEGO_DRZEWA} value={ekran.treeId} />
+          {ekran.defaultCategoryIds.map((id) => (
+            <input key={id} type="hidden" name={POLE_BAZOWYCH_KATEGORII} value={id} />
+          ))}
 
           <AntForm component={false} layout="vertical" requiredMark={false}>
             <PolaEkranu

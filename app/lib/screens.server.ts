@@ -63,6 +63,15 @@ const POLE_ZIARNA = "grainMinutes";
 const POLE_KATEGORII = "defaultCategoryIds";
 
 /**
+ * Stan bazowy formularza zmiany ekranu — drzewo i lista domyślna, które
+ * formularz wczytał. Te same nazwy co pola `ScreenUpdateRequest` w API; inne
+ * niż zapisane dają 409 `screen_changed`, zamiast nadpisać przypisania
+ * węzłów zmienione w innej karcie.
+ */
+const POLE_BAZOWEGO_DRZEWA = "baseTreeId";
+const POLE_BAZOWYCH_KATEGORII = "baseDefaultCategoryIds";
+
+/**
  * Parametr doby wartości ekranu — ten sam co `ScreenRequestFields.Day`. Pod
  * nim `GET /screens/{id}/values` czyta dobę i adresuje jej odmowę
  * w `context.fields` (przypięte testem literałów w `ScreenRulesTests`).
@@ -164,7 +173,21 @@ export type ScreenDeleteResult = { ok: true } | ApiFailure;
 
 export type ScreenNodeCategoriesResult = { ok: true } | ApiFailure;
 
+/**
+ * Treść zmiany ekranu (`PUT /screens/{id}`): pola utworzenia plus stan
+ * bazowy formularza. `baseTreeId` jest `null`, gdy pole nie jest liczbą —
+ * API odpowiada wtedy `screen_changed`, jak przy nieaktualnym stanie.
+ */
+export type ScreenUpdatePayload = ScreenPayload & {
+  baseTreeId: number | null;
+  baseDefaultCategoryIds: number[];
+};
+
 export type ScreenFormResult = { ok: true; payload: ScreenPayload } | ApiFailure;
+
+export type ScreenUpdateFormResult =
+  | { ok: true; payload: ScreenUpdatePayload }
+  | ApiFailure;
 
 export type ScreenValuesResult = { ok: true; values: ScreenValues } | ApiFailure;
 
@@ -250,14 +273,15 @@ export async function getScreenValues(
 
 /**
  * Zmienia nagłówek ekranu: nazwę, drzewo, ziarno i listę domyślną — ta sama
- * treść co utworzenie. Zmienione drzewo albo zmieniona lista domyślna
- * nadpisuje w API przypisania wszystkich węzłów (drzewa ekranu), a bez obu
- * zmian przypisania zostają nietknięte.
+ * treść co utworzenie plus stan bazowy formularza. Zmienione drzewo albo
+ * zmieniona lista domyślna nadpisuje w API przypisania wszystkich węzłów
+ * (drzewa ekranu), a bez obu zmian przypisania zostają nietknięte. Stan
+ * bazowy inny niż zapisany daje 409 `screen_changed`.
  */
 export async function updateScreen(
   userId: string,
   id: number,
-  payload: ScreenPayload,
+  payload: ScreenUpdatePayload,
 ): Promise<ScreenIdResult> {
   const path = screenPath(id);
   const result = await requestApi("PUT", path, payload, { userId });
@@ -336,6 +360,32 @@ export function readScreenForm(formData: FormData): ScreenFormResult {
       treeId: parseEntityId(tekst(formData, POLE_DRZEWA)),
       grainMinutes: parseEntityId(tekst(formData, POLE_ZIARNA)),
       defaultCategoryIds: kategorie.filter((id): id is number => id !== null),
+    },
+  };
+}
+
+/**
+ * Odczytuje treść zmiany ekranu: pola jak {@link readScreenForm} plus stan
+ * bazowy z ukrytych pól formularza edycji. Bazowej kategorii, która nie jest
+ * identyfikatorem, nie ma komu pokazać — pole jest ukryte — więc zostaje
+ * pominięta, a skrócona lista daje w API `screen_changed`.
+ */
+export function readScreenUpdateForm(formData: FormData): ScreenUpdateFormResult {
+  const formularz = readScreenForm(formData);
+
+  if (!formularz.ok) {
+    return formularz;
+  }
+
+  return {
+    ok: true,
+    payload: {
+      ...formularz.payload,
+      baseTreeId: parseEntityId(tekst(formData, POLE_BAZOWEGO_DRZEWA)),
+      baseDefaultCategoryIds: formData
+        .getAll(POLE_BAZOWYCH_KATEGORII)
+        .map((wartosc) => (typeof wartosc === "string" ? parseEntityId(wartosc) : null))
+        .filter((id): id is number => id !== null),
     },
   };
 }

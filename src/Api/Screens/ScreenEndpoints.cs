@@ -1,6 +1,7 @@
 using Api.Data;
 using Api.Errors;
 using Api.Tree;
+using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
 
 namespace Api.Screens;
@@ -34,7 +35,8 @@ namespace Api.Screens;
 /// unikalność nazwy. Naruszenia pól zbiera jedna mapa, a każde pole dostaje
 /// co najwyżej jeden komunikat — pierwszy w tej kolejności. Zmiana nagłówka
 /// idzie tą samą ścieżką, a nieistniejący ekran wygrywa z błędami pól (jak
-/// <c>PUT /trees/{id}</c>).
+/// <c>PUT /trees/{id}</c>), tak samo jak nieaktualny stan bazowy
+/// (<see cref="ApiErrorCodes.ScreenChanged"/>).
 /// </remarks>
 internal static class ScreenEndpoints
 {
@@ -217,11 +219,12 @@ internal static class ScreenEndpoints
     /// kategorii.
     /// </summary>
     /// <remarks>
-    /// Bez transakcji — jak <c>GET /trees/{treeId}/nodes</c>: transakcja
-    /// zapisowa ustawiałaby każdy odczyt w kolejce za zapisami. Węzły są
-    /// czytane przed przypisaniami, a przypisania wypisywane wyłącznie dla
-    /// węzłów z tego odczytu, więc zapis między zapytaniami daje co najwyżej
-    /// węzeł chwilowo bez kategorii, a nigdy przypisanie bez węzła.
+    /// Cztery zapytania idą w transakcji <b>odroczonej</b> (<c>BEGIN
+    /// DEFERRED</c>), a nie zapisowej jak w zmianach: w WAL daje ona jedną
+    /// migawkę bazy na wszystkie odczyty i nie czeka na zapisy ani ich nie
+    /// blokuje. Bez niej równoległy <c>PUT /screens/{id}</c> ze zmianą drzewa
+    /// albo listy domyślnej mógłby dać odpowiedź łączącą stare drzewo i jego
+    /// węzły z nową listą (przegląd <c>zapisane-ekrany</c>, F9).
     /// </remarks>
     private static async Task<IResult> GetScreenAsync(
         int id,
@@ -235,6 +238,13 @@ internal static class ScreenEndpoints
         {
             return TreeIdentity.Refusal();
         }
+
+        // Migawka odczytu — patrz komentarz metody. `BeginTransaction(deferred)`
+        // jest tylko na `SqliteConnection`; samo `BEGIN` nie bierze blokady,
+        // więc wersja synchroniczna niczego nie wstrzymuje.
+        await db.Database.OpenConnectionAsync(cancellationToken);
+        await using var snapshot = ((SqliteConnection)db.Database.GetDbConnection()).BeginTransaction(deferred: true);
+        await db.Database.UseTransactionAsync(snapshot, cancellationToken);
 
         var screen = await db.Screens
             .AsNoTracking()
@@ -327,7 +337,12 @@ internal static class ScreenEndpoints
     /// zostawiają przypisania nietknięte, więc zmiana samej nazwy albo ziarna
     /// nie skasuje kategorii dopasowanych pojedynczym węzłom (<c>S-04</c>).
     /// Stare wpisy znikają <c>ExecuteDelete</c> w tej samej transakcji, a nowe
-    /// zapisuje jeden <c>SaveChanges</c> razem z nagłówkiem.
+    /// zapisuje jeden <c>SaveChanges</c> razem z nagłówkiem. To porównanie
+    /// z bazą rozstrzyga o nadpisaniu, więc żądanie niesie też stan bazowy
+    /// formularza: inny niż zapisany daje 409
+    /// <see cref="ApiErrorCodes.ScreenChanged"/> przed walidacją pól, żeby
+    /// zmiana samej nazwy z nieaktualnej karty nie cofnęła listy domyślnej
+    /// i kategorii węzłów zapisanych w innej.
     /// </remarks>
     private static async Task<IResult> UpdateScreenAsync(
         int id,
@@ -354,6 +369,27 @@ internal static class ScreenEndpoints
         if (screen is null)
         {
             return ScreenNotFound(id);
+        }
+
+        // Ten sam porządek co w `GET /screens/{id}`.
+        var currentDefaults = await db.ScreenDefaultCategories
+            .AsNoTracking()
+            .Where(entry => entry.ScreenId == id)
+            .OrderBy(entry => entry.Position)
+            .ThenBy(entry => entry.CategoryId)
+            .Select(entry => entry.CategoryId)
+            .ToListAsync(cancellationToken);
+
+        // Widok, który nie zna bieżącego drzewa albo listy domyślnej, nie
+        // może zdecydować o nadpisaniu przypisań — patrz `ScreenChanged`.
+        // Przed walidacją pól: nieaktualny formularz i tak trzeba wczytać
+        // ponownie, a jego komunikaty pól mogłyby dotyczyć starego stanu.
+        if (request?.BaseTreeId != screen.TreeId
+            || ScreenRules.DefaultsChanged(currentDefaults, request?.BaseDefaultCategoryIds ?? []))
+        {
+            return Results.Json(
+                ScreenResponses.Changed(screen.Name),
+                statusCode: StatusCodes.Status409Conflict);
         }
 
         // Brak pola to pusta lista — ta sama odmowa co `[]`.
@@ -388,15 +424,6 @@ internal static class ScreenEndpoints
         screen.NormalizedName = ScreenRules.Normalize(name);
         screen.TreeId = treeId.Value;
         screen.GrainMinutes = request.GrainMinutes!.Value;
-
-        // Ten sam porządek co w `GET /screens/{id}`.
-        var currentDefaults = await db.ScreenDefaultCategories
-            .AsNoTracking()
-            .Where(entry => entry.ScreenId == id)
-            .OrderBy(entry => entry.Position)
-            .ThenBy(entry => entry.CategoryId)
-            .Select(entry => entry.CategoryId)
-            .ToListAsync(cancellationToken);
 
         if (treeChanged || ScreenRules.DefaultsChanged(currentDefaults, defaultCategoryIds))
         {
@@ -755,6 +782,16 @@ internal static class ScreenResponses
         => ApiError.Create(
             ApiErrorCodes.ScreenIsTemplate,
             $"Ekran „{screenName}” jest wzorcem dla nowych kont i nie można go usunąć.");
+
+    /// <summary>
+    /// Odmowa <see cref="ApiErrorCodes.ScreenChanged"/>: zmiana ekranu
+    /// <paramref name="screenName"/> wyszła z widoku, który nie zna jego
+    /// bieżącego drzewa albo listy domyślnej. <c>context</c> jest pusty.
+    /// </summary>
+    public static ApiError Changed(string screenName)
+        => ApiError.Create(
+            ApiErrorCodes.ScreenChanged,
+            $"Ekran „{screenName}” zmieniono w innym oknie. Wczytaj go ponownie i powtórz zmianę.");
 }
 
 /// <summary>
@@ -810,11 +847,23 @@ internal sealed record ScreenRequest(string? Name, int? TreeId, int? GrainMinute
 
 /// <summary>
 /// Treść żądania zmiany nagłówka ekranu (<c>PUT /screens/{id}</c>) — ten sam
-/// kształt co utworzenie. Drzewo jest wymagane: brak pola daje tę samą odmowę
-/// co cudze drzewo, a nie „bez zmiany”. Pola nullowalne z tego samego powodu
-/// co w <see cref="ScreenRequest"/>.
+/// kształt co utworzenie plus stan bazowy. Drzewo jest wymagane: brak pola
+/// daje tę samą odmowę co cudze drzewo, a nie „bez zmiany”. Pola nullowalne
+/// z tego samego powodu co w <see cref="ScreenRequest"/>.
 /// </summary>
-internal sealed record ScreenUpdateRequest(string? Name, int? TreeId, int? GrainMinutes, int[]? DefaultCategoryIds);
+/// <param name="BaseTreeId">
+/// Drzewo ekranu, które formularz wczytał. Razem z
+/// <paramref name="BaseDefaultCategoryIds"/> musi się zgadzać z zapisanym
+/// ekranem, inaczej odmowa <see cref="ApiErrorCodes.ScreenChanged"/>.
+/// </param>
+/// <param name="BaseDefaultCategoryIds">Lista domyślna, którą formularz wczytał, w jej kolejności.</param>
+internal sealed record ScreenUpdateRequest(
+    string? Name,
+    int? TreeId,
+    int? GrainMinutes,
+    int[]? DefaultCategoryIds,
+    int? BaseTreeId,
+    int[]? BaseDefaultCategoryIds);
 
 /// <summary>
 /// Treść żądania zmiany kategorii jednego węzła ekranu — pełna lista w

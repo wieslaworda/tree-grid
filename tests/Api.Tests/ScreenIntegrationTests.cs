@@ -334,7 +334,7 @@ public class ScreenIntegrationTests(TestApiFactory factory) : IClassFixture<Test
         var response = await UpdateScreenAsync(client, screenId, ScreenName, t2, Grain, k1, k0);
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
-        Assert.Equal(t2, (await IntegrationSeed.ReadScreenHeaderAsync(factory, screenId))!.TreeId);
+        Assert.Equal(t2,(await IntegrationSeed.ReadScreenHeaderAsync(factory, screenId))!.TreeId);
 
         // Wprost po węzłach starego drzewa, w każdym ekranie — odczyt przez
         // `GET` albo po samym ekranie nowego drzewa nie zobaczyłby sierot.
@@ -411,6 +411,52 @@ public class ScreenIntegrationTests(TestApiFactory factory) : IClassFixture<Test
         Assert.Equal(before.Assignments, afterGrain.Assignments);
     }
 
+    [Fact]
+    public async Task Renaming_from_a_stale_view_after_another_view_changed_the_defaults_is_refused_and_keeps_every_assignment()
+    {
+        // Karta A wczytała [k0, k1]; karta B zapisała [k0, k1, k2] i dopasowała
+        // węzeł. A zmienia samą nazwę, wysyłając swoją listę [k0, k1] — bez
+        // stanu bazowego `PUT` uznałby to za zmianę listy i nadpisał wszystkie
+        // węzły (przegląd `zapisane-ekrany`, F3).
+        var arranged = await ArrangeAsync(objectCount: 2, categoryCount: 3);
+        using var client = arranged.Account.Client;
+        var (k0, k1, k2) = (arranged.K(0), arranged.K(1), arranged.K(2));
+
+        var top = await SeedNodesAsync(arranged, arranged.TreeId, parentId: null, 0, 1);
+        var screenId = await SeedScreenAsync(arranged, arranged.TreeId, ScreenName, k0, k1);
+
+        var viewB = await UpdateScreenAsync(client, screenId, ScreenName, arranged.TreeId, Grain, k0, k1, k2);
+        Assert.Equal(HttpStatusCode.OK, viewB.StatusCode);
+        await IntegrationSeed.SetNodeCategoriesAsync(factory, screenId, top[0], [k2]);
+
+        var before = await IntegrationSeed.ReadScreenAsync(factory, screenId);
+
+        var viewA = await PutScreenAsync(
+            client, screenId, "Ekran przemianowany", arranged.TreeId, Grain, [k0, k1], arranged.TreeId, [k0, k1]);
+
+        await IntegrationSeed.AssertRefusedAsync(viewA, HttpStatusCode.Conflict, ApiErrorCodes.ScreenChanged);
+        Assert.Equal(before, await IntegrationSeed.ReadScreenAsync(factory, screenId));
+    }
+
+    [Fact]
+    public async Task Change_without_the_base_state_is_refused_and_leaves_the_screen_unchanged()
+    {
+        var arranged = await ArrangeAsync(objectCount: 1, categoryCount: 2);
+        using var client = arranged.Account.Client;
+        var (k0, k1) = (arranged.K(0), arranged.K(1));
+
+        await SeedNodesAsync(arranged, arranged.TreeId, parentId: null, 0);
+        var screenId = await SeedScreenAsync(arranged, arranged.TreeId, ScreenName, k0, k1);
+        var before = await IntegrationSeed.ReadScreenAsync(factory, screenId);
+
+        var response = await client.PutAsJsonAsync(
+            $"/screens/{screenId}",
+            new { name = "Ekran przemianowany", treeId = arranged.TreeId, grainMinutes = Grain, defaultCategoryIds = new[] { k0, k1 } });
+
+        await IntegrationSeed.AssertRefusedAsync(response, HttpStatusCode.Conflict, ApiErrorCodes.ScreenChanged);
+        Assert.Equal(before, await IntegrationSeed.ReadScreenAsync(factory, screenId));
+    }
+
     // --- Pomocnicze ----------------------------------------------------------
 
     /// <summary>
@@ -467,14 +513,45 @@ public class ScreenIntegrationTests(TestApiFactory factory) : IClassFixture<Test
         }
     }
 
-    private static Task<HttpResponseMessage> UpdateScreenAsync(
+    /// <summary>
+    /// Zmiana nagłówka z widoku, który zna bieżący stan ekranu: stan bazowy
+    /// (<c>baseTreeId</c>, <c>baseDefaultCategoryIds</c>) to drzewo i lista
+    /// domyślna odczytane z bazy tuż przed wysyłką.
+    /// </summary>
+    private async Task<HttpResponseMessage> UpdateScreenAsync(
         HttpClient client,
         int screenId,
         string name,
         int treeId,
         int grainMinutes,
         params int[] defaultCategoryIds)
-        => client.PutAsJsonAsync($"/screens/{screenId}", new { name, treeId, grainMinutes, defaultCategoryIds });
+    {
+        var header = await IntegrationSeed.ReadScreenHeaderAsync(factory, screenId);
+        var defaults = await IntegrationSeed.ReadDefaultCategoriesAsync(factory, screenId);
+
+        return await PutScreenAsync(
+            client,
+            screenId,
+            name,
+            treeId,
+            grainMinutes,
+            defaultCategoryIds,
+            header!.TreeId,
+            [.. defaults.Select(row => row.CategoryId)]);
+    }
+
+    private static Task<HttpResponseMessage> PutScreenAsync(
+        HttpClient client,
+        int screenId,
+        string name,
+        int treeId,
+        int grainMinutes,
+        int[] defaultCategoryIds,
+        int baseTreeId,
+        int[] baseDefaultCategoryIds)
+        => client.PutAsJsonAsync(
+            $"/screens/{screenId}",
+            new { name, treeId, grainMinutes, defaultCategoryIds, baseTreeId, baseDefaultCategoryIds });
 
     private static Task<HttpResponseMessage> SetNodeCategoriesAsync(
         HttpClient client,

@@ -140,14 +140,34 @@ public class ScreenWriteFailureIntegrationTests(ScreenWriteFailureIntegrationTes
     {
         var (k0, k1, k2) = (arranged.Categories[0], arranged.Categories[1], arranged.Categories[2]);
 
+        // Stan bazowy to ekran z `ArrangeAsync`: drzewo T1 i lista [k0, k1].
+        var baseTreeId = arranged.TreeId;
+        var baseDefaultCategoryIds = new[] { k0, k1 };
+
         return write switch
         {
             ScreenWrite.DefaultListChange => client.PutAsJsonAsync(
                 $"/screens/{arranged.ScreenId}",
-                new { name = ScreenName, treeId = arranged.TreeId, grainMinutes = Grain, defaultCategoryIds = new[] { k1, k2 } }),
+                new
+                {
+                    name = ScreenName,
+                    treeId = arranged.TreeId,
+                    grainMinutes = Grain,
+                    defaultCategoryIds = new[] { k1, k2 },
+                    baseTreeId,
+                    baseDefaultCategoryIds,
+                }),
             ScreenWrite.TreeChange => client.PutAsJsonAsync(
                 $"/screens/{arranged.ScreenId}",
-                new { name = ScreenName, treeId = arranged.OtherTreeId, grainMinutes = Grain, defaultCategoryIds = new[] { k0, k1 } }),
+                new
+                {
+                    name = ScreenName,
+                    treeId = arranged.OtherTreeId,
+                    grainMinutes = Grain,
+                    defaultCategoryIds = new[] { k0, k1 },
+                    baseTreeId,
+                    baseDefaultCategoryIds,
+                }),
             ScreenWrite.NodeCategories => client.PutAsJsonAsync(
                 $"/screens/{arranged.ScreenId}/nodes/{arranged.NodeId}/categories",
                 new { categoryIds = new[] { k2 } }),

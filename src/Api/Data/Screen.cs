@@ -9,8 +9,9 @@ namespace Api.Data;
 /// </summary>
 /// <remarks>
 /// Ekran wskazuje drzewo, a nie rozbudowuje jego nagłówka — nagłówek drzewa
-/// zostaje przy identyfikatorze i nazwie (<see cref="UserTree"/>). Drzewo jest
-/// ustalane przy tworzeniu ekranu i się nie zmienia; klucz obcy do drzewa ma
+/// zostaje przy identyfikatorze i nazwie (<see cref="UserTree"/>). Drzewo
+/// wybiera się przy tworzeniu ekranu, a <c>PUT /screens/{id}</c> może je
+/// podmienić, odbudowując przypisania; klucz obcy do drzewa ma
 /// <c>Restrict</c>, więc drzewa wskazywanego przez ekran nie da się usunąć
 /// nawet z pominięciem kontroli w endpoincie.
 ///
@@ -53,7 +54,7 @@ public sealed class Screen
 
     /// <summary>
     /// Drzewo, którego węzły ekran pokazuje. Zawsze drzewo tego samego konta —
-    /// pilnuje tego endpoint tworzenia, bo schemat relacji „to samo konto"
+    /// pilnują tego <c>POST</c> i <c>PUT /screens</c>, bo schemat relacji „to samo konto"
     /// nie unosi.
     /// </summary>
     public int TreeId { get; set; }
