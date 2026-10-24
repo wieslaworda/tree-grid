@@ -33,7 +33,9 @@ namespace Api.Auth;
 /// opierają decyzję — na SQLite to <c>BEGIN IMMEDIATE</c>, więc dwa równoległe
 /// kroki 1 z tym samym loginem albo dwie równoległe próby kodu czekają na
 /// siebie (<c>busy_timeout</c> z <c>Program.cs</c>), zamiast czytać ten sam
-/// stan (wzorem <c>ObjectEndpoints</c>). Wyjście bez <c>Commit</c> wycofuje
+/// stan (wzorem <c>ObjectEndpoints</c>). Wyjątkiem są krok 2 i logowanie:
+/// weryfikacja hasza (PBKDF2) idzie przed transakcją, a decyzja zapada na
+/// stanie przeczytanym ponownie już w niej. Wyjście bez <c>Commit</c> wycofuje
 /// transakcję przy jej zwolnieniu.
 /// </remarks>
 internal static class AuthEndpoints
@@ -54,6 +56,16 @@ internal static class AuthEndpoints
     internal const string LoginRateLimitPolicy = "login";
 
     /// <summary>
+    /// Nazwa polityki limitu tempa kroku 2 (<c>POST /auth/register/confirm</c>).
+    /// Krok 2 celowo rozróżnia zły kod (<c>fields.code</c>) od rejestracji, której
+    /// nie da się dokończyć (<c>fields.form</c>), a każda próba zużywa jedną
+    /// z <see cref="RegistrationRules.MaxCodeAttempts"/> prób. Bez limitu każdy
+    /// mógłby sondować loginy w trakcie rejestracji i kasować je masowo
+    /// (impl-review zakladanie-konta, F1).
+    /// </summary>
+    internal const string ConfirmRateLimitPolicy = "registration-confirm";
+
+    /// <summary>
     /// Ścieżka endpointu wydającego klucz podpisu sesji. Prefiks <c>/internal/</c>
     /// mówi wprost, do czego służy — ale to nie on jest zabezpieczeniem.
     /// </summary>
@@ -65,7 +77,8 @@ internal static class AuthEndpoints
     {
         app.MapPost("/auth/register", RegisterAsync)
             .RequireRateLimiting(RegistrationRateLimitPolicy);
-        app.MapPost("/auth/register/confirm", ConfirmRegistrationAsync);
+        app.MapPost("/auth/register/confirm", ConfirmRegistrationAsync)
+            .RequireRateLimiting(ConfirmRateLimitPolicy);
         app.MapPost("/auth/login", LoginAsync)
             .RequireRateLimiting(LoginRateLimitPolicy);
         app.MapGet(SessionSigningKeyPath, GetSessionSigningKey);
@@ -277,10 +290,9 @@ internal static class AuthEndpoints
         var normalizedLogin = userManager.NormalizeName(login);
         var now = DateTimeOffset.UtcNow;
 
-        // Przed pierwszym odczytem — patrz komentarz klasy. Licznik prób jest
-        // tu stanem, o który dwie równoległe próby mogłyby się ścigać.
-        await using var transaction = await db.Database.BeginTransactionAsync(cancellationToken);
-
+        // Pierwszy odczyt i weryfikacja hasza stoją przed transakcją, wzorem
+        // `LoginAsync`: PBKDF2 trwa dziesiątki milisekund, a pod `BEGIN IMMEDIATE`
+        // trzymałby blokadę zapisu całej bazy (impl-review zakladanie-konta, F7).
         var registration = await db.PendingRegistrations
             .SingleOrDefaultAsync(row => row.NormalizedUserName == normalizedLogin, cancellationToken);
 
@@ -291,11 +303,28 @@ internal static class AuthEndpoints
 
         // Kod sprawdzany wyłącznie w terminie; weryfikacja hasza przez
         // `IPasswordHasher` porównuje w stałym czasie.
+        var verifiedCodeHash = registration.CodeHash;
         var codeMatches = !RegistrationRules.IsExpired(registration.ExpiresAt, now)
             && userManager.PasswordHasher.VerifyHashedPassword(
                 new AppUser { UserName = registration.UserName, Email = registration.Email },
-                registration.CodeHash,
+                verifiedCodeHash,
                 code) != PasswordVerificationResult.Failed;
+
+        // Wiążący odczyt — patrz komentarz klasy. Licznik prób jest tu stanem,
+        // o który dwie równoległe próby mogłyby się ścigać, więc liczy się
+        // wyłącznie stan przeczytany w transakcji.
+        await using var transaction = await db.Database.BeginTransactionAsync(cancellationToken);
+
+        await db.Entry(registration).ReloadAsync(cancellationToken);
+
+        // Wiersz usunięty w międzyczasie (wyczerpane próby, potwierdzenie
+        // równoległe) `ReloadAsync` odłącza. Kod wiersza się nie zmienia, ale
+        // wynik weryfikacji wolno przenieść wyłącznie na ten sam hasz.
+        if (db.Entry(registration).State == EntityState.Detached
+            || registration.CodeHash != verifiedCodeHash)
+        {
+            return RegistrationGone();
+        }
 
         switch (RegistrationRules.Evaluate(registration.ExpiresAt, registration.FailedAttempts, codeMatches, now))
         {
@@ -711,6 +740,9 @@ internal static class AuthResponses
     internal const string LoginRateLimitedMessage =
         "Zbyt wiele prób logowania w krótkim czasie. Spróbuj ponownie za chwilę.";
 
+    internal const string ConfirmRateLimitedMessage =
+        "Zbyt wiele prób potwierdzenia rejestracji w krótkim czasie. Spróbuj ponownie później.";
+
     internal const string MailUnavailableMessage =
         "Nie udało się wysłać kodu weryfikacyjnego. Spróbuj ponownie później.";
 
@@ -758,6 +790,10 @@ internal static class AuthResponses
     /// <summary>Koperta odmowy limitu tempa logowania (429), z tego samego <c>OnRejected</c>.</summary>
     public static ApiError LoginRateLimited()
         => ApiError.Create(ApiErrorCodes.RateLimited, LoginRateLimitedMessage);
+
+    /// <summary>Koperta odmowy limitu tempa kroku 2 rejestracji (429), z tego samego <c>OnRejected</c>.</summary>
+    public static ApiError ConfirmRateLimited()
+        => ApiError.Create(ApiErrorCodes.RateLimited, ConfirmRateLimitedMessage);
 
     /// <summary>Koperta porażki wysyłki kodu (503). <c>context</c> jest pusty — przyczyna zostaje w logu.</summary>
     public static ApiError MailUnavailable()

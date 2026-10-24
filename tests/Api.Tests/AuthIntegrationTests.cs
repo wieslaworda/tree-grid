@@ -243,6 +243,42 @@ public class AuthIntegrationTests(
     }
 
     [Fact]
+    public async Task Parallel_wrong_codes_end_the_registration_after_exactly_five_attempts()
+    {
+        // Hasz kodu jest weryfikowany przed transakcją, a licznik prób czytany
+        // ponownie już w niej (impl-review zakladanie-konta, F7 i F9). Równoległe
+        // próby nie mogą więc przekroczyć limitu ani zgubić żadnego zapisu.
+        using var client = factory.CreateClient();
+        var login = NewLogin();
+
+        Assert.Equal(HttpStatusCode.Accepted, (await RegisterAsync(client, login, EmailFor(login))).StatusCode);
+
+        var code = factory.ReadLastVerificationCode(login);
+        var wrong = code == "00000000" ? "11111111" : "00000000";
+
+        var responses = await Task.WhenAll(
+            Enumerable.Range(0, 10).Select(_ => ConfirmAsync(client, login, wrong)));
+
+        var fieldNames = new List<string>();
+
+        foreach (var response in responses)
+        {
+            var error = await IntegrationSeed.AssertRefusedAsync(
+                response, HttpStatusCode.BadRequest, ApiErrorCodes.ValidationError);
+            fieldNames.Add(Fields(error).EnumerateObject().Single().Name);
+        }
+
+        Assert.Equal(4, fieldNames.Count(name => name == "code"));
+        Assert.Equal(6, fieldNames.Count(name => name == "form"));
+        Assert.Null(await ReadPendingAsync(factory, login));
+
+        var late = await ConfirmAsync(client, login, code);
+
+        var gone = await IntegrationSeed.AssertRefusedAsync(late, HttpStatusCode.BadRequest, ApiErrorCodes.ValidationError);
+        Assert.Equal(RegistrationGone, Fields(gone).GetProperty("form").GetString());
+    }
+
+    [Fact]
     public async Task Confirming_a_login_without_a_registration_is_refused_on_the_form()
     {
         using var client = factory.CreateClient();
@@ -310,6 +346,9 @@ public class AuthIntegrationTests(
         var refusedLogin = NewLogin();
         var response = await RegisterAsync(client, refusedLogin, EmailFor(refusedLogin));
 
+        // Do końca okna (60 min w fabryce) zostało więcej niż zero sekund.
+        Assert.True(response.Headers.RetryAfter?.Delta > TimeSpan.Zero);
+
         var error = await IntegrationSeed.AssertRefusedAsync(
             response, HttpStatusCode.TooManyRequests, ApiErrorCodes.RateLimited);
         Assert.Empty(error.Context.EnumerateObject());
@@ -333,6 +372,26 @@ public class AuthIntegrationTests(
             response, HttpStatusCode.TooManyRequests, ApiErrorCodes.RateLimited);
         Assert.Empty(error.Context.EnumerateObject());
         Assert.Equal("Zbyt wiele prób logowania w krótkim czasie. Spróbuj ponownie za chwilę.", error.Message);
+    }
+
+    [Fact]
+    public async Task Confirmation_over_the_confirm_rate_limit_is_refused_with_rate_limited()
+    {
+        using var client = rateLimitedFactory.CreateClient();
+
+        for (var request = 1; request <= RateLimitedApiFactory.PermitLimit; request++)
+        {
+            Assert.Equal(HttpStatusCode.BadRequest, (await ConfirmAsync(client, NewLogin(), "12345678")).StatusCode);
+        }
+
+        var response = await ConfirmAsync(client, NewLogin(), "12345678");
+
+        var error = await IntegrationSeed.AssertRefusedAsync(
+            response, HttpStatusCode.TooManyRequests, ApiErrorCodes.RateLimited);
+        Assert.Empty(error.Context.EnumerateObject());
+        Assert.Equal(
+            "Zbyt wiele prób potwierdzenia rejestracji w krótkim czasie. Spróbuj ponownie później.",
+            error.Message);
     }
 
     // --- Porażka wysyłki ----------------------------------------------------
@@ -528,8 +587,8 @@ public class AuthIntegrationTests(
     }
 
     /// <summary>
-    /// Host z limitami tempa kroku 1 i logowania obniżonymi do
-    /// <see cref="PermitLimit"/>. Okna są osobne, więc oba testy limitu
+    /// Host z limitami tempa kroku 1, kroku 2 i logowania obniżonymi do
+    /// <see cref="PermitLimit"/>. Okna są osobne, więc testy limitu
     /// dzielą host bez wpływu na siebie.
     /// </summary>
     public sealed class RateLimitedApiFactory : TestApiFactory
@@ -539,6 +598,8 @@ public class AuthIntegrationTests(
         protected override int RegistrationPermitLimit => PermitLimit;
 
         protected override int LoginPermitLimit => PermitLimit;
+
+        protected override int ConfirmPermitLimit => PermitLimit;
     }
 
     /// <summary>Host, którego nadawca poczty zawsze rzuca wyjątek.</summary>

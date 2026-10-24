@@ -107,10 +107,14 @@ komend nie znaczy, że działa zmiana w widoku albo w endpointach spoza drzew,
 ekranów i uwierzytelniania. Jak dodać kolejny test integracyjny —
 `context/foundation/test-plan.md` §6.2.
 
-Poczta z kodem weryfikacyjnym w Development i w E2E nie wychodzi przez SMTP:
-transport `Directory` zapisuje jeden plik `.eml` na wiadomość —
-`src/Api/MailOutbox/` w pętli deweloperskiej (poza repo), `.e2e/MailOutbox/`
-w E2E. Kod do kroku 2 rejestracji czyta się stamtąd.
+Poczta z kodem weryfikacyjnym w E2E nie wychodzi przez SMTP: transport
+`Directory` zapisuje jeden plik `.eml` na wiadomość do `.e2e/MailOutbox/`,
+a setup czyta stamtąd kod do kroku 2 rejestracji. Pętla deweloperska jest
+świadomie inna: `appsettings.Development.json` ma transport `Smtp`, więc
+wysyła prawdziwą pocztę i potrzebuje user-secrets `Mail:Smtp:UserName`,
+`Mail:Smtp:Password` i `Mail:From`. Bez nich API wstaje z ostrzeżeniem, a krok 1
+kończy się `mail_unavailable`. Pliki `.eml` w `src/Api/MailOutbox/` (poza
+repo) daje zmienna `Mail__Transport=Directory` ustawiona przed startem API.
 
 Działające API trzyma `src/Api/bin/Debug/net10.0/Api.exe`, więc `dotnet build`
 i `dotnet test` kończą się `MSB3021`/`MSB3027` („file is locked by Api"),
@@ -355,7 +359,7 @@ nieudanych próbach logowania (plus globalny limit tempa `POST /auth/login`).
 Nie osłabiaj żadnej z nich „na chwilę".
 Jednorazowy kod weryfikacyjny rejestracji idzie na adres e-mail z formularza
 i potwierdza tylko dostęp do tej skrzynki — konto powstaje dopiero po jego
-wpisaniu, a krok 1 ma globalny limit tempa. Od 2026-10-17 konto może więc
+wpisaniu, a krok 1 i krok 2 mają osobne globalne limity tempa. Od 2026-10-17 konto może więc
 założyć każdy, kto ma adres e-mail i zna adres tunelu: to świadome
 uproszczenie aplikacji testowej MVP (PRD `Access Control`), a nie luka do
 naprawienia. Dane innych kont chroni izolacja kont.
@@ -377,9 +381,11 @@ z agentem (`context/foundation/lessons.md`, „Sekrety”):
 
 W Development odpowiednikiem jest
 `dotnet user-secrets set "Mail:Smtp:Password" "<wartość>" --project src/Api`
-(i tak samo `Mail:Smtp:UserName`, `Mail:From`) — potrzebne tylko wtedy, gdy
-pętla deweloperska ma wysyłać prawdziwą pocztę (`Mail:Transport` = `Smtp`);
-domyślnie Development pisze `.eml` do `src/Api/MailOutbox/`. Szczegóły
+(i tak samo `Mail:Smtp:UserName`, `Mail:From`). Development domyślnie wysyła
+prawdziwą pocztę (`Mail:Transport` = `Smtp` w `appsettings.Development.json`),
+więc bez tych trzech wartości krok 1 kończy się `mail_unavailable`.
+`Mail__Transport=Directory` przełącza go na pliki `.eml`
+w `src/Api/MailOutbox/`. Szczegóły
 uruchomienia: `.claude/skills/run-tunel-app/SKILL.md`, sekcja o sekretach.
 
 Oba procesy lokalne wymagają też zmiennej profilu `Auth__InternalApiSecret`

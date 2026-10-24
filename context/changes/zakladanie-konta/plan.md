@@ -86,6 +86,10 @@ Logowanie przechodzi z adresu e-mail na login. Adres e-mail zostaje daną konta.
   wyczerpaniu prób.
 - Limit tempa per IP, ani w API, ani w React Routerze. Limit jest globalny, bo za tunelem API widzi
   tylko `cloudflared`.
+  *Adnotacja z impl-review (F8, 2026-10-24):* limiter działa przed endpointem, więc okno kroku 1
+  liczy także odmowy walidacji (słabe hasło, zajęty login). Kilka poprawek formularza jednej osoby
+  może zablokować rejestrację wszystkim do końca okna. Ten skutek jest zaakceptowany, a 429 niesie
+  `Retry-After` z czasem do końca okna (wszystkie trzy polityki).
 - Limit tempa logowania (OWASP F-004) i naprawa wyścigu licznika blokady (TG-SEC-03). To osobna,
   zaległa praca.
 - Potwierdzanie adresu e-mail wnioskodawcy. Kod trafia do administratora, nie do wnioskodawcy.
@@ -168,6 +172,12 @@ ważności.
 - `CreatedAt`, `ExpiresAt` (`DateTimeOffset`, zapis jak w istniejących encjach),
 - `FailedAttempts` (int).
 
+*Adnotacja z impl-review (F3, 2026-10-24):* w fazie 2 (f0c8720) adres e-mail przestał być unikalny.
+Migracja `PendingRegistrationEmailNotUnique` zdjęła unikalny indeks `NormalizedEmail`,
+a `Program.cs` ustawia `RequireUniqueEmail = false`, więc kilka kont i kilka oczekujących rejestracji
+może mieć ten sam adres (PRD FR-001). Rezerwowany jest wyłącznie login. Kształt adresu sprawdza
+tylko krok 1 (`RegistrationRules`), bo przy tej opcji `UserValidator` Identity adresu nie waliduje.
+
 `DbSet<PendingRegistration> PendingRegistrations` w `AppDbContext`. Migracja przez
 `dotnet ef migrations add PendingRegistrations --project src/Api`.
 
@@ -236,6 +246,10 @@ transport `Directory`, żeby pętla deweloperska nie wymagała hasła Gmail.
   - `Auth:RegistrationRateLimit` z `PermitLimit: 5` i `WindowMinutes: 60`.
 - `appsettings.Development.json`: `Mail:Transport: "Directory"`, `Mail:Directory:Path: "MailOutbox"`,
   `Mail:From` z wartością techniczną.
+  - *Adnotacja z impl-review (F2, 2026-10-24):* w fazie 2 (f0c8720) transport w Development świadomie
+    zmieniono na `Smtp`, żeby pętla deweloperska wysyłała prawdziwą pocztę. Wymaga to user-secrets
+    `Mail:Smtp:*` i `Mail:From`. `Directory` włącza zmienna `Mail__Transport=Directory`, a E2E ustawia
+    ją jawnie.
 - `.gitignore`: `src/Api/MailOutbox/` (katalog `.eml` z pętli deweloperskiej). Nazwa jest inna niż
   folder źródeł `src/Api/Mail/`, żeby wpis w `.gitignore` nie objął kodu.
 - Odmowa startu wymienia brakujące klucze z podwójnym podkreśleniem (`Mail__Smtp__Password`), tak
@@ -257,6 +271,8 @@ Komunikaty po polsku, reguła „nieistniejące konto i złe hasło wyglądają 
   - 400 `validation_error` z `fields.login` / `email` / `password`. Zajętość przez konto i przez
     niewygasłą rejestrację daje ten sam komunikat: „Ten login jest już zajęty.” / „Konto o tym adresie
     e-mail już istnieje.”;
+    *Adnotacja (F3):* od f0c8720 adres nie jest sprawdzany pod kątem zajętości i komunikatu
+    o istniejącym adresie nie ma. Zajętość dotyczy wyłącznie loginu.
   - 429 `rate_limited`;
   - 503 `mail_unavailable`.
 - `POST /auth/register/confirm` z `{ login, code }`:
@@ -265,6 +281,11 @@ Komunikaty po polsku, reguła „nieistniejące konto i złe hasło wyglądają 
     - `fields.code` „Nieprawidłowy kod weryfikacyjny.” przy złym kodzie z pozostałymi próbami,
     - `fields.form` „Rejestracja wygasła albo nie istnieje. Wypełnij formularz rejestracji ponownie.”
       gdy wiersza brak, wygasł albo właśnie wyczerpano próby.
+  - *Adnotacja z impl-review (F1, 2026-10-24):* rozróżnienie `fields.code` i `fields.form` zostaje
+    jako świadomy kompromis UX, choć zdradza, że login ma niewygasłą rejestrację, a każda próba
+    zużywa jedną z 5. Masowe sondowanie i kasowanie cudzych rejestracji zamyka globalny limit
+    `Auth:ConfirmRateLimit` (domyślnie 25 żądań na 60 minut, czyli 5 rejestracji × 5 prób)
+    z odmową 429 `rate_limited`. Pojedynczą rejestrację nadal da się skasować pięcioma próbami.
 - `POST /auth/login` z `{ login, password }`: wyszukiwanie przez `FindByNameAsync`. Komunikat to
   `InvalidCredentialsMessage = "Nieprawidłowy login lub hasło."`.
 - `AccountResponse = { id, login = user.UserName, email = user.Email }`.
@@ -273,7 +294,7 @@ Komunikaty po polsku, reguła „nieistniejące konto i złe hasło wyglądają 
 - `ApiErrorCodes.RateLimited = "rate_limited"`, `ApiErrorCodes.MailUnavailable = "mail_unavailable"`,
   każdy z komentarzem jak sąsiednie kody.
 - `Program.cs:69-71`: komentarz przy `RequireUniqueEmail` przepisany. E-mail jest daną konta,
-  unikalność zostaje.
+  unikalność zostaje. *Adnotacja (F3):* od f0c8720 unikalności nie ma (`RequireUniqueEmail = false`).
 
 #### 6. Testy .NET
 
@@ -479,6 +500,7 @@ luki”; sekcja sekretów w `run-tunel-app/SKILL.md`.
 - **Konto nie istnieje przed kodem.** Po kroku 1 logowanie tym loginem daje 401.
 - **Rezerwacja.** Drugi krok 1 z tym samym loginem (inna wielkość liter) albo tym samym e-mailem daje
   400 na odpowiednim polu. Login równy e-mailowi istniejącego konta daje 400 `login`.
+  *Adnotacja (F3):* od f0c8720 ten sam e-mail przechodzi (202) i tak sprawdza to test.
 - **Limit prób.** Cztery złe kody dają `fields.code`, piąty daje `fields.form`, a poprawny kod potem
   też `fields.form`. Ten sam login można ponownie zarezerwować w kroku 1.
 - **Wygaśnięcie.** Wiersz z `ExpiresAt` w przeszłości (ustawiony przez scope bazy) przy poprawnym
@@ -556,11 +578,11 @@ Bez istotnych. Hasz kodu przez `IPasswordHasher` (PBKDF2) kosztuje kilkadziesią
 
 #### Automated
 
-- [ ] 2.1 Typecheck przechodzi
-- [ ] 2.2 Spec Node przechodzi
-- [ ] 2.3 E2E przechodzi z nowym setupem
-- [ ] 2.4 Build produkcyjny i kontrakty 1 i 2 na `/rejestracja/potwierdzenie`
-- [ ] 2.5 Brak śladów kodu rejestracyjnego w app, tests, playwright.config.ts i CLAUDE.md
+- [x] 2.1 Typecheck przechodzi — f0c8720
+- [x] 2.2 Spec Node przechodzi — f0c8720
+- [x] 2.3 E2E przechodzi z nowym setupem — f0c8720
+- [x] 2.4 Build produkcyjny i kontrakty 1 i 2 na `/rejestracja/potwierdzenie` — f0c8720
+- [x] 2.5 Brak śladów kodu rejestracyjnego w app, tests, playwright.config.ts i CLAUDE.md — f0c8720
 
 #### Manual
 

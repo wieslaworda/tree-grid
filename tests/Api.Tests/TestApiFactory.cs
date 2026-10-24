@@ -54,8 +54,9 @@ namespace Api.Tests;
 /// a nadawcę plikowego podstawia <c>ConfigureTestServices</c>: poza Development
 /// start odmawia transportu <c>Directory</c>, a host testowy ma przechodzić tę
 /// samą kontrolę startu co produkcja. Z serwerem SMTP nic się nie łączy.
-/// Limity tempa kroku 1 i logowania są podniesione (<see cref="RegistrationPermitLimit"/>,
-/// <see cref="LoginPermitLimit"/>), bo licznik jest jeden na host, a testy klasy dzielą host.
+/// Limity tempa kroku 1, kroku 2 i logowania są podniesione (<see cref="RegistrationPermitLimit"/>,
+/// <see cref="ConfirmPermitLimit"/>, <see cref="LoginPermitLimit"/>), bo licznik jest jeden
+/// na host, a testy klasy dzielą host.
 ///
 /// Wspólny sekret Node→API też jest losowy i jedzie przez <c>UseSetting</c>,
 /// a <see cref="ConfigureClient"/> dokleja go nagłówkiem do każdego klienta
@@ -154,6 +155,9 @@ public class TestApiFactory : WebApplicationFactory<Program>
     /// <summary>Limit żądań <c>POST /auth/login</c> w oknie limitera — z tego samego powodu wysoki.</summary>
     protected virtual int LoginPermitLimit => 1000;
 
+    /// <summary>Limit żądań kroku 2 rejestracji w oknie limitera — z tego samego powodu wysoki.</summary>
+    protected virtual int ConfirmPermitLimit => 1000;
+
     /// <summary>
     /// Kod weryfikacyjny z najnowszej wiadomości dla <paramref name="login"/>,
     /// odczytany z treści pliku <c>.eml</c> tym samym wyrażeniem, którego używa
@@ -246,6 +250,9 @@ public class TestApiFactory : WebApplicationFactory<Program>
         builder.UseSetting(
             "Auth:LoginRateLimit:PermitLimit",
             LoginPermitLimit.ToString(CultureInfo.InvariantCulture));
+        builder.UseSetting(
+            "Auth:ConfirmRateLimit:PermitLimit",
+            ConfirmPermitLimit.ToString(CultureInfo.InvariantCulture));
 
         // Opcje kontekstu z `Program.cs` (plik, interceptor busy_timeout) zostają;
         // klasa pochodna może do nich jedynie dołożyć, np. własny interceptor.

@@ -26,6 +26,13 @@
     <PackageReference Include="Microsoft.EntityFrameworkCore.Sqlite" Version="10.0.12" />
     <PackageReference Include="Serilog.Extensions.Logging" Version="10.0.0" />
     <PackageReference Include="Serilog.Sinks.File" Version="7.0.0" />
+    <!--
+      Przypięcie zależności przechodniej MailKit → MimeKit, który sam rozwiązuje
+      10.0.0 z podatnościami DoS (GHSA-846f-f764-76mx, GHSA-2fmv-rv2c-59x7,
+      naprawione w 10.0.13). Do zdjęcia, gdy MimeKit sam wymaga naprawionej
+      wersji (impl-review zakladanie-konta, F5).
+    -->
+    <PackageReference Include="System.Security.Cryptography.Pkcs" Version="10.0.13" />
   </ItemGroup>
 
   <ItemGroup>

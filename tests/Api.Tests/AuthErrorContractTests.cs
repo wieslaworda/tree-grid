@@ -143,6 +143,7 @@ public class AuthErrorContractTests
         {
             (Error: AuthResponses.RateLimited(), Code: "rate_limited"),
             (Error: AuthResponses.LoginRateLimited(), Code: "rate_limited"),
+            (Error: AuthResponses.ConfirmRateLimited(), Code: "rate_limited"),
             (Error: AuthResponses.MailUnavailable(), Code: "mail_unavailable"),
         };
 

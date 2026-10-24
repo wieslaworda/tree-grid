@@ -1,5 +1,7 @@
 using System.Data.Common;
+using System.Globalization;
 using System.Text;
+using System.Threading.RateLimiting;
 using Api.Auth;
 using Api.Categories;
 using Api.Data;
@@ -87,8 +89,9 @@ try
             // Identyfikatorem logowania jest login (`UserName`, PRD FR-001
             // w wersji z 2026-10-10), a adres e-mail jest daną konta. Adres nie
             // jest unikalny: kilka kont może mieć ten sam adres, a osobę
-            // rozpoznaje unikalny login. Identity i tak wymaga adresu w poprawnym
-            // kształcie — sprawdza go już krok 1 (`RegistrationRules`).
+            // rozpoznaje unikalny login. Przy `RequireUniqueEmail = false`
+            // `UserValidator` Identity nie sprawdza adresu wcale, także jego
+            // kształtu — robi to wyłącznie krok 1 (`RegistrationRules`).
             options.User.RequireUniqueEmail = false;
 
             // Podniesiona wyłącznie minimalna długość. Pozostałe reguły złożoności
@@ -144,6 +147,14 @@ try
     // granicę zgadywania haseł po wielu loginach i wyliczania loginów.
     var loginRateLimit = builder.Configuration.GetSection("Auth:LoginRateLimit");
 
+    // Limit kroku 2 rejestracji, też jeden na proces. Domyślne 25 na godzinę to
+    // pełny budżet uczciwego ruchu: 5 rejestracji z limitu kroku 1 razy 5 prób
+    // kodu (`RegistrationRules.MaxCodeAttempts`). Limit zamyka masowe sondowanie
+    // i kasowanie cudzych rejestracji (impl-review zakladanie-konta, F1).
+    // Pojedynczą rejestrację nadal da się skasować pięcioma próbami — to
+    // przyjęta cena czytelnego rozróżnienia „zły kod” i „wypełnij ponownie”.
+    var confirmRateLimit = builder.Configuration.GetSection("Auth:ConfirmRateLimit");
+
     builder.Services.AddRateLimiter(options =>
     {
         options.AddFixedWindowLimiter(AuthEndpoints.RegistrationRateLimitPolicy, limiter =>
@@ -162,6 +173,13 @@ try
             limiter.QueueLimit = 0;
         });
 
+        options.AddFixedWindowLimiter(AuthEndpoints.ConfirmRateLimitPolicy, limiter =>
+        {
+            limiter.PermitLimit = confirmRateLimit.GetValue("PermitLimit", 25);
+            limiter.Window = TimeSpan.FromMinutes(confirmRateLimit.GetValue("WindowMinutes", 60));
+            limiter.QueueLimit = 0;
+        });
+
         // Odmowa nie przechodzi przez żaden endpoint ani przez obsługę statusów
         // z `UseApiErrorContract` (treść jest już zapisana), więc kopertę
         // w kontrakcie błędów trzeba napisać tutaj.
@@ -169,13 +187,24 @@ try
         {
             context.HttpContext.Response.StatusCode = StatusCodes.Status429TooManyRequests;
 
+            // Okno stałe zna czas do swojego końca. Klient dostaje go w sekundach,
+            // zaokrąglony w górę, żeby ponowienie nie trafiło jeszcze w to okno.
+            if (context.Lease.TryGetMetadata(MetadataName.RetryAfter, out var retryAfter))
+            {
+                context.HttpContext.Response.Headers.RetryAfter =
+                    ((int)Math.Ceiling(retryAfter.TotalSeconds)).ToString(CultureInfo.InvariantCulture);
+            }
+
             var policy = context.HttpContext.GetEndpoint()?.Metadata
                 .GetMetadata<EnableRateLimitingAttribute>()?.PolicyName;
 
             return new ValueTask(context.HttpContext.Response.WriteAsJsonAsync(
-                policy == AuthEndpoints.LoginRateLimitPolicy
-                    ? AuthResponses.LoginRateLimited()
-                    : AuthResponses.RateLimited(),
+                policy switch
+                {
+                    AuthEndpoints.LoginRateLimitPolicy => AuthResponses.LoginRateLimited(),
+                    AuthEndpoints.ConfirmRateLimitPolicy => AuthResponses.ConfirmRateLimited(),
+                    _ => AuthResponses.RateLimited(),
+                },
                 cancellationToken));
         };
     });
@@ -370,7 +399,8 @@ try
 
     // Po kontrakcie błędów, żeby wyjątek w limiterze też skończył się kopertą.
     // Polityka działa wyłącznie tam, gdzie endpoint ją przypina
-    // (`RequireRateLimiting` przy `POST /auth/register` i `POST /auth/login`).
+    // (`RequireRateLimiting` przy `POST /auth/register`,
+    // `POST /auth/register/confirm` i `POST /auth/login`).
     app.UseRateLimiter();
 
     if (app.Environment.IsDevelopment())
