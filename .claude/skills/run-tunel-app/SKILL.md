@@ -373,9 +373,13 @@ trzeba otworzyć ponownie — inaczej skrypt dalej startuje w starym środowisku
 i odmawia z tym samym komunikatem. Dla `-Environment Development`
 odpowiednikiem (poza wspólnym sekretem) jest
 `dotnet user-secrets set "<klucz>" "<wartość>" --project src/Api` (np.
-`Mail:Smtp:Password`). W Development transport domyślnie to `Directory`:
-wiadomość z kodem ląduje jako plik `.eml` w `src/Api/MailOutbox/`, bez SMTP
-i bez hasła Gmail.
+`Mail:Smtp:Password`). W Development transport domyślnie to też `Smtp`
+(`appsettings.Development.json`), więc pętla deweloperska wysyła prawdziwą
+pocztę i potrzebuje `Mail:Smtp:UserName`, `Mail:Smtp:Password` i `Mail:From`
+w user-secrets. Bez nich API wstaje z ostrzeżeniem, a krok 1 kończy się
+`mail_unavailable`. Wiadomość jako plik `.eml` w `src/Api/MailOutbox/`, bez
+SMTP i bez hasła Gmail, daje zmienna `Mail__Transport=Directory` ustawiona
+przed startem API.
 
 Porażka wysyłki (np. złe hasło aplikacji) nie zatrzymuje API: krok 1
 rejestracji odpowiada `mail_unavailable`, nie zostawia oczekującej rejestracji,
