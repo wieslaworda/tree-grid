@@ -9,20 +9,19 @@ allowed-tools:
   - Bash
   - AskUserQuestion
 ---
+# /10x-new — Rozpocznij nową zmianę
 
-# /10x-new — Start a New Change
+Uruchom nowy folder zmiany w `context/changes/<change-id>/`. Tworzy mały plik tożsamości (`change.md`) i wskazuje użytkownikowi następną umiejętność.
 
-Bootstrap a new change folder under `context/changes/<change-id>/`. Creates a tiny identity file (`change.md`) and points the user at the next skill.
+„Zmiana” to pojedyncza jednostka pracy od początku do końca — badanie, planowanie, implementacja i przegląd znajdują się w jednym folderze oznaczonym przez `<change-id>`.
 
-A "change" is a single unit of work end-to-end — research, planning, implementation, and review all live inside one folder keyed by `<change-id>`.
+## Początkowa odpowiedź
 
-## Initial Response
+Gdy to polecenie zostanie wywołane:
 
-When this command is invoked:
-
-1. **Check if any argument was provided**:
-   - If an argument was provided, parse it (see "Argument Parsing" below) and proceed to "Validation"
-   - If NO argument was provided, respond with the following message and **STOP**:
+1. **Sprawdź, czy podano jakikolwiek argument**:
+   - Jeśli podano argument, przeanalizuj go (zobacz „Parsowanie argumentu” poniżej) i przejdź do „Walidacji”.
+   - Jeśli NIE podano argumentu, odpowiedz następującą wiadomością i **ZATRZYMAJ SIĘ**:
 
 ```
 I'll create a new change folder. Please provide a change-id (kebab-case slug):
@@ -39,51 +38,51 @@ The change-id must be:
 - unique across `context/changes/` and `context/archive/`
 ```
 
-   Then **wait** for the user to provide an argument.
+   Następnie **poczekaj**, aż użytkownik poda argument.
 
-## Argument Parsing
+## Parsowanie argumentu
 
-Split the raw argument string on the first run of whitespace:
+Podziel surowy ciąg argumentu przy pierwszym ciągu białych znaków:
 
-- **First token** = the change-id reference. Normalize it:
-  1. Strip a leading `@` if present (`@context/changes/feature-x/` → `context/changes/feature-x/`).
-  2. Strip a trailing `/` if present.
-  3. If the result contains `/`, take the last non-empty path segment (`context/changes/feature-x` → `feature-x`).
-  4. The result is `<change-id>`.
-- **Everything after the first token** = freeform intent. May be empty. May be a sentence or a paragraph. **Do not** treat it as a literal title to insert verbatim.
+- **Pierwszy token** = referencja `change-id`. Znormalizuj ją:
+  1. Usuń początkowy znak `@`, jeśli występuje (`@context/changes/feature-x/` → `context/changes/feature-x/`).
+  2. Usuń końcowy znak `/`, jeśli występuje.
+  3. Jeśli wynik zawiera `/`, pobierz ostatni niepusty segment ścieżki (`context/changes/feature-x` → `feature-x`).
+  4. Wynikiem jest `<change-id>`.
+- **Wszystko po pierwszym tokenie** = dowolny zamiar. Może być pusty. Może być zdaniem lub akapitem. **Nie** traktuj go jako dosłownego tytułu do wstawienia bez zmian.
 
-Examples:
+Przykłady:
 
-| Raw input | `<change-id>` | Intent |
+| Surowe dane wejściowe | `<change-id>` | Zamiar |
 |-----------|---------------|--------|
-| `feature-x` | `feature-x` | (empty) |
+| `feature-x` | `feature-x` | (pusty) |
 | `oauth-login add Google sign-in for faster onboarding` | `oauth-login` | `add Google sign-in for faster onboarding` |
-| `@context/changes/oauth-login/` | `oauth-login` | (empty) |
+| `@context/changes/oauth-login/` | `oauth-login` | (pusty) |
 | `@context/changes/oauth-login/ revisit the token-refresh edge case` | `oauth-login` | `revisit the token-refresh edge case` |
-| `My Feature add OAuth` | `My Feature` (will fail kebab-case check) | `add OAuth` |
+| `My Feature add OAuth` | `My Feature` (nie przejdzie kontroli kebab-case) | `add OAuth` |
 
-## Validation
+## Walidacja
 
-Before creating anything:
+Przed utworzeniem czegokolwiek:
 
-1. **kebab-case check**: `<change-id>` must match `^[a-z][a-z0-9]*(-[a-z0-9]+)*$` (starts with a letter, segments of lowercase + digits separated by single hyphens, no leading/trailing hyphen, no double hyphens).
-   - On failure, print: `error: change-id "<id>" is not kebab-case. Use lowercase letters, digits, and single hyphens only (e.g., "oauth-login", not "OAuth Login").` and STOP.
+1. **Kontrola kebab-case**: `<change-id>` musi pasować do `^[a-z][a-z0-9]*(-[a-z0-9]+)*$` (zaczyna się literą, segmenty małych liter + cyfr rozdzielone pojedynczymi myślnikami, bez początkowego/końcowego myślnika, bez podwójnych myślników).
+   - W przypadku niepowodzenia wypisz: `error: change-id "<id>" is not kebab-case. Use lowercase letters, digits, and single hyphens only (e.g., "oauth-login", not "OAuth Login").` i ZATRZYMAJ SIĘ.
 
-2. **Uniqueness check**: neither `context/changes/<change-id>/` nor `context/archive/<change-id>/` may already exist.
-   - On collision, print: `error: change "<id>" already exists at <path>. Pick a different change-id or work inside the existing folder.` and STOP.
+2. **Kontrola unikalności**: ani `context/changes/<change-id>/`, ani `context/archive/<change-id>/` nie mogą już istnieć.
+   - W przypadku kolizji wypisz: `error: change "<id>" already exists at <path>. Pick a different change-id or work inside the existing folder.` i ZATRZYMAJ SIĘ.
 
-3. **`context/changes/` parent exists**: if missing, print `error: context/changes/ not found — is this repo set up for the 10x context structure?` and STOP. (Do NOT auto-create the parent; that's a sign the repo isn't ready.)
+3. **Istnienie katalogu nadrzędnego `context/changes/`**: jeśli go brakuje, wypisz `error: context/changes/ not found — is this repo set up for the 10x context structure?` i ZATRZYMAJ SIĘ. (NIE twórz automatycznie katalogu nadrzędnego; to znak, że repozytorium nie jest gotowe).
 
-## Creation
+## Tworzenie
 
-1. Create directory `context/changes/<change-id>/`.
-2. Derive the `<title>`:
-   - If the intent string is empty, humanize the change-id: replace hyphens with spaces and capitalize the first letter (e.g., `multi-course-access` → `Multi course access`).
-   - If the intent string is non-empty, write a concise human-readable title (≤ 80 chars, sentence case, no trailing period) that captures what the change is about. The intent is *guidance*, not a literal — feel free to rephrase. Don't dump a paragraph into the title.
-3. Derive the `## Notes` body:
-   - If the intent string is empty, emit the hint comment: `<!-- Free-form notes for this change: links, ad-hoc context, decisions that don't belong in research/frame/plan. -->`
-   - If the intent string is non-empty, drop it verbatim as the Notes body — the user's words are the seed. Do not also emit the hint comment in that case (the user has shown they know what Notes are for).
-4. Write `context/changes/<change-id>/change.md` with this exact shape (the `<notes-body>` slot is what step 3 produced):
+1. Utwórz katalog `context/changes/<change-id>/`.
+2. Wyprowadź `<title>`:
+   - Jeśli ciąg zamiaru jest pusty, przekształć `change-id` w formę czytelną dla człowieka: zamień myślniki na spacje i zapisz pierwszą literę wielką (np. `multi-course-access` → `Multi course access`).
+   - Jeśli ciąg zamiaru nie jest pusty, napisz zwięzły, czytelny dla człowieka tytuł (≤ 80 znaków, wielkość liter jak w zdaniu, bez końcowej kropki), który oddaje temat zmiany. Zamiar jest *wskazówką*, a nie tekstem dosłownym — możesz go przeformułować. Nie wstawiaj akapitu do tytułu.
+3. Wyprowadź treść `## Notes`:
+   - Jeśli ciąg zamiaru jest pusty, dodaj komentarz podpowiedzi: `<!-- Free-form notes for this change: links, ad-hoc context, decisions that don't belong in research/frame/plan. -->`
+   - Jeśli ciąg zamiaru nie jest pusty, wstaw go dosłownie jako treść Notes — słowa użytkownika są zalążkiem. W takim przypadku nie dodawaj również komentarza podpowiedzi (użytkownik pokazał, że wie, do czego służą Notes).
+4. Zapisz `context/changes/<change-id>/change.md` w dokładnie takiej formie (miejsce `<notes-body>` zawiera wynik kroku 3):
 
 ```markdown
 ---
@@ -100,15 +99,15 @@ archived_at: null
 <notes-body>
 ```
 
-`<YYYY-MM-DD>` is today's date (use `date +%Y-%m-%d`).
+`<YYYY-MM-DD>` to dzisiejsza data (użyj `date +%Y-%m-%d`).
 
-See `reference/change-md.md` for the full schema reference (allowed status values, transitions, what is intentionally NOT in `change.md`).
+Pełny opis schematu znajdziesz w `reference/change-md.md` (dozwolone wartości statusu, przejścia, co celowo NIE znajduje się w `change.md`).
 
-## Next-step suggestion
+## Sugestia następnego kroku
 
-After successful creation, print a next-step prompt and copy the suggested command to clipboard.
+Po pomyślnym utworzeniu wyświetl monit o następnym kroku i skopiuj sugerowane polecenie do schowka.
 
-The default next step is `/10x-plan <change-id>` — most changes go straight to planning. The other two skills are situational: `/10x-research` when the parsed intent (or the surrounding turn) suggests the change requires meaningful codebase exploration before a plan can be written, and `/10x-frame` when the intent signals that the framing is suspect — either bug-shape ("fix", "bug", "broken", "why is", "root cause", "regression", "self-diagnosed solution") or scope/design-shape ("should we even", "is this the right", "what's actually broken", "rethink", "challenge the assumption"). Pick the situational option only when the signal is clear; otherwise default to `/10x-plan`.
+Domyślnym następnym krokiem jest `/10x-plan <change-id>` — większość zmian przechodzi bezpośrednio do planowania. Pozostałe dwie umiejętności są sytuacyjne: `/10x-research`, gdy przeanalizowany zamiar (lub otaczająca tura) sugeruje, że zmiana wymaga znaczącej eksploracji bazy kodu przed napisaniem planu, oraz `/10x-frame`, gdy zamiar sygnalizuje, że ujęcie problemu jest podejrzane — albo ma formę błędu („fix”, „bug”, „broken”, „why is”, „root cause”, „regression”, „self-diagnosed solution”), albo formę zakresu/projektu („should we even”, „is this the right”, „what's actually broken”, „rethink”, „challenge the assumption”). Wybierz opcję sytuacyjną tylko wtedy, gdy sygnał jest wyraźny; w przeciwnym razie domyślnie użyj `/10x-plan`.
 
 ```bash
 NEXT_CMD="/10x-plan <change-id>"   # default; see above for when to switch to /10x-research or /10x-frame
@@ -120,7 +119,7 @@ echo -n "$NEXT_CMD" | pbcopy 2>/dev/null || echo -n "$NEXT_CMD" | clip.exe 2>/de
 Set-Clipboard $NEXT_CMD
 ```
 
-Then display:
+Następnie wyświetl:
 
 ```
 ✓ Created context/changes/<change-id>/change.md (status: new)
@@ -133,11 +132,11 @@ Other options:
   /10x-frame <change-id>      — challenge the framing first (when the symptom and proposed fix are stated as one, or when the right scope to plan is unclear)
 ```
 
-If no clipboard tool is available (`pbcopy`, `clip.exe`, `xclip`, `Set-Clipboard`), drop the `(✓ copied to clipboard)` annotation but still print the suggestion.
+Jeśli żadne narzędzie schowka nie jest dostępne (`pbcopy`, `clip.exe`, `xclip`, `Set-Clipboard`), usuń adnotację `(✓ copied to clipboard)`, ale nadal wyświetl sugestię.
 
-## What this skill does NOT do
+## Czego ta umiejętność NIE robi
 
-- Does not write `frame.md`, `research.md`, `plan.md`, or any other artifact — those come from their respective skills.
-- Does not write to any state-file sidecar; the `## Progress` section in `plan.md` is the single source of truth for execution state.
-- Does not enforce status transitions — `change.md` is record-only.
-- Does not create the `context/changes/` parent directory; if it's missing, the repo isn't bootstrapped for this structure and the user should resolve that first.
+- Nie zapisuje `frame.md`, `research.md`, `plan.md` ani żadnego innego artefaktu — są one tworzone przez odpowiednie umiejętności.
+- Nie zapisuje do żadnego pliku pomocniczego stanu; sekcja `## Progress` w `plan.md` jest jedynym źródłem prawdy o stanie wykonania.
+- Nie wymusza przejść statusów — `change.md` służy wyłącznie jako zapis.
+- Nie tworzy katalogu nadrzędnego `context/changes/`; jeśli go brakuje, repozytorium nie zostało zainicjowane dla tej struktury i użytkownik powinien najpierw to rozwiązać.

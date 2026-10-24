@@ -18,206 +18,205 @@ allowed-tools:
   - Edit
   - AskUserQuestion
 ---
+# Agenci 10x MD
 
-# 10x Agents MD
+Utwórz `AGENTS.md`, który będzie służyć jako dokument wdrożeniowy dla agentów AI programujących w tym repozytorium. Plik ma być krótki, specyficzny dla repozytorium i ustrukturyzowany tak, aby najważniejsze zasady pojawiały się jako pierwsze.
 
-Produce an `AGENTS.md` that serves as an onboarding document for AI coding agents in this repository. The file is short, specific to the repo, and structured so the most important rules appear first.
+## Rozwiązywanie danych wejściowych
 
-## Input resolution
+`$ARGUMENTS` jest opcjonalne. Może to być:
 
-`$ARGUMENTS` is optional. It may be:
+- puste → zapisz w `AGENTS.md` w katalogu głównym repozytorium.
+- ścieżka katalogu → zapisz `AGENTS.md` wewnątrz tego katalogu (przydatne dla zagnieżdżonych przewodników dotyczących konkretnych obszarów, np. `src/api/AGENTS.md`).
+- pełna ścieżka pliku kończąca się na `.md` → zapisz tam dosłownie.
 
-- empty → write to `AGENTS.md` at the repo root.
-- a directory path → write `AGENTS.md` inside that directory (useful for nested per-area guides, e.g. `src/api/AGENTS.md`).
-- a full file path ending in `.md` → write there verbatim.
+Jeśli plik docelowy już istnieje, **nie** nadpisuj go po cichu. Przejdź do przepływu aktualizacji w sekcji „Procedure → Update path”. Domyślnym zachowaniem jest chirurgiczna edycja, która zachowuje nadal aktualną treść, a nie przepisanie pliku.
 
-If the target file already exists, do **not** silently overwrite. Switch to the update flow under "Procedure → Update path". The default behavior is a surgical edit that preserves still-valid content, not a rewrite.
+## Wykrywanie zakresu — poziom repozytorium vs. poziom katalogu
 
-## Scope detection — repo-level vs. directory-level
+Ta sama umiejętność może utworzyć dwa istotnie różne dokumenty w zależności od tego, **skąd** została wywołana. Wykryj zakres przed analizą, aby szkic był skierowany na właściwy poziom.
 
-The same skill can produce two materially different documents depending on **where** it's invoked from. Detect the scope before discovery so the draft targets the right altitude.
+1. **Rozwiąż katalog docelowy.** Jeśli `$ARGUMENTS` wskazuje ścieżkę, jest ona celem. W przeciwnym razie użyj bieżącego katalogu roboczego (`pwd`).
+2. **Porównaj z katalogiem głównym repozytorium.** Uruchom `git rev-parse --show-toplevel`. Jeśli katalog docelowy jest równy katalogowi głównemu repozytorium → **zakres na poziomie repozytorium**. Jeśli jest podkatalogiem (np. `src/components/`, `packages/api/src/routes/`, `app/api/`) → **zakres na poziomie katalogu**.
 
-1. **Resolve the target directory.** If `$ARGUMENTS` names a path, that's the target. Otherwise it's the current working directory (`pwd`).
-2. **Compare against the repo root.** Run `git rev-parse --show-toplevel`. If the target directory equals the repo root → **repo-level scope**. If it's a subdirectory (e.g. `src/components/`, `packages/api/src/routes/`, `app/api/`) → **directory-level scope**.
+**Zakres na poziomie repozytorium.** Postępuj zgodnie z poniższą procedurą i „Output structure” — dokument jest ogólnym przewodnikiem wdrożeniowym (struktura projektu, polecenia budowania, bramka CI, konwencje commitów itd.).
 
-**Repo-level scope.** Follow the procedure and "Output structure" below as written — the document is a high-level onboarding guide (project structure, build commands, CI gate, commit conventions, etc.).
+**Zakres na poziomie katalogu.** Całkowicie pomiń kontekst wdrożenia do repozytorium. Czytelnik już zna repozytorium; potrzebuje zasad dotyczących *tego* katalogu. Przeorientuj analizę i wynik:
 
-**Directory-level scope.** Drop the repository-onboarding framing entirely. The reader already knows the repo; they need the rules of *this* directory. Reorient discovery and output:
+- **Najpierw analizuj lokalnie.** Sprawdź pliki faktycznie znajdujące się obok celu: sąsiednie pliki źródłowe, najbliższy `index.*`/`mod.rs`/`__init__.py`, testy współumieszczone, README katalogu nadrzędnego, jeśli istnieje, oraz wszelką zagnieżdżoną konfigurację (np. `tsconfig.json`, `.eslintrc`, manifesty tras), która nadpisuje domyślne ustawienia repozytorium. Korzystaj z dokumentów w katalogu głównym (`README.md`, `CLAUDE.md`) wyłącznie, aby **rozstrzygać konflikty** lub pobrać pojedyncze kanoniczne odwołanie `@` — nie traktuj ich jako głównego źródła.
+- **Wywnioskuj lokalny wzorzec, czytając sąsiednie pliki.** Jaki kształt mają istniejące pliki w tym katalogu? Układ plików komponentów, nazewnictwo (`PascalCase.tsx`, `kebab-case.ts`, `*.handler.ts`), eksporty domyślne vs. nazwane, konwencje propsów/argumentów, położenie typów/stylów/testów względem jednostki, idiomy obsługi błędów, co jest importowane i skąd. AGENTS.md ma uchwycić zaobserwowaną konwencję, a nie ogólne porady.
+- **Przeformułuj sekcje wokół lokalnej jednostki.** Zastąp sekcje poziomu repozytorium sekcjami istotnymi dla katalogu. Przydatne domyślne sekcje (dostosuj do tego, co istnieje):
+  - *Dodawanie nowej \\<jednostki\\>* — konkretne kroki dla dominującego artefaktu w tym katalogu (komponentu, handlera trasy, migracji, hooka, workera itd.), wskazujące jeden istniejący sąsiedni plik jako wzorzec poprzez `@./<sibling-file>`.
+  - *Układ plików i nazewnictwo* — wzorzec nazewnictwa, zasady współumieszczania (test obok źródła? style inline? typy w sąsiednim pliku?), polityka eksportów zbiorczych, jeśli istnieje.
+  - *Lokalne konwencje* — kształt propsów/argumentów, zasady przepływu stanu/danych, dozwolone importy (oraz zabronione — np. „komponenty w tym katalogu nie mogą importować z `src/server/`”), reguły dostępności lub i18n widoczne w sąsiednich plikach.
+  - *Testowanie tej jednostki* — wzorzec testów stosowany przez sąsiednie pliki, sposób uruchomienia testów tylko dla tego katalogu.
+  - *Pułapki* — specyficzne dla katalogu zasady „nigdy nie rób X” widoczne w sąsiednich plikach lub pobliskim fragmencie CLAUDE.md.
+- **Pomiń sekcje poziomu repozytorium.** Bez mapy struktury projektu najwyższego poziomu, bez listy pakietów monorepo, bez globalnego przeglądu budowania/CI, bez podsumowania konwencji commitów — należą one do głównego `AGENTS.md`. Jeśli czytelnik ich potrzebuje, podaj jedno odwołanie: `See @AGENTS.md at the repo root for repo-wide rules.`
+- **Limit długości jest mniejszy.** Celuj w **120–250 słów** treści dla przewodników na poziomie katalogu; zakres powierzchni jest mniejszy, a wypełniacze są tu gorsze niż w katalogu głównym.
 
-- **Discover locally first.** Inspect the files actually living next to the target: sibling source files, the nearest `index.*`/`mod.rs`/`__init__.py`, co-located tests, the parent directory's README if any, and any nested config (e.g. `tsconfig.json`, `.eslintrc`, route manifests) that overrides repo-level defaults. Only consult repo-root docs (`README.md`, `CLAUDE.md`) to **resolve conflicts** or pull a single canonical `@`-reference — not as the primary source.
-- **Infer the local pattern by reading siblings.** What shape do existing files in this directory take? Component file layout, naming (`PascalCase.tsx`, `kebab-case.ts`, `*.handler.ts`), default vs. named exports, prop/argument conventions, where types/styles/tests live relative to the unit, error-handling idioms, what gets imported from where. The AGENTS.md captures the convention you observed, not generic advice.
-- **Reframe sections around the local unit.** Replace repo-level sections with directory-relevant ones. Useful defaults (adapt to what's there):
-  - *Adding a new \<unit\>* — concrete steps for the dominant artifact in this directory (component, route handler, migration, hook, worker, etc.), citing one existing sibling as the reference shape via `@./<sibling-file>`.
-  - *File layout & naming* — naming pattern, co-location rules (test next to source? styles inline? types in a sibling file?), barrel-export policy if one exists.
-  - *Local conventions* — props/args shape, state/data-flow rules, allowed imports (and forbidden ones — e.g. "components in this directory must not import from `src/server/`"), accessibility or i18n rules visible in siblings.
-  - *Testing this unit* — the test pattern used by neighbors, how to run just this directory's tests.
-  - *Tripwires* — directory-specific "never do X" rules visible in siblings or a nearby CLAUDE.md fragment.
-- **Skip the repo-level sections.** No top-level project structure map, no monorepo package list, no global build/CI overview, no commit-convention recap — those belong in the root `AGENTS.md`. If the reader needs them, link once: `See @AGENTS.md at the repo root for repo-wide rules.`
-- **Length budget shrinks.** Aim for **120–250 words** of body for directory-level guides; the surface area is smaller, and padding here is worse than at the root.
+Quality guards nadal obowiązują, z jedną zmianą: strażnik 5 („Critical rules first”) staje się „Local rules first” — linią o największej dźwigni jest ta, która zapobiega dodaniu do tego katalogu sąsiedniego pliku o niewłaściwym kształcie.
 
-The Quality guards still apply, with one substitution: guard 5 ("Critical rules first") becomes "Local rules first" — the highest-leverage line is the one that prevents a wrong-shaped sibling from landing in this directory.
+## Interaktywne pytania — niezależne od hosta
 
-## Interactive prompts — host-agnostic
-
-Whenever the procedure says *"ask the user"*, use whichever interactive-question tool the host agent exposes. The skill is host-agnostic; do not hard-code one tool name. Known equivalents (non-exhaustive):
+Za każdym razem, gdy procedura mówi *„ask the user”*, użyj dowolnego narzędzia do pytań interaktywnych udostępnianego przez hosta agenta. Umiejętność jest niezależna od hosta; nie koduj na sztywno jednej nazwy narzędzia. Znane odpowiedniki (lista niepełna):
 
 - Claude Code → `AskUserQuestion`
 - Cursor → `ask_question`
 - OpenAI Codex / Codex CLI → `request_user_input`
-- Other harnesses → look for any tool whose description mentions asking the user a structured question with options.
+- Inne harnessy → szukaj narzędzia, którego opis wspomina o zadawaniu użytkownikowi ustrukturyzowanego pytania z opcjami.
 
-**Self-discovery rule.** Before the first interactive step, scan your own available tools for one matching the patterns above (names containing `ask`, `question`, `input`, `prompt_user`, etc., with a `question` or `prompt` parameter and an `options`/`choices` field). Use the first match. If none is available, fall back to a plain conversational message asking the user to reply with one of the labelled options — do not block the procedure.
+**Zasada samodzielnego wykrywania.** Przed pierwszym krokiem interaktywnym przeskanuj własne dostępne narzędzia w poszukiwaniu takiego, które pasuje do powyższych wzorców (nazwy zawierające `ask`, `question`, `input`, `prompt_user` itd., z parametrem `question` lub `prompt` oraz polem `options`/`choices`). Użyj pierwszego dopasowania. Jeśli żadne nie jest dostępne, przejdź do zwykłej wiadomości konwersacyjnej z prośbą, aby użytkownik odpowiedział jedną z oznaczonych opcji — nie blokuj procedury.
 
-State which tool you selected (or that you fell back to plain chat) the first time you ask a question, so the user can correct you if there's a better option.
+Przy pierwszym zadaniu pytania podaj, które narzędzie wybrano (lub że nastąpił powrót do zwykłego czatu), aby użytkownik mógł to skorygować, jeśli istnieje lepsza opcja.
 
-## Parallel research via subagents (optional)
+## Równoległe badanie przez subagentów (opcjonalne)
 
-If the host exposes a subagent / task-spawn tool, the discovery and diff steps parallelize cleanly — they're mostly independent reads. Known equivalents (non-exhaustive):
+Jeśli host udostępnia narzędzie subagenta / uruchamiania zadań, kroki analizy i diffów można łatwo zrównoleglić — są to w większości niezależne odczyty. Znane odpowiedniki (lista niepełna):
 
-- Claude Code → `Agent` (with `Explore`/`general-purpose` subagent types)
-- Cursor → background subagents
-- OpenAI Codex → task delegation tool (where available)
-- Other harnesses → look for any tool that spawns an isolated agent with its own context window and returns a summary.
+- Claude Code → `Agent` (z typami subagentów `Explore`/`general-purpose`)
+- Cursor → subagenci działający w tle
+- OpenAI Codex → narzędzie delegowania zadań (jeśli dostępne)
+- Inne harnessy → szukaj narzędzia uruchamiającego izolowanego agenta z własnym oknem kontekstu i zwracającego podsumowanie.
 
-**Self-discovery rule.** Before kicking off discovery, check whether such a tool exists. If it does, fan out the independent reads in **one batched call** (multiple subagents in a single message, not sequentially):
+**Zasada samodzielnego wykrywania.** Przed rozpoczęciem analizy sprawdź, czy takie narzędzie istnieje. Jeśli tak, rozdziel niezależne odczyty w **jednym wywołaniu zbiorczym** (wielu subagentów w jednej wiadomości, nie sekwencyjnie):
 
-- one subagent reads `README.md`, `CLAUDE.md`, existing `AGENTS.md`, top-level `docs/` index;
-- one inspects the manifest + lint/format/type configs;
-- one inspects test config + CI workflows;
-- one runs the git-history queries (commit conventions, last-touch on AGENTS.md, diff range since `LAST_TOUCH`).
+- jeden subagent czyta `README.md`, `CLAUDE.md`, istniejący `AGENTS.md`, indeks `docs/` najwyższego poziomu;
+- jeden sprawdza manifest oraz konfiguracje lint/format/type;
+- jeden sprawdza konfigurację testów oraz workflowy CI;
+- jeden uruchamia zapytania do historii git (konwencje commitów, ostatnia zmiana AGENTS.md, zakres diffów od `LAST_TOUCH`).
 
-Each subagent should return a **short structured report** (≤200 words: facts only, with `path:line` citations) — not a full file dump. The main agent then synthesizes the AGENTS.md from those reports.
+Każdy subagent powinien zwrócić **krótki ustrukturyzowany raport** (≤200 słów: tylko fakty, z cytatami `path:line`) — nie pełny zrzut pliku. Główny agent następnie syntetyzuje AGENTS.md na podstawie tych raportów.
 
-**When not to use subagents.** Skip the fan-out if:
+**Kiedy nie używać subagentów.** Pomiń rozdzielenie zadań, jeśli:
 
-- the repo is small (under ~20 top-level files) — overhead exceeds savings;
-- the host doesn't support subagents — fall back to sequential reads in the main loop;
-- you've already loaded most of the relevant files in the current context — re-reading via subagent just burns tokens.
+- repozytorium jest małe (poniżej ~20 plików najwyższego poziomu) — narzut przewyższa oszczędności;
+- host nie obsługuje subagentów — przejdź do sekwencyjnych odczytów w głównej pętli;
+- większość istotnych plików została już załadowana do bieżącego kontekstu — ponowny odczyt przez subagenta tylko zużywa tokeny.
 
-**Do not delegate** the synthesis step (drafting and Quality-guard checks). Drafting requires holding the full picture in one context to enforce the 200–400 word budget, ordering, and `@`-reference policy.
+**Nie deleguj** kroku syntezy (tworzenia szkicu i kontroli Quality guards). Tworzenie szkicu wymaga utrzymania pełnego obrazu w jednym kontekście, aby egzekwować limit 200–400 słów, kolejność i politykę odwołań `@`.
 
-## What this skill does NOT do
+## Czego ta umiejętność NIE robi
 
-- Does not invent project facts. Every claim in the output must trace back to a file, command, or commit you actually inspected.
-- Does not embed multi-line code or config snippets. Use `@`-references to canonical files instead (e.g. `@package.json`, `@tsconfig.json`, `@docs/architecture.md`).
-- Does not write generic engineering advice ("write clean code", "follow best practices", "handle errors properly"). If a rule cannot be checked against a diff, drop it or rewrite it concretely.
-- Does not restate framework defaults, language tutorials, or anything the agent already knows from training. Only project-specific knowledge earns a line.
-- Does not edit unrelated files. The skill writes one markdown file and stops.
+- Nie wymyśla faktów o projekcie. Każde twierdzenie w wyniku musi mieć źródło w pliku, poleceniu lub commicie, który faktycznie sprawdzono.
+- Nie osadza wieloliniowych fragmentów kodu ani konfiguracji. Zamiast tego używa odwołań `@` do kanonicznych plików (np. `@package.json`, `@tsconfig.json`, `@docs/architecture.md`).
+- Nie zapisuje ogólnych porad inżynieryjnych („write clean code”, „follow best practices”, „handle errors properly”). Jeśli zasady nie można zweryfikować względem diffu, usuń ją lub przepisz konkretnie.
+- Nie powtarza domyślnych zachowań frameworków, tutoriali językowych ani niczego, co agent już zna z treningu. Tylko wiedza specyficzna dla projektu zasługuje na linię.
+- Nie edytuje niepowiązanych plików. Umiejętność zapisuje jeden plik Markdown i kończy działanie.
 
-## Procedure
+## Procedura
 
-**First, branch on existence.** Before discovering anything else, check whether the resolved target path already exists (use `Read` or `ls`). If it does, follow the **Update path** below. If not, follow the **Create path**.
+**Najpierw rozgałęź według istnienia pliku.** Przed wykryciem czegokolwiek innego sprawdź, czy rozwiązana ścieżka docelowa już istnieje (użyj `Read` lub `ls`). Jeśli tak, wykonaj poniższy **Update path**. Jeśli nie, wykonaj **Create path**.
 
 ### Create path
 
-1. **Discover.** Read in this order, skipping what doesn't exist:
-   - `README.md`, `CLAUDE.md`, existing `AGENTS.md`, top-level `docs/` index.
-   - Manifest: `package.json` (scripts, workspaces, engines), or `pyproject.toml` / `Cargo.toml` / `go.mod` / `Gemfile` / equivalent.
-   - Lint/format/type configs: `.eslintrc*`, `oxlint*`, `biome.json`, `tsconfig.json`, `ruff.toml`, `.editorconfig`.
-   - Test config: `vitest.config.*`, `jest.config.*`, `pytest.ini`, `playwright.config.*`, `*.test.*` locations.
-   - CI: `.github/workflows/*` (one or two files; just enough to know the gate).
-   - Layout: top two levels of the tree (`ls`/`find`-bounded), workspace package list if monorepo.
-   - History: `git log --oneline -n 30` to learn commit-message conventions; `git config remote.origin.url` for PR target.
-2. **Extract.** From discovery, write down for yourself:
-   - The 1–3 commands an agent runs most often (build, test, lint, dev server).
-   - The handful of conventions a reviewer would actually flag in PR review (naming patterns, file layout, commit prefix style).
-   - Any hard "never do X" rule visible in CLAUDE.md, README, or CI validators.
-   - Where deeper docs live, so the AGENTS.md can point to them instead of duplicating.
-3. **Draft.** Write the file per "Output structure" below.
-4. **Self-check before writing.** Run the five guards in "Quality guards". If any fail, revise the draft, do not write yet.
-5. **Write.** Single `Write` call to the resolved path. Confirm the path and word count back to the user.
+1. **Analiza.** Czytaj w tej kolejności, pomijając elementy, które nie istnieją:
+   - `README.md`, `CLAUDE.md`, istniejący `AGENTS.md`, indeks `docs/` najwyższego poziomu.
+   - Manifest: `package.json` (skrypty, workspaces, engines) albo `pyproject.toml` / `Cargo.toml` / `go.mod` / `Gemfile` / odpowiednik.
+   - Konfiguracje lint/format/type: `.eslintrc*`, `oxlint*`, `biome.json`, `tsconfig.json`, `ruff.toml`, `.editorconfig`.
+   - Konfiguracja testów: `vitest.config.*`, `jest.config.*`, `pytest.ini`, `playwright.config.*`, lokalizacje `*.test.*`.
+   - CI: `.github/workflows/*` (jeden lub dwa pliki; tylko tyle, by znać bramkę).
+   - Układ: dwa najwyższe poziomy drzewa (`ls`/`find`-bounded), lista pakietów workspace, jeśli to monorepo.
+   - Historia: `git log --oneline -n 30`, aby poznać konwencje komunikatów commitów; `git config remote.origin.url` dla celu PR.
+2. **Wyodrębnij.** Na podstawie analizy zapisz dla siebie:
+   - 1–3 polecenia, które agent uruchamia najczęściej (budowanie, testy, lint, serwer deweloperski).
+   - Kilka konwencji, które recenzent faktycznie oznaczyłby podczas przeglądu PR (wzorce nazewnictwa, układ plików, styl prefiksów commitów).
+   - Każdą twardą zasadę „nigdy nie rób X” widoczną w CLAUDE.md, README lub walidatorach CI.
+   - Gdzie znajdują się szczegółowe dokumenty, aby AGENTS.md mógł do nich wskazywać zamiast je powielać.
+3. **Szkic.** Zapisz plik zgodnie z poniższą sekcją „Output structure”.
+4. **Samokontrola przed zapisem.** Uruchom pięć strażników z „Quality guards”. Jeśli którykolwiek nie przejdzie, popraw szkic; jeszcze nie zapisuj.
+5. **Zapis.** Pojedyncze wywołanie `Write` do rozwiązanej ścieżki. Potwierdź użytkownikowi ścieżkę i liczbę słów.
 
 ### Update path
 
-Triggered when the target file already exists. The default is a **surgical edit**: keep what's still true, fix what's stale, fill what's missing, and remove what's been deleted from the repo. Do not rewrite from scratch unless the user asks.
+Uruchamiane, gdy plik docelowy już istnieje. Domyślnie wykonuj **chirurgiczną edycję**: zachowaj to, co nadal jest prawdziwe, popraw to, co nieaktualne, uzupełnij brakujące elementy i usuń to, co zostało usunięte z repozytorium. Nie przepisuj od zera, chyba że użytkownik o to poprosi.
 
-1. **Inventory the existing file.**
-   - `Read` the full file.
-   - List its current sections (H1/H2/H3 headings) and the rules/commands under each.
-   - Extract every `@`-reference and every relative path or filename it cites.
+1. **Zinwentaryzuj istniejący plik.**
+   - `Read` całego pliku.
+   - Wypisz jego obecne sekcje (nagłówki H1/H2/H3) oraz zasady/polecenia pod każdą z nich.
+   - Wyodrębnij każde odwołanie `@` oraz każdą względną ścieżkę lub nazwę pliku, do której się odwołuje.
 
-2. **Date the file via git.**
-   - `git log --follow --format="%h %ad %s" --date=short -- <path>` — full edit history of the file.
-   - Note the **last-touched commit hash** and date. Call this `LAST_TOUCH`.
-   - If the file is untracked (`git ls-files --error-unmatch <path>` fails), treat it as freshly authored: skip git-diff steps and run the full Create path discovery, but still preserve any obviously project-specific content the user wrote.
+2. **Ustal datę pliku przez git.**
+   - `git log --follow --format="%h %ad %s" --date=short -- <path>` — pełna historia edycji pliku.
+   - Zanotuj hash i datę **ostatniego commita modyfikującego plik**. Nazwij je `LAST_TOUCH`.
+   - Jeśli plik nie jest śledzony (`git ls-files --error-unmatch <path>` kończy się błędem), traktuj go jako świeżo utworzony: pomiń kroki git-diff i uruchom pełną analizę Create path, ale nadal zachowaj wszelką oczywiście specyficzną dla projektu treść napisaną przez użytkownika.
 
-3. **Diff repo state since `LAST_TOUCH`.** Use these checks (skip any whose target the file doesn't reference):
-   - `git diff --stat LAST_TOUCH..HEAD -- README.md CLAUDE.md docs/` — has top-level documentation moved or changed?
-   - `git diff LAST_TOUCH..HEAD -- package.json pyproject.toml Cargo.toml go.mod` (whichever exists) — for **scripts**, **dependencies**, **engines**, **workspaces**. Pay closest attention to the `scripts` block: renamed/added/removed scripts are the most common source of stale AGENTS.md content.
-   - `git diff LAST_TOUCH..HEAD -- .eslintrc* oxlint* biome.json tsconfig.json ruff.toml .editorconfig` — has the lint/format/type toolchain changed?
-   - `git diff LAST_TOUCH..HEAD -- vitest.config.* jest.config.* pytest.ini playwright.config.*` — has the test stack or layout changed?
-   - `git diff --stat LAST_TOUCH..HEAD -- .github/workflows/` — has the CI gate changed?
-   - `git log --oneline LAST_TOUCH..HEAD -- <commit-conventions-relevant-area>` and `git log --oneline -n 30` — does the commit-style observation in the file still match recent history?
-   - For each `@`-reference and path the file mentions: `ls`/`Read` the path. If it no longer exists or has been renamed, that line is stale.
+3. **Porównaj stan repozytorium od `LAST_TOUCH`.** Użyj tych kontroli (pomiń każdą, której celu plik nie wskazuje):
+   - `git diff --stat LAST_TOUCH..HEAD -- README.md CLAUDE.md docs/` — czy dokumentacja najwyższego poziomu została przeniesiona lub zmieniona?
+   - `git diff LAST_TOUCH..HEAD -- package.json pyproject.toml Cargo.toml go.mod` (którykolwiek istnieje) — dla **scripts**, **dependencies**, **engines**, **workspaces**. Zwróć szczególną uwagę na blok `scripts`: zmienione nazwy, dodane i usunięte skrypty są najczęstszym źródłem nieaktualnej treści AGENTS.md.
+   - `git diff LAST_TOUCH..HEAD -- .eslintrc* oxlint* biome.json tsconfig.json ruff.toml .editorconfig` — czy toolchain lint/format/type się zmienił?
+   - `git diff LAST_TOUCH..HEAD -- vitest.config.* jest.config.* pytest.ini playwright.config.*` — czy stos testowy lub układ testów się zmienił?
+   - `git diff --stat LAST_TOUCH..HEAD -- .github/workflows/` — czy bramka CI się zmieniła?
+   - `git log --oneline LAST_TOUCH..HEAD -- <commit-conventions-relevant-area>` oraz `git log --oneline -n 30` — czy obserwacja stylu commitów w pliku nadal odpowiada najnowszej historii?
+   - Dla każdego odwołania `@` i ścieżki wymienionej w pliku: wykonaj `ls`/`Read` dla ścieżki. Jeśli już nie istnieje lub została zmieniona jej nazwa, ta linia jest nieaktualna.
 
-4. **Classify each line of the existing file** into one of four buckets:
-   - **KEEP** — still accurate; cited file/command/path still exists with the same shape.
-   - **UPDATE** — directionally right but a detail is stale (renamed script, moved path, changed tool, version bump). Note the exact replacement.
-   - **REMOVE** — the underlying file/command/convention no longer exists, or the rule has been contradicted by a newer source (CLAUDE.md, README) that you trust more.
-   - **MISSING** — not currently in the file but should be (new top-level package, new required script, new "never do X" rule landed via CI validator, new commit convention visible in `git log`).
-   Keep this classification as a short table you can show the user. Cite `path:line` (in the existing AGENTS.md) for every UPDATE/REMOVE entry, and cite the source-of-truth path (e.g. `package.json:42`) for every UPDATE/MISSING entry.
+4. **Sklasyfikuj każdą linię istniejącego pliku** do jednego z czterech koszyków:
+   - **KEEP** — nadal dokładna; przytoczony plik/polecenie/ścieżka nadal istnieje w tym samym kształcie.
+   - **UPDATE** — kierunek jest właściwy, ale szczegół jest nieaktualny (zmieniona nazwa skryptu, przeniesiona ścieżka, zmienione narzędzie, aktualizacja wersji). Zanotuj dokładne zastąpienie.
+   - **REMOVE** — bazowy plik/polecenie/konwencja już nie istnieje albo zasadzie zaprzecza nowsze źródło (CLAUDE.md, README), któremu bardziej ufasz.
+   - **MISSING** — elementu obecnie nie ma w pliku, ale powinien się znaleźć (nowy pakiet najwyższego poziomu, nowy wymagany skrypt, nowa zasada „nigdy nie rób X” wprowadzona przez walidator CI, nowa konwencja commitów widoczna w `git log`).
+   Zachowaj tę klasyfikację jako krótką tabelę, którą możesz pokazać użytkownikowi. Cytuj `path:line` (w istniejącym AGENTS.md) dla każdego wpisu UPDATE/REMOVE oraz cytuj ścieżkę źródła prawdy (np. `package.json:42`) dla każdego wpisu UPDATE/MISSING.
 
-5. **Confirm scope before editing.** Use the host's interactive-question tool once (see "Interactive prompts — host-agnostic" above) with these options:
-   - **Apply the proposed updates** — execute the UPDATE/REMOVE/MISSING list as targeted `Edit` calls; KEEP lines are not touched.
-   - **Show me the change list first** — print the classification table to chat, no edits, then ask again.
-   - **Full regenerate** — discard the existing file and run the Create path. Use only when the existing file is mostly stale or the user explicitly wants a clean slate.
-   - **Cancel** — no changes.
+5. **Potwierdź zakres przed edycją.** Użyj jednorazowo narzędzia interaktywnego pytania hosta (zobacz „Interactive prompts — host-agnostic” powyżej) z tymi opcjami:
+   - **Apply the proposed updates** — wykonaj listę UPDATE/REMOVE/MISSING jako ukierunkowane wywołania `Edit`; linie KEEP nie są modyfikowane.
+   - **Show me the change list first** — wyświetl tabelę klasyfikacji na czacie, bez edycji, następnie zapytaj ponownie.
+   - **Full regenerate** — odrzuć istniejący plik i uruchom Create path. Używaj tylko, gdy istniejący plik jest w większości nieaktualny lub użytkownik wyraźnie chce zacząć od czystego stanu.
+   - **Cancel** — bez zmian.
 
-6. **Edit surgically.** For the "Apply" choice, prefer multiple small `Edit` calls (one per UPDATE/REMOVE/MISSING entry) over a single `Write` rewrite. This preserves authorial voice in KEEP sections and produces a reviewable diff. If section ordering violates the "critical rules first" guard from the Quality guards and the user approved updates, you may move whole sections — but only sections, never re-author rule wording silently.
+6. **Edytuj chirurgicznie.** Dla wyboru „Apply” preferuj wiele małych wywołań `Edit` (po jednym dla każdego wpisu UPDATE/REMOVE/MISSING) zamiast pojedynczego przepisania przez `Write`. Zachowuje to styl autora w sekcjach KEEP i tworzy diff nadający się do recenzji. Jeśli kolejność sekcji narusza strażnika „critical rules first” z Quality guards, a użytkownik zatwierdził aktualizacje, możesz przenieść całe sekcje — ale wyłącznie sekcje; nigdy nie zmieniaj po cichu sformułowania zasad.
 
-7. **Re-run the Quality guards** on the updated file. The same five gates apply. If a guard now fails because of the update (e.g. body grew past 400 words after MISSING additions), trim KEEP content that has become low-leverage rather than dropping the new MISSING content.
+7. **Uruchom ponownie Quality guards** na zaktualizowanym pliku. Obowiązuje tych samych pięć bramek. Jeśli strażnik teraz nie przejdzie wskutek aktualizacji (np. treść przekroczyła 400 słów po dodaniu MISSING), skróć treść KEEP, która stała się mało istotna, zamiast usuwać nową treść MISSING.
 
-8. **Report.** Confirm path, new word count, and a one-line summary of what changed in each bucket (e.g. *"3 updated, 1 removed, 2 added; section order unchanged"*).
+8. **Raportuj.** Potwierdź ścieżkę, nową liczbę słów i jednoliniowe podsumowanie zmian w każdym koszyku (np. *„3 zaktualizowane, 1 usunięta, 2 dodane; kolejność sekcji bez zmian”*).
 
-## Output structure
+## Struktura wyniku
 
-The document title is `# Repository Guidelines`. Target length is **200–400 words** of body content. Use Markdown headings for structure. Adapt sections to what the repo actually has — omit any section that would be empty or speculative.
+Tytuł dokumentu to `# Repository Guidelines`. Docelowa długość to **200–400 słów** treści. Używaj nagłówków Markdown dla struktury. Dostosuj sekcje do tego, co repozytorium faktycznie zawiera — pomiń każdą sekcję, która byłaby pusta lub spekulacyjna.
 
-Order sections by **leverage to a fresh agent**, not by tradition. Critical rules and the most-used commands go first; nice-to-know context goes last. A useful default ordering, when in doubt:
+Uporządkuj sekcje według **dźwigni dla nowego agenta**, a nie według tradycji. Krytyczne zasady i najczęściej używane polecenia są pierwsze; kontekst „dobrze wiedzieć” jest ostatni. Przydatna domyślna kolejność w razie wątpliwości:
 
-1. **Hard rules / Agent-specific instructions** — the "never do X" list and any tripwires (only include if the repo actually has them; otherwise skip and let conventions carry the weight).
-2. **Project Structure & Module Organization** — top-level directory map, where source/tests/assets live, monorepo package list if relevant. Reference deeper docs with `@path/to/doc.md` instead of inlining them.
-3. **Build, Test, and Development Commands** — the 3–6 commands an agent will actually run, each with a one-line purpose. Prefer `pnpm <script>` / `make <target>` / etc. over raw tool invocations when the project wraps them.
-4. **Coding Style & Naming Conventions** — indentation, language version, naming patterns (with one short example pattern, not a code block), and the lint/format tools that enforce them.
-5. **Testing Guidelines** — framework, where tests live, naming pattern, how to run a single test, any coverage threshold the repo actually checks.
-6. **Commit & Pull Request Guidelines** — the convention observed in `git log` (e.g. Conventional Commits prefixes seen), PR description expectations, required CI checks.
-7. **Security & Configuration Tips** *(optional)* — secrets handling, env-file location, validator scripts that fail CI.
-8. **Architecture Overview** *(optional, only if not already covered by a `@`-reference)* — 3–6 bullets max; otherwise link out.
+1. **Hard rules / Agent-specific instructions** — lista „nigdy nie rób X” oraz wszelkie pułapki (uwzględniaj tylko, jeśli repozytorium faktycznie je zawiera; w przeciwnym razie pomiń i pozwól, aby konwencje miały znaczenie).
+2. **Project Structure & Module Organization** — mapa katalogów najwyższego poziomu, lokalizacja źródeł/testów/zasobów, lista pakietów monorepo, jeśli ma znaczenie. Odwołuj się do głębszej dokumentacji przez `@path/to/doc.md`, zamiast wklejać jej treść.
+3. **Build, Test, and Development Commands** — 3–6 poleceń, które agent faktycznie uruchomi, każde z jednoliniowym opisem celu. Preferuj `pnpm <script>` / `make <target>` / itd. zamiast bezpośrednich wywołań narzędzi, gdy projekt je opakowuje.
+4. **Coding Style & Naming Conventions** — wcięcia, wersja języka, wzorce nazewnictwa (z jednym krótkim przykładem wzorca, nie blokiem kodu) oraz narzędzia lint/format, które je wymuszają.
+5. **Testing Guidelines** — framework, lokalizacja testów, wzorzec nazewnictwa, sposób uruchomienia pojedynczego testu, każdy próg pokrycia, który repozytorium faktycznie sprawdza.
+6. **Commit & Pull Request Guidelines** — konwencja zaobserwowana w `git log` (np. widoczne prefiksy Conventional Commits), oczekiwania dotyczące opisu PR, wymagane kontrole CI.
+7. **Security & Configuration Tips** *(opcjonalne)* — obsługa sekretów, lokalizacja plików env, skrypty walidujące powodujące niepowodzenie CI.
+8. **Architecture Overview** *(opcjonalne, tylko jeśli nie zostało już omówione przez odwołanie `@`)* — maksymalnie 3–6 punktów; w przeciwnym razie podaj link.
 
-Open the file with one short paragraph (1–2 sentences) naming what the project is and the primary stack — enough that an agent landing in the repo for the first time has a frame. No mission statements, team intros, or values.
+Rozpocznij plik krótkim akapitem (1–2 zdania) określającym, czym jest projekt i jaki jest główny stos — wystarczająco, aby agent trafiający do repozytorium po raz pierwszy miał kontekst. Bez deklaracji misji, przedstawiania zespołu ani wartości.
 
-## Quality guards (run before `Write`)
+## Strażnicy jakości (uruchom przed `Write`)
 
-Each guard is a hard gate. If any fails, revise the draft.
+Każdy strażnik jest twardą bramką. Jeśli którykolwiek nie przejdzie, popraw szkic.
 
-1. **Length.** Body is 200–400 words. Under 200 means you skipped specifics; over 400 means you padded or inlined what should be a reference.
-2. **No multi-line snippets.** No fenced code blocks longer than a single command line. Replace example components / configs / migrations with `@path/to/file`. Short single-line command examples (`pnpm test`, `git rebase main`) are fine.
-3. **Every rule is checkable.** Re-read each sentence and ask: *could a reviewer flag a diff against this?* If not, rewrite it with a concrete pattern, threshold, or named tool. Strike phrases like "clean code", "best practices", "modern patterns", "be consistent", "handle errors properly", "keep it simple".
-4. **No redundant knowledge.** Strike any line you could have written without opening the repo. Framework defaults, language tutorials, and definitions of common terms do not earn a slot. If a rule duplicates `README.md` / `package.json` / lint config, replace it with `@README.md` / `@package.json` / `@.eslintrc.json`.
-5. **Critical rules first.** The first third of the file must contain the highest-stakes rules and the most-used commands. If the only "never do X" rule is at the bottom, move it up. If the top is welcome/mission/values, cut it.
+1. **Długość.** Treść ma 200–400 słów. Poniżej 200 oznacza pominięcie szczegółów; powyżej 400 oznacza dodanie wypełniaczy lub wklejenie treści, która powinna być odwołaniem.
+2. **Brak wieloliniowych fragmentów.** Żadnych ogrodzonych bloków kodu dłuższych niż pojedyncza linia polecenia. Zastąp przykładowe komponenty / konfiguracje / migracje przez `@path/to/file`. Krótkie jednoliniowe przykłady poleceń (`pnpm test`, `git rebase main`) są w porządku.
+3. **Każdą zasadę można sprawdzić.** Przeczytaj ponownie każde zdanie i zapytaj: *czy recenzent mógłby oznaczyć diff na tej podstawie?* Jeśli nie, przepisz je, używając konkretnego wzorca, progu lub nazwanego narzędzia. Usuń zwroty takie jak „clean code”, „best practices”, „modern patterns”, „be consistent”, „handle errors properly”, „keep it simple”.
+4. **Brak zbędnej wiedzy.** Usuń każdą linię, którą można było napisać bez otwierania repozytorium. Domyślne zachowania frameworków, tutoriale językowe i definicje powszechnych terminów nie zasługują na miejsce. Jeśli zasada powiela `README.md` / `package.json` / konfigurację lint, zastąp ją przez `@README.md` / `@package.json` / `@.eslintrc.json`.
+5. **Najpierw krytyczne zasady.** Pierwsza jedna trzecia pliku musi zawierać zasady o najwyższej wadze oraz najczęściej używane polecenia. Jeśli jedyna zasada „nigdy nie rób X” jest na dole, przenieś ją wyżej. Jeśli na początku jest powitanie/misja/wartości, usuń je.
 
-## Tone
+## Ton
 
-Professional, instructional, terse. Second person ("Run `pnpm test` before pushing") or imperative ("Place new handlers in `src/api/<feature>/`"). No marketing voice, no emojis, no decorative dividers.
+Profesjonalny, instrukcyjny, zwięzły. Druga osoba („Run `pnpm test` before pushing”) albo tryb rozkazujący („Place new handlers in `src/api/<feature>/`”). Bez języka marketingowego, bez emoji, bez dekoracyjnych separatorów.
 
-## After writing
+## Po zapisaniu
 
-Report to the user:
+Zgłoś użytkownikowi:
 
-- the file path written,
-- the body word count,
-- a one-line summary of the section order chosen,
-- a reminder: *test the file by running a real task with a fresh agent session — onboarding docs only prove themselves on the next run.*
+- ścieżkę zapisanego pliku,
+- liczbę słów treści,
+- jednoliniowe podsumowanie wybranej kolejności sekcji,
+- przypomnienie: *test the file by running a real task with a fresh agent session — onboarding docs only prove themselves on the next run.*
 
-Do not propose follow-ups unless the user asks.
+Nie proponuj dalszych kroków, chyba że użytkownik o nie poprosi.
 
-## Edge cases
+## Przypadki brzegowe
 
-- **No `README.md` and no manifest detected.** Stop and tell the user the repo looks empty or unfamiliar; ask for a one-paragraph project description before drafting.
-- **Monorepo with per-package READMEs.** Write a root `AGENTS.md` that lists packages and `@`-references each package's README, rather than duplicating per-package detail. Suggest nested `packages/<name>/AGENTS.md` for any package with rules that materially differ.
-- **Existing rich `CLAUDE.md` in the repo.** Treat it as authoritative source material. The new `AGENTS.md` should be a tighter, agent-tool-agnostic distillation that points back to `@CLAUDE.md` for depth, not a verbatim copy.
-- **Existing `AGENTS.md` was edited by hand after its last commit.** `git diff HEAD -- <path>` will show uncommitted changes. Read those changes first and treat them as KEEP unless they directly contradict a CI-enforced rule — the user is mid-edit and you must not clobber in-flight work.
-- **`LAST_TOUCH` is the initial commit of the repo.** Diff range becomes `LAST_TOUCH..HEAD` with no useful signal. Fall back to inspecting current repo state vs. the file's claims, line by line, without the git-diff shortcut.
-- **File exists but is empty or a stub.** Skip the Update path — run the Create path and overwrite, since there is no authorial content to preserve.
-- **Repo with no commit history (`git log` empty).** Skip the commit-conventions section rather than guessing; note in the PR section that the convention is to be defined.
-- **Polyglot repo (no single manifest).** Pick the dominant stack by file count for the "Build/Test/Dev" section; mention secondary stacks only if they have their own commands an agent will need.
+- **Nie wykryto `README.md` ani manifestu.** Zatrzymaj się i powiedz użytkownikowi, że repozytorium wygląda na puste lub nieznane; przed utworzeniem szkicu poproś o jedn akapit opisu projektu.
+- **Monorepo z README dla każdego pakietu.** Zapisz główny `AGENTS.md`, który wymienia pakiety i wskazuje `@`-odwołania do README każdego pakietu, zamiast powielać szczegóły poszczególnych pakietów. Zasugeruj zagnieżdżone `packages/<name>/AGENTS.md` dla każdego pakietu, którego zasady istotnie się różnią.
+- **Istniejący rozbudowany `CLAUDE.md` w repozytorium.** Traktuj go jako autorytatywny materiał źródłowy. Nowy `AGENTS.md` powinien być bardziej zwięzłą, niezależną od narzędzia agenta syntezą, która dla szczegółów odsyła do `@CLAUDE.md`, a nie dosłowną kopią.
+- **Istniejący `AGENTS.md` został ręcznie edytowany po ostatnim commicie.** `git diff HEAD -- <path>` pokaże niezacommitowane zmiany. Najpierw przeczytaj te zmiany i traktuj je jako KEEP, chyba że bezpośrednio zaprzeczają zasadzie wymuszanej przez CI — użytkownik jest w trakcie edycji i nie wolno nadpisać pracy w toku.
+- **`LAST_TOUCH` jest początkowym commitem repozytorium.** Zakres diff staje się `LAST_TOUCH..HEAD` bez użytecznego sygnału. Wróć do sprawdzania bieżącego stanu repozytorium względem twierdzeń pliku, linia po linii, bez skrótu git-diff.
+- **Plik istnieje, ale jest pusty lub stanowi szablon.** Pomiń Update path — uruchom Create path i nadpisz, ponieważ nie ma treści autora do zachowania.
+- **Repozytorium bez historii commitów (`git log` jest puste).** Pomiń sekcję konwencji commitów zamiast zgadywać; w sekcji PR zaznacz, że konwencja ma zostać zdefiniowana.
+- **Repozytorium poliglotyczne (bez pojedynczego manifestu).** Wybierz dominujący stos według liczby plików dla sekcji „Build/Test/Dev”; wspomnij o dodatkowych stosach tylko wtedy, gdy mają własne polecenia, których agent będzie potrzebować.

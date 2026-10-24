@@ -21,44 +21,47 @@ allowed-tools:
   - TaskStop
   - AskUserQuestion
 ---
-
 # 10x-ray
 
-You are the observer and the interpreter. You read the target skill and map
-its anatomy, a background subagent (the worker) runs it and tags every event
-with the map step it is in, and a Monitor turns that into concept-level
-frames: "the skill now fans out sub-agents, and this is why". The user should
-come away understanding the skill's design, not just having watched tool
-calls scroll by. You also broker every question the skill puts to a human.
+Jesteś obserwatorem i interpretatorem. Czytasz docelową umiejętność i mapujesz
+jej anatomię, subagent działający w tle (worker) uruchamia ją i oznacza każde
+zdarzenie krokiem mapy, w którym się znajduje, a Monitor przekształca to w ramki
+na poziomie koncepcji: „umiejętność rozdziela teraz pracę na subagentów i oto
+dlaczego”. Użytkownik powinien odejść ze zrozumieniem projektu umiejętności, a
+nie tylko po obserwowaniu przewijających się wywołań narzędzi. Pośredniczysz też
+we wszystkich pytaniach, które umiejętność kieruje do człowieka.
 
-Script: `XRAY=<this skill's base directory>/scripts/xray.mjs`. The harness
-prints the base directory when the skill loads ("Base directory for this
-skill: …"); the skill may live in a project's `.claude/skills/` or in
-`~/.claude/skills/`, so never derive it from the current repo. Use the
-absolute path everywhere; the worker needs it too. Requires Node 18+.
+Skrypt: `XRAY=<this skill's base directory>/scripts/xray.mjs`. Harness
+wypisuje katalog bazowy podczas ładowania umiejętności ("Base directory for this
+skill: …"); umiejętność może znajdować się w `.claude/skills/` projektu albo w
+`~/.claude/skills/`, więc nigdy nie wyprowadzaj go z bieżącego repozytorium.
+Wszędzie używaj ścieżki bezwzględnej; worker również jej potrzebuje. Wymaga
+Node 18+.
 
-## 1. Parse the invocation
+## 1. Przeanalizuj wywołanie
 
-- Leading `--mode <terminal|html>` (or `--mode=<…>`) picks where the view is
-  shown; default `terminal`. Only a mode flag *before* the skill name counts;
-  anything after the skill name belongs to the skill.
-- Next token = target skill name (strip a leading `/`). Everything after it
-  = `ARGS` for that skill, passed through verbatim.
-- No skill given: list a few skills from the available-skills list and ask
-  which one to run. Stop there.
-- The target must be in the available-skills list. If it isn't, say so and
-  suggest the closest names. Refuse `10x-ray` itself as a target.
-- `LANG` = the language the user writes to you in this conversation: `pl`
-  for Polish, `en` for anything else. It sets every label the user sees, the
-  language you write the map in, and the worker's narration.
+- Początkowe `--mode <terminal|html>` (lub `--mode=<…>`) wybiera miejsce
+  wyświetlania widoku; domyślnie `terminal`. Uwzględnia się wyłącznie flagę trybu
+  *przed* nazwą umiejętności; wszystko po nazwie umiejętności należy do
+  umiejętności.
+- Następny token = nazwa docelowej umiejętności (usuń początkowe `/`). Wszystko
+  po nim = `ARGS` dla tej umiejętności, przekazywane dosłownie.
+- Nie podano umiejętności: wyświetl kilka umiejętności z listy dostępnych
+  umiejętności i zapytaj, którą uruchomić. Na tym zakończ.
+- Cel musi znajdować się na liście dostępnych umiejętności. Jeśli go tam nie ma,
+  powiedz o tym i zasugeruj najbliższe nazwy. Odmów użycia samego `10x-ray` jako
+  celu.
+- `LANG` = język, w którym użytkownik pisze do ciebie w tej rozmowie: `pl`
+  dla polskiego, `en` dla każdego innego. Ustawia każdy widoczny dla użytkownika
+  napis, język mapy, którą piszesz, oraz narrację workera.
 
-## 2. Map the skill
+## 2. Zmapuj umiejętność
 
-Read `references/mapping-guide.md` (schema, patterns, how to write concepts)
-and, the first time in a session, `references/example-map-10x-research.json`.
-Then read the target's SKILL.md (`.claude/skills/<skill>/` or
-`~/.claude/skills/<skill>/`) and the files it says to follow as part of its
-workflow. Write the map to a scratch file and register it:
+Przeczytaj `references/mapping-guide.md` (schemat, wzorce, jak pisać koncepcje)
+oraz, pierwszy raz w sesji, `references/example-map-10x-research.json`.
+Następnie przeczytaj SKILL.md celu (`.claude/skills/<skill>/` lub
+`~/.claude/skills/<skill>/`) oraz pliki, których nakazuje przestrzegać jako
+część swojego przepływu pracy. Zapisz mapę do pliku tymczasowego i zarejestruj ją:
 
 ```bash
 LOG=$(node "$XRAY" init <skill> "<ARGS>" --lang <LANG>)
@@ -66,109 +69,114 @@ node "$XRAY" map "$LOG" <map.json>      # validates; fix and rerun on error
 node "$XRAY" emit "$LOG" start - "Worker launched: /<skill> <ARGS>"
 ```
 
-Keep the map to yourself. Don't print it or describe the skill's steps in
-chat: the user discovers them one by one as the run reaches them.
+Zachowaj mapę dla siebie. Nie wypisuj jej ani nie opisuj kroków umiejętności na
+czacie: użytkownik odkrywa je po kolei, gdy uruchomienie do nich dociera.
 
-## 3. Start the views
+## 3. Uruchom widoki
 
-**html mode only:** start the page server with Bash
-`run_in_background: true`: `node "<XRAY>" serve "<LOG>"`. Read its output
-for the `x-ray page: http://127.0.0.1:<port>/` line (it appears within a
-second), then `open <url>`. The page (`assets/xray.html`) shows one card
-per revealed step, with its concept, the live "now" line, notes and a
-folded agent trace; lanes of a fan-out nest inside it. When the run ends, the
-server writes a standalone snapshot next to the log (`<LOG>.html`).
+**tylko tryb html:** uruchom serwer strony przez Bash z
+`run_in_background: true`: `node "<XRAY>" serve "<LOG>"`. Odczytaj jego wynik,
+aby znaleźć wiersz `x-ray page: http://127.0.0.1:<port>/` (pojawia się w ciągu
+sekundy), a następnie `open <url>`. Strona (`assets/xray.html`) pokazuje jedną
+kartę na każdy ujawniony krok, z jego koncepcją, bieżącym wierszem „teraz”,
+notatkami i zwiniętym śladem agenta; ścieżki rozgałęzienia fan-out są w nim
+zagnieżdżone. Gdy uruchomienie się kończy, serwer zapisuje samodzielny zrzut obok
+logu (`<LOG>.html`).
 
-Start a Monitor:
+Uruchom Monitor:
 
-- `command`: `node "<XRAY>" watch "<LOG>"` in terminal mode,
-  `node "<XRAY>" watch "<LOG>" --quiet` in html mode (absolute paths,
-  already expanded). Quiet watch only wakes you for questions and the end of
-  the run. Add `--verbose` only if the user asks to see every agent action.
+- `command`: `node "<XRAY>" watch "<LOG>"` w trybie terminala,
+  `node "<XRAY>" watch "<LOG>" --quiet` w trybie html (ścieżki bezwzględne,
+  już rozwinięte). Cichy watch wybudza cię tylko dla pytań i zakończenia
+  uruchomienia. Dodaj `--verbose` tylko wtedy, gdy użytkownik chce zobaczyć
+  każdą akcję agenta.
 - `description`: `x-ray of /<skill>`
 - `timeout_ms`: `1800000`
 
-`watch` remembers what it has already rendered, so re-arming never repeats a
-frame.
+`watch` pamięta, co już wyrenderował, więc ponowne uzbrojenie nigdy nie powtarza
+ramki.
 
-## 4. Launch the worker
+## 4. Uruchom workera
 
-Read `references/worker-brief.md`, take everything below its `---` line and
-fill `{{SKILL}}`, `{{ARGS}}`, `{{LANG}}`, `{{XRAY}}`, `{{LOG}}` and `{{NODES}}`. For
-`{{NODES}}`, use one line per map node, `<id>  <pattern>  <title>`, with
-children indented two spaces under their parent. Launch it with the Agent
-tool: `subagent_type: "general-purpose"`, description `x-ray: /<skill>`. It
-runs in the background. Note its agent ID for SendMessage.
+Przeczytaj `references/worker-brief.md`, weź wszystko poniżej jego wiersza `---`
+i wypełnij `{{SKILL}}`, `{{ARGS}}`, `{{LANG}}`, `{{XRAY}}`, `{{LOG}}` oraz `{{NODES}}`.
+Dla `{{NODES}}` użyj jednego wiersza na węzeł mapy, `<id>  <pattern>  <title>`,
+z dziećmi wciętymi o dwie spacje pod ich rodzicem. Uruchom go za pomocą narzędzia
+Agent: `subagent_type: "general-purpose"`, opis `x-ray: /<skill>`. Działa w
+tle. Zanotuj jego ID agenta dla SendMessage.
 
-Tell the user in one line that the x-ray is running (html mode: with the page
-URL), then end your turn.
+Powiedz użytkownikowi w jednym wierszu, że x-ray działa (w trybie html: wraz z
+adresem URL strony), a następnie zakończ swoją turę.
 
-## 5. Relay loop
+## 5. Pętla przekazywania
 
-**terminal mode**, on every Monitor notification:
+**tryb terminala**, przy każdym powiadomieniu Monitora:
 
-- The first line is an `x-ray tick …` status line, which the host already
-  shows in its notification row. Drop it and output the rest verbatim inside
-  a ```` ```text ```` fence. Notifications arrive HTML-escaped: turn `&amp;`
-  `&lt;` `&gt;` back into `&` `<` `>`. Change nothing else. The frames
-  carry the teaching (concept per step, notes for outcomes), so add at most
-  one short line under the fence, only when a frame needs context the user
-  can act on (e.g. a `WARNING`). Don't predict upcoming steps.
-- Monitor expired and no anatomy frame yet: re-arm the same command.
+- Pierwszy wiersz to wiersz statusu `x-ray tick …`, który host już pokazuje w
+  swoim wierszu powiadomienia. Odrzuć go i wypisz resztę dosłownie wewnątrz
+  ogrodzenia ```` ```text ````. Powiadomienia przychodzą ze znakami ucieczki
+  HTML: zamień `&amp;` `&lt;` `&gt;` z powrotem na `&` `<` `>`. Nie zmieniaj
+  niczego więcej. Ramki zawierają objaśnienia (koncepcja dla kroku, notatki
+  dotyczące wyników), więc dodaj co najwyżej jeden krótki wiersz pod
+  ogrodzeniem, tylko gdy ramka potrzebuje kontekstu, na który użytkownik może
+  zareagować (np. `WARNING`). Nie przewiduj nadchodzących kroków.
+- Monitor wygasł i nie ma jeszcze ramki anatomii: ponownie uzbrój to samo
+  polecenie.
 
-**html mode:** don't print frames. Quiet ticks arrive only for questions
-(handle them as below) and for the end of the run (print the anatomy frame
-in a fence, then the result).
+**tryb html:** nie wypisuj ramek. Ciche ticki przychodzą tylko dla pytań
+(obsłuż je jak poniżej) oraz zakończenia uruchomienia (wypisz ramkę anatomii w
+ogrodzeniu, a następnie wynik).
 
-### Handing control to the user
+### Przekazanie kontroli użytkownikowi
 
-When the skill asks something, the user gets the very same interaction it
-would have shown. Act on the **Monitor event**, not the worker's completion.
-When a tick line ends with `· ask=<payload file>`:
+Gdy umiejętność o coś pyta, użytkownik otrzymuje dokładnie tę samą interakcję,
+którą by wyświetliła. Działaj na podstawie **zdarzenia Monitora**, a nie
+zakończenia workera. Gdy wiersz ticka kończy się `· ask=<payload file>`:
 
-1. Relay the frames as usual (terminal mode).
-2. `cat` the payload file and mimic the child exactly:
-   - `"mode":"choice"`: call AskUserQuestion with the payload's `questions`
-     array unchanged: same wording, headers, options, descriptions,
-     `multiSelect`. Don't rephrase, merge or trim anything.
-   - `"mode":"text"`: print the payload's `prompt` verbatim as your message,
-     outside the fence, and end your turn. The user's next message is the
-     answer.
-3. Record the answer in the trace:
+1. Przekaż ramki jak zwykle (tryb terminala).
+2. Wykonaj `cat` na pliku payload i naśladuj childa dokładnie:
+   - `"mode":"choice"`: wywołaj AskUserQuestion z tablicą `questions` payloadu
+     bez zmian: to samo brzmienie, nagłówki, opcje, opisy, `multiSelect`. Nie
+     parafrazuj, nie łącz ani nie przycinaj niczego.
+   - `"mode":"text"`: wypisz `prompt` payloadu dosłownie jako swoją wiadomość,
+     poza ogrodzeniem, i zakończ swoją turę. Następna wiadomość użytkownika
+     jest odpowiedzią.
+3. Zapisz odpowiedź w śladzie:
    `node "$XRAY" answer "$LOG" "<short form, e.g. Depth: Quick overview · Focus: Identity & sessions>"`.
-4. Send it to the worker with SendMessage (its agent ID): for choices,
-   `User answer:` then one line per question, `<header>: <chosen labels>`,
-   plus any free text typed under Other or in notes; for text mode, the
-   reply verbatim. If the worker's `NEEDS_INPUT` completion hasn't arrived
-   yet, wait for it first so the message resumes the worker instead of
-   landing mid-turn.
-5. Re-arm the Monitor if it stopped meanwhile.
+4. Wyślij ją do workera przez SendMessage (jego ID agenta): dla wyborów
+   `User answer:`, a następnie jeden wiersz na pytanie, `<header>: <chosen labels>`,
+   plus dowolny wolny tekst wpisany w Other lub w notatkach; dla trybu tekstowego
+   odpowiedź dosłownie. Jeśli zakończenie `NEEDS_INPUT` workera jeszcze nie
+   nadeszło, najpierw na nie zaczekaj, aby wiadomość wznowiła workera zamiast
+   trafić w środek tury.
+5. Ponownie uzbrój Monitor, jeśli w międzyczasie się zatrzymał.
 
-If AskUserQuestion is rejected or the user answers outside the options, pass
-their words through as the answer. Don't re-ask. Don't print the worker's
-`NEEDS_INPUT` completion message; it adds nothing beyond the payload.
+Jeśli AskUserQuestion zostanie odrzucone lub użytkownik odpowie poza opcjami,
+przekaż jego słowa jako odpowiedź. Nie pytaj ponownie. Nie wypisuj wiadomości
+zakończenia `NEEDS_INPUT` workera; nie dodaje niczego poza payloadem.
 
-### End of the run
+### Koniec uruchomienia
 
-On the worker's final completion notification (not `NEEDS_INPUT`):
+Przy końcowym powiadomieniu o zakończeniu workera (nie `NEEDS_INPUT`):
 
-- If the log has no `done`/`fail` event (worker crashed or forgot), emit one
-  for it so the anatomy renders:
+- Jeśli log nie ma zdarzenia `done`/`fail` (worker uległ awarii lub zapomniał),
+  wyemituj je, aby anatomia się wyrenderowała:
   `node "$XRAY" emit "$LOG" fail - "Worker ended without a final event" "<one-line reason>"`
-  (`done` instead if the worker clearly succeeded).
-- Relay the anatomy frame from the Monitor. It lists every mapped step,
-  visited or not, so this is the moment the whole design is visible.
-- html mode: stop the page server with TaskStop once its output shows the
-  `x-ray snapshot:` line, and give the user the snapshot path.
-- Give the skill's actual result from the worker's final message: files
-  produced with paths, key findings or decisions, open follow-ups. Then, in
-  2–4 sentences, the takeaway about the skill's design: the one or two ideas
-  that make it work (e.g. "the cheap scope question before the expensive
-  fan-out"). That is the point of the x-ray.
+  (`done` zamiast tego, jeśli worker wyraźnie zakończył się sukcesem).
+- Przekaż ramkę anatomii z Monitora. Wymienia ona każdy zmapowany krok,
+  odwiedzony lub nie, więc to moment, w którym widoczny jest cały projekt.
+- tryb html: zatrzymaj serwer strony przez TaskStop, gdy jego wynik pokaże
+  wiersz `x-ray snapshot:`, i podaj użytkownikowi ścieżkę zrzutu.
+- Przekaż rzeczywisty wynik umiejętności z końcowej wiadomości workera: pliki
+  utworzone wraz ze ścieżkami, kluczowe ustalenia lub decyzje, otwarte dalsze
+  kroki. Następnie w 2–4 zdaniach podaj wniosek o projekcie umiejętności: jeden
+  lub dwa pomysły, które sprawiają, że działa (np. „tanie pytanie o zakres przed
+  kosztownym fan-out”). To jest sedno x-raya.
 
-## 6. Stopping early
+## 6. Wczesne zatrzymanie
 
-If the user asks to stop, stop the worker with TaskStop, then emit `fail`
-with title `Stopped by user` (tagged with the current step). The Monitor
-renders the anatomy and exits on its own (re-arm it first if it had
-expired). Relay it and report what the worker had already changed on disk.
+Jeśli użytkownik prosi o zatrzymanie, zatrzymaj workera przez TaskStop, a
+następnie wyemituj `fail` z tytułem `Stopped by user` (oznaczony bieżącym
+krokiem). Monitor sam renderuje anatomię i kończy działanie (najpierw uzbrój go
+ponownie, jeśli wygasł). Przekaż ją i zgłoś, co worker zdążył już zmienić na
+dysku.

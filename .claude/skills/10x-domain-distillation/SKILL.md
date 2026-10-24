@@ -26,148 +26,147 @@ allowed-tools:
   - Task
   - AskUserQuestion
 ---
+# Destylacja domeny: domena, której kod nigdy nie nazwał
 
-# Domain distillation: the domain the code never named
+Przygotuj jeden raport, `context/domain/domain-distillation.md`, który odpowiada:
+**z czego składa się domena tego produktu, jakie słowa ją nazywają, czy kod
+używa tych samych słów i tych samych reguł oraz gdzie kod oddalił się od
+biznesu?**
 
-Produce one report, `context/domain/domain-distillation.md`, that answers:
-**what is this product's domain made of, which words name it, does the code
-use the same words and the same rules, and where has the code drifted from
-the business?**
+Produktem jest **mapa domeny, a nie kod ani plan refaktoryzacji**.
+Nie zakładaj niczego z góry: żadnych nazw encji, żadnych agregatów, ścieżek
+ani numerów wymagań. Odkryj je i wskaż źródło każdego z nich.
 
-The product is a **map of the domain, not code and not a refactoring plan**.
-Assume nothing up front: no entity names, no aggregates, no paths, no
-requirement numbers. Discover them, and cite where each one comes from.
+**Domena jest odkrywana, a nie dana.** Umiejętność nie przyjmuje docelowego terminu
+ani obszaru. Destyluje cały produkt (lub poddrzewo `--root`) i kończy się
+rankingiem; wybór tego, co zmienić dalej, pozostaje po stronie użytkownika.
 
-**The domain is discovered, not given.** The skill takes no target term or
-area. It distils the whole product (or the `--root` subtree) and ends with a
-ranking; choosing what to change next stays with the user.
+## Wyniki
 
-## Outputs
+Wszystkie wyniki znajdują się w `<repo-root>/context/domain/`, również gdy `--root`
+zawęża zakres kodu.
 
-All outputs live under `<repo-root>/context/domain/`, also when `--root`
-narrows the code scope.
-
-| Path                                         | What                                                                      |
+| Path | Co |
 | -------------------------------------------- | ------------------------------------------------------------------------- |
-| `context/domain/domain-distillation.md`      | **The report** — the only file meant to be read by people and later work |
-| `context/domain/glossary.md`               | Compact glossary for agents and people: term, meaning, name in code, don't call it |
-| `context/domain/evidence/0-sources.md`       | Code scope, stack and layers, exclusions — no domain vocabulary           |
-| `context/domain/evidence/0-documents.md`     | Domain documents and product goals                                        |
-| `context/domain/evidence/1-docs-language.md` | Terms, definitions, lifecycles, rules and goals stated in the documents  |
-| `context/domain/evidence/2-code-language.md` | Domain names in the code: types, tables, states, operations, events      |
-| `context/domain/evidence/3-code-rules*.md`   | Business rules the code guards: where, at which layer, how strictly      |
-| `context/archive/<stamp>-domain-distillation/` | Earlier report, glossary and evidence, moved here on replace           |
+| `context/domain/domain-distillation.md` | **Raport** — jedyny plik przeznaczony do czytania przez ludzi i późniejszą pracę |
+| `context/domain/glossary.md` | Zwięzły glosariusz dla agentów i ludzi: termin, znaczenie, nazwa w kodzie, nie nazywaj tego |
+| `context/domain/evidence/0-sources.md` | Zakres kodu, stos technologiczny i warstwy, wykluczenia — bez słownictwa domenowego |
+| `context/domain/evidence/0-documents.md` | Dokumenty domenowe i cele produktu |
+| `context/domain/evidence/1-docs-language.md` | Terminy, definicje, cykle życia, reguły i cele określone w dokumentach |
+| `context/domain/evidence/2-code-language.md` | Nazwy domenowe w kodzie: typy, tabele, stany, operacje, zdarzenia |
+| `context/domain/evidence/3-code-rules*.md` | Reguły biznesowe chronione przez kod: gdzie, na której warstwie, jak rygorystycznie |
+| `context/archive/<stamp>-domain-distillation/` | Wcześniejszy raport, glosariusz i dowody, przenoszone tutaj przy zastąpieniu |
 
-## 1. Preflight
+## 1. Kontrola wstępna
 
-- If `context/domain/domain-distillation.md` exists: with `--replace`, or when
-  there is nobody to ask (an orchestrated or CI run), move it to
-  `context/archive/<stamp>-domain-distillation/domain-distillation.md`, with
-  `glossary.md` and the old `evidence/` next to it
-  — `<stamp>` is the report's modification time as `YYYY-MM-DD-HHMM` — point
-  the archived report's `evidence:` field at its new `evidence/`, and
-  continue; otherwise ask once whether to replace it. That is the only
-  question.
-- **Scope.** Without `--root`, the code scope is the whole repository. In a
-  monorepo whose requirements documents describe one application, set the
-  code scope to that application and list the other packages as excluded,
-  with a one-line reason each. Documents are always discovered from the
-  repository root (and `--docs`), whatever the code scope.
-- Report language: `--lang`, else the language of the user's request, else
-  English. Domain terms stay in the language the sources use; never
-  translate a term the code or the documents spell in another language.
-- `mkdir -p context/domain/evidence`. List files with
-  `git ls-files --cached --others --exclude-standard` in a git repository,
-  so ignored and generated trees stay out and untracked documents stay in.
-- Paths in every file are repository-relative. When the code scope is deep,
-  the report header may define one alias (`app/` = `apps/shop/src/`).
-- Record the short HEAD and whether the worktree has uncommitted changes.
+- Jeśli istnieje `context/domain/domain-distillation.md`: przy użyciu `--replace` lub gdy
+  nie ma nikogo, kogo można zapytać (uruchomienie orkiestracyjne lub CI), przenieś go do
+  `context/archive/<stamp>-domain-distillation/domain-distillation.md`, wraz z
+  `glossary.md` i starym `evidence/` obok niego
+  — `<stamp>` to czas modyfikacji raportu jako `YYYY-MM-DD-HHMM` — wskaż
+  w polu `evidence:` zarchiwizowanego raportu jego nowe `evidence/` i
+  kontynuuj; w przeciwnym razie zapytaj raz, czy go zastąpić. To jedyne
+  pytanie.
+- **Zakres.** Bez `--root` zakresem kodu jest całe repozytorium. W monorepo,
+  którego dokumenty wymagań opisują jedną aplikację, ustaw zakres kodu na tę
+  aplikację i wymień pozostałe pakiety jako wykluczone, podając dla każdego
+  jednolinijkowy powód. Dokumenty są zawsze odkrywane z katalogu głównego
+  repozytorium (oraz z `--docs`), niezależnie od zakresu kodu.
+- Język raportu: `--lang`, w przeciwnym razie język żądania użytkownika, a jeśli
+  nie można go ustalić — angielski. Terminy domenowe pozostają w języku użytym
+  przez źródła; nigdy nie tłumacz terminu, który kod lub dokumenty zapisują w
+  innym języku.
+- `mkdir -p context/domain/evidence`. W repozytorium git wymień pliki przez
+  `git ls-files --cached --others --exclude-standard`,
+  aby ignorowane i generowane drzewa pozostały poza zakresem, a nieśledzone dokumenty zostały uwzględnione.
+- Ścieżki w każdym pliku są względne względem repozytorium. Gdy zakres kodu jest głęboki,
+  nagłówek raportu może zdefiniować jeden alias (`app/` = `apps/shop/src/`).
+- Zapisz krótki HEAD i informację, czy drzewo robocze ma niezacommitowane zmiany.
 
-## 2. Source inventory (main agent)
+## 2. Inwentaryzacja źródeł (główny agent)
 
-Build the shared ground truth before dispatch, following
-[references/source-inventory.md](references/source-inventory.md). It has two
-files on purpose:
+Zbuduj wspólny stan faktyczny przed delegowaniem, zgodnie z
+[references/source-inventory.md](references/source-inventory.md). Celowo zawiera on dwa
+pliki:
 
-- `evidence/0-sources.md` — the code scope, stack, where each layer lives,
-  exclusions. **No domain vocabulary**: the code agents read it, and
-  document terms reaching them would turn their findings into confirmation
-  of what they were told.
-- `evidence/0-documents.md` — the domain documents by kind, the product goals
-  and their quotes. Read by the docs agent and the synthesis only.
+- `evidence/0-sources.md` — zakres kodu, stos technologiczny, miejsca występowania każdej warstwy,
+  wykluczenia. **Bez słownictwa domenowego**: agenci kodowi go czytają, a
+  terminy z dokumentów, które do nich dotrą, zmieniłyby ich ustalenia w potwierdzenie
+  tego, co im przekazano.
+- `evidence/0-documents.md` — dokumenty domenowe według rodzaju, cele produktu
+  i ich cytaty. Czytany wyłącznie przez agenta dokumentów i syntezę.
 
-Read headings and short passages; leave full reading to the sub-agents.
+Czytaj nagłówki i krótkie fragmenty; pełne czytanie pozostaw pod-agentom.
 
-## 3. Dispatch the evidence sub-agents in parallel
+## 3. Deleguj równolegle pod-agentów zbierających dowody
 
-Spawn them in **one message**. Each prompt contains: the absolute path of this
-skill directory (`<loaded-skill-dir>` in the briefs), its brief path, the
-repository root, the code scope, the inventory files it may read, its output
-path, the report language and the rules below. Tell each sub-agent to read its
-brief first.
+Uruchom ich w **jednej wiadomości**. Każdy prompt zawiera: ścieżkę bezwzględną tego
+katalogu umiejętności (`<loaded-skill-dir>` w opisach), ścieżkę do jego opisu,
+katalog główny repozytorium, zakres kodu, pliki inwentaryzacji, które może czytać, jego
+ścieżkę wyjściową, język raportu oraz poniższe reguły. Powiedz każdemu pod-agentowi,
+aby najpierw przeczytał swój opis.
 
-| Sub-agent     | Brief                                                                  | Reads                     | Question                                                    |
+| Pod-agent | Opis | Czyta | Pytanie |
 | ------------- | ---------------------------------------------------------------------- | ------------------------- | ----------------------------------------------------------- |
-| docs-language | [references/agent-docs-language.md](references/agent-docs-language.md) | both inventory files      | Which words, lifecycles and rules does the business state? |
-| code-language | [references/agent-code-language.md](references/agent-code-language.md) | `0-sources.md` only       | Which words does the code use, and for what?                |
-| code-rules    | [references/agent-code-rules.md](references/agent-code-rules.md)       | `0-sources.md` only       | Which rules does the code actually guard, and where?        |
+| docs-language | [references/agent-docs-language.md](references/agent-docs-language.md) | oba pliki inwentaryzacji | Jakie słowa, cykle życia i reguły określa biznes? |
+| code-language | [references/agent-code-language.md](references/agent-code-language.md) | tylko `0-sources.md` | Jakich słów używa kod i do czego? |
+| code-rules | [references/agent-code-rules.md](references/agent-code-rules.md) | tylko `0-sources.md` | Których reguł kod faktycznie pilnuje i gdzie? |
 
-**Large code scope.** When the code scope holds more than ~1,500 source
-files, split code-rules into one agent per group of layers or top-level
-areas from `0-sources.md` (at most four), each writing
-`evidence/3-code-rules-<group>.md`. Coverage beats depth: an area no agent
-searched is an unknown, never "no rules".
+**Duży zakres kodu.** Gdy zakres kodu zawiera ponad około 1 500 plików źródłowych,
+podziel code-rules na jednego agenta dla każdej grupy warstw lub obszarów najwyższego poziomu
+z `0-sources.md` (maksymalnie cztery), przy czym każdy zapisuje do
+`evidence/3-code-rules-<group>.md`. Pokrycie jest ważniejsze niż głębokość: obszar, którego żaden agent
+nie przeszukał, jest niewiadomą, nigdy „brakiem reguł”.
 
-In Claude Code dispatch with the `Agent` tool (`Task` in older versions),
-`subagent_type: "general-purpose"` — they need Write. In other hosts use the
-native equivalent. Without sub-agent support, run the briefs sequentially
-yourself, code agents first, before reading any document.
+W Claude Code deleguj przez narzędzie `Agent` (`Task` w starszych wersjach),
+`subagent_type: "general-purpose"` — potrzebują możliwości Write. W innych środowiskach użyj
+natywnego odpowiednika. Bez obsługi pod-agentów wykonaj opisy kolejno
+samodzielnie, najpierw agenci kodowi, przed przeczytaniem jakiegokolwiek dokumentu.
 
-The split is deliberate: the language agents never see each other's output,
-and the rules agent inventories guards without being told which rules to
-look for. Agreement found later in synthesis is then real agreement.
+Podział jest celowy: agenci językowi nigdy nie widzą wzajemnie swoich wyników,
+a agent reguł inwentaryzuje zabezpieczenia, nie otrzymując informacji, których reguł
+ma szukać. Zgodność znaleziona później podczas syntezy jest więc rzeczywistą zgodnością.
 
-Rules to pass to every sub-agent:
+Reguły do przekazania każdemu pod-agentowi:
 
-1. Cite every term, rule and guard as `path:line`, verified in this session.
-   Never invent a term, a definition or a location.
-2. Quote the source's own wording for definitions and rules; paraphrase only
-   in a clearly marked explanation.
-3. Label findings `evidence`, `inference` or `unknown`. A search that found
-   nothing is reported with the scope searched, never as "does not exist".
-4. Read-only: no code changes, no builds, no installs.
-5. Return to the main agent at most 15 lines: the strongest findings, the
-   gaps, and coverage.
+1. Cytuj każdy termin, regułę i zabezpieczenie jako `path:line`, zweryfikowane w tej sesji.
+   Nigdy nie wymyślaj terminu, definicji ani lokalizacji.
+2. Cytuj własne sformułowania źródła dla definicji i reguł; parafrazuj tylko
+   w wyraźnie oznaczonym wyjaśnieniu.
+3. Oznacz ustalenia jako `evidence`, `inference` lub `unknown`. Wyszukiwanie, które niczego
+   nie znalazło, zgłaszaj wraz z przeszukanym zakresem, nigdy jako „nie istnieje”.
+4. Tylko do odczytu: bez zmian w kodzie, bez budowania, bez instalacji.
+5. Zwróć głównemu agentowi najwyżej 15 wierszy: najistotniejsze ustalenia, luki
+   i pokrycie.
 
-Wait for all of them. A failed or partial sub-agent is a stated gap in the
-report; retry once only if the failure was mechanical.
+Poczekaj na wszystkich. Nieudanego lub częściowego pod-agenta należy wskazać jako lukę w
+raporcie; ponów próbę tylko raz i wyłącznie wtedy, gdy awaria była mechaniczna.
 
-## 4. Synthesize the report
+## 4. Zsyntetyzuj raport
 
-Cross the evidence files and write `context/domain/domain-distillation.md`
-following [references/report.md](references/report.md): the ubiquitous
-language with a code location or an explicit **missing in code** for every
-Core and Supporting term, context boundaries, subdomains, aggregate
-candidates and policies with each invariant's status (**enforced**,
-**declared**, **ignored**, **contradicted**; **undocumented** for
-exposures no document covers), the model-vs-code drift list,
-and the ranking — then make it operational as `report.md` describes: stable
-IDs, a fix side for every drift row, a *done when* for every ranked item,
-questions with an owner, changes since the previous run, and
+Połącz pliki dowodowe i zapisz `context/domain/domain-distillation.md`
+zgodnie z [references/report.md](references/report.md): wszechobecny język
+z lokalizacją w kodzie albo wyraźnym **missing in code** dla każdego terminu Core
+i Supporting, granice kontekstów, poddomeny, kandydatów na agregaty oraz polityki ze statusem każdego niezmiennika (**enforced**,
+**declared**, **ignored**, **contradicted**; **undocumented** dla
+ekspozycji, których nie obejmuje żaden dokument), listę rozbieżności między modelem a kodem,
+oraz ranking — następnie nadaj mu charakter operacyjny zgodnie z opisem w `report.md`: stabilne
+identyfikatory, stronę naprawy dla każdego wiersza rozbieżności, *done when* dla każdej pozycji rankingu,
+pytania z właścicielem, zmiany od poprzedniego uruchomienia oraz
 `context/domain/glossary.md`.
 
-Before calling a documented rule *ignored* or a term *missing in code*, run a
-targeted search yourself (`rg` over the term, its variants and synonyms in
-the layer where it should live). Batch them per layer and cite each batch's
-scope once.
+Przed nazwaniem udokumentowanej reguły *ignored* lub terminu *missing in code* wykonaj
+samodzielnie ukierunkowane wyszukiwanie (`rg` względem terminu, jego wariantów i synonimów w
+warstwie, w której powinien występować). Grupuj je według warstwy i cytuj zakres każdej grupy tylko raz.
 
-## 5. Verify, then present
+## 5. Zweryfikuj, a następnie przedstaw
 
-Run the verification pass in
-[references/report.md](references/report.md#verification). Then present in
-5–8 sentences: the report path, the number of Core and Supporting terms and
-how many are missing in code, the Core subdomain(s), the strongest drift,
-the #1 candidate and why, the drift counts by fix side (code / docs /
-decision), the open questions, and the main limitation. Point to the glossary
-as the file to reference from agent instructions. Stop there; the
-distillation does not design or start a refactor.
+Wykonaj przebieg weryfikacyjny opisany w
+[references/report.md](references/report.md#verification). Następnie przedstaw w
+5–8 zdaniach: ścieżkę raportu, liczbę terminów Core i Supporting oraz
+liczbę brakujących w kodzie, poddomenę(-y) Core, najsilniejszą rozbieżność,
+kandydata #1 i uzasadnienie, liczbę rozbieżności według strony naprawy (kod /
+dokumentacja /
+decyzja), otwarte pytania oraz główne ograniczenie. Wskaż glosariusz
+jako plik, do którego należy odwoływać się w instrukcjach dla agentów. Zakończ na tym; destylacja
+nie projektuje ani nie rozpoczyna refaktoryzacji.

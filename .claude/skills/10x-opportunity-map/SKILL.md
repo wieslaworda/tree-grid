@@ -16,22 +16,21 @@ allowed-tools:
   - Bash
   - AskUserQuestion
 ---
+# Mapa Okazji: Klasyfikuj Pomysły Przed Budowaniem
 
-# Opportunity Map: Classify Ideas Before Building
+Ta umiejętność pomaga użytkownikowi zdecydować, czy powtarzające się tarcie lub niezaspokojona potrzeba powinny zostać obsłużone przez istniejące narzędzie lub domyślny przepływ pracy, przez cienkie uzupełnienie wokół tego, co już istnieje, przez pełniejszą realizację później, czy w ogóle bez budowania. Działa dla każdego pomysłu — produktu, funkcji, narzędzia wewnętrznego, usługi lub automatyzacji. Mapowanie okazji jest techniką ogólną; bieżące przykłady wykorzystują **perspektywę wewnętrznego twórcy** (narzędzia zespołowe, usługi, automatyzacje), ponieważ właśnie tam dylemat budować-czy-kupować jest najbardziej odczuwalny i tam podejmuje go ścieżka 10xDevs dla wewnętrznych twórców.
 
-This skill helps the user decide whether a recurring friction or unmet need should be handled by an existing tool or default workflow, by a thin complement around what already exists, by a fuller build later, or by no build at all. It works for any idea — product, feature, internal tool, service, or automation. Opportunity mapping is a general technique; the running examples use an **internal-builder lens** (team tools, services, automations), because that is where build-vs-buy bites hardest and where the 10xDevs internal-builder path picks it up.
+Wynikiem jest artefakt decyzyjny, a nie plan implementacji. Nie pisz kodu SDK, konfiguracji CI, pakietowania, uwierzytelniania, wdrożenia, harmonogramowania ani kroków backlogu/procesu produktowego. Jeśli kandydat okaże się wartościowy, skieruj tę pracę dalej (zobacz Krok 5).
 
-The output is a decision artifact, not an implementation plan. Do not write SDK code, CI configuration, packaging, auth, deployment, scheduling, or backlog/productization steps. If the candidate proves valuable, route that work forward (see Step 5).
+Domyślnie używaj angielskiego. Przełącz się na polski (lub dowolny inny język), jeśli użytkownik pisze do Ciebie w tym języku.
 
-Default to English. Switch to Polish (or any other language) if the user writes to you in it.
+## Początkowa Odpowiedź
 
-## Initial Response
+Po wywołaniu:
 
-When invoked:
-
-1. If the user provided friction signals, notes, tickets, meeting notes, or a file path, read/capture them and continue.
-2. If no concrete input was provided, ask for **3–5 recurring frictions or unmet needs** and the **sources** behind them (GitHub, Linear/Jira, CI, Slack, docs, support tickets, analytics, internal DB, CSV/mock data). Keep this open — friction is freeform; don't force it into options.
-3. Capture the **data constraint** with AskUserQuestion, because it changes how lightweight the first version can be:
+1. Jeśli użytkownik podał sygnały tarcia, notatki, tickety, notatki ze spotkań lub ścieżkę do pliku, odczytaj/przechwyć je i kontynuuj.
+2. Jeśli nie podano konkretnych danych wejściowych, poproś o **3–5 powtarzających się tarć lub niezaspokojonych potrzeb** oraz **źródła**, które za nimi stoją (GitHub, Linear/Jira, CI, Slack, dokumentacja, tickety wsparcia, analityka, wewnętrzna DB, CSV/dane mock). Zachowaj otwartość — tarcie ma dowolną formę; nie zmuszaj go do dopasowania do opcji.
+3. Przechwyć **ograniczenie dotyczące danych** za pomocą AskUserQuestion, ponieważ zmienia ono to, jak lekka może być pierwsza wersja:
 
 ```
 AskUserQuestion:
@@ -47,40 +46,40 @@ AskUserQuestion:
   multiSelect: false
 ```
 
-Then explain that you will first classify the signals, and only recommend a first candidate if one earns it.
+Następnie wyjaśnij, że najpierw sklasyfikujesz sygnały i zarekomendujesz pierwszego kandydata tylko wtedy, gdy na to zasłuży.
 
-## Guardrails
+## Ograniczenia
 
-- Treat "let's build a dashboard / agent / app / automation" as a proposed solution, not a friction signal. Ask what repeated pain, delay, coordination cost, or manual check it removes.
-- Default generic/utility workflows to SaaS or existing tools unless the user shows local cross-system friction.
-- Prefer complementing source systems over replacing them. A first version may link to PRs, tickets, jobs, docs, and records; it must not pretend to become the new system of record.
-- Keep the first useful version narrow, local, read-only, and easy to throw away: a script, static report, CSV digest, spreadsheet-like view, or mocked dashboard.
-- Escalate data risk early. Mock/local/read-only/non-sensitive data can stay lightweight. Real company/customer data needs access-control and auditability thinking before implementation.
-- Watch for essential vs accidental complexity. Some friction is accidental and a thin complement genuinely shortens it; some is essential and reflects a real constraint or decision. Before calling friction "fixable", check it isn't friction that exists for a reason.
-- Do not imply outcomes (career, growth, revenue). Leverage means real pain reduced and trust earned, not a guaranteed result.
+- Traktuj „zbudujmy dashboard / agenta / aplikację / automatyzację” jako proponowane rozwiązanie, a nie sygnał tarcia. Zapytaj, jaki powtarzający się ból, opóźnienie, koszt koordynacji lub ręczną kontrolę eliminuje.
+- Domyślnie kieruj ogólne/praktyczne przepływy pracy do SaaS lub istniejących narzędzi, chyba że użytkownik pokaże lokalne tarcie między systemami.
+- Preferuj uzupełnianie systemów źródłowych zamiast ich zastępowania. Pierwsza wersja może linkować do PR-ów, ticketów, jobów, dokumentów i rekordów; nie może udawać, że staje się nowym systemem rejestrującym.
+- Utrzymuj pierwszą użyteczną wersję wąską, lokalną, tylko do odczytu i łatwą do porzucenia: skrypt, statyczny raport, podsumowanie CSV, widok podobny do arkusza kalkulacyjnego lub mockowany dashboard.
+- Eskaluj ryzyko danych wcześnie. Dane mock/lokalne/tylko do odczytu/niewrażliwe mogą pozostać lekkie. Prawdziwe dane firmowe/klientów wymagają myślenia o kontroli dostępu i audytowalności przed implementacją.
+- Obserwuj złożoność istotną kontra przypadkową. Niektóre tarcia są przypadkowe i cienkie uzupełnienie rzeczywiście je skraca; inne są istotne i odzwierciedlają realne ograniczenie lub decyzję. Zanim nazwiesz tarcie „naprawialnym”, sprawdź, czy nie istnieje ono z jakiegoś powodu.
+- Nie sugeruj rezultatów (kariery, wzrostu, przychodu). Dźwignia oznacza realnie zmniejszony ból i zdobyte zaufanie, a nie gwarantowany wynik.
 
-## Process
+## Proces
 
-### Step 1: Normalize Signals
+### Krok 1: Normalizuj Sygnały
 
-Turn raw ideas into specific signals. Good signals are observable and repeated:
+Przekształć surowe pomysły w konkretne sygnały. Dobre sygnały są obserwowalne i powtarzalne:
 
-- "Every morning we manually check which PRs block the release."
-- "Tickets and code changes drift apart, so status is hard to trust."
-- "AI skills and rules are copied between repositories by hand."
-- "Review comments repeat, but they are not encoded as a quality gate."
+- „Każdego ranka ręcznie sprawdzamy, które PR-y blokują wydanie.”
+- „Tickety i zmiany w kodzie rozjeżdżają się, więc trudno ufać statusowi.”
+- „Umiejętności i reguły AI są ręcznie kopiowane między repozytoriami.”
+- „Komentarze z przeglądu się powtarzają, ale nie są zakodowane jako bramka jakości.”
 
-Weak signals need unpacking:
+Słabe sygnały wymagają rozwinięcia:
 
-- "Build a dashboard."
-- "Add an agent."
-- "Automate everything."
+- „Zbuduj dashboard.”
+- „Dodaj agenta.”
+- „Zautomatyzuj wszystko.”
 
-For each weak signal, ask one short question that separates the pain from the proposed solution.
+Dla każdego słabego sygnału zadaj jedno krótkie pytanie, które oddziela ból od proponowanego rozwiązania.
 
-### Step 2: Classify Each Signal
+### Krok 2: Klasyfikuj Każdy Sygnał
 
-Work through the signals **one at a time**, as a block per signal — don't render a wide table mid-conversation. Each block is easier to read and react to, and lets the user correct one signal before you move on:
+Przejdź przez sygnały **po jednym**, jako blok dla każdego sygnału — nie renderuj szerokiej tabeli w środku rozmowy. Każdy blok jest łatwiejszy do przeczytania i skomentowania oraz pozwala użytkownikowi skorygować jeden sygnał, zanim przejdziesz dalej:
 
 ```text
 Signal: [repeated observable pain or unmet need]
@@ -91,37 +90,37 @@ Signal: [repeated observable pain or unmet need]
   Direction if it proves valuable: [product / feature / internal tool / service / wait]
 ```
 
-Guidance for each field — keep the eventual table cells terse (a phrase, not a paragraph); push longer reasoning into Step 4 and the "Why this candidate" note:
+Wskazówki dla każdego pola — zachowaj zwięzłość komórek w końcowej tabeli (fraza, nie akapit); dłuższe uzasadnienie przenieś do Kroku 4 i notatki „Dlaczego ten kandydat”:
 
-- **Signal**: repeated observable pain or unmet need, preferably with a coordination cost.
-- **Existing / default response**: what GitHub, Linear/Jira, Slack, Notion, CI, dashboards, native AI summaries, reports, filters, an off-the-shelf SaaS, or existing processes already do.
-- **Thin complement**: a complement around existing systems, especially when value comes from joining two or more sources.
-- **First useful version**: local/read-only/mockable version that validates value without full product responsibility.
-- **Data risk**: `mock`, `local`, `read-only`, `non-sensitive`, or `real company/customer data`; add a practical caveat when data is sensitive.
-- **Direction if it proves valuable** — the kind of thing it grows into once it has earned a regular user. Pick the general shape first: `Product`, `Feature` in an existing product, `Internal tool`, `Service`, or `Wait / no build` (signal weak, already solved, or not worth the maintenance). When the shape is an **internal tool**, the 10xDevs internal-builder paths refine it:
-  - `Team agent` when it needs an SDK, tools, model calls, cost/privacy handling, or metrics.
-  - `Review / CI gate` when the value is code review, PR gates, a Definition of Done, or CI behavior.
-  - `Shared artifact registry` when the problem is shared skills, prompts, rules, commands, packages, or team artifact distribution.
-  - `Async / remote work` when the helper should run remotely, asynchronously, or on a schedule.
+- **Sygnał**: powtarzający się obserwowalny ból lub niezaspokojona potrzeba, najlepiej z kosztem koordynacji.
+- **Istniejąca / domyślna odpowiedź**: co GitHub, Linear/Jira, Slack, Notion, CI, dashboardy, natywne podsumowania AI, raporty, filtry, gotowy SaaS lub istniejące procesy już robią.
+- **Cienkie uzupełnienie**: uzupełnienie wokół istniejących systemów, szczególnie gdy wartość wynika z połączenia dwóch lub większej liczby źródeł.
+- **Pierwsza użyteczna wersja**: lokalna/tylko do odczytu/możliwa do zamockowania wersja, która weryfikuje wartość bez pełnej odpowiedzialności produktowej.
+- **Ryzyko danych**: `mock`, `local`, `read-only`, `non-sensitive` lub `real company/customer data`; dodaj praktyczne zastrzeżenie, gdy dane są wrażliwe.
+- **Kierunek, jeśli okaże się wartościowe** — rodzaj rzeczy, w którą rozwinie się po zdobyciu regularnego użytkownika. Najpierw wybierz ogólny kształt: `Product`, `Feature` w istniejącym produkcie, `Internal tool`, `Service` lub `Wait / no build` (sygnał słaby, już rozwiązany lub niewarty utrzymania). Gdy kształtem jest **narzędzie wewnętrzne**, ścieżki 10xDevs dla wewnętrznych twórców go doprecyzowują:
+  - `Team agent`, gdy potrzebuje SDK, narzędzi, wywołań modelu, obsługi kosztów/prywatności lub metryk.
+  - `Review / CI gate`, gdy wartością jest przegląd kodu, bramki PR, Definition of Done lub zachowanie CI.
+  - `Shared artifact registry`, gdy problem dotyczy współdzielonych umiejętności, promptów, reguł, komend, pakietów lub dystrybucji artefaktów zespołowych.
+  - `Async / remote work`, gdy pomocnik powinien działać zdalnie, asynchronicznie lub według harmonogramu.
 
-Once all signals are classified, you can read them back as a compact comparison table (one row per signal, terse cells) — that scannable matrix is what lands in the saved artifact.
+Po sklasyfikowaniu wszystkich sygnałów możesz odczytać je jako zwartą tabelę porównawczą (jeden wiersz na sygnał, zwięzłe komórki) — ta możliwa do przeskanowania macierz trafia do zapisanego artefaktu.
 
-### Step 3: Recommend One Candidate
+### Krok 3: Zarekomenduj Jednego Kandydata
 
-Pick at most one candidate for the first useful version. Rank by:
+Wybierz co najwyżej jednego kandydata na pierwszą użyteczną wersję. Uszereguj według:
 
-1. Repeats regularly.
-2. Combines at least two information sources or two roles.
-3. Has a clear manual pain today.
-4. Can be tested read-only or on mock/exported data.
-5. Does not replace an existing platform's responsibility.
-6. Has a clear later direction if it proves valuable.
+1. Powtarza się regularnie.
+2. Łączy co najmniej dwa źródła informacji lub dwie role.
+3. Ma dziś wyraźny ręczny ból.
+4. Może zostać przetestowany tylko do odczytu lub na danych mock/wyeksportowanych.
+5. Nie zastępuje odpowiedzialności istniejącej platformy.
+6. Ma jasny późniejszy kierunek, jeśli okaże się wartościowy.
 
-If no signal passes, recommend no build and explain which existing tool or default response should be tried first. Building two or three considered candidates beats shipping ten prototypes nobody maintains — the scarce resource is the attention to keep them alive, not the time to start them.
+Jeśli żaden sygnał nie przejdzie, zarekomenduj brak budowania i wyjaśnij, którego istniejącego narzędzia lub domyślnej odpowiedzi należy najpierw spróbować. Zbudowanie dwóch lub trzech przemyślanych kandydatów jest lepsze niż wypuszczenie dziesięciu prototypów, których nikt nie utrzymuje — ograniczonym zasobem jest uwaga potrzebna do utrzymania ich przy życiu, a nie czas na rozpoczęcie.
 
-### Step 4: Draft The First Useful Version
+### Krok 4: Opracuj Pierwszą Użyteczną Wersję
 
-For the selected candidate, write:
+Dla wybranego kandydata napisz:
 
 ```text
 Candidate:
@@ -143,11 +142,11 @@ Direction if it proves valuable:
 [product / feature / internal tool / service / wait]
 ```
 
-Then add a short "Why this one, not the others" note.
+Następnie dodaj krótką notatkę „Dlaczego ten, a nie pozostałe”.
 
-### Step 5: Decide The Next Move
+### Krok 5: Zdecyduj o Następnym Ruchu
 
-The opportunity map classifies the problem on paper. Before turning a classification into code, decide how to proceed:
+Mapa okazji klasyfikuje problem na papierze. Przed przekształceniem klasyfikacji w kod zdecyduj, jak postępować:
 
 ```
 AskUserQuestion:
@@ -165,11 +164,11 @@ AskUserQuestion:
   multiSelect: false
 ```
 
-Whichever path is chosen, the cheapest first step is usually a short conversation with the people who live with the friction (for an internal tool, the manager and the team it is for) — they often know why the friction exists and whether your picture of it is complete. Name the chosen skill in your closing message; do not run it yourself unless the user asks.
+Niezależnie od wybranej ścieżki, najtańszym pierwszym krokiem jest zwykle krótka rozmowa z osobami, które żyją z tym tarciem (w przypadku narzędzia wewnętrznego — z menedżerem i zespołem, dla którego jest przeznaczone) — często wiedzą, dlaczego tarcie istnieje i czy Twój obraz sytuacji jest pełny. W wiadomości końcowej nazwij wybraną umiejętność; nie uruchamiaj jej samodzielnie, chyba że użytkownik o to poprosi.
 
-## Artifact
+## Artefakt
 
-Offer to write the result. Use AskUserQuestion:
+Zaproponuj zapisanie wyniku. Użyj AskUserQuestion:
 
 ```
 AskUserQuestion:
@@ -185,7 +184,7 @@ AskUserQuestion:
   multiSelect: false
 ```
 
-When writing, create the target directory if needed (`mkdir -p`). Use this file shape:
+Podczas zapisywania utwórz katalog docelowy, jeśli jest potrzebny (`mkdir -p`). Użyj takiej struktury pliku:
 
 ```markdown
 # Opportunity Map

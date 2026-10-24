@@ -27,299 +27,136 @@ allowed-tools:
   - TaskUpdate
   - TaskList
 ---
+# Audyt obserwowalności: gdzie znikają błędy produkcyjne?
 
-# Observability Audit: where do production errors disappear?
+Celem jest jedno pytanie, zadawane dla każdego krytycznego przepływu użytkownika: **gdy to zepsuje się na produkcji, czy ktokolwiek się o tym dowie i czy będzie w stanie ustalić dlaczego?**
 
-The goal is one question, asked per critical user flow: **when this breaks in
-production, will anyone find out, and will they be able to tell why?**
+Większość baz kodu nie przechodzi tego testu z kilku systemowych powodów, a nie w setkach niepowiązanych miejsc. Niektóre ścieżki kodu działają poza zakresem trackera błędów. Awarie wracają jako zwykłe odpowiedzi. Obiekty błędów są odrzucane przy pierwszym `catch`. Filtry prywatności usuwają dane diagnostyczne. Wdrożenia nie są oznaczane. Zadaniem audytu jest znaleźć te mechanizmy, pokazać konkretne miejsca, w których szkodzą przepływom mającym znaczenie, oraz udowodnić najpoważniejsze z nich. Nie tworzy on listy w stylu lintera, zawierającej każdy pusty `catch`.
 
-Most codebases fail that test in a handful of systemic ways, not in hundreds
-of unrelated places. Some code paths run outside the error tracker's scope.
-Failures come back as ordinary responses. Error objects are dropped at the
-first `catch`. Privacy filters remove the diagnostic data. Deploys aren't
-labelled. The audit's job is to find those mechanisms, show the concrete
-places where they hurt the flows that matter, and prove the worst of them.
-It doesn't produce a lint-style list of every empty `catch`.
+**Przedmiotem jest kod aplikacji.** Audyt pyta, co kod robi z awarią, gdy potok monitorowania już istnieje: czy ją rzuca, przechwytuje, loguje, raportuje, spłaszcza czy odrzuca? To, czy produkt do logowania lub tracker błędów jest włączony, jest warunkiem wstępnym, a nie pytaniem audytu. Często jest to ustawiane w panelu platformy lub dostawcy, więc repozytorium nie może tego pokazać. Zakładaj, że potok działa na produkcji, chyba że użytkownik mówi inaczej. Konfiguracja, której repozytorium nie zawiera, jest **nieznana, a nie brakująca**, i nigdy nie staje się przyczyną źródłową.
 
-**The subject is application code.** The audit asks what the code does with
-a failure once the monitoring pipeline exists: does it throw, catch, log,
-report, flatten or drop it? Whether a logging product or error tracker is
-switched on is a precondition, not the audit's question. It is often set in
-a platform or vendor dashboard, so the repo can't show it.
-Assume the pipeline works in production unless the user says otherwise.
-Config the repo doesn't contain is **unknown, not missing**, and it never
-becomes a root cause.
+Umiejętność nigdy nie modyfikuje audytowanego kodu w głównym drzewie roboczym. Zapisuje jeden nowy raport na uruchomienie. Dowód środowiska uruchomieniowego powstaje wyłącznie w jednorazowej, izolowanej kopii.
 
-The skill never modifies the audited code in the main working tree. It
-writes one new report per run. Runtime proof happens only in a throwaway
-isolated copy.
+## Kiedy używać, kiedy pominąć
 
-## When to use, when to skip
+**Użyj, gdy** projekt ma kod działający na produkcji (lub wkrótce będzie działać), a użytkownik podejrzewa, że błędy są niewidoczne, zaszumione lub niemożliwe do zdiagnozowania. Użyj także przed uruchomieniem, po incydencie, w którym „nie mieliśmy logów”, albo aby ponownie sprawdzić wcześniejszy audyt.
 
-**Use when** the project has code running in production (or about to) and
-the user suspects errors are invisible, noisy or undiagnosable. Also use
-before a launch, after an incident where "we had no logs", or to re-check
-an earlier audit.
+**Pomiń, gdy** użytkownik chce naprawić jeden konkretny znany błąd: to jest zwykłe debugowanie. Pomiń także, gdy chce *wybrać* dostawcę monitorowania (`/10x-infra-research`) lub przeprowadzić ogólną kontrolę kondycji projektu (`/10x-health-check`).
 
-**Skip when** the user wants to fix one specific known error: that is
-normal debugging. Also skip when they want to *choose* a monitoring vendor
-(`/10x-infra-research`) or run a general project health check
-(`/10x-health-check`).
+## Dane wejściowe
 
-## Inputs
+- **Dokumenty podstawowe (opcjonalne, preferowane):** `context/foundation/shape-notes.md`, `context/foundation/prd.md`, `context/foundation/roadmap.md`. Informują, które przepływy są istotne dla użytkowników i biznesu, dzięki czemu audyt przeznacza na nie swój budżet.
+- **Objaw (opcjonalny, najcenniejszy):** to, co użytkownik już widzi, np. „żądania pojawiają się w logach, ale błędy, których szukam, nie”. Taki objaw potwierdza, że potok działa, i kieruje audyt na ścieżki kodu, które gubią błędy. Użyj go do ukierunkowania wyboru obszarów i briefów dla audytorów.
+- **Argumenty (opcjonalne):** nazwy obszarów (np. `login checkout "admin import"`) zastępują wybór obszarów. `--runtime` wybiera dowód środowiska uruchomieniowego bez pytania. `--verify <report>` ponownie sprawdza ustalenia wcześniejszego raportu zamiast szukać nowych (zobacz *Tryb weryfikacji*). `--out <dir-or-file>`, lub wskazanie przez użytkownika lokalizacji słowami, zastępuje miejsce zapisu raportu (zobacz Krok 6).
+- **Poprzednie raporty (opcjonalne):** `*.md` w katalogu raportów (domyślnie `context/audits/observability/`).
 
-- **Foundation docs (optional, preferred):** `context/foundation/shape-notes.md`,
-  `context/foundation/prd.md`, `context/foundation/roadmap.md`. They tell you
-  which flows matter to users and the business, so the audit spends its
-  budget there.
-- **Symptom (optional, most valuable):** what the user already sees, e.g.
-  "requests show up in the logs but the errors I'm looking for don't". A
-  symptom like that confirms the pipeline works and points the audit at the
-  code paths that lose errors. Use it to steer area selection and the
-  auditor briefs.
-- **Arguments (optional):** area names (e.g. `login checkout "admin import"`)
-  override area selection. `--runtime` opts into runtime proof without
-  asking. `--verify <report>` re-checks an earlier report's findings instead
-  of hunting for new ones (see *Verify mode*). `--out <dir-or-file>`, or
-  the user naming a location in words, overrides where the report is
-  written (see Step 6).
-- **Previous reports (optional):** `*.md` in the report directory
-  (default `context/audits/observability/`).
+## Przebieg pracy
 
-## Workflow
+Śledź kroki za pomocą TaskCreate/TaskUpdate. Audyt jest długi, a użytkownik powinien widzieć, na jakim jest etapie.
 
-Track the steps with TaskCreate/TaskUpdate. The audit is long, and the user
-should see where it is.
+### Krok 0 — Warunki wstępne i tożsamość uruchomienia
 
-### Step 0 — Preconditions and run identity
+1. Potwierdź, że cwd jest bazą kodu (manifest projektu, katalogi źródłowe). Jeśli nie, zatrzymaj się i powiedz to.
+2. Zapisz tożsamość uruchomienia. Każdy raport jest zakotwiczony dokładnie w tym, co zostało poddane audytowi, co umożliwia porównywanie ponownych uruchomień:
+   - data (`date +%Y-%m-%d`) i czas (`date +%H:%M`), bieżący commit (`git rev-parse --short HEAD`), gałąź oraz to, czy drzewo jest zmodyfikowane (`git status --porcelain`). Zmodyfikowane drzewo jest w porządku, ale zaznacz to w raporcie.
+3. Wyświetl wcześniejsze raporty w katalogu raportów (domyślnie `context/audits/observability/`): `ls <report-dir> 2>/dev/null`.
+   Przeczytaj frontmatter najnowszego z nich: objęte obszary, commit, otwarte ustalenia. Wybierz go według klucza `date`, który zawiera czas; nazwy plików zawierają tylko dzień. Użyjesz go w Kroku 2 i Kroku 6.
 
-1. Confirm cwd is a codebase (project manifest, source dirs). If not, stop
-   and say so.
-2. Record the run identity. Every report is anchored to exactly what was
-   audited, which is what makes reruns comparable:
-   - date (`date +%Y-%m-%d`) and time (`date +%H:%M`), current commit
-     (`git rev-parse --short HEAD`), branch, and whether the tree is dirty
-     (`git status --porcelain`). A dirty tree is fine, but say so in the
-     report.
-3. List earlier reports in the report directory (default
-   `context/audits/observability/`): `ls <report-dir> 2>/dev/null`.
-   Read the frontmatter of the most recent one: areas covered, commit,
-   open findings. Pick it by the `date` key, which includes the time; file
-   names only carry the day. You will use it in Step 2 and Step 6.
+### Krok 1 — Odkryj stos obserwowalności
 
-### Step 1 — Discover the observability stack
+Przed audytem przepływów zbuduj **model przechwytywania**: krótki opis, oparty na dowodach, tego, jak awaria przechodzi z kodu do człowieka. Zrób to samodzielnie (wymaga osądu i jest niewielkie). Cytuj plik:wiersz dla każdego twierdzenia.
 
-Before auditing flows, build a **capture model**: a short, evidence-backed
-description of how a failure travels from code to a human. Do this yourself
-(it needs judgement, and it is small). Cite file:line for every claim.
+- **Środowisko uruchomieniowe i platforma:** długo działający serwer, funkcje serverless/edge, kontenery, mobile, przeglądarkowe SPA, framework SSR, procesy w tle, cron, kolejki.
+- **Tracker błędów:** Sentry, Datadog, Rollbar, Bugsnag, Honeybadger, New Relic, eksporter OpenTelemetry, Application Insights, Crashlytics lub brak. Znajdź *każde* miejsce inicjalizacji i odnotuj, co każde z nich obejmuje.
+- **Granice przechwytywania:** gdzie tracker faktycznie otrzymuje aktywnego klienta? Globalny handler procesu, middleware na żądanie, wrapper na trasę, integracja frameworka, filtr wyjątków, granica błędów. Centralne pytanie brzmi: **które ścieżki kodu wykonują się poza jakąkolwiek granicą**. Przykłady: middleware ustawione przed trackerem, trasy rezygnujące z niego, strumieniowane body odpowiedzi, zadania w tle po odpowiedzi, procesy workerów bez własnej inicjalizacji, aplikacja po stronie klienta.
+- **Logowanie:** logger(y), dokąd trafiają logi (usługa logów platformy, plik, stdout), czy wiersze logów kiedykolwiek stają się alertami lub zgłoszeniami oraz jak logger serializuje obiekty błędów.
+- **Czyszczenie i próbkowanie:** hooki w stylu `beforeSend`, filtry PII, współczynniki próbkowania, listy ignorowania, head-sampling logów.
+- **Tożsamość wdrożenia:** tagi wydania/wersji i środowiska; source maps lub symbole debugowania; czy ruch preview/staging można odróżnić od produkcyjnego.
 
-- **Runtime and platform:** long-running server, serverless/edge functions,
-  containers, mobile, browser SPA, SSR framework, background workers, cron,
-  queues.
-- **Error tracker:** Sentry, Datadog, Rollbar, Bugsnag, Honeybadger, New
-  Relic, OpenTelemetry exporter, Application Insights, Crashlytics, or none.
-  Find *every* init site and note what each one covers.
-- **Capture boundaries:** where does the tracker actually get a live client?
-  Global process handler, per-request middleware, per-route wrapper,
-  framework integration, exception filter, error boundary. The central
-  question is **which code paths execute outside any boundary**. Examples:
-  middleware ordered before the tracker, routes that opt out, streamed
-  response bodies, background tasks after the response, worker processes
-  without their own init, the client-side app.
-- **Logging:** the logger(s), where the logs go (platform log service, file,
-  stdout), whether log lines ever become alerts or issues, and how the
-  logger serializes error objects.
-- **Scrubbing and sampling:** `beforeSend`-style hooks, PII filters, sample
-  rates, ignore lists, log head-sampling.
-- **Deploy identity:** release/version and environment tags; source maps or
-  debug symbols; whether preview/staging traffic is distinguishable from
-  production.
+Ten krok powinien być krótki. To kontekst dla audytu kodu, a nie sam audyt. Oznacz każde twierdzenie jako **w repozytorium** (cytowany plik:wiersz) lub **poza repozytorium** (ustawienie panelu lub platformy, którego nie widzisz). Dla elementów poza repozytorium zapisz założenie („założono: zbieranie logów platformy jest włączone”) zamiast ustalenia. Jeśli cały audyt zależy od jednego z nich (nigdzie w kodzie nie ma SDK trackera, a użytkownik nie wspomniał o objawie), zadaj użytkownikowi jedno pytanie o to, co widzi na produkcji, zanim przejdziesz dalej. Nie zgaduj.
 
-Keep this step short. It is context for the code audit, not the audit. Tag
-each claim as **in repo** (cited file:line) or **outside repo** (dashboard
-or platform setting you can't see). For outside-repo pieces, write the
-assumption ("assumed: platform log collection is enabled") instead of a
-finding. If the whole audit depends on one of these (no tracker SDK
-anywhere in the code, and the user didn't mention a symptom), ask the user
-one question about what they see in production before going on. Don't guess.
+Umieść model przechwytywania w raporcie. Podagenci również go potrzebują, aby każdy z nich nie odkrywał go od nowa.
 
-Put the capture model in the report. The subagents also need it, so they
-don't each rediscover it.
+### Krok 2 — Wybierz obszary (przepływy, które mają znaczenie)
 
-### Step 2 — Pick the areas (the flows that matter)
+Wybierz **2–4 krytyczne przepływy użytkownika**, każdy audytowany pełnostosowo (UI → API → usługi → dane/wywołania zewnętrzne → praca w tle). Rozstrzygaj je w tej kolejności:
 
-Choose **2–4 critical user flows**, each audited full-stack (UI → API →
-services → data/external calls → background work). Resolve them in this
-order:
+1. **Argumenty:** użyj ich zgodnie z podaniem.
+2. **Dokumenty podstawowe:** przeczytaj trzy pliki, które istnieją. Wybierz przepływy, których awaria zaszkodziłaby najbardziej: główną pętlę wartości (to, po co przychodzą użytkownicy), tożsamość/dostęp (logowanie, rejestracja, uprawnienia), pieniądze lub nieodwracalne zapisy (płatności, publikowanie, importy, usuwanie danych) oraz wszystko, co roadmapa oznacza jako w toku lub niedawno wydane (nowy kod, najmniej sprawdzony w boju). Przedstaw swój wybór z jednozdaniowym uzasadnieniem dla każdego i pozwól użytkownikowi go dostosować (AskUserQuestion, z Twoim wyborem jako zalecaną opcją).
+3. **Brak dokumentów podstawowych:** zapytaj użytkownika o 2–3 obszary do pełnostosowego przeglądu (AskUserQuestion). Zaproponuj 3–4 konkretne kandydatury wywnioskowane ze struktury tras/stron/modułów, aby nie odpowiadał po omacku.
 
-1. **Arguments:** use them as given.
-2. **Foundation docs:** read the three files that exist. Pick the flows
-   whose failure would hurt most: the core value loop (the thing users come
-   for), identity/access (login, signup, permissions), money or irreversible
-   writes (payments, publishing, imports, data deletion), and anything the
-   roadmap marks as in-flight or recently shipped (new code, least battle-tested).
-   Present your pick with a one-line reason each, and let the user adjust
-   (AskUserQuestion, with your pick as the recommended option).
-3. **No foundation docs:** ask the user for 2–3 areas to review
-   full-stack (AskUserQuestion). Offer 3–4 concrete candidates you inferred
-   from the route/page/module structure, so they are not answering blind.
+**Rotacja przy ponownych uruchomieniach.** Jeśli istnieją wcześniejsze raporty, preferuj przepływy, których nie obejmowały, lub które obejmowały przy starszym commicie, i zaznacz to („login i CMS zostały poddane audytowi 2026-09-24; to uruchomienie proponuje checkout i notifications”). Użytkownik nadal może wybrać ponowny audyt tych samych obszarów; raport wtedy zapisuje, jak zmieniło się każde wcześniejsze ustalenie.
 
-**Rotation on reruns.** If earlier reports exist, prefer flows they did not
-cover, or covered at an older commit, and say so ("login and CMS were
-audited on 2026-09-24; this run proposes checkout and notifications").
-The user can still choose to re-audit the same areas; the report then
-records how each earlier finding changed.
+### Krok 3 — Rozdziel audyty (równoległe podagenty)
 
-### Step 3 — Fan out the audits (parallel subagents)
+Uruchom w jednej wiadomości, aby działały równolegle:
 
-Launch in a single message, so they run concurrently:
+- **Jeden audytor na obszar** (tylko do odczytu).
+- **Jeden audytor infrastruktury kodowej** (tylko do odczytu). Obejmuje przekrojowy *kod*, za który nie odpowiada żaden obszar: kod inicjalizacji trackera, granice i kolejność middleware, serializację błędów przez logger, hooki czyszczenia, tagowanie wydań w kodzie, punkty wejścia zadań w tle/workerów, globalne handlery po stronie klienta oraz przeszukanie całego repozytorium z liczbami. Nie audytuje ustawień panelu ani platformy.
 
-- **One auditor per area** (read-only).
-- **One plumbing auditor** (read-only). It covers the cross-cutting *code*
-  no area owns: tracker init code, boundaries and middleware order, the
-  logger's error serialization, scrubbing hooks, release tagging in code,
-  background/worker entry points, client-side global handlers, plus a
-  repo-wide sweep with counts. It does not audit dashboard or platform
-  settings.
+Użyj briefów z `references/auditor-briefs.md`. Wklej model przechwytywania z Kroku 1 do każdego briefu wraz z objawem użytkownika (jeśli występuje) i znanymi problemami z wcześniejszych raportów lub dokumentów triage. Sklasyfikuj każde ustalenie według taksonomii i rubryki ważności z `references/gap-taxonomy.md`, aby wyniki obszarów dało się łatwo połączyć.
 
-Use the briefs in `references/auditor-briefs.md`. Paste the capture model
-from Step 1 into every brief, together with the user's symptom (if any) and known issues from earlier
-reports or triage docs. Classify every finding with the taxonomy and
-severity rubric in `references/gap-taxonomy.md`, so that area results merge
-cleanly.
+Gdy działają, przygotuj Krok 4, jeśli ma zastosowanie.
 
-While they run, prepare Step 4 if it applies.
+### Krok 4 — Dowód środowiska uruchomieniowego (opcjonalny, izolowany)
 
-### Step 4 — Runtime proof (optional, isolated)
+Statyczne czytanie mówi „to *powinno* być niewidoczne”. Sonda środowiska uruchomieniowego pokazuje, że tak jest. Zaoferuj ten krok, gdy audyt wykrył krytyczne luki w pokryciu, a aplikację można uruchomić lokalnie. Uruchom go, gdy użytkownik przekazał `--runtime` lub wyraził zgodę.
 
-Static reading says "this *should* be invisible". A runtime probe shows it
-is. Offer this step when the audit found critical coverage gaps and the app
-can boot locally. Run it when the user passed `--runtime` or agreed.
+Postępuj zgodnie z `references/runtime-probes.md`. Najważniejsze zasady:
 
-Follow `references/runtime-probes.md`. The essentials:
+- Pracuj **wyłącznie w izolowanej kopii**: git worktree (opcja podagenta `isolation: "worktree"`) lub tymczasowy clone. Nigdy nie dotykaj głównego drzewa, nigdy nie wykonuj commitu, nigdy nie pushuj, nigdy nie wdrażaj.
+- Skieruj tracker błędów na **lokalny fałszywy endpoint przyjmujący dane** (`scripts/fake-ingest.mjs`) zamiast na rzeczywistą usługę. Nigdy nie wysyłaj zdarzeń sondy do produkcyjnego trackera i nigdy nie używaj produkcyjnych baz danych ani kont zewnętrznych dostawców.
+- Wstrzyknij ustalony katalog postaci awarii (rzuconą w handlerze, rzuconą we wczesnym middleware, błąd zwrócony jako 5xx bez rzucania, zignorowany wynik błędu, nieobsłużone odrzucenie, awarię zadania w tle, obiekt błędu przekazany do loggera…) z wyzwalaczem sondy (np. `?probe=<id>`). Zapisz wynik HTTP / dane wyjściowe konsoli platformy / to, co dotarło do fałszywego trackera.
+- Zautomatyzuj uruchomienie (skrypt `suite`), aby można było je powtórzyć identycznie. Zachowanie harnessu umożliwia później dowód przed/po.
 
-- Work in an **isolated copy only**: a git worktree (the subagent's
-  `isolation: "worktree"` option) or a temp clone. Never touch the main tree,
-  never commit, never push, never deploy.
-- Point the error tracker at a **local fake ingest endpoint**
-  (`scripts/fake-ingest.mjs`) instead of the real service. Never send probe
-  events to a production tracker, and never use production databases or
-  third-party accounts.
-- Inject a fixed catalog of failure shapes (thrown in handler, thrown in
-  early middleware, error returned as a 5xx without throwing, ignored error
-  result, unhandled rejection, background task failure, error object passed
-  to the logger…) with a probe trigger (e.g. `?probe=<id>`). Record HTTP
-  result / platform console output / what reached the fake tracker.
-- Script the run (`suite` script), so it can be repeated identically.
-  Keeping the harness is what makes before/after proof possible later.
+Jeśli aplikacja nie może się uruchomić (brakująca infrastruktura, sekrety, płatne usługi), zgłoś dokładną przeszkodę. Oznacz dotknięte ustalenia jako *wyłącznie statyczne*; nigdy nie zgaduj wyników środowiska uruchomieniowego.
 
-If the app cannot boot (missing infra, secrets, paid services), report the
-exact blocker. Mark the affected findings as *static-only*; never guess
-runtime results.
+### Krok 5 — Zweryfikuj, a następnie zsyntetyzuj
 
-### Step 5 — Verify, then synthesize
+Podagenci zgłaszają zbyt dużo. Przed raportem:
 
-Subagents over-report. Before the report:
+- **Wyrywkowo sprawdź** samodzielnie 3–5 najbardziej zaskakujących lub najpoważniejszych twierdzeń (przeczytaj cytowane wiersze, uruchom regex, sprawdź źródło SDK w katalogu zależności). Odrzuć lub obniż ważność wszystkiego, co się nie potwierdza, i zaznacz w raporcie, że zostało to zweryfikowane.
+- **Usuń duplikaty** między obszarami. Kilka ustaleń obszarowych to często jeden mechanizm: „12 tras nie wywołuje reportera” to *jedna* luka pokrycia z 12 lokalizacjami, a nie 12 ustaleń.
+- **Odrzuć ustalenia dotyczące warunków wstępnych.** „Logowanie nie jest włączone w konfiguracji wdrożenia”, „brak przekazywania logów”, „brak reguł alertów w repozytorium” lub „brak klucza trackera w przykładowym pliku env” nie są ustaleniami, gdy ustawienie może znajdować się poza repozytorium. Przenieś je na listę *Założeń* raportu. Zachowaj element konfiguracji tylko wtedy, gdy kod, który możesz zacytować, aktywnie pogarsza zdarzenia (hook czyszczenia, który usuwa stack traces, próbkowanie błędów poniżej 100%, lista ignorowania pasująca do błędów first-party).
+- **Nazwij systemowe przyczyny źródłowe** (zwykle 3–6). To najcenniejsza część raportu, ponieważ naprawienie jednej przyczyny źródłowej zamyka wiele ustaleń. Każda przyczyna źródłowa musi być mechanizmem w kodzie z dowodem plik:wiersz: gdzie błąd jest przechwytywany, konwertowany, pozbawiany danych lub wykonywany poza granicą. „Monitoring nie jest skonfigurowany” nigdy nie jest przyczyną źródłową. Nie da się tego zweryfikować z repozytorium, a gdyby było prawdą, ukryłoby każdą lukę na poziomie kodu za jedną poprawką, która nie pomaga.
+- **Uporządkuj poprawki** według usuniętej ślepoty na jednostkę wysiłku. Poprawki kodu o szerokim zasięgu (jedna globalna granica, serializacja loggera, zakres czyszczenia, współdzielony helper error-to-response zachowujący przyczynę) zwykle powinny poprzedzać lokalne.
 
-- **Spot-check** the 3–5 most surprising or most severe claims yourself
-  (read the cited lines, run the regex, check the SDK source in the
-  dependency folder). Drop or downgrade anything that doesn't hold, and say
-  in the report that you verified it.
-- **Deduplicate** across areas. Several area findings are often one
-  mechanism: "12 routes don't call the reporter" is *one* coverage gap with
-  12 locations, not 12 findings.
-- **Drop precondition findings.** "Logging isn't enabled in the deploy
-  config", "no log forwarding", "no alert rules in the repo" or "no tracker
-  key in the example env file" aren't findings when the setting can live
-  outside the repo. Move them to the report's *Assumptions* list. Keep a
-  config item only when code you can cite actively degrades events (a
-  scrubbing hook that drops stacks, error sampling below 100%, an ignore
-  list that matches first-party errors).
-- **Name the systemic root causes** (usually 3–6). These are the most
-  valuable part of the report, because fixing one root cause closes many
-  findings. Every root cause must be a code mechanism with file:line
-  evidence: where the error is caught, converted, stripped or run outside a
-  boundary. "Monitoring isn't configured" is never a root cause. It's
-  unverifiable from the repo, and if it were true it would hide every
-  code-level gap behind one fix that doesn't help.
-- **Order the fixes** by blindness removed per unit of effort. Wide-coverage
-  code fixes (one global boundary, logger serialization, scrubbing scope,
-  a shared error-to-response helper that keeps the cause) usually come
-  before local ones.
+### Krok 6 — Napisz raport (nowy plik dla każdego uruchomienia)
 
-### Step 6 — Write the report (new file every run)
-
-Write the report using `references/report-template.md` to:
+Napisz raport, używając `references/report-template.md`, do:
 
 ```
 <project-root>/context/audits/observability/<YYYY-MM-DD>_<slug>.md
 ```
 
-- `<project-root>` is the audited project's root (`git rev-parse
-  --show-toplevel`, or cwd outside git), not the skill's directory.
-- `<slug>` is the audited areas in kebab-case, joined with `-` (e.g.
-  `login-checkout`), or `verify-<areas>` in verify mode.
-- Create the directory if needed.
-- **User override:** if the user passed `--out` or named another location,
-  use it. A directory gets the same `<YYYY-MM-DD>_<slug>.md` file name; a
-  path ending in `.md` is used as is. Use the default in every other case,
-  and don't ask about it.
+- `<project-root>` to katalog główny audytowanego projektu (`git rev-parse --show-toplevel` lub cwd poza gitem), a nie katalog umiejętności.
+- `<slug>` to audytowane obszary w kebab-case, połączone przez `-` (np. `login-checkout`) albo `verify-<areas>` w trybie weryfikacji.
+- Utwórz katalog, jeśli jest potrzebny.
+- **Nadpisanie przez użytkownika:** jeśli użytkownik przekazał `--out` lub wskazał inną lokalizację, użyj jej. Katalog otrzymuje tę samą nazwę pliku `<YYYY-MM-DD>_<slug>.md`; ścieżka kończąca się na `.md` jest używana bez zmian. We wszystkich pozostałych przypadkach użyj domyślnej i nie pytaj o nią.
 
-- **Never overwrite or edit an earlier report.** If the path exists, add
-  `-2`, `-3`. Earlier reports are the history that later runs compare
-  against.
-- The report's frontmatter records the run identity, areas, mode, runtime
-  proof status and a link to the previous report. The next run relies on
-  that frontmatter, so keep its keys stable.
-- If a previous report exists, fill **Changes since last audit**: for each
-  earlier finding in an area you covered again, mark it `fixed`, `still
-  open`, `changed` or `not re-checked`, with evidence.
-- Keep each finding to its location, its category, its severity, **what
-  happens in production when it fails**, and a one-line fix direction. The
-  production consequence is what makes a finding actionable, so never leave
-  it out.
+- **Nigdy nie nadpisuj ani nie edytuj wcześniejszego raportu.** Jeśli ścieżka istnieje, dodaj `-2`, `-3`. Wcześniejsze raporty są historią, z którą porównują późniejsze uruchomienia.
+- Frontmatter raportu zapisuje tożsamość uruchomienia, obszary, tryb, status dowodu środowiska uruchomieniowego i link do poprzedniego raportu. Następne uruchomienie opiera się na tym frontmatter, więc zachowaj stabilność jego kluczy.
+- Jeśli istnieje poprzedni raport, wypełnij **Zmiany od ostatniego audytu**: dla każdego wcześniejszego ustalenia w obszarze, który objąłeś ponownie, oznacz je jako `fixed`, `still open`, `changed` lub `not re-checked`, wraz z dowodami.
+- Każde ustalenie ogranicz do jego lokalizacji, kategorii, ważności, **tego, co dzieje się na produkcji, gdy nastąpi awaria**, oraz jednoliniowego kierunku poprawki. Konsekwencja produkcyjna sprawia, że ustalenie jest możliwe do wdrożenia, więc nigdy jej nie pomijaj.
 
-### Step 7 — Hand off
+### Krok 7 — Przekaż wyniki
 
-Tell the user, in a few lines: the report path, the top 3 root causes, the
-count of findings by severity, what was runtime-proven vs static-only, and
-the recommended first fix. Offer next steps:
+Powiedz użytkownikowi w kilku wierszach: ścieżkę raportu, 3 najważniejsze przyczyny źródłowe, liczbę ustaleń według ważności, co zostało potwierdzone w środowisku uruchomieniowym, a co jest wyłącznie statyczne, oraz zalecaną pierwszą poprawkę. Zaproponuj kolejne kroki:
 
-- prove a specific fix with a before/after run on the same probe suite
-  (see *Verify mode*);
-- turn the top fix into a change with `/10x-new` + `/10x-plan`.
+- potwierdzenie konkretnej poprawki uruchomieniem przed/po na tym samym zestawie sond (zobacz *Tryb weryfikacji*);
+- przekształcenie najważniejszej poprawki w zmianę za pomocą `/10x-new` + `/10x-plan`.
 
-Mention that isolated worktrees or harness files from Step 4 still exist,
-and where. Don't delete them without asking, because they are needed for
-before/after proof.
+Wspomnij, że izolowane worktree lub pliki harnessu z Kroku 4 nadal istnieją i gdzie się znajdują. Nie usuwaj ich bez pytania, ponieważ są potrzebne do dowodu przed/po.
 
-## Verify mode (`--verify <report>`)
+## Tryb weryfikacji (`--verify <report>`)
 
-Use this after fixes land, or to prove a proposed fix works. Read the given
-report and re-check each finding: re-read the cited code, and, if the report
-has a probe harness, re-run the same suite. Produce a new dated report with
-`mode: verify` whose body is mainly **Changes since last audit** and a
-before/after table. The same probe catalog before and after is what turns
-"we think it's fixed" into evidence.
+Użyj tego po wdrożeniu poprawek lub aby udowodnić, że proponowana poprawka działa. Przeczytaj wskazany raport i ponownie sprawdź każde ustalenie: przeczytaj ponownie cytowany kod, a jeśli raport zawiera harness sondy, uruchom ponownie ten sam zestaw. Utwórz nowy raport z datą i `mode: verify`, którego treść składa się głównie z **Zmian od ostatniego audytu** i tabeli przed/po. Ten sam katalog sond przed i po zmienia „uważamy, że jest naprawione” w dowód.
 
-## Principles
+## Zasady
 
-- **Code over configuration.** Assume logs and the tracker are collected in
-  production. The question is what the code hands them. A missing setting
-  you can't see in the repo is an assumption to confirm, not a finding.
-- **Coverage first, then fidelity, then noise.** A failure the tracker never
-  sees matters more than one it sees without a stack, which matters more
-  than one it sees too often.
-- **Judge by what a responder would get.** For each gap, ask what an
-  on-call engineer would see at 3 a.m.: an alert? an issue with a stack and
-  the user/route/entity? a log line they would need to already know to
-  search for? nothing?
-- **Graceful degradation needs its own signal.** Fallbacks that keep users
-  unblocked are good. Fallbacks that also remove the only sign of the outage
-  are findings.
-- **Privacy is a constraint, not an excuse.** Recommend fixes that keep
-  scrubbing working (hash or id instead of email, keep error names/codes and
-  stacks, drop only the values). Never recommend sending PII.
-- **Stack-agnostic wording.** Describe mechanisms ("route opts out of the
-  reporting wrapper"), then the concrete local API. The taxonomy works for
-  any language or framework.
+- **Kod ponad konfiguracją.** Zakładaj, że logi i tracker są zbierane na produkcji. Pytanie brzmi, co przekazuje im kod. Brakujące ustawienie, którego nie możesz zobaczyć w repozytorium, jest założeniem do potwierdzenia, a nie ustaleniem.
+- **Najpierw pokrycie, potem wierność, następnie szum.** Awaria, której tracker nigdy nie widzi, ma większe znaczenie niż taka, którą widzi bez stack trace, a ta z kolei ma większe znaczenie niż taka, którą widzi zbyt często.
+- **Oceniaj według tego, co otrzyma osoba reagująca.** Dla każdej luki zapytaj, co inżynier on-call zobaczyłby o 3 nad ranem: alert? zgłoszenie ze stack trace i użytkownikiem/trasą/encją? wiersz logu, którego musiałby już wiedzieć, aby go wyszukać? nic?
+- **Łagodne pogorszenie działania potrzebuje własnego sygnału.** Fallbacki, które nie blokują użytkowników, są dobre. Fallbacki, które jednocześnie usuwają jedyny znak awarii, są ustaleniami.
+- **Prywatność jest ograniczeniem, a nie wymówką.** Zalecaj poprawki, które zachowują działanie czyszczenia danych (hash lub id zamiast email, zachowaj nazwy/kody błędów i stack traces, odrzucaj tylko wartości). Nigdy nie zalecaj wysyłania PII.
+- **Sformułowania niezależne od stosu.** Opisuj mechanizmy („trasa rezygnuje z wrappera raportowania”), a następnie konkretne lokalne API. Taksonomia działa dla każdego języka lub frameworka.

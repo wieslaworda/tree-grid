@@ -7,141 +7,140 @@ description: >
   for feedback. Also trigger when user finishes /10x-plan and wants validation
   before starting /10x-implement.
 ---
+# Przegląd planu
 
-# Plan Review
+Wychwyć problemy merytoryczne w planie implementacji, zanim powstanie choć jedna linia kodu. Wadliwy plan kosztuje godziny — wadliwy przegląd kosztuje minuty.
 
-Catch substance problems in an implementation plan before a line of code is written. A flawed plan costs hours — a flawed review costs minutes.
+Podczas gdy `/10x-impl-review` pyta „czy zbudowaliśmy to, co zaplanowaliśmy?”, ten pyta „czy ten plan rzeczywiście zadziała?”.
 
-Where `/10x-impl-review` asks "did we build what we planned?", this asks "will this plan actually work?"
+Dwa tryby:
+- **Świeży przegląd**: analiza → ustalenia → interaktywny triage
+- **Wznowienie triage**: załaduj zapisany raport i przejdź do triage dla poszczególnych problemów
 
-Two modes:
-- **Fresh review**: analyze → findings → interactive triage
-- **Resume triage**: load a saved report and jump to per-issue triage
+## Rozwiązywanie danych wejściowych
 
-## Input resolution
+1. Argument wskazuje zapisany plik przeglądu (zawiera `<!-- PLAN-REVIEW-REPORT -->`) → **wznowienie triage** (przejdź do Kroku 6)
+2. Argument to `<change-id>`, a `context/changes/<change-id>/plan.md` istnieje → przeglądaj ten plan
+3. Podano ścieżkę planu (np. `@context/changes/<change-id>/plan.md`) → użyj jej
+4. Brak argumentu → wyświetl `context/changes/*/plan.md` (najnowsze według `change.md.updated`) przez AskUserQuestion
+5. Flaga `--quick` → tryb tylko dokumentu (pomiń Krok 3)
 
-1. Argument points to a saved review file (contains `<!-- PLAN-REVIEW-REPORT -->`) → **resume triage** (skip to Step 6)
-2. Argument is a `<change-id>` and `context/changes/<change-id>/plan.md` exists → review that plan
-3. Plan path provided (e.g. `@context/changes/<change-id>/plan.md`) → use it
-4. No argument → list `context/changes/*/plan.md` (newest by `change.md.updated`) via AskUserQuestion
-5. `--quick` flag → document-only mode (skip Step 3)
+Jeśli rozwiązana ścieżka planu zaczyna się od `context/archive/`, odmów zapisania przeglądu: wypisz „Ta zmiana jest zarchiwizowana. Przeglądy nie są dopisywane do zarchiwizowanych planów.” i ZATRZYMAJ się.
 
-If the resolved plan path starts with `context/archive/`, refuse to write a review: print "This change is archived. Reviews are not appended to archived plans." and STOP.
+## Krok 1: Wczytanie i skan spójności wewnętrznej
 
-## Step 1: Load and internal consistency scan
+Przeczytaj cały plik planu. Przeczytaj także sąsiedni `plan-brief.md` w tym samym folderze zmiany, jeśli istnieje. Przeczytaj `context/foundation/lessons.md`, jeśli istnieje, i używaj zaakceptowanych reguł jako wcześniejszych przesłanek podczas skanowania pod kątem problemów merytorycznych / wykonalności / łamania kontraktów — ustalenie, które powtarza znaną, cykliczną regułę, powinno mieć większą, a nie mniejszą wagę. Wyodrębnij:
+- **Pożądany stan końcowy** i **Kryteria sukcesu**
+- **Analizę stanu obecnego** — udokumentowane ograniczenia i pułapki
+- **Granice zakresu** — „Czego NIE Robimy”
+- **Fazy** — ścieżki plików, zmiany, zależności
+- **Decyzje** i **założenia** (jawne i ukryte) — odnotuj dla siebie każdy termin rankingowy lub selekcyjny, na którym opiera się plan („top N”, „latest”, „active”, „duplicate”), którego przypadek remisu nigdy nie zostaje w planie rozstrzygnięty; zasila to poniższe Martwe punkty
+- **Sekcję postępu** — kanoniczny blok `## Progress` na końcu planu (zobacz `references/progress-format.md`)
 
-Read the plan file fully. Also read the sibling `plan-brief.md` in the same change folder if it exists. Read `context/foundation/lessons.md` if present and use accepted rules as priors when scanning for substance / feasibility / contract-break issues — a finding that restates a known recurring rule should weigh more, not less. Extract:
-- **Desired End State** and **Success Criteria**
-- **Current State Analysis** — documented constraints and gotchas
-- **Scope boundaries** — "What We're NOT Doing"
-- **Phases** — file paths, changes, dependencies
-- **Decisions** and **assumptions** (explicit and implicit) — note for yourself any ranking or selection term the plan relies on ("top N", "latest", "active", "duplicate") whose tie case the plan never decides; it feeds Blind Spots below
-- **Progress section** — the canonical `## Progress` block at the bottom of the plan (see `references/progress-format.md`)
+Przed jakąkolwiek weryfikacją kodu sprawdź plan względem niego samego. Te trzy skany często wykrywają problemy o najwyższej wartości — problemy, które autor planu odkrył, ale których nie doprowadził w pełni do końca:
 
-Before any code verification, check the plan against itself. These three scans often catch the highest-value issues — problems the plan author discovered but didn't fully follow through on:
+- **Sprzeczność**: czy Analiza stanu obecnego dokumentuje ograniczenie, które implementacja ignoruje? (np. „npm doesn't run preuninstall for deps”, a fazy mimo to na tym polegają) Czy elementy z „Czego NIE Robimy” pojawiają się ponownie w fazach? Czy faza zakłada zachowanie, które gdzie indziej uznano za wadliwe?
+- **Luka w obietnicy**: każda funkcjonalność obiecana w Pożądanym stanie końcowym / Kryteriach sukcesu / Notatkach migracyjnych powinna mieć wspierającą ją fazę. Jeśli kryteria sukcesu mówią „rate limiting works”, ale żadna faza go nie buduje, implementator napotka lukę w trakcie budowy.
+- **Łamanie kontraktów** (gdy plan definiuje lub wykorzystuje endpointy API): prześledź przepływ danych między endpointami — jeśli krok B potrzebuje tokena/ID z kroku A, czy odpowiedź A go zawiera? Oznacz nierozstrzygnięte decyzje projektowe, które implementator musiałby zgadywać (który endpoint, która metoda auth, który storage dla stanu rate-limit).
+- **Dotknięte powierzchnie kontraktowe**: jeśli w projekcie istnieje `docs/reference/contract-surfaces.md`, przeczytaj go i wyodrębnij listę nagłówków H2 jako nazwy powierzchni. Uruchom `grep -F` względem tekstu planu z jednym `-e <surface name>` na nagłówek. Dla każdego trafienia przeczytaj odpowiednią sekcję H2 pliku `contract-surfaces.md` i sprawdź, czy (a) plan dokładnie opisuje obecny kształt powierzchni oraz (b) każda zmiana nazwy lub schematu jest oznaczona jako łamiąca z historią migracji dla konsumentów downstream. Jeśli plik nie istnieje, pomiń to sprawdzenie bez komunikatu — jest to konwencja opt-in, automatycznie inicjowana przy pierwszym użyciu przez `/10x-contract` lub gałąź triage `/10x-impl-review`. Lista grep wyprowadzona z H2 oznacza: gdy konsument doda nową powierzchnię do swojego pliku, następny przegląd planu automatycznie ją wykryje — nie jest potrzebna edycja SKILL.md.
+- **Spójność Postęp↔Faza** (kontrakt mechaniczny — zobacz `references/progress-format.md`):
+  - Dokładnie jeden nagłówek `## Progress` na końcu plan.md.
+  - Każde `## Phase N: <name>` lub `## Faza N: <name>` w treści planu ma pasujące `### Phase N: <name>` w Progress, dopasowane według numeru fazy. Zachowaj język opisowego nagłówka; samo `Faza` zamiast `Phase` nie jest ustaleniem CRITICAL ani żadną wadą spójności.
+  - Każdy punkt Kryteriów sukcesu (pod `#### Automated Verification:` / `#### Manual Verification:`) w bloku Fazy ma pasujące `- [ ] N.M <title>` (lub `- [x]`) w odpowiadającej podsekcji Progress.
+  - Bloki Faz zawierają wyłącznie zwykłe punkty `- ` — bez `- [ ]` ani `- [x]` poza sekcją Progress.
+  Traktuj każdy z tych przypadków jako ustalenie CRITICAL w obszarze Kompletności planu — `/10x-implement` nie zdoła sparsować nieprawidłowej sekcji Progress.
 
-- **Contradiction**: does Current State Analysis document a limitation the implementation ignores? (e.g., "npm doesn't run preuninstall for deps" yet phases rely on it) Do items from "What We're NOT Doing" reappear in phases? Does a phase assume a behavior elsewhere acknowledged as broken?
-- **Promise gap**: every capability promised in Desired End State / Success Criteria / Migration Notes should have a backing phase. If success criteria say "rate limiting works" but no phase builds it, the implementer hits a gap mid-build.
-- **Contract breaks** (when the plan defines or uses API endpoints): trace data flow across endpoints — if step B needs a token/ID from step A, does A's response include it? Flag unresolved design decisions the implementer would have to guess at (which endpoint, which auth method, which storage for rate-limit state).
-- **Contract surfaces touched**: if `docs/reference/contract-surfaces.md` exists in the project, read it and extract the list of H2 headings as surface names. Run `grep -F` against the plan text with one `-e <surface name>` per heading. For each hit, read the relevant H2 section of `contract-surfaces.md` and verify (a) the plan accurately reports the current shape of the surface, and (b) any rename or schema change is flagged as breaking with a migration story for downstream consumers. If the file does not exist, skip this check silently — it's an opt-in convention self-bootstrapped on first use by `/10x-contract` or `/10x-impl-review`'s triage branch. The H2-derived grep list means: when a consumer adds a new surface to their file, the next plan-review picks it up automatically — no SKILL.md edit needed.
-- **Progress↔Phase consistency** (mechanical contract — see `references/progress-format.md`):
-  - Exactly one `## Progress` heading at the bottom of plan.md.
-  - Each `## Phase N: <name>` or `## Faza N: <name>` in the plan body has a matching `### Phase N: <name>` in Progress, matched by phase number. Preserve the descriptive heading language; `Faza` versus `Phase` alone is not a CRITICAL finding or any consistency defect.
-  - Every Success Criteria bullet (under `#### Automated Verification:` / `#### Manual Verification:`) in a Phase block has a matching `- [ ] N.M <title>` (or `- [x]`) in the corresponding Progress subsection.
-  - Phase blocks contain plain `- ` bullets only — no `- [ ]` or `- [x]` outside the Progress section.
-  Treat any of these as a CRITICAL finding under Plan Completeness — `/10x-implement` will fail to parse a malformed Progress section.
+## Krok 2: Ugruntowanie
 
-## Step 2: Grounding
+Szybko, bez sub-agentów:
+- **Ścieżki**: `ls -l` dla ≥5 ścieżek plików, które plan deklaruje zmodyfikować. Nieistniejące ścieżki są krytyczne.
+- **Symbole**: grep dla konkretnych funkcji/kluczy konfiguracji, do których odwołuje się plan.
+- **Spójność brief↔plan**: czy fazy, decyzje i zakres się zgadzają?
 
-Quick, no sub-agents:
-- **Paths**: `ls -l` on ≥5 file paths the plan claims to modify. Non-existent paths are critical.
-- **Symbols**: grep for specific functions/config keys the plan references.
-- **Brief↔plan consistency**: phases, decisions, scope match?
+Raportuj inline: `Grounding: 5/5 paths ✓, 3/3 symbols ✓, brief↔plan ✓`. Eskaluj do ustalenia tylko w przypadku niepowodzenia.
 
-Report inline: `Grounding: 5/5 paths ✓, 3/3 symbols ✓, brief↔plan ✓`. Only escalate to a finding on failure.
+## Krok 3: Weryfikacja codebase (tylko tryb głęboki)
 
-## Step 3: Codebase verification (deep mode only)
+Pomiń, jeśli `--quick`.
 
-Skip if `--quick`.
+Na podstawie Kroków 1–2 zidentyfikuj **3–5 najbardziej ryzykownych twierdzeń** w planie — rzeczy, które, jeśli okażą się błędne, wymuszą znaczące przeróbki. Uruchom **jednego** sub-agenta (`subagent_type: "general-purpose"`) z trzema połączonymi zadaniami:
 
-From Steps 1–2, identify the **3–5 riskiest claims** in the plan — things that, if wrong, force significant rework. Launch **one** sub-agent (`subagent_type: "general-purpose"`) with three combined tasks:
+1. **Zweryfikuj najbardziej ryzykowne twierdzenia** względem rzeczywistego kodu. Dla każdego: co pokazuje kod, czy potwierdza czy zaprzecza planowi, wraz z dowodem file:line.
+2. **Przegląd promienia rażenia**: dla funkcji, stałych lub endpointów, które modyfikuje plan, przeszukaj codebase pod kątem innych wywołujących/importujących niewymienionych w planie. To pliki, o których plan nie wie, że je dotyka.
+3. **Sprawdzenie wzorca** (tylko jeśli plan wprowadza nowe wzorce): czy istniejące pliki w dotkniętych obszarach już to rozwiązują? Rozrost wzorców jest częstym ustaleniem.
 
-1. **Verify the riskiest claims** against the actual code. For each: what does the code show, does it confirm or contradict the plan, with file:line evidence.
-2. **Blast-radius sweep**: for functions, constants, or endpoints the plan modifies, grep the codebase for other callers/importers not mentioned in the plan. These are files the plan doesn't know it's affecting.
-3. **Pattern check** (only if plan introduces new patterns): do existing files in the touched areas already solve this? Pattern proliferation is a common finding.
+Daj sub-agentowi ukierunkowane pytania z istotnymi ścieżkami plików — nie wrzucaj całego planu. Skupiony prompt znajduje więcej niż szerokie przeszukanie, ponieważ agent wie, czego szukać.
 
-Give the sub-agent targeted questions with relevant file paths — don't dump the full plan. A focused prompt finds more than a broad sweep because the agent knows what to look for.
+## Krok 4: Analiza merytoryczna
 
-## Step 4: Substance analysis
+Przeanalizuj plan względem pięciu wymiarów. Twórz ustalenia tylko dla rzeczywistych problemów — nie wypełniaj raportu komunikatami „nie znaleziono problemów”.
 
-Analyze the plan against five dimensions. Only produce findings for real issues — don't pad with "no issues found".
+### Zgodność ze stanem końcowym
+Przechodząc kolejno przez fazy, czy system osiąga zadeklarowany stan końcowy? Czy wszystkie kryteria sukcesu mogłyby przejść, podczas gdy cel nadal pozostałby niespełniony? Czy istnieje jakaś luka „ostatniej mili”, w której plan wykonuje 90% i zatrzymuje się tuż przed końcem?
 
-### End-State Alignment
-Walking phases sequentially, does the system reach the stated end state? Could all success criteria pass while the goal remains unmet? Any "last mile" gap where the plan does 90% and stops short?
+### Szczupła realizacja
+Dla każdej fazy: „gdybym to usunął, czy stan końcowy nadal byłby osiągalny?”. Wypatruj przedwczesnej abstrakcji, dodatków „skoro już tu jesteśmy”, frameworków tam, gdzie wystarczyłaby funkcja, sprzeczności zakresu (elementy „nie robimy” pojawiające się w fazach).
 
-### Lean Execution
-For each phase: "if I removed this, would the end state still be achievable?" Watch for premature abstraction, "while we're here" additions, framework-where-a-function-would-do, scope contradictions ("not doing" items appearing in phases).
+### Dopasowanie architektoniczne
+Czy pasuje to do istniejącego systemu? Nowe wzorce tam, gdzie zadziałałyby istniejące (rozrost wzorców). Czyste granice modułów i poprawny kierunek zależności. Zmiany o dużym promieniu rażenia — fazy dotykające wielu plików między modułami, zmiany współdzielonych narzędzi. Mgliste „refactor as needed” lub „update accordingly”, które wymkną się spod kontroli.
 
-### Architectural Fitness
-Does this fit the existing system? New patterns where existing ones would work (pattern proliferation). Clean module boundaries and correct dependency direction. High-blast-radius changes — phases touching many files across modules, changes to shared utilities. Vague "refactor as needed" or "update accordingly" that will spiral.
+### Martwe punkty
+Czego plan nie rozważa? Ścieżki błędów (opisano tylko szczęśliwą ścieżkę?), historia rollbacku (faza 3 kończy się niepowodzeniem — czy możemy cofnąć?), wpływ na zasoby/koszty (wywołania API, praca obliczeniowa — ile to kosztuje przy oczekiwanym użyciu?), zmiany wartości domyślnych (domyślna wartość, która potraja koszt lub czas, powinna być wskazana), luki w testowaniu, granice bezpieczeństwa. Granica pozostawiona przez plan kodowi: termin, którego używa, ale nigdy nie rozstrzyga w przypadku remisu (N-ty kontra N+1-ty przy równych wartościach, jednostka liczby, dokładny moment zmiany stanu) — oznacz ją, gdy jedyną odpowiedzią jest to, co implementacja robi dzisiaj.
 
-### Blind Spots
-What didn't the plan consider? Error paths (only happy path described?), rollback story (phase 3 fails — can we revert?), resource/cost impact (API calls, computational work — what does this cost at expected usage?), default value changes (a default that triples cost or time should be called out), testing gaps, security boundaries. A boundary the plan leaves to the code: a term it uses but never decides at the tie (the Nth vs N+1th on equal values, the unit of a count, the exact instant of a state change) — flag it when the only answer is whatever the implementation does today.
+### Kompletność planu
+Czy dokument jest wykonalny? Czy ścieżki plików są konkretne (a nie „somewhere in src/”)? Czy zmiany są na poziomie funkcji/metod? Czy kryteria sukcesu zawierają uruchamialne polecenia? Czy są TBD, TODO lub sekcje-zastępniki?
 
-### Plan Completeness
-Is the document actionable? File paths specific (not "somewhere in src/")? Changes at function/method level? Success criteria with runnable commands? TBDs, TODOs, or placeholder sections?
+## Krok 5: Zestaw ustaleń
 
-## Step 5: Compile findings
-
-Each finding has:
+Każde ustalenie zawiera:
 
 - **ID**: F1, F2, F3…
-- **Severity**: CRITICAL / WARNING / OBSERVATION (how bad if ignored)
-- **Impact**: LOW / MEDIUM / HIGH (how much focus the decision needs)
-- **Dimension**: one of End-State Alignment / Lean Execution / Architectural Fitness / Blind Spots / Plan Completeness
-- **Title**: one line
-- **Location**: plan section or phase
-- **Detail**: what's wrong with evidence — plan's claim vs. what's actually true, or what's missing
-- **Fix options**: 1 or 2 (see below)
+- **Severity**: CRITICAL / WARNING / OBSERVATION (jak poważne będzie zignorowanie)
+- **Impact**: LOW / MEDIUM / HIGH (ile skupienia wymaga decyzja)
+- **Dimension**: jeden z End-State Alignment / Lean Execution / Architectural Fitness / Blind Spots / Plan Completeness
+- **Title**: jedna linia
+- **Location**: sekcja lub faza planu
+- **Detail**: co jest nie tak wraz z dowodami — twierdzenie planu kontra stan faktyczny lub brakujący element
+- **Fix options**: 1 lub 2 (zobacz poniżej)
 
-### Impact
+### Wpływ
 
-Orthogonal to severity. A CRITICAL with LOW impact (obvious fix) is cheap to resolve; a WARNING with HIGH impact (unclear tradeoffs, wide blast) deserves careful thought.
+Niezależny od istotności. CRITICAL z LOW impact (oczywista poprawka) jest tani do rozwiązania; WARNING z HIGH impact (niejasne kompromisy, szeroki promień rażenia) zasługuje na staranne przemyślenie.
 
-| Impact | Meaning |
+| Wpływ | Znaczenie |
 |---|---|
-| 🏃 **LOW** | Quick decision. Fix is obvious and narrowly scoped. Safe to batch. |
-| 🔎 **MEDIUM** | Worth pausing. Real tradeoff or non-trivial edit — think before deciding. |
-| 🔬 **HIGH** | Architectural stakes. Wide blast radius, strategic implications, or unclear best path. |
+| 🏃 **LOW** | Szybka decyzja. Poprawka jest oczywista i wąsko ograniczona. Bezpieczne do grupowania. |
+| 🔎 **MEDIUM** | Warto się zatrzymać. Istnieje rzeczywisty kompromis lub nietrywialna edycja — pomyśl przed decyzją. |
+| 🔬 **HIGH** | Stawka architektoniczna. Szeroki promień rażenia, implikacje strategiczne lub niejasna najlepsza ścieżka. |
 
-### Fix options
+### Opcje poprawy
 
-Default to **one** fix. Only present two when there's a genuine tradeoff a smart reviewer would want to weigh — not every finding has alternatives worth manufacturing.
+Domyślnie stosuj **jedną** poprawkę. Przedstawiaj dwie tylko wtedy, gdy istnieje rzeczywisty kompromis, który inteligentny recenzent chciałby rozważyć — nie każde ustalenie ma alternatywy warte sztucznego tworzenia.
 
-**When to offer two fixes**: when approach A and approach B each have a real upside the other lacks (e.g., "minimal edit that patches the symptom" vs. "refactor that removes the class of problem"). If you find yourself inventing a weak second option to satisfy a template, don't — present one fix and move on.
+**Kiedy oferować dwie poprawki**: gdy podejście A i podejście B mają rzeczywistą zaletę, której drugie nie ma (np. „minimalna edycja łatająca objaw” kontra „refaktoryzacja usuwająca klasę problemu”). Jeśli przyłapiesz się na wymyślaniu słabej drugiej opcji, aby spełnić szablon, nie rób tego — przedstaw jedną poprawkę i przejdź dalej.
 
-**LOW-impact findings**: skip the decomposition — just `Fix: [one line]`. Noise isn't helpful when the answer is obvious.
+**Ustalenia o LOW-impact**: pomiń dekompozycję — po prostu `Fix: [one line]`. Szum nie pomaga, gdy odpowiedź jest oczywista.
 
-**MEDIUM/HIGH-impact findings**: each option gets:
+**Ustalenia o MEDIUM/HIGH-impact**: każda opcja otrzymuje:
 ```
 [1-sentence approach] · Strength: [advantage, ideally grounded in plan/codebase evidence] · Tradeoff: [cost or risk] · Confidence: HIGH|MED|LOW — [1-line why] · Blind spot: [what we haven't verified, or "None significant"]
 ```
 
-When offering two options, mark exactly one `⭐ Recommended`.
+Gdy oferujesz dwie opcje, oznacz dokładnie jedną jako `⭐ Recommended`.
 
-### Dimension verdicts and overall verdict
+### Werdykty wymiarów i werdykt ogólny
 
-Each dimension: **PASS** / **WARNING** / **FAIL**.
+Każdy wymiar: **PASS** / **WARNING** / **FAIL**.
 
-- **SOUND** — safe to implement. All PASS, or PASS with minor warnings.
-- **REVISE** — needs targeted fixes. Multiple warnings or 1 non-critical FAIL.
-- **RETHINK** — fundamental problems. Multiple FAILs or wrong approach.
+- **SOUND** — bezpieczny do implementacji. Wszystkie PASS albo PASS z drobnymi ostrzeżeniami.
+- **REVISE** — wymaga ukierunkowanych poprawek. Wiele ostrzeżeń lub 1 niekrytyczny FAIL.
+- **RETHINK** — fundamentalne problemy. Wiele FAIL lub błędne podejście.
 
-Sort findings by severity: CRITICAL → WARNING → OBSERVATION. Cap at 10 — consolidate related findings if you have more.
+Sortuj ustalenia według istotności: CRITICAL → WARNING → OBSERVATION. Ogranicz do 10 — scal powiązane ustalenia, jeśli jest ich więcej.
 
-## Step 6: Present report and offer save
+## Krok 6: Przedstaw raport i zaproponuj zapis
 
-Plain text, box-drawing. Findings grouped by severity; omit empty groups. PASS dimensions appear only in the verdicts table, never as findings.
+Zwykły tekst, znaki ramek. Ustalenia pogrupowane według istotności; pomiń puste grupy. Wymiary PASS pojawiają się wyłącznie w tabeli werdyktów, nigdy jako ustalenia.
 
 ```
 ═══════════════════════════════════════════════════════════
@@ -231,14 +230,14 @@ Plain text, box-drawing. Findings grouped by severity; omit empty groups. PASS d
 ═══════════════════════════════════════════════════════════
 ```
 
-### Formatting rules for the report
+### Zasady formatowania raportu
 
-- The **finding title line** holds only the ID and the short title — nothing else. Everything else goes below as labeled fields so each row is short and scannable.
-- **Always pair icons with a word.** Never use a bare icon as the only signal — `❌ CRITICAL`, not just `❌`. This keeps the report readable when skimming and doesn't force the user to memorize what each icon means.
-- **Impact always carries its one-line meaning** (copy from the Impact table — "architectural stakes; think carefully before deciding" / "real tradeoff; pause to reason through it" / "quick decision; fix is obvious and narrowly scoped"). This makes LOW/MEDIUM/HIGH self-explanatory at the point of use instead of relying on the user to remember the table.
-- Severity, Impact, Dimension, Location are each on their own line with aligned labels. Detail starts on its own line under a `Detail:` label so it can wrap naturally.
+- Linia **tytułu ustalenia** zawiera tylko ID i krótki tytuł — nic więcej. Wszystko pozostałe trafia poniżej jako oznaczone pola, aby każdy wiersz był krótki i łatwy do przeskanowania.
+- **Zawsze łącz ikony ze słowem.** Nigdy nie używaj samej ikony jako jedynego sygnału — `❌ CRITICAL`, a nie samo `❌`. Dzięki temu raport pozostaje czytelny podczas przeglądania i nie wymaga od użytkownika zapamiętywania znaczenia każdej ikony.
+- **Impact zawsze zawiera jednolinijkowe znaczenie** (skopiuj z tabeli Impact — „architectural stakes; think carefully before deciding” / „real tradeoff; pause to reason through it” / „quick decision; fix is obvious and narrowly scoped”). Dzięki temu LOW/MEDIUM/HIGH są zrozumiałe w miejscu użycia zamiast polegać na tym, że użytkownik pamięta tabelę.
+- Severity, Impact, Dimension, Location są każde w osobnej linii z wyrównanymi etykietami. Detail zaczyna się w osobnej linii pod etykietą `Detail:`, aby mógł naturalnie się zawijać.
 
-Then ask:
+Następnie zapytaj:
 
 ```
 question: "Plan review complete. How would you like to proceed?"
@@ -253,9 +252,9 @@ options:
 multiSelect: false
 ```
 
-### Saving the report
+### Zapisywanie raportu
 
-Save to `context/changes/<change-id>/reviews/plan-review.md` (one plan-review per change folder; rerunning overwrites). Update `change.md`: `status: plan_reviewed`, `updated: <today>`.
+Zapisz do `context/changes/<change-id>/reviews/plan-review.md` (jeden plan-review na folder zmiany; ponowne uruchomienie nadpisuje). Zaktualizuj `change.md`: `status: plan_reviewed`, `updated: <today>`.
 
 ```markdown
 <!-- PLAN-REVIEW-REPORT -->
@@ -312,22 +311,22 @@ Save to `context/changes/<change-id>/reviews/plan-review.md` (one plan-review pe
 - **Decision**: PENDING
 ```
 
-The `<!-- PLAN-REVIEW-REPORT -->` marker and `Decision: PENDING` fields enable resume mode.
+Znacznik `<!-- PLAN-REVIEW-REPORT -->` oraz pola `Decision: PENDING` umożliwiają tryb wznowienia.
 
-"Save & triage later" → save, print the path, remind them to run `/10x-plan-review <saved-report-path>`.
-"Triage" → proceed to Step 7.
+„Save & triage later” → zapisz, wypisz ścieżkę, przypomnij o uruchomieniu `/10x-plan-review <saved-report-path>`.
+„Triage” → przejdź do Kroku 7.
 
-## Step 7: Interactive triage
+## Krok 7: Interaktywny triage
 
-### Resume mode
+### Tryb wznowienia
 
-If entered via saved file: read it, parse `### F` headers, filter to `Decision: PENDING`. If none, say "All findings triaged" and stop.
+Jeśli uruchomiono przez zapisany plik: przeczytaj go, sparsuj nagłówki `### F`, przefiltruj do `Decision: PENDING`. Jeśli nie ma żadnych, powiedz „Wszystkie ustalenia zostały przeanalizowane” i zatrzymaj się.
 
-### Triage loop
+### Pętla triage
 
-Walk findings in severity order (CRITICAL → WARNING → OBSERVATION). For each:
+Przechodź przez ustalenia w kolejności istotności (CRITICAL → WARNING → OBSERVATION). Dla każdego:
 
-**With 2 fix options:**
+**Z 2 opcjami poprawy:**
 ```
 question: "F[N] — [title]\n\nSeverity: [sev icon] [SEV]\nImpact: [impact icon] [LEVEL] — [meaning]\nDimension: [dim]\nLocation: [loc]\n\nDetail: [detail]\n\n[Fix A block]\n\n[Fix B block]"
 header: "Finding [current] of [total remaining]"
@@ -347,16 +346,16 @@ options:
 multiSelect: false
 ```
 
-**With 1 fix option:** same options, but replace "Apply Fix A/B" with a single "Fix in plan".
+**Z 1 opcją poprawy:** te same opcje, ale zastąp „Apply Fix A/B” pojedynczym „Fix in plan”.
 
-**Handling responses:**
-- **Apply Fix A/B / Fix in plan**: show the exact plan edit (before/after). Brief confirmation, then apply. Mark FIXED (record which fix, e.g. "Fixed via Fix A").
-- **Fix differently**: ask the preferred approach, apply, mark FIXED.
-- **Skip** → SKIPPED. **Accept risk** → ACCEPTED. **Disagree** → DISMISSED. Move on, don't argue.
+**Obsługa odpowiedzi:**
+- **Apply Fix A/B / Fix in plan**: pokaż dokładną edycję planu (przed/po). Krótkie potwierdzenie, następnie zastosuj. Oznacz jako FIXED (zapisz, której poprawki użyto, np. „Fixed via Fix A”).
+- **Fix differently**: zapytaj o preferowane podejście, zastosuj je, oznacz jako FIXED.
+- **Skip** → SKIPPED. **Accept risk** → ACCEPTED. **Disagree** → DISMISSED. Przejdź dalej, nie dyskutuj.
 
-After each decision, if working from a saved file, update its `Decision:` field.
+Po każdej decyzji, jeśli pracujesz z zapisanym plikiem, zaktualizuj jego pole `Decision:`.
 
-### Summary
+### Podsumowanie
 
 ```
 ═══════════════════════════════════════════════════════════
@@ -372,13 +371,13 @@ After each decision, if working from a saved file, update its `Decision:` field.
 ═══════════════════════════════════════════════════════════
 ```
 
-## Notes
+## Uwagi
 
-- This is a **review** skill. Analyze and report — don't rewrite the plan unless asked during triage.
-- Be specific. "Phase 3 introduces a second event system alongside the existing EventBus in `src/core/events.ts`" — not "architecture might have issues".
-- Distinguish "won't work" (FAIL) from "could be better" (WARNING).
-- If the plan is genuinely good, say so briefly and stop. Don't manufacture findings.
-- Impact is about *decision effort*, not *severity*. LOW impact on a CRITICAL finding means the fix is obvious; HIGH impact on a WARNING means the tradeoff is real.
-- Two fix options only when there's a genuine tradeoff. Don't invent alternatives for trivial fixes.
-- During triage, keep momentum. User already read the report — present the finding, take the decision, move on.
-- When applying a fix to the plan, make minimal targeted edits. Don't restructure the whole plan for one finding.
+- To umiejętność **review**. Analizuj i raportuj — nie przepisuj planu, chyba że zostaniesz o to poproszony podczas triage.
+- Bądź konkretny. „Phase 3 introduces a second event system alongside the existing EventBus in `src/core/events.ts`” — nie „architecture might have issues”.
+- Odróżniaj „nie zadziała” (FAIL) od „mogłoby być lepsze” (WARNING).
+- Jeśli plan jest rzeczywiście dobry, powiedz to krótko i zakończ. Nie twórz sztucznych ustaleń.
+- Impact dotyczy *wysiłku decyzyjnego*, a nie *istotności*. LOW impact przy ustaleniu CRITICAL oznacza, że poprawka jest oczywista; HIGH impact przy WARNING oznacza, że kompromis jest rzeczywisty.
+- Dwie opcje poprawy tylko wtedy, gdy istnieje rzeczywisty kompromis. Nie wymyślaj alternatyw dla trywialnych poprawek.
+- Podczas triage utrzymuj tempo. Użytkownik już przeczytał raport — przedstaw ustalenie, przyjmij decyzję, przejdź dalej.
+- Podczas stosowania poprawki do planu wprowadzaj minimalne, ukierunkowane edycje. Nie restrukturyzuj całego planu dla jednego ustalenia.

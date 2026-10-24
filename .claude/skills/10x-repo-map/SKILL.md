@@ -25,128 +25,127 @@ allowed-tools:
   - Task
   - AskUserQuestion
 ---
+# Mapa projektu: gdzie kryje się biznes i gdzie boli
 
-# Project Map: where the business lives and where it hurts
+Przygotuj jeden raport, `context/map/repo-map.md`, który odpowiada na pytania dotyczące repozytorium,
+którego nikt ci nie wyjaśnił: **co robi ten produkt, które z jego
+możliwości mają największe znaczenie, gdzie jest największy szum — zmiany, poprawki, wycofania,
+dyskusje — i gdzie muszę zachować ostrożność przed większą zmianą?**
 
-Produce one report, `context/map/repo-map.md`, that answers for a repository
-nobody explained to you: **what does this product do, which of its
-capabilities matter most, where is the most buzz — change, fixes, reverts,
-discussion — and where must I be careful before a bigger change?**
+Metoda to **Wide Scan**: nigdy nie czytaj repozytorium; pozwól tanim,
+deterministycznym narzędziom (historii git, forge, grafowi zależności) zbierać
+dowody poza oknem kontekstu, a interpretuj tylko ich skondensowane
+wyniki. Jednostką analizy jest **możliwość biznesowa**, a nie folder.
+Foldery i importy wyjaśniają problemy możliwości; nie określają ich rangi.
 
-The method is a **Wide Scan**: never read the repository; let cheap,
-deterministic tools (git history, the forge, a dependency graph) collect
-evidence outside the context window, and interpret only their condensed
-output. The unit of analysis is a **business capability**, not a folder.
-Folders and imports explain a capability's problems; they do not rank them.
+**Szerokość, nie głębokość — mapa nie ma celu.** Służy do szybkiego
+zapoznania się z całym repozytorium (lub poddrzewem `--root`): dla nowego członka zespołu,
+osoby wracającej po długiej przerwie, zespołu przejmującego repozytorium. Umiejętność
+samodzielnie odkrywa możliwości; nie przyjmuje funkcji, modułu ani pytania, na którym
+miałaby się skupić, i nigdy nie zawęża skanowania. Jej strefy ryzyka i niewiadome wskazują,
+gdzie powinna rozpocząć się głębsza, ukierunkowana analiza.
 
-**Breadth, not depth — the map takes no target.** It is for getting up to
-speed in a whole repository (or the `--root` subtree): a new team member,
-someone back after a long break, a team inheriting a repo. The skill
-discovers the capabilities itself; it takes no feature, module or question to
-focus on and never narrows the scan. Its risk zones and unknowns are where a
-deeper, focused investigation should start.
+## Wyniki
 
-## Outputs
-
-| Path                                   | What                                                                               |
+| Ścieżka | Co |
 | -------------------------------------- | ---------------------------------------------------------------------------------- |
-| `context/map/repo-map.md`              | **The report** — the only file meant to be read by people and by later work       |
-| `context/map/evidence/1-history.md`    | Change activity, fix pressure and co-change per capability                         |
-| `context/map/evidence/2-discussion.md` | PRs, reviews, reverts, issues, planning artifacts and debt markers per capability  |
-| `context/map/evidence/3-structure.md`  | Dependency graph between and inside capabilities: blast radius, cycles, boundaries |
-| `context/map/evidence/4-people.md`     | Who carries each capability, against the team-size baseline                        |
-| `context/archive/<stamp>-repo-map/`    | Earlier report and its evidence, moved here on replace                             |
-| `context/map/.work/`                   | Disposable intermediate data, git-ignored by its own `.gitignore`                  |
+| `context/map/repo-map.md` | **Raport** — jedyny plik przeznaczony do czytania przez ludzi i późniejsze prace |
+| `context/map/evidence/1-history.md` | Aktywność zmian, presja poprawek i współzmiany według możliwości |
+| `context/map/evidence/2-discussion.md` | PR-y, przeglądy, wycofania, zgłoszenia, artefakty planowania i znaczniki długu według możliwości |
+| `context/map/evidence/3-structure.md` | Graf zależności między możliwościami i wewnątrz nich: promień rażenia, cykle, granice |
+| `context/map/evidence/4-people.md` | Kto odpowiada za każdą możliwość, na tle bazowej wielkości zespołu |
+| `context/archive/<stamp>-repo-map/` | Wcześniejszy raport i jego dowody, przeniesione tutaj przy zastąpieniu |
+| `context/map/.work/` | Jednorazowe dane pośrednie, ignorowane przez git za pomocą własnego `.gitignore` |
 
-## 1. Preflight
+## 1. Przygotowanie
 
-- Confirm a git repository. Note the first commit date: when history is
-  shorter than the window (default `12 months ago`, `--since` to change), the
-  whole history is the window. A shallow clone gets a warning —
-  history-based evidence will be partial.
-- If `context/map/repo-map.md` exists in the working tree: with `--replace`,
-  or when there is nobody to ask (an orchestrated or CI run), move it and
-  `context/map/evidence/` to `context/archive/<stamp>-repo-map/` — `<stamp>`
-  is the report's `generated` date as `YYYY-MM-DD`, with `-2`, `-3` … when
-  that folder exists — and continue; otherwise ask once whether to replace
-  it. That is the only question.
-- Report language: `--lang`, else the language of the user's request, else
-  English.
-- `mkdir -p context/map/evidence context/map/.work`, and write
-  `context/map/.work/.gitignore` containing `*` so raw data never gets
-  committed. Scaffold nothing else.
-- Run every git command with `-c core.quotepath=off`, and list files with
-  `git ls-files` — never `find` — so worktrees, caches and ignored files stay
-  out.
-- Check once whether the GitHub CLI is usable for this repo
-  (`gh repo view --json nameWithOwner` succeeds). Record the answer; the
-  discussion agent adapts.
+- Potwierdź repozytorium git. Zanotuj datę pierwszego commitu: gdy historia jest
+  krótsza niż okno (domyślnie `12 months ago`, zmień za pomocą `--since`),
+  całkowita historia stanowi okno. Płytki klon otrzymuje ostrzeżenie —
+  dowody oparte na historii będą częściowe.
+- Jeśli `context/map/repo-map.md` istnieje w drzewie roboczym: z `--replace`,
+  lub gdy nie ma nikogo, kogo można zapytać (uruchomienie zorkiestrowane lub CI), przenieś go oraz
+  `context/map/evidence/` do `context/archive/<stamp>-repo-map/` — `<stamp>`
+  to data `generated` raportu jako `YYYY-MM-DD`, z `-2`, `-3` … gdy
+  taki folder istnieje — i kontynuuj; w przeciwnym razie zapytaj raz, czy go zastąpić.
+  To jedyne pytanie.
+- Język raportu: `--lang`, w przeciwnym razie język żądania użytkownika, a jeśli go nie ma —
+  angielski.
+- `mkdir -p context/map/evidence context/map/.work`, a następnie zapisz
+  `context/map/.work/.gitignore` zawierający `*`, aby surowe dane nigdy nie zostały
+  zacommitowane. Nie twórz niczego więcej.
+- Uruchamiaj każde polecenie git z `-c core.quotepath=off` i wyświetlaj pliki za pomocą
+  `git ls-files` — nigdy `find` — aby worktree, pamięci podręczne i ignorowane pliki pozostały
+  pominięte.
+- Sprawdź raz, czy GitHub CLI nadaje się do użycia dla tego repozytorium
+  (`gh repo view --json nameWithOwner` kończy się powodzeniem). Zapisz odpowiedź; agent
+  dyskusji dostosuje się.
 
-## 2. Scan contract and capability inventory (main agent)
+## 2. Kontrakt skanowania i inwentarz możliwości (główny agent)
 
-Build the shared ground truth every sub-agent uses, following
-[references/scan-contract.md](references/scan-contract.md): window, buckets,
-module roots, the noise filter, excluded commits and the counting rules — and
-the **capability inventory** from
+Zbuduj wspólną prawdę bazową, z której korzysta każdy podagent, zgodnie z
+[references/scan-contract.md](references/scan-contract.md): okno, koszyki,
+korzenie modułów, filtr szumu, wykluczone commity i zasady liczenia — oraz
+**inwentarz możliwości** z
 [references/capability-inventory.md](references/capability-inventory.md),
-the backbone of the whole report. Write `context/map/.work/scan-contract.md`
-and `context/map/.work/capabilities.tsv`.
+stanowiący kręgosłup całego raportu. Zapisz `context/map/.work/scan-contract.md`
+i `context/map/.work/capabilities.tsv`.
 
-Cheap commands only: git, file listings, `rg` over names and schema, the
-headings of the project's own README and docs. Do not read source files.
+Tylko tanie polecenia: git, listy plików, `rg` po nazwach i schemacie,
+nagłówki własnego README i dokumentacji projektu. Nie czytaj plików źródłowych.
 
-## 3. Dispatch four evidence sub-agents in parallel
+## 3. Wyślij równolegle czterech podagentów zbierających dowody
 
-Spawn all four in **one message**. Each prompt contains: the absolute path of
-this skill directory (`<loaded-skill-dir>` in the briefs), its brief path, the
-scan contract and capabilities paths, its output path, the false-signal list
-path, and the rules below. Tell each sub-agent to read its brief first.
+Uruchom wszystkich czterech w **jednej wiadomości**. Każdy prompt zawiera: bezwzględną ścieżkę
+do katalogu tej umiejętności (`<loaded-skill-dir>` w opisach), ścieżkę do jego opisu,
+ścieżki kontraktu skanowania i możliwości, ścieżkę wyjściową, ścieżkę do listy
+fałszywych sygnałów oraz poniższe zasady. Powiedz każdemu podagentowi, aby najpierw przeczytał swój opis.
 
-| Sub-agent  | Brief                                                            | Question                                               |
+| Podagent | Opis | Pytanie |
 | ---------- | ---------------------------------------------------------------- | ------------------------------------------------------ |
-| history    | [references/agent-history.md](references/agent-history.md)       | What changes, what gets fixed, what changes together?  |
-| discussion | [references/agent-discussion.md](references/agent-discussion.md) | Where do attention, friction and second attempts go?   |
-| structure  | [references/agent-structure.md](references/agent-structure.md)   | How far does a change reach; which boundaries break?   |
-| people     | [references/agent-people.md](references/agent-people.md)         | Who carries each capability?                           |
+| historia | [references/agent-history.md](references/agent-history.md) | Co się zmienia, co jest poprawiane, co zmienia się razem? |
+| dyskusja | [references/agent-discussion.md](references/agent-discussion.md) | Gdzie trafiają uwaga, tarcia i drugie próby? |
+| struktura | [references/agent-structure.md](references/agent-structure.md) | Jak daleko sięga zmiana; które granice się łamią? |
+| ludzie | [references/agent-people.md](references/agent-people.md) | Kto odpowiada za każdą możliwość? |
 
-In Claude Code dispatch with the `Agent` tool (`Task` in older versions),
-`subagent_type: "general-purpose"` — they need Bash and Write. In other hosts
-use the native equivalent. Without sub-agent support, run the four briefs
-sequentially yourself.
+W Claude Code uruchamiaj za pomocą narzędzia `Agent` (`Task` w starszych wersjach),
+`subagent_type: "general-purpose"` — potrzebują Bash i Write. W innych hostach
+użyj natywnego odpowiednika. Bez obsługi podagentów uruchom samodzielnie cztery opisy
+sekwencyjnie.
 
-Rules to pass to every sub-agent:
+Zasady do przekazania każdemu podagentowi:
 
-1. Evidence before interpretation. Every number, ranking or dependency comes
-   from a command run in this session. No exploratory reading of source files;
-   open a file only to confirm what a command pointed at.
-2. Attribute everything to capabilities through `capabilities.tsv` and the
-   counting rules in the scan contract; report unattributed volume instead of
-   hiding it. Never invent a private attribution or counting scheme.
-3. Apply [references/false-signals.md](references/false-signals.md) before
-   calling anything a risk; mark mechanical signals as such.
-4. Raw output stays in `context/map/.work/`; the evidence file holds condensed
-   tables. Label findings `evidence`, `inference` or `unknown`; a blind spot is
-   `unknown`, never "no dependencies".
-5. Read-only and **install nothing** — locally and on the forge. When a better
-   tool would need installing, use the fallback and recommend the tool under
-   Unknowns.
-6. Return to the main agent at most 15 lines: top findings per capability,
-   unknowns, coverage and confidence.
+1. Dowody przed interpretacją. Każda liczba, ranking lub zależność pochodzi
+   z polecenia uruchomionego w tej sesji. Bez eksploracyjnego czytania plików źródłowych;
+   otwieraj plik tylko po to, aby potwierdzić to, na co wskazało polecenie.
+2. Przypisuj wszystko do możliwości przez `capabilities.tsv` i
+   zasady liczenia w kontrakcie skanowania; raportuj nieprzypisaną objętość zamiast
+   ją ukrywać. Nigdy nie wymyślaj prywatnego schematu przypisywania lub liczenia.
+3. Zastosuj [references/false-signals.md](references/false-signals.md), zanim
+   nazwiesz cokolwiek ryzykiem; oznaczaj mechaniczne sygnały jako takie.
+4. Surowe dane pozostają w `context/map/.work/`; plik dowodów zawiera skondensowane
+   tabele. Oznaczaj ustalenia jako `evidence`, `inference` lub `unknown`; martwy punkt to
+   `unknown`, nigdy „no dependencies”.
+5. Tylko odczyt i **niczego nie instaluj** — lokalnie ani na forge. Gdy lepsze
+   narzędzie wymagałoby instalacji, użyj alternatywy i zarekomenduj narzędzie w sekcji
+   Niewiadome.
+6. Zwróć do głównego agenta maksymalnie 15 wierszy: najważniejsze ustalenia dla każdej możliwości,
+   niewiadome, pokrycie i pewność.
 
-Wait for all four. A failed or partial sub-agent is a stated gap in the
-report; retry once only if the failure was mechanical.
+Poczekaj na wszystkich czterech. Nieudany lub częściowy podagent stanowi wskazaną lukę w
+raporcie; ponów próbę tylko raz, jeśli awaria była mechaniczna.
 
-## 4. Synthesize the report
+## 4. Zsyntetyzuj raport
 
-Read the four evidence files and write `context/map/repo-map.md` following
-[references/report.md](references/report.md): rank capabilities by
-**criticality × buzz**, count only independent buzz signals, apply the
-false-signal list, and keep its seven sections.
+Przeczytaj cztery pliki dowodów i zapisz `context/map/repo-map.md` zgodnie z
+[references/report.md](references/report.md): uszereguj możliwości według
+**criticality × buzz**, licz tylko niezależne sygnały szumu, zastosuj
+listę fałszywych sygnałów i zachowaj jego siedem sekcji.
 
-## 5. Verify, then present
+## 5. Zweryfikuj, a następnie przedstaw
 
-Run the verification pass in
-[references/report.md](references/report.md#verification). Then present: the
-report path, the capability table, the risk zones, which evidence sources
-were available (git only, or git plus the forge), graph coverage per
-language, and the gaps. Stop there; the map does not start follow-up work.
+Uruchom etap weryfikacji opisany w
+[references/report.md](references/report.md#verification). Następnie przedstaw: ścieżkę do
+raportu, tabelę możliwości, strefy ryzyka, dostępne źródła dowodów
+(tylko git lub git plus forge), pokrycie grafu według języka oraz luki.
+Na tym zakończ; mapa nie rozpoczyna dalszych prac.

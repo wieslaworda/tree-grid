@@ -9,82 +9,81 @@ description: >
   "strategia jakości". Use AFTER /10x-prd and /10x-roadmap. Brownfield only.
 argument-hint: "[path ...] | --status | --refresh"
 ---
+# Plan testów 10x — Stanowy orkiestrator wdrażania etapowego
 
-# 10x Test Plan — Stateful Phased Rollout Orchestrator
-
-This skill writes and manages `context/foundation/test-plan.md` as a **phased rollout strategy**, then launches one rollout phase at a time into the 10x change/research/plan/implement chain. The guide starts as the *blueprint* of phases — each phase eventually opens its own `context/changes/<change-id>/` folder and fills in the cookbook sections (§6) as it ships. The skill is **stateful**: every invocation re-derives the current state by checking which artifacts exist, and resumes from the next pending rollout phase. It does **not** force a return to `/10x-test-plan` after every downstream stage. Once a rollout change is opened, the established process is research → plan → implement: after each major phase, suggest the next natural command unless there is a clear blocker, correction, or decision that belongs back in `/10x-test-plan`.
+Ta umiejętność zapisuje i zarządza `context/foundation/test-plan.md` jako **strategią etapowego wdrożenia**, a następnie uruchamia po jednym etapie wdrożenia w łańcuchu 10x: zmiana/badanie/plan/implementacja. Przewodnik zaczyna jako *plan* etapów — każdy etap ostatecznie otwiera własny folder `context/changes/<change-id>/` i wypełnia sekcje cookbooka (§6) w miarę wdrażania. Umiejętność jest **stanowa**: każde wywołanie ponownie wyprowadza bieżący stan, sprawdzając, które artefakty istnieją, i wznawia od następnego oczekującego etapu wdrożenia. Nie wymusza powrotu do `/10x-test-plan` po każdym dalszym etapie. Po otwarciu zmiany wdrożeniowej obowiązuje ustalony proces badanie → plan → implementacja: po każdej głównej fazie sugeruj następne naturalne polecenie, chyba że istnieje wyraźna blokada, korekta lub decyzja należąca z powrotem do `/10x-test-plan`.
 
 `$ARGUMENTS`:
 
-- **empty** → derive state and act on the next pending step.
-- **one or more paths** → context sources for Phase 1 (PRDs, scoping notes, briefs). Strip a leading `@` if present.
-- **`--status`** → print the rollout status (where we are, what's next) without doing any work.
-- **`--refresh`** → open a new `test-plan-refresh-<YYYY-MM-DD>` change to update an existing guide; does not edit the guide in place.
+- **puste** → wyprowadź stan i działaj w kolejnym oczekującym kroku.
+- **jedna lub więcej ścieżek** → źródła kontekstu dla Fazy 1 (PRD, notatki dotyczące zakresu, briefy). Usuń wiodący `@`, jeśli występuje.
+- **`--status`** → wypisz status wdrożenia (gdzie jesteśmy, co dalej) bez wykonywania pracy.
+- **`--refresh`** → otwórz nową zmianę `test-plan-refresh-<YYYY-MM-DD>`, aby zaktualizować istniejący przewodnik; nie edytuje przewodnika w miejscu.
 
-## The state machine
+## Maszyna stanów
 
-Every invocation runs this decision tree. Each state corresponds to "what file is missing right now":
+Każde wywołanie uruchamia to drzewo decyzyjne. Każdy stan odpowiada temu, „jakiego pliku obecnie brakuje”:
 
-1. **Phase 0 — Preconditions + state detection (always runs).** Check project marker, branch on `--status`/`--refresh` flags, then check whether `context/foundation/test-plan.md` exists.
-2. **If the guide is MISSING**, run the write path end-to-end:
-   - Phase 1: Discovery (read sources, hot-spot scan, test-base profile).
-   - Phase 2: User interview.
-   - Phase 3: Synthesize the seed brief.
-   - Phase 4: Write the phased `test-plan.md`.
-   - Then fall through into Phase 5.
-3. **If the guide EXISTS** (or has just been written), proceed to Phase 5: read the guide and locate the first rollout phase whose status is not `complete` — that is the current rollout phase.
-4. **Phase 6 — Determine sub-state for the current rollout phase and present the next handoff**, based on which artifacts exist on disk:
-   - change folder missing → `/10x-new`
-   - `change.md` only → `/10x-research`
+1. **Faza 0 — Warunki wstępne + wykrywanie stanu (uruchamiana zawsze).** Sprawdź znacznik projektu, rozgałęź na flagach `--status`/`--refresh`, a następnie sprawdź, czy istnieje `context/foundation/test-plan.md`.
+2. **Jeśli przewodnik NIE ISTNIEJE**, uruchom ścieżkę zapisu od początku do końca:
+   - Faza 1: Odkrywanie (czytanie źródeł, skanowanie hot-spotów, profil bazy testów).
+   - Faza 2: Wywiad z użytkownikiem.
+   - Faza 3: Synteza krótkiego briefu początkowego.
+   - Faza 4: Zapis etapowego `test-plan.md`.
+   - Następnie przejdź do Fazy 5.
+3. **Jeśli przewodnik ISTNIEJE** (lub został właśnie zapisany), przejdź do Fazy 5: przeczytaj przewodnik i znajdź pierwszy etap wdrożenia, którego status nie wynosi `complete` — to jest bieżący etap wdrożenia.
+4. **Faza 6 — Określ podstan dla bieżącego etapu wdrożenia i przedstaw następne przekazanie**, na podstawie artefaktów istniejących na dysku:
+   - brak folderu zmiany → `/10x-new`
+   - tylko `change.md` → `/10x-research`
    - `+ research.md` → `/10x-plan`
-   - `+ plan.md` with pending Progress items → `/10x-implement`
-   - `+ plan.md` fully complete → mark the rollout phase complete in §3 and advance (loop back to Phase 5).
-5. **Handoff** — copy the next invocation to the clipboard, tell the user to `/clear` and run it, then STOP.
+   - `+ plan.md` z oczekującymi elementami Progress → `/10x-implement`
+   - `+ plan.md` w pełni ukończony → oznacz etap wdrożenia jako ukończony w §3 i przejdź dalej (pętla do Fazy 5).
+5. **Przekazanie** — skopiuj następne wywołanie do schowka, poinformuj użytkownika, aby wykonał `/clear` i je uruchomił, a następnie ZATRZYMAJ SIĘ.
 
-Each handoff is a **STOP point** for this skill. The user `/clear`s and runs the queued invocation. After each major downstream phase, the completed phase should suggest the next natural command in the research → plan → implement process. Re-run `/10x-test-plan` only when a downstream stage reports test-plan corrections, a rollout phase is complete and the next phase should be selected, or the user wants `--status` / `--refresh`.
+Każde przekazanie jest punktem **STOP** dla tej umiejętności. Użytkownik wykonuje `/clear` i uruchamia zakolejkowane wywołanie. Po każdej głównej dalszej fazie ukończona faza powinna sugerować następne naturalne polecenie w procesie badanie → plan → implementacja. Uruchom ponownie `/10x-test-plan` tylko wtedy, gdy dalszy etap zgłosi korekty planu testów, etap wdrożenia zostanie ukończony i należy wybrać następny etap lub użytkownik chce `--status` / `--refresh`.
 
-## Load-bearing principles
+## Zasady nośne
 
-Three rules every invocation obeys; all three land in §1 of the artifact.
+Trzy reguły, których przestrzega każde wywołanie; wszystkie trzy trafiają do §1 artefaktu.
 
-1. **Cost × signal.** Every test the rollout adds — classic or AI-native — must answer one question: *what is the cheapest test that gives a real signal for this risk?* Do not promote to e2e because it "feels safer"; do not layer a vision model on top of a deterministic diff that already catches the regression. Pass this through to `/10x-plan` for every rollout phase.
+1. **Koszt × sygnał.** Każdy test dodawany przez wdrożenie — klasyczny lub AI-native — musi odpowiadać na jedno pytanie: *jaki jest najtańszy test dający rzeczywisty sygnał dla tego ryzyka?* Nie promuj do e2e tylko dlatego, że „wydaje się bezpieczniej”; nie nakładaj modelu wizji na deterministyczny diff, który już wykrywa regresję. Przekaż to do `/10x-plan` dla każdego etapu wdrożenia.
 
-2. **User concerns are evidence.** Risks the team has lived through carry the same weight as PRD lines or hot-spot data.
+2. **Obawy użytkownika są dowodem.** Ryzyka, których zespół doświadczył, mają taką samą wagę jak linie PRD lub dane hot-spotów.
 
-3. **Signal, not knowledge.** This skill reads the codebase for *signal* — hot-spot churn, test-base profile, project marker, language/framework. It does **not** read for *knowledge* — call graph, schemas, error translation, which line owns a failure. The §2 risk map cites evidence (PRD lines, interview answers, hot-spot directories); it never asserts a file as "where the failure lives." That anchor is `/10x-research`'s output, produced during each rollout phase. The skill is a **QA spec author and challenger**, not a code auditor.
+3. **Sygnał, nie wiedza.** Ta umiejętność czyta bazę kodu dla *sygnału* — zmian hot-spotów, profilu bazy testów, znacznika projektu, języka/frameworka. Nie czyta dla *wiedzy* — grafu wywołań, schematów, translacji błędów, tego, która linia odpowiada za awarię. Mapa ryzyk §2 cytuje dowody (linie PRD, odpowiedzi z wywiadu, katalogi hot-spotów); nigdy nie stwierdza, że plik jest „miejscem występowania awarii”. Tym punktem odniesienia jest wynik `/10x-research`, tworzony podczas każdego etapu wdrożenia. Umiejętność jest **autorem i kwestionującym specyfikacji QA**, a nie audytorem kodu.
 
-   Operational consequence: when the hot-spot scan surfaces `src/lib/foo/` as a top directory, §2 may cite "hot-spot dir `src/lib/foo/` — 12 commits/30d" as *likelihood evidence*. It may NOT cite "anchor: `src/lib/foo/bar.ts`" — the call graph inside that directory is unverified until research runs.
+   Konsekwencja operacyjna: gdy skan hot-spotów wskazuje `src/lib/foo/` jako główny katalog, §2 może cytować „hot-spot dir `src/lib/foo/` — 12 commits/30d” jako dowód *prawdopodobieństwa*. NIE może cytować „anchor: `src/lib/foo/bar.ts`” — graf wywołań wewnątrz tego katalogu jest niezweryfikowany, dopóki nie zostanie uruchomione badanie.
 
-## When to use, when to skip
+## Kiedy używać, kiedy pominąć
 
-**Use when** the project has at least a PRD or a few archived slices and the user is about to invest in tests.
+**Użyj, gdy** projekt ma przynajmniej PRD lub kilka zarchiwizowanych wycinków, a użytkownik zamierza inwestować w testy.
 
-**Skip when**:
+**Pomiń, gdy**:
 
-- there is no PRD, no roadmap, and no implemented code (run `/10x-shape` → `/10x-prd` first);
-- the user wants to add **one** test to a single file — that is `/10x-tdd` territory, not a rollout;
-- the user wants to configure hooks, MCPs, or CI YAML in isolation — those can become rollout phases, but a standalone configuration task is a different skill.
+- nie ma PRD, roadmapy ani zaimplementowanego kodu (najpierw uruchom `/10x-shape` → `/10x-prd`);
+- użytkownik chce dodać **jeden** test do pojedynczego pliku — to obszar `/10x-tdd`, nie wdrożenia;
+- użytkownik chce skonfigurować hooki, MCP lub CI YAML w izolacji — mogą one stać się etapami wdrożenia, ale samodzielne zadanie konfiguracyjne to inna umiejętność.
 
-## Relationship to other skills
+## Relacja z innymi umiejętnościami
 
-| Skill              | Role                                                                                   |
+| Umiejętność | Rola |
 |--------------------|----------------------------------------------------------------------------------------|
-| `/10x-shape`, `/10x-prd`, `/10x-roadmap` | Upstream. Produce the PRD/roadmap that discovery consumes.      |
-| `/10x-stack-assess` | Upstream (brownfield). Identifies the existing test base.                             |
-| `/10x-new` → `/10x-research` → `/10x-plan` → `/10x-implement` | Downstream chain, invoked once per rollout phase. `/10x-test-plan` launches the chain; after each major phase, the active downstream skill suggests the next natural command in the established research → plan → implement process unless blocked. `/10x-research` is the **knowledge-extraction surface** — it reads the code, traces call graphs, and produces the file:line anchors this plan deliberately omits. |
-| `/10x-tdd`         | Sibling. Reads the cookbook (§6) when adding a single test.                            |
+| `/10x-shape`, `/10x-prd`, `/10x-roadmap` | Wcześniejsze. Tworzą PRD/roadmapę, którą wykorzystuje odkrywanie. |
+| `/10x-stack-assess` | Wcześniejsza (brownfield). Identyfikuje istniejącą bazę testów. |
+| `/10x-new` → `/10x-research` → `/10x-plan` → `/10x-implement` | Łańcuch dalszy, wywoływany raz na etap wdrożenia. `/10x-test-plan` uruchamia łańcuch; po każdej głównej fazie aktywna dalsza umiejętność sugeruje następne naturalne polecenie w ustalonym procesie badanie → plan → implementacja, chyba że wystąpi blokada. `/10x-research` jest **powierzchnią ekstrakcji wiedzy** — czyta kod, śledzi grafy wywołań i tworzy punkty odniesienia plik:linia, których ten plan celowo nie zawiera. |
+| `/10x-tdd` | Równorzędna. Czyta cookbook (§6) podczas dodawania pojedynczego testu. |
 
 ---
 
-## Phase 0 — Preconditions + state detection (always runs)
+## Faza 0 — Warunki wstępne + wykrywanie stanu (uruchamiana zawsze)
 
-This phase fires on every invocation.
+Ta faza uruchamia się przy każdym wywołaniu.
 
-### Step 0.1 — Detect project marker
+### Krok 0.1 — Wykryj znacznik projektu
 
-Confirm this is a real project root by finding its ecosystem manifest in whatever way fits the repo — there is no fixed command. Look near the root for the conventional marker(s) for the stack at hand (e.g. `package.json`, `pyproject.toml`, `Cargo.toml`, `go.mod`, `Gemfile`, `composer.json`, `*.csproj`, `pubspec.yaml`, or framework equivalents). A PRD under `context/foundation/` also counts as a valid starting point.
+Potwierdź, że to prawdziwy katalog główny projektu, znajdując manifest jego ekosystemu w sposób pasujący do repozytorium — nie ma ustalonego polecenia. Szukaj w pobliżu katalogu głównego konwencjonalnych znaczników dla danego stosu (np. `package.json`, `pyproject.toml`, `Cargo.toml`, `go.mod`, `Gemfile`, `composer.json`, `*.csproj`, `pubspec.yaml` lub odpowiedników frameworka). PRD w `context/foundation/` również liczy się jako prawidłowy punkt startowy.
 
-If no project marker is found, print:
+Jeśli nie znaleziono znacznika projektu, wypisz:
 
 ```
 No project markers found in the current directory. /10x-test-plan needs an
@@ -92,89 +91,89 @@ existing project (or at least a PRD). If you're at the idea stage, run
 /10x-shape and /10x-prd first.
 ```
 
-…and STOP.
+…i ZATRZYMAJ SIĘ.
 
-### Step 0.2 — Branch on `--status` / `--refresh`
+### Krok 0.2 — Rozgałęź na `--status` / `--refresh`
 
-- **`--status`**: read the guide if it exists, print the rollout status table (phase name → status → change folder if any), and STOP without doing work. Useful when the user is unsure where they left off.
-- **`--refresh`**: jump to the Refresh path (end of this skill). Does not modify the existing guide in place.
+- **`--status`**: przeczytaj przewodnik, jeśli istnieje, wypisz tabelę statusu wdrożenia (nazwa fazy → status → folder zmiany, jeśli istnieje) i ZATRZYMAJ SIĘ bez wykonywania pracy. Przydatne, gdy użytkownik nie jest pewien, gdzie skończył.
+- **`--refresh`**: przejdź do ścieżki Refresh (koniec tej umiejętności). Nie modyfikuje istniejącego przewodnika w miejscu.
 
-### Step 0.3 — Check whether the guide exists
+### Krok 0.3 — Sprawdź, czy przewodnik istnieje
 
 ```bash
 test -f context/foundation/test-plan.md && echo "EXISTS" || echo "MISSING"
 ```
 
-- **MISSING** → proceed to Phase 1 (full discovery → write guide).
-- **EXISTS** → skip to Phase 5 (read guide, derive current rollout phase, hand off).
+- **MISSING** → przejdź do Fazy 1 (pełne odkrywanie → zapis przewodnika).
+- **EXISTS** → przejdź do Fazy 5 (odczytaj przewodnik, wyprowadź bieżący etap wdrożenia, przekaż).
 
-This is the load-bearing branch. Everything downstream depends on it being correct, so always make the file-existence check explicit; never infer from prior conversation history.
+To jest gałąź nośna. Wszystko dalej od niej zależy, dlatego zawsze jawnie wykonuj sprawdzenie istnienia pliku; nigdy nie wnioskuj na podstawie wcześniejszej historii rozmowy.
 
 ---
 
-## Phase 1 — Discovery (only when the guide is missing)
+## Faza 1 — Odkrywanie (tylko gdy przewodnik nie istnieje)
 
-Read what exists; do not invent. For every input, record the file path you actually read; if a fact appears in the seed brief or the guide, it must trace back to one of these.
+Czytaj to, co istnieje; nie wymyślaj. Dla każdego wejścia zapisz ścieżkę pliku, którą faktycznie przeczytano; jeśli fakt pojawia się w krótkim briefie lub przewodniku, musi prowadzić do jednego z nich.
 
-### Sources to discover (skip what is missing)
+### Źródła do odkrycia (pomiń brakujące)
 
-Explicit paths from `$ARGUMENTS` are **always read**, regardless of where they live. The defaults below are searched only when not already supplied via arguments.
+Jawne ścieżki z `$ARGUMENTS` są **zawsze czytane**, niezależnie od miejsca, w którym się znajdują. Poniższe wartości domyślne są wyszukiwane tylko wtedy, gdy nie zostały już podane przez argumenty.
 
-| Source | Default path | What to extract |
+| Źródło | Domyślna ścieżka | Co wyodrębnić |
 |---|---|---|
-| PRD-like docs | `context/foundation/prd.md` + argument-provided paths | Users, primary flows, non-goals, business rules, dependencies, success metric |
-| Roadmap | `context/foundation/roadmap.md` + argument-provided roadmap | Upcoming slices, what is "next" (raises likelihood) |
-| Archived slices | `context/archive/*/plan.md` + argument-provided slice plans | What is already implemented (current risk surface) |
-| Tech stack | `context/foundation/tech-stack.md` + argument-provided stack note, OR detect via manifest | Language, framework, runtime, test runner already in use |
-| Briefs / scoping notes | argument-provided only — no fixed default | Constraints, non-goals, risk hints that never landed in a PRD |
-| Existing AGENTS.md / CLAUDE.md | repo root | Hard rules and conventions that constrain testing choices |
-| Existing testing config | `vitest.config.*`, `jest.config.*`, `playwright.config.*`, `pytest.ini`, etc. | What test infra already exists |
-| Session MCP tools | current host/session tool list | Docs/search MCPs that can ground stack-sensitive recommendations |
+| Dokumenty podobne do PRD | `context/foundation/prd.md` + ścieżki podane w argumentach | Użytkownicy, główne przepływy, non-goals, reguły biznesowe, zależności, metryka sukcesu |
+| Roadmapa | `context/foundation/roadmap.md` + roadmapa podana w argumentach | Nadchodzące wycinki, co jest „następne” (zwiększa prawdopodobieństwo) |
+| Zarchiwizowane wycinki | `context/archive/*/plan.md` + plany wycinków podane w argumentach | Co jest już zaimplementowane (bieżąca powierzchnia ryzyka) |
+| Stos technologiczny | `context/foundation/tech-stack.md` + notatka o stosie podana w argumentach, LUB wykrycie przez manifest | Język, framework, runtime, używany już runner testów |
+| Briefy / notatki dotyczące zakresu | wyłącznie podane w argumentach — brak stałej wartości domyślnej | Ograniczenia, non-goals, wskazówki ryzyka, które nigdy nie trafiły do PRD |
+| Istniejące AGENTS.md / CLAUDE.md | katalog główny repo | Twarde zasady i konwencje ograniczające wybory testowe |
+| Istniejąca konfiguracja testów | `vitest.config.*`, `jest.config.*`, `playwright.config.*`, `pytest.ini`, itd. | Jaka infrastruktura testowa już istnieje |
+| Narzędzia MCP sesji | lista narzędzi bieżącego hosta/sesji | MCP dokumentacji/wyszukiwania, które mogą ugruntować zalecenia zależne od stosu |
 
-### Read sources
+### Czytaj źródła
 
-Read explicit `$ARGUMENTS` first, then the relevant defaults not already covered by an argument. Use parallel reads or subagents when the host makes that cheap, but keep the output contract the same for every source:
+Najpierw przeczytaj jawne `$ARGUMENTS`, a następnie odpowiednie wartości domyślne, które nie są już objęte argumentem. Używaj odczytów równoległych lub subagentów, gdy host umożliwia to niskim kosztem, lecz utrzymuj ten sam kontrakt wyjściowy dla każdego źródła:
 
-1. **Source type** — PRD-like, roadmap, tech-stack, archived slice, brief, AGENTS rules, test config, or other.
-2. **2–4 risk-relevant facts** — failure scenarios the source implies.
-3. **Hard constraints** — "must not" rules, framework lock-ins, compliance lines.
-4. **Honest gaps** — if the source is empty/off-topic/thin, say so explicitly.
+1. **Typ źródła** — podobne do PRD, roadmapa, tech-stack, zarchiwizowany wycinek, brief, zasady AGENTS, konfiguracja testów lub inne.
+2. **2–4 fakty istotne dla ryzyka** — scenariusze awarii implikowane przez źródło.
+3. **Twarde ograniczenia** — reguły „nie wolno”, blokady frameworków, wymagania zgodności.
+4. **Uczciwe luki** — jeśli źródło jest puste/nie na temat/skąpe, powiedz to jawnie.
 
-Return concise notes with `path:line` citations. Do **not** delegate Phase 3 (brief synthesis).
+Zwróć zwięzłe notatki z cytatami `path:line`. **Nie** deleguj Fazy 3 (synteza briefu).
 
-### Test-base profile (always runs)
+### Profil bazy testów (uruchamiany zawsze)
 
-Before opening the interview, build a one-line intuition of the existing test base so Phase 2 does not ask hollow questions ("what feels under-tested?" is nonsense when nothing is tested). Classify the project into one of three buckets.
+Przed rozpoczęciem wywiadu zbuduj jednozdaniową intuicję dotyczącą istniejącej bazy testów, aby Faza 2 nie zadawała pustych pytań („co wydaje się niedostatecznie przetestowane?” nie ma sensu, gdy nic nie jest testowane). Sklasyfikuj projekt do jednego z trzech koszyków.
 
-Detect the test base in whatever way fits the stack you actually found in Phase 1 — there is no fixed command. Use the project's real test-runner config and test-file conventions (e.g. `vitest`/`jest`/`playwright` configs and `*.test.*`/`__tests__/` for JS-TS; `pytest`/`pyproject.toml` and `test_*.py` for Python; `*_test.go` for Go; framework equivalents otherwise), and exclude vendored/build directories. Aim for two facts: does a test-runner config exist, and roughly how many real test files exist and where they cluster.
+Wykryj bazę testów w sposób pasujący do stosu faktycznie znalezionego w Fazie 1 — nie ma ustalonego polecenia. Używaj rzeczywistej konfiguracji runnera testów projektu i konwencji plików testowych (np. konfiguracji `vitest`/`jest`/`playwright` oraz `*.test.*`/`__tests__/` dla JS-TS; `pytest`/`pyproject.toml` i `test_*.py` dla Pythona; `*_test.go` dla Go; w innych przypadkach odpowiedników frameworka), a katalogi vendored/build wykluczaj. Dąż do dwóch faktów: czy istnieje konfiguracja runnera testów oraz w przybliżeniu ile rzeczywistych plików testowych istnieje i gdzie się skupiają.
 
-Classify:
+Klasyfikuj:
 
-- **`none`** — no test config found AND fewer than 3 test files. The project has effectively no suite.
-- **`sparse`** — config exists but fewer than ~15 test files, or test files cluster in only one area while the rest of the codebase is bare.
-- **`meaningful`** — config + a real suite (~15+ test files spread across the codebase). The project has a test culture; it may still have gaps.
+- **`none`** — nie znaleziono konfiguracji testów ORAZ mniej niż 3 pliki testowe. Projekt faktycznie nie ma zestawu testów.
+- **`sparse`** — konfiguracja istnieje, ale jest mniej niż ~15 plików testowych, albo pliki testowe skupiają się tylko w jednym obszarze, podczas gdy reszta bazy kodu jest pusta.
+- **`meaningful`** — konfiguracja + rzeczywisty zestaw (~15+ plików testowych rozproszonych po bazie kodu). Projekt ma kulturę testów; nadal może mieć luki.
 
-Persist the verdict (one line: bucket + a short justification like "vitest configured, 4 test files all in `packages/api/`") for §4 (Stack) of the guide and for the Phase 2 interview to branch on.
+Zapisz werdykt (jedna linia: koszyk + krótkie uzasadnienie, np. „skonfigurowano vitest, 4 pliki testowe wszystkie w `packages/api/`”) dla §4 (Stack) przewodnika oraz dla rozgałęzienia wywiadu w Fazie 2.
 
-### MCP-assisted stack grounding (always runs)
+### Ugruntowanie stosu wspomagane MCP (uruchamiane zawsze)
 
-Before recommending test tooling, AI-native tools, hooks, browser automation, CI gates, or framework-specific test layers, inspect the MCP/tools available in the **current session**. This is a grounding step, not a requirement to use every tool.
+Przed zaleceniem narzędzi testowych, narzędzi AI-native, hooków, automatyzacji przeglądarki, bramek CI lub warstw testów specyficznych dla frameworka, sprawdź MCP/narzędzia dostępne w **bieżącej sesji**. Jest to krok ugruntowujący, a nie wymóg użycia każdego narzędzia.
 
-Look specifically for tools that can reduce stale or generic stack advice:
+Szukaj w szczególności narzędzi mogących ograniczyć nieaktualne lub ogólne porady dotyczące stosu:
 
-- **Technical docs MCPs** such as Context7, framework/library docs, vendor docs, or package docs. Use these first for exact APIs, current framework guidance, version-specific test setup, and deprecated/renamed commands.
-- **Search/discovery MCPs** such as Exa.ai. Use these when the right official page is not known, when comparing current tool support, or when checking whether a testing/MCP feature is current, preview, deprecated, or region/vendor-limited.
-- **Browser/runtime MCPs** such as Playwright/browser automation. Note whether they are available as a possible test or verification layer, but recommend them only when they add signal beyond cheaper deterministic tests.
-- **Provider/platform MCPs** such as GitHub, Linear, Cloudflare, Supabase, Vercel, or database tools. Note read-only capabilities that could support future quality gates, log inspection, issue creation, or environment verification.
+- **MCP dokumentacji technicznej**, takich jak Context7, dokumentacja frameworka/biblioteki, dokumentacja dostawcy lub pakietu. Używaj ich najpierw dla dokładnych API, aktualnych wskazówek frameworka, konfiguracji testów zależnej od wersji oraz przestarzałych/przemianowanych poleceń.
+- **MCP wyszukiwania/odkrywania**, takich jak Exa.ai. Używaj ich, gdy właściwa oficjalna strona nie jest znana, przy porównywaniu bieżącego wsparcia narzędzi lub sprawdzaniu, czy funkcja testowa/MCP jest aktualna, preview, przestarzała lub ograniczona regionalnie/przez dostawcę.
+- **MCP przeglądarki/runtime**, takich jak Playwright/automatyzacja przeglądarki. Zauważ, czy są dostępne jako możliwa warstwa testu lub weryfikacji, lecz zalecaj je tylko, gdy dodają sygnał wykraczający poza tańsze testy deterministyczne.
+- **MCP dostawcy/platformy**, takich jak GitHub, Linear, Cloudflare, Supabase, Vercel lub narzędzia baz danych. Zauważ możliwości tylko do odczytu, które mogą wspierać przyszłe bramki jakości, inspekcję logów, tworzenie issue lub weryfikację środowiska.
 
-Host-agnostic detection rule:
+Reguła wykrywania niezależna od hosta:
 
-1. Inspect the available tool names/descriptions exposed to the agent in this session. If the host has a tool-discovery surface, query it with terms like `docs`, `Context7`, `Exa`, `search`, `browser`, `Playwright`, `github`, `cloudflare`, `database`, and the detected framework/runtime names.
-2. Do not invent MCPs from examples. If Context7 or Exa.ai is not exposed in this session, write "not available in current session" rather than assuming access.
-3. Use official docs through a docs MCP when available. Use search MCPs to find current official docs or recent status pages, then prefer the primary source over blogs.
-4. Apply the same **signal, not knowledge** boundary as the rest of Phase 1: MCP docs/search can validate that a tool is supported, current, or appropriate for the detected stack. They do not locate code anchors for specific failures; that remains `/10x-research`.
+1. Sprawdź dostępne nazwy/opisy narzędzi ujawnione agentowi w tej sesji. Jeśli host ma powierzchnię odkrywania narzędzi, odpytaj ją terminami takimi jak `docs`, `Context7`, `Exa`, `search`, `browser`, `Playwright`, `github`, `cloudflare`, `database` oraz nazwami wykrytego frameworka/runtime.
+2. Nie wymyślaj MCP na podstawie przykładów. Jeśli Context7 lub Exa.ai nie są ujawnione w tej sesji, zapisz „not available in current session” zamiast zakładać dostęp.
+3. Korzystaj z oficjalnej dokumentacji przez MCP dokumentacji, gdy jest dostępny. Używaj MCP wyszukiwania, aby znaleźć aktualną oficjalną dokumentację lub niedawne strony statusu, a następnie preferuj źródło pierwotne nad blogami.
+4. Zastosuj tę samą granicę **sygnał, nie wiedza**, co w reszcie Fazy 1: dokumentacja/wyszukiwanie MCP może potwierdzić, że narzędzie jest wspierane, aktualne lub odpowiednie dla wykrytego stosu. Nie lokalizuje punktów odniesienia w kodzie dla konkretnych awarii; to pozostaje zadaniem `/10x-research`.
 
-Persist a short `Stack grounding tools` note for §4 and the seed brief:
+Zapisz krótką notatkę `Stack grounding tools` dla §4 i briefu początkowego:
 
 ```markdown
 **Stack grounding tools (current session):**
@@ -184,95 +183,95 @@ Persist a short `Stack grounding tools` note for §4 and the seed brief:
 - Provider/platform: <GitHub/Cloudflare/Supabase/etc. / none> — <quality-gate relevance, or "not used">; checked: <YYYY-MM-DD>
 ```
 
-If no useful MCPs are available, continue with local manifest/config evidence and say so explicitly in §4. Lack of MCP access must not block the rollout.
+Jeśli nie ma użytecznych MCP, kontynuuj z lokalnymi dowodami manifestu/konfiguracji i powiedz to jawnie w §4. Brak dostępu MCP nie może blokować wdrożenia.
 
-### Hot-spot scan (git history)
+### Skan hot-spotów (historia git)
 
-Run a git-history hot-spot scan over the last 30 days, **scoped to the project's main codebase directories only**. **Change frequency is one of the strongest signals for likelihood**. Scanning the whole repo drowns the signal in churn nobody writes by hand.
+Uruchom skan hot-spotów historii git z ostatnich 30 dni, **ograniczony wyłącznie do głównych katalogów bazy kodu projektu**. **Częstotliwość zmian jest jednym z najsilniejszych sygnałów prawdopodobieństwa**. Skanowanie całego repozytorium zagłusza sygnał zmianami, których nikt nie tworzy ręcznie.
 
-#### Step 1 — Identify the main-codebase root(s)
+#### Krok 1 — Zidentyfikuj katalogi głównej bazy kodu
 
-Locate the directories that hold hand-written application code, in whatever way fits the stack found in Phase 0 — there is no fixed command. Look for the conventional source roots for that ecosystem (e.g. `src`/`app`/`lib` for JS-TS, the package directory for Python, `cmd`/`internal`/`pkg` for Go, workspace members for Rust, `src`/`app` for PHP) and respect monorepo workspace layouts. Exclude vendored, generated, and build output (`node_modules`, `dist`, `build`, `.next`, `target`, `coverage`, `vendor`, and the like). The goal is the set of paths where churn reflects real authoring, not tooling noise.
+Znajdź katalogi zawierające ręcznie pisany kod aplikacji, w sposób pasujący do stosu znalezionego w Fazie 0 — nie ma ustalonego polecenia. Szukaj konwencjonalnych katalogów źródłowych tego ekosystemu (np. `src`/`app`/`lib` dla JS-TS, katalog pakietu dla Pythona, `cmd`/`internal`/`pkg` dla Go, członkowie workspace dla Rusta, `src`/`app` dla PHP) i uwzględniaj układy monorepo workspace. Wyklucz kod vendored, wygenerowany i wynik budowania (`node_modules`, `dist`, `build`, `.next`, `target`, `coverage`, `vendor` i podobne). Celem jest zbiór ścieżek, w których zmiany odzwierciedlają rzeczywiste tworzenie kodu, a nie szum narzędzi.
 
-#### Step 2 — Confirm scope with the user
+#### Krok 2 — Potwierdź zakres z użytkownikiem
 
-> Detected main-codebase scopes for the hot-spot scan: `<scope 1>`, `<scope 2>`, `<scope 3>`. Excluding docs, fixtures, archive, build output. **Accept**, or paste an **override** list.
+> Wykryte zakresy głównej bazy kodu dla skanu hot-spotów: `<scope 1>`, `<scope 2>`, `<scope 3>`. Wykluczono dokumentację, fixtures, archive, wynik budowania. **Accept** albo wklej listę **override**.
 
-If detection returns nothing, fall back to repo root with the default exclusion list and explicitly tell the user. Never silently scan everything.
+Jeśli wykrywanie nie zwróci niczego, wróć do katalogu głównego repozytorium z domyślną listą wykluczeń i jawnie poinformuj użytkownika. Nigdy nie skanuj po cichu wszystkiego.
 
-#### Step 3 — Run the scan
+#### Krok 3 — Uruchom skan
 
-Use the confirmed scopes to collect the top changed hand-written files and directories from the last 30 days. Exclude lockfiles, snapshots, vendored code, generated code, and build output. The exact command is host- and stack-dependent; the output must include:
+Użyj potwierdzonych zakresów, aby zebrać najczęściej zmieniane ręcznie pisane pliki i katalogi z ostatnich 30 dni. Wyklucz lockfile, snapshoty, kod vendored, kod wygenerowany i wynik budowania. Dokładne polecenie zależy od hosta i stosu; wynik musi zawierać:
 
-- scope list used;
-- top changed files, if useful;
-- top changed directories, preferably grouped around depth 2–3;
-- whether the scoped history has enough signal.
+- użytą listę zakresów;
+- najczęściej zmieniane pliki, jeśli są przydatne;
+- najczęściej zmieniane katalogi, najlepiej pogrupowane wokół głębokości 2–3;
+- informację, czy historia w zakresie ma wystarczający sygnał.
 
-**Insufficient-history guard.** If the scoped git log returns fewer than 5 commits in the last 30 days, skip the scan and note in the Phase 1 checkpoint: "Hot-spot scan: insufficient git history — likelihood ratings in the guide will rely on roadmap and user interview only."
+**Zabezpieczenie niewystarczającej historii.** Jeśli git log w zakresie zwróci mniej niż 5 commitów z ostatnich 30 dni, pomiń skan i odnotuj w punkcie kontrolnym Fazy 1: „Hot-spot scan: insufficient git history — likelihood ratings in the guide will rely on roadmap and user interview only.”
 
-Persist the output as a short note that Phases 2, 3, and 4 consume.
+Zapisz wynik jako krótką notatkę konsumowaną przez Fazy 2, 3 i 4.
 
-### Checkpoint
+### Punkt kontrolny
 
-Summarize the inputs back to the user in ≤12 lines: `path → classified-type → 1-line gist → [argument | default]`, plus a 3-line hot-spot recap. Confirm before moving to Phase 2.
+Podsumuj użytkownikowi wejścia w ≤12 liniach: `path → classified-type → 1-line gist → [argument | default]`, plus 3-liniowe podsumowanie hot-spotów. Potwierdź przed przejściem do Fazy 2.
 
-## Phase 2 — User Interview (only when the guide is missing)
+## Faza 2 — Wywiad z użytkownikiem (tylko gdy przewodnik nie istnieje)
 
-Phase 1 surfaces what the documents say. Phase 2 surfaces what the user knows that documents never capture: past incidents, gut fears, areas they change without confidence, and explicit instructions about what *not* to test. Treat its answers with the same weight as PRD lines or hot-spot data — a risk anchored in "user fears Y, failure would surface in `<file>`" is grounded as long as the file holds up under research.
+Faza 1 ujawnia, co mówią dokumenty. Faza 2 ujawnia, co użytkownik wie, a czego dokumenty nigdy nie rejestrują: wcześniejsze incydenty, intuicyjne obawy, obszary zmieniane bez pewności oraz jawne instrukcje dotyczące tego, czego *nie* testować. Traktuj odpowiedzi z taką samą wagą jak linie PRD lub dane hot-spotów — ryzyko zakotwiczone w „użytkownik obawia się Y, awaria ujawniłaby się w `<file>`” jest ugruntowane, o ile plik wytrzyma weryfikację podczas badania.
 
-Skip the interview only if the user explicitly asks. Warn once that document-only rollouts mirror whatever the PRD emphasises, which is rarely what the team actually fears breaking.
+Pomiń wywiad tylko wtedy, gdy użytkownik wyraźnie o to poprosi. Ostrzeż raz, że wdrożenia oparte wyłącznie na dokumentach odzwierciedlają to, na czym skupia się PRD, a rzadko jest to tym, czego zespół rzeczywiście obawia się zepsuć.
 
-### Conduct
+### Prowadzenie
 
-Ask **one question at a time**, conditioned on the previous answer — not as a form. Always pair the question with **2–3 short, concrete examples** so the user can feel the shape of the answer you want (and recognise when their situation differs). Examples are scaffolding, not options — make it clear the user should answer in their own terms. After each answer, echo it back in one line so the user can correct misreadings cheaply. Then ask the next.
+Zadawaj **jedno pytanie naraz**, uwarunkowane poprzednią odpowiedzią — nie jako formularz. Zawsze łącz pytanie z **2–3 krótkimi, konkretnymi przykładami**, aby użytkownik wyczuł kształt oczekiwanej odpowiedzi (i rozpoznał, kiedy jego sytuacja się różni). Przykłady są rusztowaniem, a nie opcjami — wyjaśnij, że użytkownik powinien odpowiedzieć własnymi słowami. Po każdej odpowiedzi powtórz ją w jednej linii, aby użytkownik mógł tanio poprawić błędne odczytanie. Następnie zadaj kolejne pytanie.
 
-The user may reply "skip" to any question. If three or more are skipped, abort the interview, note that the rollout will lean on documents only, and proceed to Phase 3 with a one-line warning.
+Użytkownik może odpowiedzieć „skip” na dowolne pytanie. Jeśli trzy lub więcej zostaną pominięte, przerwij wywiad, odnotuj, że wdrożenie będzie opierać się wyłącznie na dokumentach, i przejdź do Fazy 3 z jednoliniowym ostrzeżeniem.
 
-### The five questions
+### Pięć pytań
 
-Each question below ships with example answers. Read them to the user as part of the prompt; adapt the examples to the project's domain when an obvious adaptation exists (e.g., for a billing product, use billing-flavoured examples).
+Każde pytanie poniżej jest dostarczane z przykładowymi odpowiedziami. Przeczytaj je użytkownikowi jako część promptu; dostosuj przykłady do domeny projektu, gdy istnieje oczywiste dostosowanie (np. dla produktu rozliczeniowego użyj przykładów związanych z rozliczeniami).
 
-1. **"What worries you most about this product breaking — independent of what the docs say?"**
-   - e.g., "A paying user gets a 403 and can't reach the content they paid for."
-   - e.g., "Webhook from Stripe arrives twice and we double-charge."
-   - e.g., "A silent data-loss bug in the import pipeline that nobody notices for a week."
+1. **„Czego najbardziej obawiasz się w związku z awarią tego produktu — niezależnie od tego, co mówią dokumenty?”**
+   - np. „Płacący użytkownik otrzymuje 403 i nie może dotrzeć do treści, za którą zapłacił.”
+   - np. „Webhook ze Stripe przychodzi dwa razy i podwójnie naliczamy opłatę.”
+   - np. „Cichy błąd utraty danych w potoku importu, którego nikt nie zauważa przez tydzień.”
 
-2. **"Where have you been burned before in this codebase, or one like it?"**
-   - e.g., "Last quarter a migration ran fine in staging and corrupted prod rows."
-   - e.g., "A refactor of the auth middleware logged users out for 30 minutes."
-   - e.g., "We shipped a build where the catalog was missing half the lessons and nobody noticed for a day."
+2. **„Gdzie wcześniej zawiódł Cię ten kod albo podobny?”**
+   - np. „W zeszłym kwartale migracja działała poprawnie na stagingu i uszkodziła wiersze prod.”
+   - np. „Refaktoryzacja middleware uwierzytelniania wylogowała użytkowników na 30 minut.”
+   - np. „Wydaliśmy build, w którym w katalogu brakowało połowy lekcji, a nikt nie zauważył tego przez dzień.”
 
-3. **"Which area do you change most often without feeling confident?"**
-   - e.g., "The lesson-gating logic — every tweak feels like roulette."
-   - e.g., "The Cloudflare Worker routing — works locally, breaks in prod."
-   - e.g., "The R2 upload script — I run it and pray."
+3. **„Który obszar zmieniasz najczęściej bez poczucia pewności?”**
+   - np. „Logika blokowania lekcji — każda zmiana wydaje się ruletką.”
+   - np. „Routing Cloudflare Worker — działa lokalnie, psuje się na prod.”
+   - np. „Skrypt uploadu R2 — uruchamiam go i modlę się.”
 
-4. **"What feels under-tested today that you've been quietly worried about?"** *(see conditional rewrite below if the test-base profile is `none`)*
-   - e.g., "The webhook retry path — we have one happy-path test and that's it."
-   - e.g., "Error boundaries — they exist but I've never seen them fire in a test."
-   - e.g., "Anything that touches money — coverage is light and the impact is severe."
+4. **„Co dziś wydaje się niedostatecznie przetestowane i potajemnie Cię martwi?”** *(zobacz warunkowe przeformułowanie poniżej, jeśli profil bazy testów to `none`)*
+   - np. „Ścieżka ponowień webhooka — mamy jeden test happy path i to wszystko.”
+   - np. „Granice błędów — istnieją, ale nigdy nie widziałem ich uruchomionych w teście.”
+   - np. „Wszystko, co dotyka pieniędzy — pokrycie jest niewielkie, a wpływ jest poważny.”
 
-5. **"What would you NOT want test budget spent on, even if a textbook says to test it?"**
-   - e.g., "Internal admin tools — five trusted users, low blast radius."
-   - e.g., "Generated TypeScript clients — the generator is the test."
-   - e.g., "UI snapshot tests for marketing pages — they break constantly and catch nothing."
+5. **„Na co NIE chcesz wydawać budżetu testowego, nawet jeśli podręcznik mówi, że należy to testować?”**
+   - np. „Wewnętrzne narzędzia administracyjne — pięciu zaufanych użytkowników, mały promień rażenia.”
+   - np. „Wygenerowane klienty TypeScript — generator jest testem.”
+   - np. „Testy snapshotów UI dla stron marketingowych — ciągle się psują i niczego nie wykrywają.”
 
-If a user's answer to one question fully covers the next, acknowledge the overlap and move on. Five turns is a ceiling, not a quota.
+Jeśli odpowiedź użytkownika na jedno pytanie w pełni obejmuje następne, uznaj nakładanie i przejdź dalej. Pięć tur to limit, nie quota.
 
-### Conditional rewrite for Q4 based on test-base profile
+### Warunkowe przeformułowanie P4 na podstawie profilu bazy testów
 
-The Phase 1 test-base profile decides how (or whether) to ask Q4:
+Profil bazy testów z Fazy 1 decyduje, jak (lub czy) zadać P4:
 
-- **`meaningful`** — ask Q4 as written. The user has tests; "under-tested" is a coherent concept.
-- **`sparse`** — rephrase: *"You have some tests in `<area>` but most of the codebase is bare. Where is the gap that scares you most?"* and offer the same examples.
-- **`none`** — **skip Q4**. There is nothing to be under-tested *relative to*. Tell the user explicitly: *"Skipping the 'under-tested' question — no meaningful suite exists yet, so the answer would be 'everything'. Phase 1 of the rollout will bootstrap the test runner."* Do not count this as a user-initiated skip toward the abort threshold.
+- **`meaningful`** — zadaj P4 zgodnie z zapisem. Użytkownik ma testy; „niedostatecznie przetestowane” jest spójnym pojęciem.
+- **`sparse`** — przeformułuj: *„Masz kilka testów w `<area>`, ale większość bazy kodu jest pusta. Która luka przeraża Cię najbardziej?”* i zaoferuj te same przykłady.
+- **`none`** — **pomiń P4**. Nie ma niczego, co mogłoby być niedostatecznie przetestowane *względem* czegoś. Powiedz użytkownikowi jawnie: *„Pomijam pytanie o 'niedostateczne testowanie' — nie istnieje jeszcze znaczący zestaw testów, więc odpowiedzią byłoby 'wszystko'. Faza 1 wdrożenia zainicjuje runner testów.”* Nie licz tego jako pominięcia zainicjowanego przez użytkownika do progu przerwania.
 
-**Optional priming on Q3.** If the hot-spot scan produced a usable list and the user's answer to Q3 is vague, show the top 3 hot-spot directories and ask whether any of them match. Never lead with the list; never let it overwrite a clear verbal answer.
+**Opcjonalne naprowadzenie przy P3.** Jeśli skan hot-spotów wygenerował użyteczną listę, a odpowiedź użytkownika na P3 jest niejasna, pokaż 3 główne katalogi hot-spotów i zapytaj, czy któryś pasuje. Nigdy nie zaczynaj od listy; nigdy nie pozwól jej zastąpić jasnej odpowiedzi słownej.
 
-### Record
+### Zapis
 
-Persist the answers as a structured note (in-memory; passed into the brief and the guide):
+Zapisz odpowiedzi jako ustrukturyzowaną notatkę (w pamięci; przekazaną do briefu i przewodnika):
 
 ```markdown
 **User-stated concerns (Phase 2 interview):**
@@ -286,9 +285,9 @@ Persist the answers as a structured note (in-memory; passed into the brief and t
 | 5 | Do NOT spend on      | "Internal admin tools — we trust the small set of users." | Negative space note |
 ```
 
-## Phase 3 — Synthesize the seed brief (only when the guide is missing)
+## Faza 3 — Synteza krótkiego briefu początkowego (tylko gdy przewodnik nie istnieje)
 
-In-memory only. The brief drives Phase 4 and is the source of truth for the rollout structure.
+Wyłącznie w pamięci. Brief napędza Fazę 4 i jest źródłem prawdy dla struktury wdrożenia.
 
 ```markdown
 # Seed Brief (in-memory)
@@ -301,112 +300,112 @@ In-memory only. The brief drives Phase 4 and is the source of truth for the roll
 ## 6. Proposed rollout phases (3–5): | # | Phase name | Goal | Risks covered | Test types | Order rationale |
 ```
 
-Illustrative phase rows: "Critical-path coverage" (cheapest layer for top risks), "Integration around hot-spots" (churn-heavy modules), "AI-native layer" (only if it adds signal classic tests miss cheaply), "Quality-gates wiring" (lock the floor).
+Przykładowe wiersze faz: „Pokrycie ścieżek krytycznych” (najtańsza warstwa dla głównych ryzyk), „Integracja wokół hot-spotów” (moduły o dużej zmienności), „Warstwa AI-native” (tylko jeśli dodaje sygnał, którego klasyczne testy nie wykrywają tanio), „Połączenie bramek jakości” (utrwalenie poziomu bazowego).
 
-### Risk response guidance (mandatory)
+### Wskazówki odpowiedzi na ryzyko (obowiązkowe)
 
-For each top risk, add a response row before proposing rollout phases. This is the bridge between "we identified a risk" and "a downstream skill knows how to attack it." Keep it evidence-based: use PRD/interview/archive/hot-spot signal and stack constraints, but do not invent file anchors.
+Dla każdego głównego ryzyka dodaj wiersz odpowiedzi przed zaproponowaniem etapów wdrożenia. To jest most między „zidentyfikowaliśmy ryzyko” a „dalsza umiejętność wie, jak je zaatakować”. Zachowaj podejście oparte na dowodach: używaj sygnału PRD/wywiadu/archiwum/hot-spotów oraz ograniczeń stosu, ale nie wymyślaj punktów odniesienia do plików.
 
-Each row answers:
+Każdy wiersz odpowiada na:
 
-- **What would prove protection** — the observable behavior or failure mode a useful test must catch. Phrase it as user/business behavior, not "cover function X."
-- **Must challenge** — the obvious but dangerous assumption the agent should not accept silently. Examples: "happy-path login implies paid-content access works," "empty response means no content," "retry succeeded because the final status is 200," "generated schema equals product contract."
-- **Context needed** — what `/10x-research` must ground before planning: entry point, persisted state, external boundary, error translation, auth/session shape, ordering guarantee, idempotency rule, fixture/source-of-truth data, etc.
-- **Likely cheapest layer** — unit, integration, contract, e2e, deterministic visual diff, AI-native review, hook, or manual smoke. This is a hypothesis for `/10x-research` to verify, not a command.
-- **Anti-pattern to avoid** — one concrete failure mode in the future test: implementation mirror, happy-path-only, assertion copied from production logic, over-mocking internals, brittle order assumption, snapshot-without-meaning, e2e where integration would catch it, or AI-native layer over deterministic signal.
+- **Co dowiedzie ochrony** — obserwowalne zachowanie lub tryb awarii, który użyteczny test musi wykrywać. Formułuj to jako zachowanie użytkownika/biznesu, a nie „pokryj funkcję X”.
+- **Należy zakwestionować** — oczywiste, ale niebezpieczne założenie, którego agent nie powinien bezgłośnie akceptować. Przykłady: „logowanie happy path oznacza, że dostęp do płatnej treści działa”, „pusta odpowiedź oznacza brak treści”, „ponowienie się udało, bo końcowy status to 200”, „wygenerowany schemat równa się kontraktowi produktu”.
+- **Potrzebny kontekst** — co `/10x-research` musi ugruntować przed planowaniem: punkt wejścia, stan trwały, granica zewnętrzna, translacja błędów, kształt auth/sesji, gwarancja kolejności, reguła idempotencji, dane fixture/źródło prawdy itd.
+- **Prawdopodobnie najtańsza warstwa** — unit, integracja, kontrakt, e2e, deterministyczny visual diff, przegląd AI-native, hook lub manual smoke. To hipoteza do zweryfikowania przez `/10x-research`, nie polecenie.
+- **Antywzorzec do uniknięcia** — jeden konkretny tryb awarii przyszłego testu: lustrzane odbicie implementacji, tylko happy path, asercja skopiowana z logiki produkcyjnej, nadmierne mockowanie wnętrzności, kruche założenie kolejności, snapshot-bez-znaczenia, e2e tam, gdzie wykryłaby to integracja, lub warstwa AI-native ponad deterministycznym sygnałem.
 
-If a risk cannot produce this row, it is not actionable enough for the rollout. Reframe it or drop it before Phase 4.
+Jeśli ryzyko nie może utworzyć tego wiersza, nie jest wystarczająco wykonalne dla wdrożenia. Przeformułuj je lub odrzuć przed Fazą 4.
 
-### Abuse / security lens (mandatory when applicable)
+### Perspektywa nadużyć / bezpieczeństwa (obowiązkowa, gdy ma zastosowanie)
 
-If the product has authentication, payments, or accepts any user input, the top-N risks must include at least one **abuse scenario** — the happy path excludes the attacker, so these almost never surface from the Phase 2 interview on their own. Before finalizing the brief, run the risk set against these classes and add a row where the product genuinely exposes the surface:
+Jeśli produkt ma uwierzytelnianie, płatności lub akceptuje dowolne dane wejściowe użytkownika, główne N ryzyk musi zawierać co najmniej jeden **scenariusz nadużycia** — happy path wyklucza atakującego, więc prawie nigdy nie wyłaniają się one samodzielnie z wywiadu Fazy 2. Przed sfinalizowaniem briefu skonfrontuj zestaw ryzyk z tymi klasami i dodaj wiersz tam, gdzie produkt rzeczywiście wystawia daną powierzchnię:
 
-- **Authorization/access** — IDOR and ownership checks: does the endpoint verify *this resource belongs to you*, not just *you are logged in*?
-- **Untrusted input** — injection and server-side validation parity (the server must not trust the client).
-- **Secret/PII leakage** — keys, tokens, or personal data escaping into logs, error bodies, or the front-end bundle.
-- **Resource abuse** — rate-limit bypass, costly operations in a loop, mass-triggering of side effects (e.g. magic-link floods).
+- **Autoryzacja/dostęp** — IDOR i kontrole własności: czy endpoint weryfikuje, że *ten zasób należy do Ciebie*, a nie tylko, że *jesteś zalogowany*?
+- **Niezaufane dane wejściowe** — injection i zgodność walidacji po stronie serwera (serwer nie może ufać klientowi).
+- **Wyciek sekretów/PII** — klucze, tokeny lub dane osobowe wydostające się do logów, treści błędów lub bundle front-endu.
+- **Nadużycie zasobów** — obejście rate limit, kosztowne operacje w pętli, masowe wyzwalanie skutków ubocznych (np. zalew magic-linków).
 
-These are ordinary failure scenarios scored on the same impact × likelihood axes, cited with the same evidence rules — not a separate framework, and never a file anchor. If the product has these surfaces and the map has zero abuse rows, that is a gap to close, not a sign the product is safe.
+Są to zwykłe scenariusze awarii oceniane na tych samych osiach wpływ × prawdopodobieństwo, cytowane zgodnie z tymi samymi zasadami dowodowymi — nie osobny framework i nigdy punkt odniesienia do pliku. Jeśli produkt ma te powierzchnie, a mapa ma zero wierszy nadużyć, to luka do zamknięcia, a nie znak, że produkt jest bezpieczny.
 
-### Impact × likelihood calibration
+### Kalibracja wpływ × prawdopodobieństwo
 
-Score both axes on a coarse High / Medium / Low scale (see `references/test-plan-schema.md` §2 for the rubric) so the ordering is reproducible. Protect High × High first. High-impact × Low-likelihood scenarios (e.g. cloud-provider outage) usually belong to observability/alerting, not a test — note that instead of padding the map. Do not invent finer gradations; the goal is a defensible order, not false precision.
+Oceniaj obie osie w grubej skali High / Medium / Low (zobacz `references/test-plan-schema.md` §2, aby poznać rubrykę), aby kolejność była odtwarzalna. Chroń najpierw High × High. Scenariusze o wysokim wpływie × niskim prawdopodobieństwie (np. awaria dostawcy chmurowego) zwykle należą do obserwowalności/alertowania, a nie do testu — odnotuj to zamiast sztucznie wypełniać mapę. Nie wymyślaj drobniejszych stopni; celem jest obroniona kolejność, nie fałszywa precyzja.
 
-### Challenger pass (mandatory)
+### Przejście kwestionujące (obowiązkowe)
 
-Before showing the brief to the user, walk every top-N risk and apply the QA-consultant lens. Three checks per risk:
+Przed pokazaniem briefu użytkownikowi przejdź przez każde główne N ryzyko i zastosuj perspektywę konsultanta QA. Trzy kontrole na ryzyko:
 
-1. **"Is this a defect, or am I describing the implementation?"** If breaking the risk would require *adding* a safeguard first (e.g., "no fallback path" when no fallback exists), the risk is speculative — drop it or reframe it to test what *does* exist (e.g., "outage path surfaces a clean 5xx, doesn't pretend to succeed, doesn't write to the database"). Speculative risks that survive into §2 force `/10x-research` to either invent code under test or flag the risk back for revision; both waste a cycle.
+1. **„Czy to jest wada, czy opisuję implementację?”** Jeśli złamanie ryzyka wymagałoby najpierw *dodania* zabezpieczenia (np. „brak ścieżki fallback”, gdy fallback nie istnieje), ryzyko jest spekulatywne — odrzuć je lub przeformułuj, aby testowało to, co *istnieje* (np. „ścieżka awarii ujawnia czysty 5xx, nie udaje powodzenia i nie zapisuje do bazy danych”). Spekulatywne ryzyka, które przejdą do §2, zmuszają `/10x-research` do wymyślenia kodu pod test lub oznaczenia ryzyka z powrotem do rewizji; oba przypadki marnują cykl.
 
-2. **"Does this row cite a file as anchor?"** Strip anything in the Source column that looks like `src/foo/bar.ts:42` or `<module>` (specific symbol). Replace with the evidence that *raised* the risk — interview Q#, PRD line, hot-spot **directory**. If after stripping there is no evidence left, the risk is unsourced and must be dropped or supported by a real interview/PRD citation.
+2. **„Czy ten wiersz cytuje plik jako punkt odniesienia?”** Usuń wszystko w kolumnie Source, co wygląda jak `src/foo/bar.ts:42` lub `<module>` (konkretny symbol). Zastąp to dowodem, który *podniósł* ryzyko — wywiad P#, linia PRD, **katalog** hot-spotu. Jeśli po usunięciu nie pozostaje żaden dowód, ryzyko nie ma źródła i musi zostać odrzucone albo poparte rzeczywistym cytatem z wywiadu/PRD.
 
-3. **"Would the recommended response catch a real regression, or only make coverage go up?"** Reject response guidance that says only "add unit tests," "cover the module," "test the happy path," or "assert current output." A valid response names the behavior/failure mode, the context `/10x-research` must verify, and at least one anti-pattern to avoid. The single most dangerous anti-pattern for AI-written tests is the **oracle problem**: an assertion whose expected value was lifted from the implementation under test rather than from an independent source (requirements, contract, interview). Such a test is tautological — it green-lights current behavior, including current bugs, and can never fail for the right reason. Frame the "What would prove protection" cell as user/business behavior precisely so the downstream test gets its oracle from the risk, not from the code it reads.
+3. **„Czy zalecana odpowiedź wykryłaby rzeczywistą regresję, czy tylko zwiększyłaby pokrycie?”** Odrzuć wskazówki odpowiedzi, które mówią jedynie „dodaj testy unit”, „pokryj moduł”, „przetestuj happy path” lub „asertuj bieżący wynik”. Prawidłowa odpowiedź nazywa zachowanie/tryb awarii, kontekst, który `/10x-research` musi zweryfikować, oraz co najmniej jeden antywzorzec do uniknięcia. Najniebezpieczniejszym pojedynczym antywzorcem dla testów pisanych przez AI jest **problem wyroczni**: asercja, której oczekiwana wartość została podniesiona z implementacji pod testem zamiast z niezależnego źródła (wymagań, kontraktu, wywiadu). Taki test jest tautologiczny — daje zielone światło bieżącemu zachowaniu, w tym bieżącym błędom, i nigdy nie może nie przejść z właściwego powodu. Formułuj komórkę „Co dowiedzie ochrony” jako zachowanie użytkownika/biznesu właśnie po to, aby dalszy test otrzymał wyrocznię z ryzyka, a nie z kodu, który czyta.
 
-Both checks fire silently — they're how the brief gets cleaned, not a user-facing step. If a risk is dropped or reframed, note it in a one-line "Challenger findings" subsection at the end of the brief so the user can see what was removed and why.
+Obie kontrole działają po cichu — w ten sposób brief jest oczyszczany, a nie jako krok widoczny dla użytkownika. Jeśli ryzyko zostanie odrzucone lub przeformułowane, odnotuj je w jednoliniowej podsekcji „Challenger findings” na końcu briefu, aby użytkownik mógł zobaczyć, co usunięto i dlaczego.
 
-Show the (cleaned) brief; ask for **Accept** / **Edit** / **Cancel**.
+Pokaż (oczyszczony) brief; poproś o **Accept** / **Edit** / **Cancel**.
 
-## Phase 4 — Write the phased `test-plan.md` (only when the guide is missing)
+## Faza 4 — Zapisz etapowy `test-plan.md` (tylko gdy przewodnik nie istnieje)
 
-Write **one file**: `context/foundation/test-plan.md`, following `references/test-plan-schema.md`. The schema is fixed; content adapts to the brief.
+Zapisz **jeden plik**: `context/foundation/test-plan.md`, zgodnie z `references/test-plan-schema.md`. Schemat jest stały; treść dostosowuje się do briefu.
 
-Two enforcement points the schema makes explicit — do not relax them:
+Dwa punkty egzekwowania, które schemat wyraźnie określa — nie osłabiaj ich:
 
-- **§1 Strategy must contain principle #3** ("Risks are scenarios, not code locations"). Boilerplate-copy from the schema; do not paraphrase down.
-- **§2 Source column is evidence, not anchors.** Allowed: PRD/roadmap/archive lines, interview Q#, hot-spot directories with churn counts, tech-stack constraints. Forbidden: `file:line`, function names, schema names, module names. If a draft risk row has nothing in Source after stripping forbidden anchors, the row is unsourced — drop it or attach a real interview/PRD citation before writing.
+- **§1 Strategy musi zawierać zasadę #3** („Risks are scenarios, not code locations”). Skopiuj boilerplate ze schematu; nie parafrazuj go skrótowo.
+- **§2 Kolumna Source to dowody, nie punkty odniesienia.** Dozwolone: linie PRD/roadmapy/archiwum, wywiad P#, katalogi hot-spotów z liczbą zmian, ograniczenia tech-stack. Zabronione: `file:line`, nazwy funkcji, nazwy schematów, nazwy modułów. Jeśli szkic wiersza ryzyka nie ma nic w Source po usunięciu zabronionych punktów odniesienia, wiersz nie ma źródła — odrzuć go lub dołącz rzeczywisty cytat z wywiadu/PRD przed zapisem.
 
-The load-bearing section is **§3 Phased rollout** — the orchestrator reads this status table on every subsequent invocation. Status vocabulary (parser literals): `not started` → `change opened` → `researched` → `planned` → `implementing` → `complete`. The orchestrator overwrites Status and Change-folder cells as the rollout advances; the rest of the row is frozen until `--refresh`.
+Sekcją nośną jest **§3 Phased rollout** — orkiestrator czyta tę tabelę statusów przy każdym kolejnym wywołaniu. Słownictwo statusu (literały parsera): `not started` → `change opened` → `researched` → `planned` → `implementing` → `complete`. Orkiestrator nadpisuje komórki Status i Change-folder w miarę postępu wdrożenia; reszta wiersza jest zamrożona do `--refresh`.
 
-Preserve the brief's risk response guidance in the written plan:
+Zachowaj wskazówki odpowiedzi na ryzyko z briefu w zapisanym planie:
 
-- §2 risk rows stay concise and evidence-only.
-- §2 must also include the `Risk Response Guidance` table from the schema for every top risk. It carries response intent, not anchors.
-- §3 phase goals should say what protection the phase is trying to prove, not only which test type it will add.
-- §4 Stack must include the current-session MCP/docs/search grounding note from Phase 1, including `checked:` dates and "not available in current session" where appropriate.
-- §6 placeholders should name the future cookbook pattern by behavior/failure mode when possible, e.g. "TBD — see §3 Phase 1 for paid-content access denial/regression pattern," not just "unit tests TBD."
+- wiersze ryzyka §2 pozostają zwięzłe i oparte wyłącznie na dowodach.
+- §2 musi także zawierać tabelę `Risk Response Guidance` ze schematu dla każdego głównego ryzyka. Przenosi ona intencję odpowiedzi, a nie punkty odniesienia.
+- cele faz §3 powinny mówić, jaką ochronę faza próbuje udowodnić, a nie tylko, jaki typ testu doda.
+- §4 Stack musi zawierać notatkę o ugruntowaniu MCP/dokumentacji/wyszukiwania z bieżącej sesji z Fazy 1, w tym daty `checked:` oraz „not available in current session” tam, gdzie to właściwe.
+- placeholdery §6 powinny, gdy to możliwe, nazywać przyszły wzorzec cookbooka przez zachowanie/tryb awarii, np. „TBD — see §3 Phase 1 for paid-content access denial/regression pattern,” a nie tylko „unit tests TBD.”
 
-Do not add file anchors or test code to preserve this guidance. The plan should carry the response intent; `/10x-research` supplies the anchors, and `/10x-plan` turns the response into sub-phases.
+Nie dodawaj punktów odniesienia do plików ani kodu testowego, aby zachować te wskazówki. Plan powinien przenosić intencję odpowiedzi; `/10x-research` dostarcza punkty odniesienia, a `/10x-plan` zamienia odpowiedź w podfazy.
 
-After writing, proceed directly to Phase 5 (the user already approved the brief).
+Po zapisaniu przejdź bezpośrednio do Fazy 5 (użytkownik już zatwierdził brief).
 
 ---
 
-## Phase 5 — Read the guide, locate the current rollout phase
+## Faza 5 — Przeczytaj przewodnik, znajdź bieżący etap wdrożenia
 
-Read §3 and find the first row whose Status is not `complete` — that is the **current rollout phase**. If every row is `complete`, jump to "All phases complete". Extract: phase number (N), phase name, risks covered, test types, and change folder (if any) — these feed the direct argument blocks below.
+Przeczytaj §3 i znajdź pierwszy wiersz, którego Status nie wynosi `complete` — to jest **bieżący etap wdrożenia**. Jeśli każdy wiersz ma `complete`, przejdź do „All phases complete”. Wyodrębnij: numer fazy (N), nazwę fazy, objęte ryzyka, typy testów i folder zmiany (jeśli istnieje) — zasila to bezpośrednie bloki argumentów poniżej.
 
-## Phase 6 — Determine sub-state and present the next handoff
+## Faza 6 — Określ podstan i przedstaw następne przekazanie
 
-Derive sub-state from on-disk artifacts for the current §3 row: change folder, `research.md`, `plan.md`, and unchecked `## Progress` items in `plan.md`.
+Wyprowadź podstan z artefaktów na dysku dla bieżącego wiersza §3: folder zmiany, `research.md`, `plan.md` i niezaznaczone elementy `## Progress` w `plan.md`.
 
-Before choosing a handoff, reconcile stale §3 status from disk if needed:
+Przed wybraniem przekazania uzgodnij nieaktualny status §3 z dyskiem, jeśli jest potrzebne:
 
-- `research.md` exists and §3 still says `change opened` → update to `researched`.
-- `plan.md` exists and §3 still says `change opened` or `researched` → update to `planned`.
-- `plan.md` exists with pending Progress and §3 is not `implementing` → update to `implementing` before handing to `/10x-implement`.
-- `plan.md` Progress is fully `[x]` → update to `complete` and continue to Handoff E.
+- istnieje `research.md`, a §3 wciąż mówi `change opened` → zaktualizuj na `researched`.
+- istnieje `plan.md`, a §3 wciąż mówi `change opened` lub `researched` → zaktualizuj na `planned`.
+- istnieje `plan.md` z oczekującym Progress, a §3 nie wynosi `implementing` → zaktualizuj na `implementing` przed przekazaniem do `/10x-implement`.
+- Progress w `plan.md` jest w pełni `[x]` → zaktualizuj na `complete` i kontynuuj do Przekazania E.
 
-This lazy reconciliation supports the established research → plan → implement process: downstream skills do not need to bounce back here just to flip status labels.
+To leniwe uzgadnianie wspiera ustalony proces badanie → plan → implementacja: dalsze umiejętności nie muszą wracać tutaj tylko po to, aby przełączać etykiety statusu.
 
-Map the state to one of five handoffs. Each one prints the next invocation, copies it to clipboard, then STOPs. For states already inside the downstream process, the handoff payload reminds the active skill to suggest the next natural command after it finishes, rather than returning here for routing.
+Zmapuj stan na jedno z pięciu przekazań. Każde wypisuje następne wywołanie, kopiuje je do schowka, a następnie ZATRZYMUJE SIĘ. W stanach znajdujących się już wewnątrz dalszego procesu payload przekazania przypomina aktywnej umiejętności, aby po ukończeniu sugerowała następne naturalne polecenie, zamiast wracać tutaj po routing.
 
-### Downstream continuation rule
+### Reguła kontynuacji dalszego procesu
 
-After any major downstream phase completes, suggest the next natural command in the established `/10x-research` → `/10x-plan` → `/10x-implement` process unless there is a clear blocker, correction, or missing decision. The next command should include only the direct parameter the next skill needs now. Do not ask the user to re-run `/10x-test-plan` just to discover an already-known next step.
+Po ukończeniu dowolnej głównej dalszej fazy sugeruj następne naturalne polecenie w ustalonym procesie `/10x-research` → `/10x-plan` → `/10x-implement`, chyba że istnieje wyraźna blokada, korekta lub brakująca decyzja. Następne polecenie powinno zawierać tylko bezpośredni parametr, którego następna umiejętność potrzebuje teraz. Nie proś użytkownika o ponowne uruchomienie `/10x-test-plan` tylko po to, aby odkryć już znany następny krok.
 
-Return to `/10x-test-plan` when the test plan itself needs attention: backporting research corrections, reconciling a completed rollout phase, selecting the next rollout phase, `--status`, or `--refresh`.
+Wróć do `/10x-test-plan`, gdy sam plan testów wymaga uwagi: przeniesienie korekt z badania, uzgodnienie ukończonego etapu wdrożenia, wybór następnego etapu wdrożenia, `--status` lub `--refresh`.
 
-### Handoff A — Change folder missing (Status `not started`)
+### Przekazanie A — Brak folderu zmiany (Status `not started`)
 
-Propose a change-id from the rollout phase name (kebab-case, prefixed `testing-`). E.g., "Critical-path coverage" → `testing-critical-path-coverage`. Confirm with the user, then update §3 (Status → `change opened`, Change folder → chosen id) **before** the handoff so resume works if the session dies.
+Zaproponuj change-id na podstawie nazwy etapu wdrożenia (kebab-case, z prefiksem `testing-`). Np. „Critical-path coverage” → `testing-critical-path-coverage`. Potwierdź z użytkownikiem, a następnie zaktualizuj §3 (Status → `change opened`, Change folder → wybrane id) **przed** przekazaniem, aby wznowienie działało, jeśli sesja zakończy się nieoczekiwanie.
 
-Then run the **Handoff Ritual** with:
+Następnie wykonaj **Rytuał przekazania** z:
 
 ```
 /10x-new <change-id>
 ```
 
-…followed directly by this intent block as its argument:
+…a bezpośrednio po nim z tym blokiem intencji jako argumentem:
 
 ```
 Open a change folder for rollout Phase <N> of context/foundation/test-plan.md: "<phase name>".
@@ -415,15 +414,15 @@ Risk response intent: <for each covered risk, one line from §2 Risk Response Gu
 After creating the folder, follow the downstream continuation rule.
 ```
 
-### Handoff B — `change.md` exists, no `research.md` (Status `change opened`)
+### Przekazanie B — Istnieje `change.md`, brak `research.md` (Status `change opened`)
 
-Run the Handoff Ritual with:
+Wykonaj Rytuał przekazania z:
 
 ```
 /10x-research
 ```
 
-…followed directly by a research query with this shape:
+…a bezpośrednio po nim z zapytaniem badawczym o takim kształcie:
 
 ```
 Ground rollout Phase <N> of context/foundation/test-plan.md.
@@ -441,34 +440,34 @@ Write findings to context/changes/<change-id>/research.md.
 Then follow the downstream continuation rule.
 ```
 
-If the user returns here after research, update guide §3 row Status to `researched` before continuing. Also run the **post-research backport check** (see below). This return is mainly for corrections; the happy path should continue by the downstream continuation rule.
+Jeśli użytkownik wróci tutaj po badaniu, zaktualizuj Status wiersza §3 przewodnika na `researched` przed kontynuowaniem. Uruchom także **kontrolę przeniesienia po badaniu** (poniżej). Ten powrót służy głównie korektom; szczęśliwa ścieżka powinna kontynuować według reguły kontynuacji dalszego procesu.
 
-### Post-research backport check
+### Kontrola przeniesienia po badaniu
 
-After `research.md` lands and before presenting Handoff C, read the new research file and look for two kinds of finding:
+Gdy pojawi się `research.md` i przed przedstawieniem Przekazania C, przeczytaj nowy plik badania i szukaj trzech typów ustaleń:
 
-1. **Anchor corrections** — research discovered the failure surfaces in a directory/area different from what §2's Source column cited as hot-spot evidence (e.g., §2 cited `src/lib/schemas/` as hot-spot evidence for a response-drift risk, but research shows the response schema actually lives in `src/lib/openrouter.ts`). The hot-spot citation is misleading.
-2. **Speculative-risk confirmations** — research flagged a risk as "describing the implementation, nothing to break" and proposed to drop/reframe.
-3. **Response-guidance corrections** — research verified that the planned response would not catch the failure, picked a cheaper layer, or found the listed "must challenge" assumption was wrong.
+1. **Korekty punktów odniesienia** — badanie odkryło powierzchnie awarii w katalogu/obszarze innym niż ten, który kolumna Source §2 cytowała jako dowód hot-spotu (np. §2 cytowało `src/lib/schemas/` jako dowód hot-spotu dla ryzyka dryfu odpowiedzi, ale badanie pokazuje, że schemat odpowiedzi faktycznie znajduje się w `src/lib/openrouter.ts`). Cytat hot-spotu jest mylący.
+2. **Potwierdzenia ryzyka spekulatywnego** — badanie oznaczyło ryzyko jako „opisujące implementację, brak czego zepsuć” i zaproponowało odrzucenie/przeformułowanie.
+3. **Korekty wskazówek odpowiedzi** — badanie zweryfikowało, że planowana odpowiedź nie wykryłaby awarii, wybrało tańszą warstwę lub stwierdziło, że wymienione założenie „must challenge” było błędne.
 
-If either is present, ask the user:
+Jeśli występuje któreś z nich, zapytaj użytkownika:
 
 > Research surfaced corrections to the test plan §2:
 > - [list each finding in one line]
 >
 > Backport into `context/foundation/test-plan.md` §2 now (Source column, risk wording, or Risk Response Guidance only — never adds file anchors), or defer to `--refresh`?
 
-This is the ONLY in-place edit allowed to §1/§2 outside of `--refresh`. The edit changes the Source citation, risk wording, or response-guidance cells, never adds a file:line anchor (principle #3 still holds).
+To jest JEDYNA dozwolona edycja §1/§2 w miejscu poza `--refresh`. Edycja zmienia cytat Source, sformułowanie ryzyka lub komórki wskazówek odpowiedzi, nigdy nie dodaje punktu odniesienia file:line (zasada #3 nadal obowiązuje).
 
-### Handoff C — `research.md` exists, no `plan.md` (Status `researched`)
+### Przekazanie C — Istnieje `research.md`, brak `plan.md` (Status `researched`)
 
-Run the Handoff Ritual with:
+Wykonaj Rytuał przekazania z:
 
 ```
 /10x-plan
 ```
 
-…followed directly by a planning prompt with this shape:
+…a bezpośrednio po nim z promptem planowania o takim kształcie:
 
 ```
 Plan rollout Phase <N> of context/foundation/test-plan.md. Read research.md
@@ -484,30 +483,30 @@ Plan sub-phases by cost × signal and risk priority. Each test sub-phase must st
 Then follow the downstream continuation rule.
 ```
 
-If the user returns here after `plan.md` is written, update §3 Status to `planned`. This return is not required on the happy path; `/10x-plan` should follow the downstream continuation rule.
+Jeśli użytkownik wróci tutaj po zapisaniu `plan.md`, zaktualizuj Status §3 na `planned`. Ten powrót nie jest wymagany na szczęśliwej ścieżce; `/10x-plan` powinien stosować regułę kontynuacji dalszego procesu.
 
-### Handoff D — `plan.md` exists with pending Progress (Status `planned` or `implementing`)
+### Przekazanie D — Istnieje `plan.md` z oczekującym Progress (Status `planned` lub `implementing`)
 
-Find the first unchecked row in `## Progress` and extract its sub-phase number, e.g. `N.M` from `- [ ] N.M <title>`.
+Znajdź pierwszy niezaznaczony wiersz w `## Progress` i wyodrębnij numer jego podfazy, np. `N.M` z `- [ ] N.M <title>`.
 
-Run the Handoff Ritual with:
+Wykonaj Rytuał przekazania z:
 
 ```
 /10x-implement <change-id> phase <N>
 ```
 
-(No direct argument needed; `/10x-implement` reads the plan directly.)
+(Nie potrzeba bezpośredniego argumentu; `/10x-implement` czyta plan bezpośrednio.)
 
-Update guide §3 Status to `implementing` on first transition; leave it at `implementing` for subsequent sub-phases.
+Zaktualizuj Status §3 na `implementing` przy pierwszym przejściu; pozostaw `implementing` dla kolejnych podfaz.
 
-### Handoff E — `plan.md` Progress fully `[x]` (Status `complete`)
+### Przekazanie E — Progress w `plan.md` w pełni `[x]` (Status `complete`)
 
-The rollout phase is done. Update §3 Status to `complete`. Then **loop back to Phase 5** — find the next pending rollout phase, present its Handoff A. Do not exit until either:
+Etap wdrożenia jest ukończony. Zaktualizuj Status §3 na `complete`. Następnie **zapętl się z powrotem do Fazy 5** — znajdź następny oczekujący etap wdrożenia, przedstaw jego Przekazanie A. Nie kończ, dopóki:
 
-- All §3 rows are `complete` → print the completion summary (see "All phases complete" at the bottom of this skill).
-- The user wants to stop here → after updating Status, print a short summary and STOP.
+- Wszystkie wiersze §3 nie będą `complete` → wypisz podsumowanie ukończenia (zobacz „All phases complete” na dole tej umiejętności).
+- Użytkownik nie zechce zatrzymać się tutaj → po zaktualizowaniu Status wypisz krótkie podsumowanie i ZATRZYMAJ SIĘ.
 
-Use `AskUserQuestion` after marking complete:
+Użyj `AskUserQuestion` po oznaczeniu jako ukończone:
 
 > Rollout Phase <N> is complete. Proceed to Phase <N+1>, or stop here?
 >
@@ -516,11 +515,11 @@ Use `AskUserQuestion` after marking complete:
 
 ---
 
-## The Handoff Ritual
+## Rytuał przekazania
 
-Every handoff (A–D) prints the next invocation, copies it to the clipboard when the host supports clipboard access, then stops. For Handoffs A–C, the next invocation is the slash command followed immediately by the intent/query/prompt as the command argument; do not assume the downstream `/10x-*` command will ask for parameters after launch. For Handoff D, the invocation is command-only because `/10x-implement` reads the plan directly. A later `/10x-test-plan` invocation re-derives state from disk and reconciles any stale §3 statuses.
+Każde przekazanie (A–D) wypisuje następne wywołanie, kopiuje je do schowka, gdy host wspiera dostęp do schowka, a następnie się zatrzymuje. W przypadku Przekazań A–C następne wywołanie to polecenie slash, po którym bezpośrednio występuje blok intencji/zapytania/promptu jako argument polecenia; nie zakładaj, że dalsze polecenie `/10x-*` zapyta o parametry po uruchomieniu. W przypadku Przekazania D wywołanie zawiera tylko polecenie, ponieważ `/10x-implement` czyta plan bezpośrednio. Późniejsze wywołanie `/10x-test-plan` ponownie wyprowadza stan z dysku i uzgadnia ewentualne nieaktualne statusy §3.
 
-### Step 1 — Print
+### Krok 1 — Wypisz
 
 ```
 ─────────────────────────────────────────────────────────────────────
@@ -534,19 +533,19 @@ Then /clear and paste the copied invocation. After that phase completes, continu
 ─────────────────────────────────────────────────────────────────────
 ```
 
-### Step 2 — Copy to clipboard
+### Krok 2 — Skopiuj do schowka
 
-Use the host clipboard tool if available. If not, leave the printed invocation as the source of truth.
+Użyj narzędzia schowka hosta, jeśli jest dostępne. Jeśli nie, pozostaw wypisane wywołanie jako źródło prawdy.
 
-### Step 3 — STOP
+### Krok 3 — STOP
 
-Do not wait for confirmation. The skill's job is done for this invocation.
+Nie czekaj na potwierdzenie. Zadanie umiejętności jest ukończone dla tego wywołania.
 
 ---
 
-## `--status` mode
+## Tryb `--status`
 
-Skip all phase logic; read the guide if present and print a compact rollout status. Example output:
+Pomiń całą logikę faz; przeczytaj przewodnik, jeśli istnieje, i wypisz zwięzły status wdrożenia. Przykładowy wynik:
 
 ```
 Test rollout status — context/foundation/test-plan.md
@@ -561,33 +560,33 @@ Test rollout status — context/foundation/test-plan.md
 Currently at: Phase 2, sub-phase 3 of 5.
 ```
 
-If the guide is missing, print:
+Jeśli przewodnik nie istnieje, wypisz:
 
 ```
 No test-plan.md found at context/foundation/. Run /10x-test-plan
 without --status to start the rollout.
 ```
 
-…and STOP.
+…i ZATRZYMAJ SIĘ.
 
-## `--refresh` mode
+## Tryb `--refresh`
 
-Triggered when the user invokes `/10x-test-plan --refresh`, or when the guide is stale (e.g., a recommended tool's `checked:` date > 3 months old). Refresh **does not edit the guide in place** — it opens a new change folder `test-plan-refresh-<YYYY-MM-DD>`:
+Wyzwalany, gdy użytkownik uruchamia `/10x-test-plan --refresh` lub gdy przewodnik jest nieaktualny (np. data `checked:` zalecanego narzędzia jest starsza niż 3 miesiące). Refresh **nie edytuje przewodnika w miejscu** — otwiera nowy folder zmiany `test-plan-refresh-<YYYY-MM-DD>`:
 
-1. Run Phases 1+2 fresh — hot-spots and concerns are the only honest triggers for a refresh.
-2. Synthesize a refresh-scoped brief: what is in the guide today, what is stale, what is missing.
-3. Hand off to `/10x-new` with that brief (standard Handoff Ritual).
-4. The chain runs normally; the plan's final sub-phase updates §3 status and §6 cookbook patterns, but never rewrites §1/§2 without explicit user direction.
+1. Uruchom Fazy 1+2 od nowa — hot-spoty i obawy są jedynymi uczciwymi wyzwalaczami refreshu.
+2. Zsyntetyzuj brief o zakresie refreshu: co jest obecnie w przewodniku, co jest nieaktualne, czego brakuje.
+3. Przekaż do `/10x-new` z tym briefem (standardowy Rytuał przekazania).
+4. Łańcuch działa normalnie; końcowa podfaza planu aktualizuje status §3 i wzorce cookbooka §6, ale nigdy nie przepisuje §1/§2 bez wyraźnej dyspozycji użytkownika.
 
 ---
 
-## Interactive prompts — host-agnostic
+## Interaktywne prompty — niezależne od hosta
 
-Whenever this skill says *"ask the user"*, use whichever interactive-question tool the host exposes (e.g., `AskUserQuestion`, `ask_question`, `request_user_input`). Before the first interactive step, scan available tools for one with a `question` parameter and an `options`/`choices` field; use the first match. If none exists, fall back to a plain conversational message with labelled options.
+Za każdym razem, gdy ta umiejętność mówi *„zapytaj użytkownika”*, użyj dowolnego interaktywnego narzędzia pytań udostępnianego przez hosta (np. `AskUserQuestion`, `ask_question`, `request_user_input`). Przed pierwszym krokiem interaktywnym przeskanuj dostępne narzędzia w poszukiwaniu narzędzia z parametrem `question` i polem `options`/`choices`; użyj pierwszego dopasowania. Jeśli żadne nie istnieje, użyj zwykłej wiadomości konwersacyjnej z oznaczonymi opcjami.
 
-## All phases complete
+## Wszystkie fazy ukończone
 
-When the loop exits with every §3 row at `complete`:
+Gdy pętla zakończy się z każdym wierszem §3 ustawionym na `complete`:
 
 ```
 Rollout complete — every phase in context/foundation/test-plan.md is now `complete`.
@@ -603,24 +602,24 @@ surfaces, a tool's `checked:` date is > 3 months old, the tech stack changes,
 or §7 negative-space no longer matches what the team believes.
 ```
 
-Then suggest a smoke test: open a fresh agent session and ask "Read the project rules and `context/foundation/test-plan.md`. What should I test first for a new `<area>` endpoint, and why?" The agent should name the cookbook pattern, location, and cheapest test type. If it picks a random file, the rules-file is not pointing at `context/foundation/` yet.
+Następnie zasugeruj smoke test: otwórz świeżą sesję agenta i zapytaj „Read the project rules and `context/foundation/test-plan.md`. What should I test first for a new `<area>` endpoint, and why?” Agent powinien wskazać wzorzec cookbooka, lokalizację i najtańszy typ testu. Jeśli wybierze losowy plik, plik zasad nie wskazuje jeszcze na `context/foundation/`.
 
-## What this skill does NOT do
+## Czego ta umiejętność NIE robi
 
-- Does not write test code, configure hooks/MCPs/CI YAML, or edit AGENTS.md. Those land via downstream rollout phases.
-- Does not invent risks — every risk traces back to PRD, roadmap, archive, hot-spots, or the Phase 2 interview.
-- Does not auto-invoke downstream skills. Every handoff stops at the clipboard and waits, but each completed downstream phase should suggest the next natural command in the established research → plan → implement process unless there is a clear blocker.
-- **Does not read the codebase for knowledge.** Hot-spot churn, test-base count, project marker, framework detection — yes. Call graphs, schema bodies, error-translation logic, "which file owns this failure" — no. That extraction is `/10x-research`'s job, run per rollout phase against the up-to-date code. If you ever feel tempted to cite `src/foo/bar.ts:42` in §2, you've crossed the line — stop and let research do it. (See "Load-bearing principles" §3.)
+- Nie pisze kodu testowego, nie konfiguruje hooków/MCP/CI YAML ani nie edytuje AGENTS.md. Trafiają one przez dalsze etapy wdrożenia.
+- Nie wymyśla ryzyk — każde ryzyko prowadzi do PRD, roadmapy, archiwum, hot-spotów lub wywiadu Fazy 2.
+- Nie wywołuje automatycznie dalszych umiejętności. Każde przekazanie zatrzymuje się przy schowku i czeka, ale każda ukończona dalsza faza powinna sugerować następne naturalne polecenie w ustalonym procesie badanie → plan → implementacja, chyba że istnieje wyraźna blokada.
+- **Nie czyta bazy kodu dla wiedzy.** Zmiany hot-spotów, liczba bazy testów, znacznik projektu, wykrywanie frameworka — tak. Grafy wywołań, treści schematów, logika translacji błędów, „który plik odpowiada za tę awarię” — nie. Ta ekstrakcja jest zadaniem `/10x-research`, uruchamianym dla każdego etapu wdrożenia względem aktualnego kodu. Jeśli kiedykolwiek masz pokusę zacytowania `src/foo/bar.ts:42` w §2, przekroczyłeś granicę — zatrzymaj się i pozwól badaniu to zrobić. (Zobacz „Zasady nośne” §3.)
 
-## Tone
+## Ton
 
-Professional, instructional, terse. Imperative voice. No marketing language. No emojis (the single ✓ in clipboard confirmation is functional).
+Profesjonalny, instruktażowy, zwięzły. Tryb rozkazujący. Bez języka marketingowego. Bez emoji (pojedynczy ✓ w potwierdzeniu schowka jest funkcjonalny).
 
-## Edge cases
+## Przypadki brzegowe
 
-- **No PRD, archive, or roadmap.** Asks user for canonical context sources; if none are provided, the guide leans heavily on the Phase 2 interview and hot-spot scan.
-- **Polyglot stack.** Pick the dominant test surface by file count for hot-spot scoping; mention secondary stacks in §2 if they own a top risk.
-- **No existing test infrastructure.** §4 says "none yet"; the first rollout phase bootstraps the runner + first integration test on Risk #1.
-- **Brownfield with rich existing tests.** Research highlights what is NOT covered; §6 captures both what exists and what the rollout adds.
-- **Non-English guide.** Write the body in the requested language; keep §3 status vocabulary in English so the parser still works.
-- **Abandoned plan (Status `planned`/`implementing`, user wants to skip).** Ask explicitly; if confirmed, mark `complete` with a one-line skip note and advance. Never silently advance.
+- **Brak PRD, archiwum ani roadmapy.** Poproś użytkownika o kanoniczne źródła kontekstu; jeśli żadne nie zostaną podane, przewodnik opiera się silnie na wywiadzie Fazy 2 i skanie hot-spotów.
+- **Stos poliglotyczny.** Wybierz dominującą powierzchnię testową według liczby plików dla zakresu hot-spotów; wspomnij o wtórnych stosach w §2, jeśli posiadają główne ryzyko.
+- **Brak istniejącej infrastruktury testowej.** §4 mówi „none yet”; pierwszy etap wdrożenia inicjuje runner + pierwszy test integracyjny dla Ryzyka #1.
+- **Brownfield z bogatymi istniejącymi testami.** Badanie podkreśla, co NIE jest pokryte; §6 rejestruje zarówno to, co istnieje, jak i to, co dodaje wdrożenie.
+- **Przewodnik w języku innym niż angielski.** Zapisz treść w żądanym języku; zachowaj słownictwo statusów §3 po angielsku, aby parser nadal działał.
+- **Porzucony plan (Status `planned`/`implementing`, użytkownik chce pominąć).** Zapytaj jawnie; jeśli potwierdzone, oznacz `complete` z jednoliniową notatką o pominięciu i przejdź dalej. Nigdy nie przechodź po cichu.

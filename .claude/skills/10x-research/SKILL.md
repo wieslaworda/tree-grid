@@ -15,182 +15,177 @@ allowed-tools:
   - TaskList
   - TaskGet
 ---
+# Badanie bazy kodu
 
-# Research Codebase
+Odpowiedz na pytanie badawcze użytkownika, korzystając z aktualnych ustaleń popartych źródłami. Zachowaj implementację, decyzje produktowe i zmiany cyklu życia poza zakresem badania, chyba że zostaną osobno zażądane.
 
-Answer the user's research question with current, source-backed findings. Keep
-implementation, product decisions and lifecycle changes outside the research
-scope unless separately requested.
+## Zacznij od dostarczonego żądania
 
-## Start from the supplied request
+Jeśli dostarczono pytanie, change-id lub plik, zacznij od tego kontekstu; nie pytaj ponownie
+o to samo żądanie. Dla `/10x-research <change-id>` użyj artefaktów
+request/change/frame aktywnej zmiany, aby ustalić pytanie. Zapytaj o brakujące
+pytanie tylko wtedy, gdy ani wiadomość, ani te artefakty go nie definiują.
 
-If a question, change-id or file was supplied, begin with that context; do not ask
-for the same request again. For `/10x-research <change-id>`, use the active change's
-request/change/frame artifacts to establish the question. Ask for the missing
-question only if neither the message nor those artifacts defines one.
+Rozwiąż aktywną zmianę przed jakimikolwiek zapisami. Jawnie zarchiwizowana zmiana jest
+tylko do odczytu: wyjaśnij, że potrzebna jest nowa zmiana, i zatrzymaj się przed zapisem.
+Jeśli nie podano change-id, wyprowadź go z tematu podczas zapisywania dokumentu.
 
-Resolve the active change before any writes. An explicit archived change is
-read-only: explain that a new change is needed, and stop before writing there.
-If no change-id was supplied, derive one from the topic when saving the document.
+## 1. Ustal dowody i zakres
 
-## 1. Establish evidence and scope
+- Jeśli użytkownik wspomina konkretne pliki (tickety, dokumenty, JSON), najpierw przeczytaj je W CAŁOŚCI (bez limitu/offsetu)
+- **KRYTYCZNE**: Przeczytaj te pliki samodzielnie w głównym kontekście przed uruchomieniem jakichkolwiek podzadań
 
-- If the user mentions specific files (tickets, docs, JSON), read them FULLY first (no limit/offset)
-- **CRITICAL**: Read these files yourself in the main context before spawning any sub-tasks
+Przeczytaj `context/foundation/lessons.md`, jeśli istnieje, i traktuj jego wpisy jako wcześniejsze znane wzorce podczas kształtowania obszarów badawczych — powtarzające się reguły już zaakceptowane przez zespół zawężają to, co warto ponownie badać.
 
-Read `context/foundation/lessons.md` if present and treat its entries as known-pattern priors when shaping the research areas — recurring rules already accepted by the team narrow what's worth re-investigating.
+Prowadź zwięzłą listę pytań wymagających odpowiedzi, istniejących dowodów, nierozstrzygniętych
+sprzeczności i kolejnych sprawdzeń. Ukierunkowane pytanie może wymagać jednego lokalnego wyszukania;
+kompleksowy zakres domyślnie wymaga objęcia każdego uzgodnionego obszaru,
+delegowanego równolegle (krok 2).
 
-Keep a compact list of the questions to answer, existing evidence, unresolved
-contradictions and next checks. A focused question may need one local lookup;
-comprehensive scope needs coverage of every agreed area, delegated in parallel by
-default (step 2).
+Doprecyzuj tylko taką niejednoznaczność, która istotnie zmieniłaby badanie. Użyj
+rzeczywistego narzędzia hosta do pytań strukturalnych, gdy jest dostępne (Claude AskUserQuestion,
+Codex request_user_input, OpenCode question), przestrzegając jego schematu, wielkości rundy i
+niestandardowego wejścia. Używaj krótkich nagłówków (maksymalnie 12 znaków) oraz konkretnych opcji z
+opisami. W hoście bez takiej możliwości zadaj zwięzłe pytanie tekstowe w celu
+wymaganego doprecyzowania zakresu; nie symuluj wywołania narzędzia. Jednoznaczne żądanie badawcze
+nie wymaga wywiadu ani zmiany trybu. Preferencje użytkownika są decyzjami; zweryfikuj
+skorygowane twierdzenia faktyczne względem wskazanego źródła.
 
-Clarify only ambiguity that would materially change the investigation. Use the
-host's actual structured question tool when available (Claude AskUserQuestion,
-Codex request_user_input, OpenCode question), respecting its schema, round size and
-custom input. Use short headers (at most 12 characters) and concrete options with
-descriptions. In a host without that capability, ask a concise text question for
-required scope clarification; do not simulate a tool call. An unambiguous research
-request needs no interview or mode switch. User preferences are decisions; verify
-corrected factual assertions against the indicated source.
+## 2. Wybierz i przeprowadź badanie
 
-## 2. Select and execute the investigation
+Pracuj lokalnie dla pojedynczego zlokalizowanego faktu lub rozumowania sekwencyjnego. Kompleksowe lub
+wieloobszarowe badanie jest domyślnie delegowane, a nie traktowane jako wyjątek. Przed pierwszym
+przydzieleniem przeczytaj [references/task-orchestration.md](references/task-orchestration.md)
+i stosuj jego ograniczone przydziały, sprawdzenia dostępnego modelu/możliwości, awaryjne
+rozwiązania oraz wymagania dotyczące dowodów. Uruchom 2–4 pracowników równolegle w jednej
+wiadomości, każdego dla innego wymiaru badawczego, i poproś każdego o kotwice `file:line`
+— na przykład jednego do zlokalizowania każdego pliku związanego z X, jednego do wyszukania wcześniejszych
+decyzji dotyczących Y w `context/changes/**/` i `context/archive/**/`, jednego do przeanalizowania,
+jak działa podsystem Z. Wysyłaj mniej tylko wtedy, gdy zakres rzeczywiście obejmuje
+jeden obszar albo gdy luka zależy od warunku wstępnego, który nadal nie został rozwiązany.
+W Claude Code deleguj za pomocą narzędzia `Agent` (`Task` w starszych wersjach Claude Code)
+— `subagent_type: "Explore"` do lokalizowania kodu, `"general-purpose"`
+do analizy; w innych hostach użyj natywnego odpowiednika. Używaj śledzenia zadań, gdy
+pomaga koordynować kilka obszarów i host je udostępnia; w przeciwnym razie wystarcza lista
+robocza.
 
-Work locally for a single located fact or sequential reasoning. Comprehensive or
-multi-area research is delegated by default, not as an exception. Before the first
-dispatch read [references/task-orchestration.md](references/task-orchestration.md)
-and use its bounded assignments, available model/capability checks, failure
-fallback and evidence requirements. Spawn 2–4 workers in parallel in a single
-message, each on a different research dimension and each asked for `file:line`
-anchors — for example one locating every file related to X, one looking for prior
-decisions about Y in `context/changes/**/` and `context/archive/**/`, one analyzing
-how the Z subsystem works. Dispatch fewer only when the scope is genuinely
-single-area, or when a gap depends on a prerequisite that is still unresolved.
-In Claude Code, dispatch with the `Agent` tool (`Task` in older Claude Code
-versions) — `subagent_type: "Explore"` for locating code, `"general-purpose"`
-for analysis; in other hosts use the native equivalent. Use task tracking when it
-helps coordinate several areas and the host exposes it; otherwise the working
-list suffices.
+Główny agent odpowiada za pytanie i syntezę. Agenci podrzędni prowadzą badanie tylko do odczytu
+i zwracają kotwice, niepewność oraz faktyczny zakres objęcia. Nie proś każdego pracownika o
+przeczytanie całego repozytorium lub tych samych dużych dokumentów. Kontynuuj niezależną pracę,
+gdy działają; analizuj istotne dowody, gdy pojawiają się wyniki. Poczekaj na ukończenie przez WSZYSTKICH
+uruchomionych pracowników przed syntezą — częściowe przeszukanie to wskazana luka, a nie odpowiedź.
 
-The primary agent owns the question and synthesis. Children investigate read-only
-and return anchors, uncertainty and actual coverage. Do not ask every worker to
-read the full repository or the same large documents. Continue independent work
-while they run; inspect material evidence as results arrive. Wait for ALL
-dispatched workers to complete before synthesizing — a partial sweep is a stated
-gap, not an answer.
+Przy kontynuacji lub korekcie zakresu zaktualizuj dotknięte pytania i pracowników, zachowując
+niepowiązane ustalenia. Późna odpowiedź oparta na zastąpionym zakresie nie może nadpisać
+nowej decyzji. Podejmij dalsze kroki wobec konkretnej luki zamiast ponownie rozpoczynać szerokie poszukiwania.
 
-On a follow-up or scope correction, update affected questions and workers, retaining
-unrelated findings. A late answer based on superseded scope cannot overwrite the
-new decision. Follow up on a concrete gap instead of restarting broad discovery.
+## 3. Dokonaj syntezy i zakończ odkrywanie
 
-## 3. Synthesize and close discovery
+Połącz dowody w odpowiedź na pierwotne pytanie. Rozróżniaj zaobserwowane
+zachowanie, wnioski i nierozstrzygnięte fakty. Sprawdź rozstrzygające/sprzeczne ścieżki kodu
+i wywołujących; sam brak wyników wyszukiwania nie dowodzi nieobecności. Cytuj sprawdzony zakres
+przy formułowaniu negatywnego ustalenia. Poszerzaj zakres tylko wtedy, gdy może to rozstrzygnąć uzgodnione pytanie
+lub istotną sprzeczność, a nie po to, by wypełnić opcjonalną sekcję dokumentu.
 
-Connect the evidence into an answer to the original question. Distinguish observed
-behavior, inference and unresolved facts. Inspect decisive/conflicting code paths
-and callers; a search miss alone does not prove absence. Cite the inspected scope
-when making a negative finding. Broaden only when it can resolve an agreed question
-or material contradiction, not to fill an optional document section.
+Gdy wymagane są rekomendacje, zachowaj ustalone wymagania i odrzucaj opcje, które osłabiają wymagane gwarancje. Rozróżniaj ustalone decyzje, rzeczywiste wybory i brakujące dowody.
 
-When recommendations are requested, preserve established requirements and reject options that weaken required guarantees. Distinguish settled decisions, genuine choices and missing evidence.
+Zatrzymaj się, gdy uzgodnione pytania mają wystarczające dowody, a znaczące konflikty
+zostały rozwiązane. Zamknij lub anuluj przestarzałe zadania. Nadal brakujące wymagane dowody
+oznaczają częściowe ustalenie z określoną luką i jej wpływem; nie twierdź, że praca została ukończona,
+ani nie uruchamiaj bez końca równoważnych wyszukiwań. Nie uruchamiaj buildów ani testów,
+chyba że ich wyniki odpowiadają na konkretne pytanie badawcze i host na to pozwala.
 
-Stop when the agreed questions have adequate evidence and consequential conflicts
-are resolved. Close or cancel obsolete tasks. Required evidence still missing
-means a partial finding with the gap and its impact stated; do not claim completion
-or continue spawning equivalent searches indefinitely. Do not run builds or tests
-unless their results answer a specific research question and the host permits them.
+## 4. Zapisz i zweryfikuj artefakt badawczy
 
-## 4. Write and verify the research artifact
+Gdy zapisy w repozytorium są dozwolone, zapisz
+`context/changes/<change-id>/research.md`, zachowując istniejący materiał i edycje użytkownika.
+Utwórz aktywny folder i `change.md` tylko wtedy, gdy ich brakuje, zgodnie z semantyką
+`/10x-new`. Nigdy nie nadpisuj innej zmiany ani nie zapisuj w `context/archive/`.
+Na tym etapie przeczytaj [references/research-document.md](references/research-document.md)
+dla formatu wyjściowego; nie ładuj go wyłącznie na potrzeby odkrywania źródeł.
 
-When repository writes are allowed, save
-`context/changes/<change-id>/research.md`, preserving existing material and user
-edits. Create the active folder and `change.md` only if missing, following
-`/10x-new` semantics. Never overwrite another change or write in `context/archive/`.
-Read [references/research-document.md](references/research-document.md) at this
-stage for the output format; do not load it merely for source discovery.
+Przed zapisaniem `research.md` zastosuj kontrole ograniczonych twierdzeń i prozy/JSON z
+tej referencji. Każde ilościowe lub uniwersalne twierdzenie w prozie wymaga jawnego
+warunku, kwantyfikatora (dokładny zbiór, liczba lub „ta sprawdzona ścieżka”) oraz kotwicy
+źródłowej. Nie pisz „zawsze”, „nigdy”, „każdy”, „tylko” ani „przy pierwszej próbie”,
+chyba że nazwany warunek i sprawdzona ścieżka rzeczywiście mają taki zakres. Rozstrzygaj
+każde twierdzenie historyczne osobno: dokument nieaktualny pod względem liczebności może nadal
+być poprawny w innym polu; lista pozytywna nie jest zbiorem wyłącznym, chyba że
+źródło tak stwierdza.
 
-Before writing `research.md`, apply the bounded-assertion and prose/JSON checks in
-that reference. Every quantitative or universal prose claim needs an explicit
-condition, a quantifier (exact set, count, or “this inspected path”), and a source
-anchor. Do not write “always”, “never”, “every”, “only”, or “on the first attempt”
-unless the named condition and inspected path actually have that scope. Adjudicate
-each historical assertion on its own: a document that is stale on counts may still
-be correct on another field; a positive list is not an exclusive set unless the
-source says so.
-
-When a structured facts file was requested (JSON or table), finish a separate
-prose-versus-JSON pass before persisting either file: for each leaf, spell the
-prose sentence that value would make if true, confirm the same sentence is in
-`research.md`, and confirm the JSON value matches the same source. JSON agreement
-does not certify the surrounding prose. Run the bundled Node checker once:
+Gdy zażądano pliku faktów strukturalnych (JSON lub tabeli), przed zapisaniem któregokolwiek pliku
+wykonaj osobne przejście proza-kontra-JSON: dla każdego liścia sformułuj
+zdanie w prozie, które dana wartość oznaczałaby, gdyby była prawdziwa, potwierdź, że to samo zdanie jest w
+`research.md`, i potwierdź, że wartość JSON odpowiada temu samemu źródłu. Zgodność JSON
+nie poświadcza otaczającej prozy. Uruchom raz dołączony sprawdzacz Node:
 
 ```sh
 node <loaded-skill-dir>/scripts/prose-json-check.mjs <research.md> <facts.json>
 ```
 
-It only verifies that each JSON number and boolean appears in the prose; it does
-not prove quantifiers. Missing leaves or extra universal wording still need a
-manual correction. If Node is unavailable, complete the same checklist by hand.
+Sprawdza on jedynie, czy każda liczba i wartość logiczna JSON występuje w prozie; nie
+dowodzi poprawności kwantyfikatorów. Brakujące liście lub dodatkowe uniwersalne sformułowania nadal wymagają
+ręcznej korekty. Jeśli Node jest niedostępny, wykonaj tę samą listę kontrolną ręcznie.
 
-Gather metadata from the actual repository and current clock once; no fabricated
-branch, commit, timestamp or researcher identity. Write change.md metadata
-**exclusively** through bundled [scripts/metadata-guard.mjs](scripts/metadata-guard.mjs)
-with Node — never rewrite existing YAML from a template or drop identity fields:
+Zbierz metadane z rzeczywistego repozytorium i bieżącego zegara tylko raz; nie twórz fikcyjnych
+informacji o branchu, commicie, znaczniku czasu ani tożsamości badacza. Zapisuj metadane change.md
+**wyłącznie** za pomocą dołączonego [scripts/metadata-guard.mjs](scripts/metadata-guard.mjs)
+z Node — nigdy nie przepisuj istniejącego YAML z szablonu ani nie usuwaj pól tożsamości:
 
 ```sh
 node <loaded-skill-dir>/scripts/metadata-guard.mjs inspect <change-dir>
 node <loaded-skill-dir>/scripts/metadata-guard.mjs mark-researched <change-dir> --expected-sha256 <inspected-change-sha256> --date <YYYY-MM-DD>
 ```
 
-`mark-researched` advances only `new` to `preparing`, sets `updated` to today, appends
-missing owned fields, and preserves `change_id`, `title`, `created`, unrelated YAML,
-body and later lifecycle states. It requires a saved `research.md`. A stale fingerprint
-requires rereading the changed metadata. If Node is unavailable or syntax unsupported,
-inspect the file and make only the same narrow status/date edit; never replace the
-frontmatter. The helper uses optimistic fingerprints and atomic replacement, not a
-transaction with external editors. A research document may be complete or partial
-independently of change lifecycle.
+`mark-researched` przesuwa tylko `new` do `preparing`, ustawia `updated` na dzisiaj, dodaje
+brakujące posiadane pola i zachowuje `change_id`, `title`, `created`, niezwiązany YAML,
+treść oraz późniejsze stany cyklu życia. Wymaga zapisanego `research.md`. Nieaktualny odcisk
+wymaga ponownego przeczytania zmienionych metadanych. Jeśli Node jest niedostępny lub składnia nie jest obsługiwana,
+sprawdź plik i dokonaj wyłącznie tej samej wąskiej edycji statusu/daty; nigdy nie zastępuj
+frontmatter. Pomocnik używa optymistycznych odcisków i atomowego zastępowania, a nie
+transakcji z zewnętrznymi edytorami. Dokument badawczy może być kompletny lub częściowy
+niezależnie od cyklu życia zmiany.
 
-Review the final artifact once to check its answer, citations, gaps and metadata:
-read back persisted content, or review the complete draft when presenting it unsaved
-in the conversation. In that same pass, re-run the bounded-assertion and
-prose/JSON checklist (do not skip it because the first draft already existed):
+Przejrzyj końcowy artefakt raz, aby sprawdzić jego odpowiedź, cytowania, luki i metadane:
+odczytaj z powrotem zapisaną treść albo przejrzyj kompletny szkic, gdy prezentujesz go niezapisany
+w rozmowie. W tym samym przebiegu ponownie wykonaj kontrolę ograniczonych twierdzeń oraz
+listę kontrolną proza/JSON (nie pomijaj jej, ponieważ pierwszy szkic już istniał):
 
-- Bind a numeric example to its named inputs, units and conditions before deriving
-  its result; distinguish totals from additional operations. Do not infer a value's
-  meaning from a field name or familiar number alone.
-- For each consequential Boolean, spell out the assertion it would make if true,
-  then check whether the inspected source supports that assertion before assigning
-  the value. A field describing whether a historical claim is supported answers
-  that support question, not whether the historical document contains the claim.
-- Correct historical claims individually. Some claims in an outdated document may
-  still hold: attach a current verdict to each relevant historical assertion rather
-  than labeling an entire paragraph stale. Trace relevant consumers before calling
-  a shared rule exclusive to one component. Prefer the exact observed set or
-  predicate to broader wording such as “all errors” or “every status in a class”.
+- Przed wyprowadzeniem wyniku powiąż przykład liczbowy z jego nazwanymi wejściami, jednostkami i warunkami;
+  rozróżniaj sumy od dodatkowych operacji. Nie wnioskuj znaczenia wartości
+  wyłącznie z nazwy pola lub znajomej liczby.
+- Dla każdej istotnej wartości logicznej opisz twierdzenie, które oznaczałaby, gdyby była prawdziwa,
+  a następnie sprawdź, czy przejrzane źródło potwierdza to twierdzenie przed przypisaniem
+  wartości. Pole opisujące, czy twierdzenie historyczne jest poparte, odpowiada na
+  pytanie o to poparcie, a nie na pytanie, czy dokument historyczny zawiera to twierdzenie.
+- Poprawiaj twierdzenia historyczne indywidualnie. Niektóre twierdzenia w nieaktualnym dokumencie mogą
+  nadal obowiązywać: dołącz bieżący werdykt do każdego istotnego twierdzenia historycznego
+  zamiast oznaczać cały akapit jako nieaktualny. Prześledź istotnych konsumentów, zanim uznasz
+  współdzieloną regułę za wyłączną dla jednego komponentu. Preferuj dokładnie zaobserwowany zbiór lub
+  predykat zamiast szerszego sformułowania, takiego jak „wszystkie błędy” lub „każdy status w klasie”.
 
-Reuse source anchors and calculations already verified. A mismatch triggers only
-the affected source/caller check and correction in each output, not a new discovery
-pass. If it remains unresolved, qualify the claim and state the gap consistently.
-This check requires no extra artifact, worker or test run by default.
-Use compact validation output instead of repeatedly printing it. Run any applicable
-repository document checks once. Add commit permalinks only if the cited bytes
-match that commit and the remote is known to contain it; local uncommitted evidence
-keeps local file:line references. Do not invent a permalink from a branch name.
+Wykorzystaj ponownie kotwice źródłowe i obliczenia już zweryfikowane. Niezgodność wywołuje tylko
+sprawdzenie i korektę dotkniętego źródła/wywołującego w każdym wyniku, a nie nowe przejście odkrywcze.
+Jeśli pozostaje nierozstrzygnięta, opatrz twierdzenie zastrzeżeniem i konsekwentnie wskaż lukę.
+Ta kontrola domyślnie nie wymaga dodatkowego artefaktu, pracownika ani uruchomienia testów.
+Używaj zwięzłego wyniku walidacji zamiast wielokrotnego jego wypisywania. Uruchom wszelkie stosowne
+kontrole dokumentów repozytorium raz. Dodawaj permalinki commitów tylko wtedy, gdy cytowane bajty
+odpowiadają temu commitowi i wiadomo, że remote go zawiera; lokalne niezatwierdzone dowody
+zachowują lokalne referencje file:line. Nie twórz permalinku na podstawie nazwy brancha.
 
-If the host forbids writes, present the research and explicit unsaved status in the
-conversation. Do not create a fallback file or delegate a write. Resume saving in
-a writable mode in the same conversation after checking current target files and
-available context; do not restart settled research or promise recovery of missing
-conversation content.
+Jeśli host zabrania zapisów, przedstaw badanie i jawny status niezapisania w
+rozmowie. Nie twórz pliku zastępczego ani nie deleguj zapisu. Wznów zapisywanie w trybie umożliwiającym zapis
+w tej samej rozmowie po sprawdzeniu bieżących plików docelowych i dostępnego kontekstu; nie rozpoczynaj
+ponownie ustalonego badania ani nie obiecuj odzyskania brakującej treści rozmowy.
 
-## 5. Present findings and handle follow-ups
+## 5. Przedstaw ustalenia i obsłuż kontynuacje
 
-Lead with the answer, artifact location or unsaved state, decisive references and
-material limitations. Research does not imply approval for a plan or implementation.
-For a planning handoff, surface settled facts, their sources, affected contracts
-and unresolved product choices so `/10x-plan` can build on them without rediscovery.
+Zacznij od odpowiedzi, lokalizacji artefaktu lub stanu niezapisania, rozstrzygających referencji i
+istotnych ograniczeń. Badanie nie oznacza zatwierdzenia planu ani implementacji.
+Przy przekazaniu do planowania przedstaw ustalone fakty, ich źródła, dotknięte kontrakty
+i nierozstrzygnięte wybory produktowe, aby `/10x-plan` mógł na nich budować bez ponownego odkrywania.
 
-Append follow-up findings to the same research document, update `last_updated`,
-`last_updated_by` and `last_updated_note`, and identify conclusions superseded by
-new evidence. Reuse unaffected results; investigate only the new or invalidated
-questions. Preserve scope, host permissions and any intervening human edits.
+Dopisz ustalenia z kontynuacji do tego samego dokumentu badawczego, zaktualizuj `last_updated`,
+`last_updated_by` i `last_updated_note`, a także wskaż wnioski zastąpione przez
+nowe dowody. Wykorzystaj ponownie niezmienione wyniki; badaj tylko nowe lub unieważnione
+pytania. Zachowaj zakres, uprawnienia hosta i wszelkie wprowadzone pośrednio edycje ludzkie.

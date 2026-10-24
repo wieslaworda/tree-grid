@@ -14,82 +14,81 @@ allowed-tools:
   - Bash
   - AskUserQuestion
 ---
+# Mom Test: Zweryfikuj problem przed rozpoczęciem budowy
 
-# Mom Test: Validate The Problem Before Building
+Ta umiejętność poddaje pomysł testowi wytrzymałościowemu przed implementacją. Pomaga użytkownikowi uniknąć uprzejmych fałszywie pozytywnych odpowiedzi, deklaracji aspiracyjnych oraz ankiet, które proszą ludzi o zaakceptowanie rozwiązania, którego nigdy faktycznie nie potrzebowali. Działa dla każdego rodzaju pomysłu — aplikacji konsumenckiej, B2B SaaS, funkcji, narzędzia wewnętrznego lub działalności usługowej.
 
-This skill stress-tests an idea before implementation. It helps the user avoid polite false positives, aspirational answers, and surveys that ask people to approve a solution they have not actually needed. It works for any kind of idea — a consumer app, a B2B SaaS, a feature, an internal tool, or a service business.
+Domyślnie używaj angielskiego. Przełącz się na polski (lub dowolny inny język), jeśli użytkownik pisze do Ciebie w tym języku.
 
-Default to English. Switch to Polish (or any other language) if the user writes to you in it.
+## Główna zasada
 
-## Core Rule
+Nigdy nie pytaj, czy ludziom podoba się pomysł, czy używaliby produktu ani czy uważają funkcję za przydatną. Pytaj o to, co już robią, co wydarzyło się niedawno, czego próbowali, jaki koszt ponieśli oraz jakie obejście stosują obecnie.
 
-Never ask whether people like the idea, would use the product, or think the feature is useful. Ask about what they already do, what happened recently, what they tried, what cost they paid, and what workaround exists today.
+Dobre pytania ujawniają zachowania (w różnych dziedzinach):
 
-Good questions reveal behavior (across domains):
+- „Opowiedz mi krok po kroku o ostatnim razie, gdy próbowałeś zaplanować posiłki na tydzień — co faktycznie zrobiłeś?”
+- „Co zrobiłeś ostatnim razem, gdy faktura nie zgadzała się z wykonaną pracą?”
+- „Kiedy ostatnio ręcznie sprawdzałeś, które PR-y blokowały wydanie?”
+- „Jak radzisz sobie z tym dzisiaj, bez żadnego nowego narzędzia?”
 
-- "Walk me through the last time you tried to plan a week of meals — what did you actually do?"
-- "What did you do the last time an invoice didn't match the work delivered?"
-- "When did you last manually check which PRs were blocking a release?"
-- "How do you handle that today, without any new tool?"
+Słabe pytania zachęcają do uprzejmości lub fantazjowania:
 
-Weak questions invite politeness or fantasy:
+- „Czy używałbyś takiego produktu?”
+- „Czy podoba Ci się ten pomysł?”
+- „Czy dashboard z tymi danymi byłby przydatny?”
+- „Ile zapłaciłbyś za to?”
 
-- "Would you use a product like this?"
-- "Do you like this idea?"
-- "Would a dashboard with this data be useful?"
-- "How much would you pay for this?"
+## Dane wejściowe
 
-## Inputs
+Akceptuj dowolne z poniższych:
 
-Accept any of:
+- pomysł podany w treści,
+- notatki od użytkowników, klientów, zgłoszenia, incydenty, wątki wsparcia, notatki ze spotkań lub wcześniejszych wywiadów,
+- artefakt pomocniczy, jeśli istnieje, taki jak `context/team/opportunity-map.md`, `context/foundation/shape-notes.md`, `context/foundation/prd.md` lub `context/foundation/roadmap.md`.
 
-- an inline idea,
-- notes from users, customers, tickets, incidents, support threads, meeting notes, or prior interviews,
-- a supporting artifact if one exists, such as `context/team/opportunity-map.md`, `context/foundation/shape-notes.md`, `context/foundation/prd.md`, or `context/foundation/roadmap.md`.
+Jeśli nie ma danych wejściowych, poproś o:
 
-If no input exists, ask for:
+1. rozważany pomysł lub rozwiązanie,
+2. docelowych użytkowników, klientów lub role,
+3. podejrzewany problem lub trudność,
+4. czy użytkownik chce wywiadów, ankiety czy obu.
 
-1. the idea or solution being considered,
-2. target users, customers, or roles,
-3. the suspected problem or friction,
-4. whether the user wants interviews, a survey, or both.
+## Proces
 
-## Process
+### Krok 1: Wyodrębnij hipotezy
 
-### Step 1: Extract The Hypotheses
+Przeczytaj dostarczony materiał i wyodrębnij:
 
-Read the provided material and extract:
+- **Użytkownik/rola**: kto ma problem.
+- **Podejrzewana trudność**: jaki powtarzający się problem występuje.
+- **Obecne obejście**: jak użytkownik prawdopodobnie rozwiązuje to dzisiaj.
+- **Proponowane rozwiązanie**: co twórca chce stworzyć.
+- **Ryzykowne założenia**: twierdzenia, które mogą być błędne.
+- **Istniejące już dowody**: fakty z logów, zgłoszeń, wywiadów, incydentów lub danych o użyciu.
 
-- **User/role**: who has the problem.
-- **Suspected friction**: what repeated pain exists.
-- **Current workaround**: how the user likely solves it today.
-- **Proposed solution**: what the builder wants to create.
-- **Risky assumptions**: claims that could be wrong.
-- **Evidence already present**: facts from logs, tickets, interviews, incidents, or usage data.
+Oddziel fakty od przypuszczeń. Jeśli PRD jest dopracowane, ale dowody są skąpe, powiedz to wprost.
 
-Separate facts from guesses. If the PRD is polished but evidence is thin, say so plainly.
+### Krok 2: Podważ pomysł w rozmowie
 
-### Step 2: Challenge The Idea In Conversation
+Przeprowadź krótką krytykę przed wygenerowaniem pytań:
 
-Run a short critique before generating questions:
+- W którym miejscu użytkownik może mylić rozwiązanie z problemem?
+- Które założenia zależą od przyszłych intencji zamiast przeszłych zachowań?
+- Co udowodniłoby, że nie warto budować rozwiązania dla tego problemu?
+- Jaki istniejący produkt, narzędzie, proces lub ręczne obejście może być już wystarczająco dobre?
+- Co byłoby uznane za mocny dowód, aby kontynuować?
 
-- Where might the user be confusing a solution with a problem?
-- Which assumptions depend on future intent instead of past behavior?
-- What would prove that the problem is not worth building for?
-- What existing product, tool, process, or manual workaround might already be good enough?
-- What would count as strong evidence to proceed?
+Zadaj najwyżej trzy pytania doprecyzowujące, tylko gdy są potrzebne. Preferuj pytania o użytkowników, niedawne incydenty, obecne obejścia lub wagę decyzji.
 
-Ask up to three clarifying questions only when needed. Prefer questions about users, recent incidents, current workarounds, or decision stakes.
+### Krok 3: Przepisz złe pytania
 
-### Step 3: Rewrite Bad Questions
+Jeśli użytkownik dostarczy robocze pytania, sklasyfikuj każde z nich:
 
-If the user provides draft questions, classify each one:
+- `keep`: konkretne i oparte na zachowaniu,
+- `rewrite`: użyteczna intencja, ale pytanie sugerujące odpowiedź lub abstrakcyjne,
+- `drop`: prosi o komplementy, hipotetyczne odpowiedzi, fantazje o cenie lub aprobatę rozwiązania.
 
-- `keep`: concrete and behavior-based,
-- `rewrite`: useful intent but leading/abstract,
-- `drop`: asks for compliments, hypotheticals, pricing fantasy, or solution approval.
-
-For every rewrite, show:
+Dla każdego przepisania pokaż:
 
 ```text
 Instead of:
@@ -102,52 +101,52 @@ Why:
 [what signal this question can reveal]
 ```
 
-### Step 4: Produce Interview Guide
+### Krok 4: Przygotuj przewodnik do wywiadu
 
-Create a 20-30 minute interview guide:
+Utwórz przewodnik do wywiadu trwającego 20–30 minut:
 
-1. **Context warm-up**: role, workflow, frequency.
-2. **Recent story**: ask about the last real occurrence of the friction.
-3. **Current workaround**: tools, people, artifacts, time, errors.
-4. **Cost of pain**: delays, rework, risk, coordination load.
-5. **Existing alternatives**: products, tools, scripts, dashboards, manual habits, or rituals.
-6. **Decision signal**: what would make this worth changing.
-7. **Closing ask**: permission to follow up or inspect anonymized artifacts.
+1. **Rozgrzewka kontekstowa**: rola, przepływ pracy, częstotliwość.
+2. **Niedawna historia**: zapytaj o ostatnie rzeczywiste wystąpienie trudności.
+3. **Obecne obejście**: narzędzia, ludzie, artefakty, czas, błędy.
+4. **Koszt problemu**: opóźnienia, poprawki, ryzyko, obciążenie koordynacyjne.
+5. **Istniejące alternatywy**: produkty, narzędzia, skrypty, dashboardy, ręczne nawyki lub rytuały.
+6. **Sygnał decyzyjny**: co sprawiłoby, że warto byłoby to zmienić.
+7. **Prośba na zakończenie**: zgoda na dalszy kontakt lub wgląd w zanonimizowane artefakty.
 
-Include 8-12 questions. Keep them neutral. Add optional follow-ups for interesting answers.
+Uwzględnij 8–12 pytań. Zachowaj ich neutralność. Dodaj opcjonalne pytania pogłębiające dla interesujących odpowiedzi.
 
-### Step 5: Produce Survey
+### Krok 5: Przygotuj ankietę
 
-Create a short survey for broader signal:
+Utwórz krótką ankietę, aby uzyskać szerszy sygnał:
 
-- 6-10 questions maximum.
-- Prefer multiple-choice ranges for frequency and effort.
-- Include 1-2 open questions about recent examples.
-- Avoid asking users to rank a solution they have not experienced.
-- Include one screener question that checks whether the respondent actually faces the workflow.
+- Maksymalnie 6–10 pytań.
+- Preferuj zakresy wielokrotnego wyboru dla częstotliwości i nakładu pracy.
+- Uwzględnij 1–2 otwarte pytania o niedawne przykłady.
+- Unikaj proszenia użytkowników o ocenę rozwiązania, którego nie doświadczyli.
+- Uwzględnij jedno pytanie filtrujące, które sprawdza, czy respondent faktycznie ma do czynienia z danym przepływem pracy.
 
-The survey should produce evidence for a go/no-go decision, not applause.
+Ankieta powinna dostarczać dowodów do decyzji go/no-go, a nie aplauzu.
 
-### Step 6: Define Decision Criteria
+### Krok 6: Zdefiniuj kryteria decyzji
 
-End with concrete criteria:
+Zakończ konkretnymi kryteriami:
 
-- **Proceed** if: [observable threshold]
-- **Narrow scope** if: [mixed signal]
-- **Do not build yet** if: [weak signal]
-- **Try existing tool/process first** if: [an existing product, tool, or process is already good enough]
+- **Kontynuuj** jeśli: [obserwowalny próg]
+- **Zawęź zakres** jeśli: [mieszany sygnał]
+- **Nie buduj jeszcze** jeśli: [słaby sygnał]
+- **Najpierw wypróbuj istniejące narzędzie/proces** jeśli: [istniejący produkt, narzędzie lub proces jest już wystarczająco dobry]
 
-Use thresholds appropriate to the context, for example:
+Użyj progów odpowiednich do kontekstu, na przykład:
 
-- "At least 3 of 5 interviewees describe the same recent workaround without being prompted."
-- "At least 40% of surveyed target users report this happening weekly or more."
-- "The pain costs measurable time, money, or rework — not just mild annoyance."
+- „Co najmniej 3 z 5 rozmówców opisuje to samo niedawne obejście bez podpowiedzi.”
+- „Co najmniej 40% badanych docelowych użytkowników zgłasza, że dzieje się to co tydzień lub częściej.”
+- „Problem kosztuje mierzalny czas, pieniądze lub dodatkową pracę — a nie jest jedynie lekką niedogodnością.”
 
-## Output Artifact
+## Artefakt wyjściowy
 
-Offer to write the result to `context/team/mom-test-validation.md` when a `context/` directory exists or the user wants a durable artifact. Create the `context/team/` directory if it doesn't exist (`mkdir -p`). If the user prefers a different path, use it.
+Zaproponuj zapisanie wyniku do `context/team/mom-test-validation.md`, gdy istnieje katalog `context/` lub użytkownik chce trwałego artefaktu. Utwórz katalog `context/team/`, jeśli nie istnieje (`mkdir -p`). Jeśli użytkownik preferuje inną ścieżkę, użyj jej.
 
-Use this shape:
+Użyj następującej struktury:
 
 ```markdown
 # Mom Test Validation Plan

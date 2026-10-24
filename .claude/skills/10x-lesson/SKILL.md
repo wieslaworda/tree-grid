@@ -8,19 +8,18 @@ allowed-tools:
   - Bash
   - AskUserQuestion
 ---
+# /10x-lesson — Utrwal powtarzającą się regułę
 
-# /10x-lesson — Capture a Recurring Rule
+Dodaj pojedynczy wpis do `context/foundation/lessons.md`, aby przyszłe uruchomienia `/10x-frame`, `/10x-research`, `/10x-plan`, `/10x-plan-review`, `/10x-implement` i `/10x-impl-review` ponownie odczytywały go jako wcześniejszą wskazówkę. To proaktywny odpowiednik opcji triage „Accept as recurring rule” w `/10x-impl-review` — wywołaj go inline, gdy zauważysz wzorzec wart uwidocznienia bez czekania na ustrukturyzowany przegląd.
 
-Append a single entry to `context/foundation/lessons.md` so future runs of `/10x-frame`, `/10x-research`, `/10x-plan`, `/10x-plan-review`, `/10x-implement`, and `/10x-impl-review` re-read it as a prior. This is the proactive twin of the "Accept as recurring rule" triage option in `/10x-impl-review` — invoke it inline when you notice a pattern worth surfacing without waiting for a structured review.
+„Lekcja” to powtarzająca się reguła — nie jednorazowa poprawka błędu. Kryterium brzmi: „to zmieniłoby sposób ujęcia problemu lub poprawkę w przeszłych pracach i będzie wciąż wracać”. Jeśli to opis pojedynczego incydentu, jest to niewłaściwa umiejętność.
 
-A "lesson" is a recurring rule — not a one-off bug fix. The bar is: "this would have changed the framing or the fix on past work, and will keep coming up." If it's a single-incident write-up, this is the wrong skill.
+## Odpowiedź początkowa
 
-## Initial Response
+Gdy ta umiejętność zostanie wywołana:
 
-When this skill is invoked:
-
-1. **If a freeform description was provided inline** (e.g. `/10x-lesson feature flags should always have a kill date`), use it as a seed for the Rule field and proceed to the interview.
-2. **If nothing was provided**, respond with:
+1. **Jeśli opis swobodny został podany inline** (np. `/10x-lesson feature flags should always have a kill date`), użyj go jako zalążka pola Reguła i przejdź do wywiadu.
+2. **Jeśli nic nie podano**, odpowiedz:
 
 ```
 I'll record a recurring rule into context/foundation/lessons.md.
@@ -34,24 +33,24 @@ I'll ask four short questions and then append the entry. The four fields are:
 Then wait.
 ```
 
-## Process
+## Proces
 
-### Step 1: Interview
+### Krok 1: Wywiad
 
-Use AskUserQuestion to collect the four fields. You may batch them as one round of four free-form prompts (each option set is just `["I'll fill it in"]` — i.e., the user picks "Other" to type the answer), or run four sequential rounds. Either form is fine; the goal is that the user, not the skill, writes the wording.
+Użyj AskUserQuestion, aby zebrać cztery pola. Możesz zadać je zbiorczo w jednej rundzie czterech swobodnych promptów (każdy zestaw opcji to tylko `["I'll fill it in"]` — tj. użytkownik wybiera „Other”, aby wpisać odpowiedź) albo przeprowadzić cztery sekwencyjne rundy. Obie formy są poprawne; celem jest, aby to użytkownik, a nie umiejętność, sformułował treść.
 
-Pre-fill nothing. The user provides every field. If a freeform intent was passed in the invocation, surface it as a suggestion next to the Rule prompt — not as the default.
+Nie wstępnie uzupełniaj niczego. Użytkownik podaje każde pole. Jeśli w wywołaniu przekazano swobodną intencję, pokaż ją jako sugestię obok promptu Reguła — nie jako wartość domyślną.
 
-The four fields, with one-line guides:
+Cztery pola wraz z jednolinijkowymi wskazówkami:
 
-- **Context** — where does this rule apply? Subsystem / phase / file pattern. Be specific enough that a future skill can pattern-match (e.g. "any phase that adds a feature flag", "research on multi-tenant systems", not "everywhere").
-- **Problem** — what concretely goes wrong if the rule is violated? Cite a past incident or recurring failure shape. One or two sentences.
-- **Rule** — the rule itself, imperative voice ("Always …", "Never …", "Before X, do Y"). One or two sentences. The reader of a future review should be able to paste this verbatim into a finding.
-- **Applies to** — comma-separated list of skill names this rule should weigh most for: `frame`, `research`, `plan`, `plan-review`, `implement`, `impl-review`. Use `all` if the rule cuts across the whole lifecycle.
+- **Kontekst** — gdzie ta reguła ma zastosowanie? Podsystem / faza / wzorzec pliku. Bądź wystarczająco konkretny, aby przyszła umiejętność mogła dopasować wzorzec (np. „any phase that adds a feature flag”, „research on multi-tenant systems”, a nie „everywhere”).
+- **Problem** — co konkretnie idzie źle, jeśli reguła zostanie naruszona? Przytocz przeszły incydent lub powtarzający się kształt awarii. Jedno lub dwa zdania.
+- **Reguła** — sama reguła, w trybie rozkazującym („Always …”, „Never …”, „Before X, do Y”). Jedno lub dwa zdania. Osoba czytająca przyszły przegląd powinna móc wkleić to dosłownie do ustalenia.
+- **Dotyczy** — rozdzielona przecinkami lista nazw umiejętności, dla których ta reguła powinna mieć największą wagę: `frame`, `research`, `plan`, `plan-review`, `implement`, `impl-review`. Użyj `all`, jeśli reguła obejmuje cały cykl życia.
 
-### Step 2: Echo and confirm
+### Krok 2: Wyświetl i potwierdź
 
-Render the proposed entry as a markdown block and show it to the user. Use AskUserQuestion to confirm:
+Wyrenderuj proponowany wpis jako blok markdown i pokaż go użytkownikowi. Użyj AskUserQuestion, aby potwierdzić:
 
 - question: "Append this lesson to `context/foundation/lessons.md`?"
   header: "Confirm"
@@ -64,7 +63,7 @@ Render the proposed entry as a markdown block and show it to the user. Use AskUs
     description: "Discard — don't save anything."
     multiSelect: false
 
-The proposed entry shape (this is the canonical lesson-entry format):
+Kształt proponowanego wpisu (jest to kanoniczny format wpisu lekcji):
 
 ```markdown
 ## <Rule title — short imperative phrase, derived from the Rule field>
@@ -75,11 +74,11 @@ The proposed entry shape (this is the canonical lesson-entry format):
 - **Applies to**: <Applies-to field>
 ```
 
-The H2 heading IS the rule title. Keep it short — the H2 list is what future skills scan first.
+Nagłówek H2 JEST tytułem reguły. Zachowaj jego zwięzłość — lista H2 jest tym, co przyszłe umiejętności skanują najpierw.
 
-### Step 3: Self-bootstrap and append
+### Krok 3: Samoczynne utworzenie i dodanie
 
-If `context/foundation/lessons.md` does not exist, create it with this canonical 5-line header (embedded inline — no separate template file; the same header is used by `/10x-impl-review`'s "Accept as recurring rule" triage branch and here):
+Jeśli `context/foundation/lessons.md` nie istnieje, utwórz go z tym kanonicznym 5-wierszowym nagłówkiem (osadzonym inline — bez osobnego pliku szablonu; ten sam nagłówek jest używany przez gałąź triage „Accept as recurring rule” w `/10x-impl-review` oraz tutaj):
 
 ```
 # Lessons Learned
@@ -88,24 +87,24 @@ If `context/foundation/lessons.md` does not exist, create it with this canonical
 
 ```
 
-If the file exists, leave it untouched and append to the end. Do not reorder, deduplicate, or reformat existing entries — the file is append-only.
+Jeśli plik istnieje, pozostaw go bez zmian i dodaj wpis na końcu. Nie zmieniaj kolejności, nie usuwaj duplikatów ani nie formatuj ponownie istniejących wpisów — plik jest wyłącznie do dopisywania.
 
-Use Edit (or Write for the bootstrap case) to land the change. After append, re-read the file and confirm the new H2 is the last section.
+Użyj Edit (lub Write w przypadku utworzenia) do wprowadzenia zmiany. Po dodaniu ponownie odczytaj plik i potwierdź, że nowy H2 jest ostatnią sekcją.
 
-### Step 4: Echo result
+### Krok 4: Wyświetl wynik
 
-Print the path and the rule title:
+Wypisz ścieżkę i tytuł reguły:
 
 ```
 Appended to context/foundation/lessons.md:
   ## <Rule title>
 ```
 
-Stop. Do not chain into other skills. The user invoked this for a single capture; respect the scope.
+Zatrzymaj się. Nie przechodź do innych umiejętności. Użytkownik wywołał to w celu pojedynczego utrwalenia; respektuj zakres.
 
-## Notes
+## Uwagi
 
-- **Append-only.** Never edit or remove existing lessons through this skill. If a rule needs revision, the user opens the file and edits it directly — that's intentional friction, because rewriting recurring rules without thought is the failure mode this convention prevents.
-- **One entry per invocation.** If the user has multiple lessons to capture, they invoke the skill multiple times. Batching invites half-written entries.
-- **Self-bootstrap is the default.** Don't tell the user "run /10x-init first" — create the file with the canonical header on first use. (`/10x-init` creates the `/context` directory skeleton; this skill owns `lessons.md` end-to-end.)
-- **Pre-fill nothing.** Unlike the `/10x-impl-review` triage branch (which pre-fills Context and Problem from the finding), this proactive skill expects the user to do the writing. That's the price of capturing rules outside a structured review.
+- **Tylko dopisywanie.** Nigdy nie edytuj ani nie usuwaj istniejących lekcji za pomocą tej umiejętności. Jeśli reguła wymaga poprawy, użytkownik otwiera plik i edytuje go bezpośrednio — to celowe utrudnienie, ponieważ przepisywanie powtarzających się reguł bez namysłu jest trybem awarii, któremu ta konwencja zapobiega.
+- **Jeden wpis na wywołanie.** Jeśli użytkownik ma wiele lekcji do utrwalenia, wywołuje umiejętność wielokrotnie. Grupowanie sprzyja wpisom napisanym tylko częściowo.
+- **Samoczynne utworzenie jest domyślne.** Nie mów użytkownikowi „run /10x-init first” — utwórz plik z kanonicznym nagłówkiem przy pierwszym użyciu. (`/10x-init` tworzy szkielet katalogu `/context`; ta umiejętność obsługuje `lessons.md` kompleksowo.)
+- **Nie uzupełniaj wstępnie niczego.** W przeciwieństwie do gałęzi triage `/10x-impl-review` (która wstępnie uzupełnia Kontekst i Problem na podstawie ustalenia), ta proaktywna umiejętność oczekuje, że użytkownik wykona pisanie. To cena utrwalania reguł poza ustrukturyzowanym przeglądem.

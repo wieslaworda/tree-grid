@@ -22,297 +22,295 @@ allowed-tools:
   - TaskList
   - TaskGet
 ---
+# Ramy: Podważ założenia przed planowaniem
 
-# Frame: Challenge the Framing Before Planning
+Plany zbudowane na błędnym opisie problemu są doskonałymi rozwiązaniami niewłaściwego pytania. Ta umiejętność istnieje w jednym celu: oddzielić **obserwację** od **podanej przyczyny** — oraz **problem** od **proponowanego rozwiązania** — zanim rozpocznie się jakiekolwiek planowanie.
 
-Plans built on the wrong problem statement are perfect solutions to the wrong question. This skill exists for one job: separate **observation** from **stated cause** — and **problem** from **proposed solution** — before any planning begins.
+Sytuacja, którą obejmuje ta umiejętność, jest ogólna: użytkownik opisuje coś (obserwację, postrzegany problem, zakres, którego chce się podjąć) i jednocześnie proponuje odpowiedź (przyczynę, podejście, strukturę planu). Te dwa elementy są traktowane jak jeden fakt. Doskonały /10x-plan dostarcza wtedy doskonałe rozwiązanie — a rzeczywisty problem pozostaje, ponieważ ramy były błędne; plan był poprawny; użytkownik stracił dzień.
 
-The shape this skill addresses is general: the user describes something (an observation, a perceived problem, a scope they want to take on) and proposes a response (a cause, an approach, a plan structure) in the same breath. The two get treated as one fact. A perfect /10x-plan then ships a perfect solution — and the actual problem remains, because the framing was wrong; the plan was right; the user lost the day.
+Ta umiejętność stanowi etap ustalania ram. /10x-plan odpowiada na pytanie *jak to zbudować*. /10x-frame odpowiada na pytanie *co właściwie należy zaplanować*.
 
-This skill is the framing step. /10x-plan answers *how to build it*. /10x-frame answers *what's actually the right thing to plan*.
+## Kiedy używać, kiedy pominąć
 
-## When to use, when to skip
+**Użyj, gdy**: dane wejściowe mają formę błędu („X jest zepsute, zbudujmy Y”), formę zakresu („powinniśmy podzielić to na dwa plany”, „czy to w ogóle jest właściwy zakres?”), formę projektu („jakie podejście w ogóle chcemy wybrać?”) lub formę założenia („zakładamy X — czy to prawda?”). Użyj również, gdy stawka jest wysoka, gdy system jest użytkownikowi nieznany albo gdy /10x-plan ma zaraz rozpocząć pracę nad zadaniem, które pachnie podaną przyczyną zamiast zweryfikowaną.
 
-**Use when**: input has bug-shape ("X is broken, let's build Y"), scope-shape ("we should split this into two plans", "is this even the right scope"), design-shape ("which approach do we even want"), or assumption-shape ("we're assuming X — is that true?"). Use also when stakes are high, when the system is unfamiliar to the user, or when /10x-plan is about to start on a task that smells like a stated cause rather than a verified one.
+**Pomiń, gdy**: zadanie jest czysto mechaniczną zmianą („zmień nazwę tej funkcji”, „podnieś wersję zależności”), użytkownik sam już ustalił ramy i je zweryfikował („Potwierdziłem to — zaplanuj poprawkę”) albo prośba dotyczy jasno określonej funkcji bez ukrytej przesłanki do podważenia.
 
-**Skip when**: the task is a pure mechanical change ("rename this function", "bump dep version"), the user has already worked out the framing themselves and verified it ("I've confirmed it — plan the fix"), or the request is a clearly scoped feature with no underlying premise to challenge.
+W razie wątpliwości ta umiejętność zadaje krótką serię pytań i tanio kończy działanie, jeśli ramy okażą się solidne. Koszt uruchomienia jej dla jasnej prośby: ~2–3 pytania. Koszt pominięcia jej dla źle ujętego zadania: błędny plan i stracony dzień.
 
-When in doubt, this skill asks a short round of questions and exits cheaply if the framing turns out to be solid. Cost of running it on a clear request: ~2–3 questions. Cost of skipping it on a misframed task: a wrong plan and a lost day.
+## Relacja z innymi umiejętnościami
 
-## Relationship to other skills
+- `/10x-research` — szeroka eksploracja bazy kodu. Frame może przyjąć dokument badawczy jako dane wejściowe, ale go nie zastępuje.
+- `/10x-plan` — przyjmuje wynik frame jako dane wejściowe. Frame Brief JEST prawidłowym pierwszym argumentem dla /10x-plan.
+- `/10x-plan-review` — weryfikuje istniejący plan. Frame weryfikuje *przesłankę*, zanim plan powstanie.
 
-- `/10x-research` — broad codebase exploration. Frame can consume a research doc as input but does not replace it.
-- `/10x-plan` — accepts frame output as input. The Frame Brief IS a valid first argument to /10x-plan.
-- `/10x-plan-review` — validates an existing plan. Frame validates the *premise* before a plan exists.
+Frame Brief jest użyteczny samodzielnie (jako artefakt do dyskusji lub do określenia zakresu szybkiej poprawki) — nie wymaga, aby później użyć /10x-plan.
 
-The Frame Brief is useful standalone (as a discussion artifact, or to scope a quick fix) — it does not require /10x-plan to follow.
+## Początkowa odpowiedź
 
-## Initial Response
+Gdy ta umiejętność zostanie wywołana:
 
-When this skill is invoked:
-
-1. **If a file path or change-id was provided** (e.g. `/10x-frame @context/changes/foo/research.md` or `/10x-frame foo`), resolve it: a `<change-id>` resolves to `context/changes/<change-id>/research.md` (read it if present). Read the file FULLY and proceed to Step 1.
-2. **If a problem description was provided inline**, proceed to Step 1.
-3. **If nothing was provided**, respond with:
-
-```
-I'll help you check whether you're framing the right problem before planning a solution.
-
-Please share:
-1. The observation — what is happening, what you're seeing, or what scope you're considering?
-2. Your initial framing — what you think is causing it, the approach you have in mind, or the way you'd cut the work?
-3. (Optional) Any related research, prior incidents, or files I should read
-
-Tip: pass research directly — `/10x-frame @context/changes/<change-id>/research.md` (or just `<change-id>`)
-```
-
-Then wait.
-
-## Process
-
-### Step 1: Capture the framing — keep observation and stated cause SEPARATE
-
-This is the most important step. Do not skip it. Do not collapse it.
-
-Read `context/foundation/lessons.md` if present and use prior framing-shape lessons (recurring framing pitfalls and accepted rules) as priors when constructing the dimension map in Step 2 — they're load-bearing context, not optional reading.
-
-Read every file the user mentioned, FULLY. Then extract and record three things, **distinctly**:
-
-- **Reported observation** — the literal observable thing. Not a cause. Not a fix. The effect a user or operator sees, or the scope/design question as stated.
-- **User's stated cause or approach** — what they think is causing the observation, or the framing they're bringing to the work.
-- **User's proposed direction** — what they want to do about it.
-
-Echo these back as three separate bullets and confirm:
+1. **Jeśli podano ścieżkę pliku lub change-id** (np. `/10x-frame @context/changes/foo/research.md` lub `/10x-frame foo`), rozwiąż go: `<change-id>` wskazuje na `context/changes/<change-id>/research.md` (przeczytaj go, jeśli istnieje). Przeczytaj plik W CAŁOŚCI i przejdź do Kroku 1.
+2. **Jeśli opis problemu podano inline**, przejdź do Kroku 1.
+3. **Jeśli nic nie podano**, odpowiedz:
 
 ```
-Let me make sure I have this right:
+Pomogę Ci sprawdzić, czy właściwie definiujesz problem przed zaplanowaniem rozwiązania.
 
-  Observation (what's stated):     [literal effect or scope/design question]
-  Your initial framing:            [user's theory or approach]
-  Your proposed direction:         [what they want to do about it]
+Udostępnij proszę:
+1. Obserwację — co się dzieje, co widzisz lub jaki zakres rozważasz?
+2. Swoje początkowe ujęcie — co Twoim zdaniem to powoduje, jakie podejście masz na myśli lub jak podzieliłbyś pracę?
+3. (Opcjonalnie) Powiązane badania, wcześniejsze incydenty lub pliki, które powinienem przeczytać
 
-I'm going to question the framing before we plan the work. The observation is fixed
-ground — that's what we know. Everything else is a hypothesis until verified.
+Wskazówka: przekaż badania bezpośrednio — `/10x-frame @context/changes/<change-id>/research.md` (lub po prostu `<change-id>`)
 ```
 
-The framing is locked at this point. Even if the user pushes back ("just plan the fix"), do not collapse the observation into the framing. The whole skill rests on this separation.
+Następnie czekaj.
 
-If the user did not provide a clear initial framing ("something feels off, fix it"), skip the framing bullet and note that this is purely observation-driven — the skill becomes more open-ended but the protocol still applies.
+## Proces
 
-### Step 1.5: Clarifying questions before dispatch
+### Krok 1: Uchwyć ramy — obserwację i podaną przyczynę utrzymuj ROZDZIELNIE
 
-This step always runs. Before building the dimension map (Step 2) or dispatching parallel sub-agents (Step 3), pause for one round of clarifying questions on every invocation. The goal is to disambiguate the *observation and scope* — "which of these items is the leading concern?", "is this one observation or several?", "is the observable a single symptom or a class of symptoms?" — so the dimension map is built against a focused observation rather than a multi-pronged punch list.
+To najważniejszy krok. Nie pomijaj go. Nie scalaj tych elementów.
 
-Use AskUserQuestion with **2–3 questions** in a single round. Each option describes an observation or scope position — what the user actually sees, or which slice of the work they want investigated first — never a cause, approach, or fix. Always include an "I'm not sure / haven't separated them yet" option, mirroring Step 4's certainty-as-signal rule.
+Przeczytaj `context/foundation/lessons.md`, jeśli istnieje, i użyj wcześniejszych lekcji dotyczących sposobu ujmowania problemów (powtarzających się pułapek w ustalaniu ram i zaakceptowanych zasad) jako wcześniejszych przesłanek podczas tworzenia mapy wymiarów w Kroku 2 — to kluczowy kontekst, a nie opcjonalna lektura.
 
-These questions are bound by guardrail #4 below ("Narrowing questions ≠ solution questions"). Pre-dispatch questions describe observations or scope positions, never causes or fixes. If you find yourself drafting an option that proposes a fix or approach, you've crossed into /10x-plan territory — stop and rewrite it as an observation.
+Przeczytaj W CAŁOŚCI każdy plik wspomniany przez użytkownika. Następnie wyodrębnij i zapisz trzy rzeczy, **wyraźnie oddzielone**:
 
-Capture the answers into the framing record alongside the Step 1 capture; Step 6's Frame Brief preserves both as separate bullets under "Initial Framing (preserved)" (a new `Pre-dispatch narrowing` line). The original observation, stated cause, and proposed direction stay verbatim from Step 1; Step 1.5's narrowing layers on top, not as a replacement.
+- **Zgłoszona obserwacja** — dosłownie obserwowalna rzecz. Nie przyczyna. Nie poprawka. Efekt widziany przez użytkownika lub operatora albo pytanie o zakres/projekt w podanym brzmieniu.
+- **Podana przez użytkownika przyczyna lub podejście** — to, co według niego powoduje obserwację, albo ramy, które wnosi do pracy.
+- **Proponowany przez użytkownika kierunek** — co chce z tym zrobić.
 
-This step does not dispatch sub-agents — that remains Step 3's job.
-
-### Step 2: Map the dimensions of the problem
-
-Construct a **map** of the dimensions the observation could originate from — for THIS user's THIS situation. Do not reach for a generic template; the value of the map is that it's fit to the system, codebase, or design space you're looking at.
-
-How to build the map:
-
-- **Read first.** Open the files the user mentioned. Open neighbors. Trace the path from the stated cause to the observed effect — *whether that path is runtime data flow, a chain of design decisions, or a sequence of assumptions*. The dimensions fall out of what's actually there: stages of input, transformation, state, side effects; or axes of the design space; or layers of a scoping decision. Don't list dimensions you haven't seen evidence of.
-- **Use sub-agents when the surface is large or unfamiliar.** Spawn one or two Explore sub-agents with prompts like: "Trace the path from <stated cause> to <observed effect>. List every distinct stage or axis the chain passes through, with file:line or document:section references." The map is what they return — not what you guessed before reading.
-- **Treat each dimension as a possible origin.** A useful dimension is one where, if the framing broke at this point, you'd see roughly this observation. Dimensions that couldn't plausibly produce the observation don't belong on the map.
-
-**Pin the observation to the map**: at which dimension does the user's framing land? Where else *could* the observation originate? The user's framing is one node on the map; the rest of the map is the hypothesis space.
-
-Present the map back as text, briefly:
+Powtórz je jako trzy oddzielne punkty i potwierdź:
 
 ```
-The observation could originate at any of these dimensions:
+Upewnijmy się, że dobrze to rozumiem:
 
-  1. [Dimension A] — [what would go wrong / what the framing assumes here]
-  2. [Dimension B] — [what would go wrong / what the framing assumes here]   ← user's current framing
-  3. [Dimension C] — [what would go wrong / what the framing assumes here]
-  4. [Dimension D] — [what would go wrong / what the framing assumes here]
+  Obserwacja (co stwierdzono):     [dosłowny efekt lub pytanie o zakres/projekt]
+  Twoje początkowe ujęcie:         [teoria lub podejście użytkownika]
+  Twój proponowany kierunek:       [co użytkownik chce z tym zrobić]
 
-Going to investigate each in parallel before deciding.
+Zanim zaplanujemy pracę, zakwestionuję przyjęte ramy. Obserwacja jest pewnym
+gruntem — to wiemy. Wszystko pozostałe jest hipotezą, dopóki nie zostanie zweryfikowane.
 ```
 
-### Step 3: Spawn parallel hypothesis agents
+Ramy są w tym momencie zablokowane. Nawet jeśli użytkownik nalega („po prostu zaplanuj poprawkę”), nie scalaj obserwacji z ujęciem problemu. Cała ta umiejętność opiera się na tym rozdzieleniu.
 
-Use TaskCreate to register one task per plausible dimension. Then spawn parallel sub-agents — typically 2–4, capped at 5 — using the Task tool, **all in one message** for concurrency.
+Jeśli użytkownik nie podał jasnego początkowego ujęcia („coś jest nie tak, napraw to”), pomiń punkt dotyczący ram i zaznacz, że przypadek opiera się wyłącznie na obserwacji — umiejętność staje się bardziej otwarta, ale protokół nadal obowiązuje.
 
-For each hypothesis, the sub-agent investigates: "**If the framing broke at this dimension, what evidence would we expect to see, and does that evidence exist?**"
+### Krok 1.5: Pytania wyjaśniające przed delegowaniem
 
-- Use `subagent_type: "Explore"` for "find the code or document that handles X, show me the structure".
-- Use `subagent_type: "general-purpose"` for "trace this chain and tell me whether assumption Y holds".
+Ten krok jest wykonywany zawsze. Przed utworzeniem mapy wymiarów (Krok 2) lub delegowaniem równoległych pod-agentów (Krok 3), zatrzymaj się na jedną rundę pytań wyjaśniających przy każdym wywołaniu. Celem jest rozróżnienie *obserwacji i zakresu* — „która z tych pozycji jest główną obawą?”, „czy to jedna obserwacja, czy kilka?”, „czy obserwowalne zjawisko to pojedynczy objaw, czy klasa objawów?” — aby mapa wymiarów została zbudowana względem skupionej obserwacji, a nie wielotorowej listy zadań.
 
-Each prompt must include:
+Użyj AskUserQuestion z **2–3 pytaniami** w jednej rundzie. Każda opcja opisuje obserwację lub pozycję dotyczącą zakresu — co użytkownik rzeczywiście widzi albo który wycinek pracy chce najpierw zbadać — nigdy przyczynę, podejście ani poprawkę. Zawsze uwzględnij opcję „Nie jestem pewien / jeszcze ich nie rozdzieliłem”, odzwierciedlającą zasadę pewności jako sygnału z Kroku 4.
 
-- The literal observation from Step 1 (verbatim).
-- The specific dimension hypothesis being tested.
-- The expected-evidence framing: "What would we see if THIS were the dimension where the framing breaks? Look for that. Report whether it's present, partial, or absent, with file:line or document:section references."
-- A read-only directive — no edits.
+Pytania te podlegają zabezpieczeniu nr 4 poniżej („Pytania zawężające ≠ pytania o rozwiązanie”). Pytania przed delegowaniem opisują obserwacje lub pozycje dotyczące zakresu, nigdy przyczyny ani poprawki. Jeśli zauważysz, że tworzysz opcję proponującą poprawkę lub podejście, wkroczyłeś na terytorium /10x-plan — zatrzymaj się i przepisz ją jako obserwację.
 
-After all return, synthesize: which hypotheses have **strong**, **weak**, or **no** evidence? The hypothesis that has strong evidence and the user's initial framing didn't is the candidate reframe.
+Zapisz odpowiedzi w rejestrze ram obok zapisu z Kroku 1; Frame Brief z Kroku 6 zachowuje oba elementy jako oddzielne punkty w sekcji „Initial Framing (preserved)” (nowy wiersz `Pre-dispatch narrowing`). Pierwotna obserwacja, podana przyczyna i proponowany kierunek pozostają dosłownie takie jak w Kroku 1; zawężenie z Kroku 1.5 stanowi dodatkową warstwę, a nie zastępstwo.
 
-### Step 4: Narrowing questions (Socratic, not solution)
+Ten krok nie deleguje pod-agentów — to nadal zadanie Kroku 3.
 
-Use AskUserQuestion. **The questions and options here are fundamentally different from /10x-plan's**: in /10x-plan, options are *solution choices*; here, options are *hypothesis disambiguators*. The user's answer narrows the hypothesis space.
+### Krok 2: Zmapuj wymiary problemu
 
-**Rules for narrowing questions:**
+Utwórz **mapę** wymiarów, z których może wynikać obserwacja — dla TEJ sytuacji TEGO użytkownika. Nie sięgaj po ogólny szablon; wartość mapy wynika z jej dopasowania do systemu, bazy kodu lub przestrzeni projektowej, którą analizujesz.
 
-- Each question should isolate one or two dimensions of the map. The right question is one whose answer rules dimensions in or out.
-- Options describe **observations or design positions** — what the user actually sees, or which side of a real tradeoff they're on — not causes or solutions.
-- Keep `header` short: e.g. "Pattern", "When", "Scope", "Tradeoff".
-- Aim for 2–5 questions total — enough to triangulate, not enough to drag.
-- ALWAYS include an "I'm not sure / haven't checked" option. The user's certainty is itself a signal; false certainty is the enemy.
+Jak zbudować mapę:
 
-A narrowing question that doesn't change the hypothesis ranking is wasted. **Design each question to be decisive.** A single well-aimed question, answered honestly, often resolves the entire reframing question on its own.
+- **Najpierw czytaj.** Otwórz pliki wspomniane przez użytkownika. Otwórz sąsiednie pliki. Prześledź ścieżkę od podanej przyczyny do obserwowanego efektu — *niezależnie od tego, czy jest to przepływ danych w czasie wykonywania, łańcuch decyzji projektowych, czy sekwencja założeń*. Wymiary wynikają z tego, co rzeczywiście istnieje: etapów wejścia, transformacji, stanu, efektów ubocznych; osi przestrzeni projektowej; lub warstw decyzji o zakresie. Nie wymieniaj wymiarów, dla których nie widziałeś dowodów.
+- **Użyj pod-agentów, gdy obszar jest duży lub nieznany.** Uruchom jednego lub dwóch pod-agentów Explore z poleceniami takimi jak: „Prześledź ścieżkę od <stated cause> do <observed effect>. Wypisz każdy odrębny etap lub oś, przez które przechodzi ten łańcuch, z odniesieniami file:line lub document:section.” Mapa to wynik ich pracy — nie to, co zgadłeś przed lekturą.
+- **Traktuj każdy wymiar jako możliwe źródło.** Użyteczny wymiar to taki, w którym, gdyby ujęcie problemu załamało się w tym punkcie, widziałbyś mniej więcej tę obserwację. Wymiary, które nie mogłyby wiarygodnie wywołać obserwacji, nie należą na mapę.
 
-If hypothesis evidence from Step 3 is already conclusive (one hypothesis has strong evidence, others have none), you may skip questioning and proceed to Step 5 — but say so explicitly: "Step 3 found strong evidence for [hypothesis] and none for the others. Skipping the questioning step; reframing directly."
+**Przypnij obserwację do mapy**: na którym wymiarze ląduje ujęcie użytkownika? Skąd jeszcze *mogłaby* pochodzić obserwacja? Ujęcie użytkownika jest jednym węzłem mapy; reszta mapy to przestrzeń hipotez.
 
-### Step 5: Cross-system check — pressure-test the leading hypothesis
+Przedstaw mapę zwięźle w formie tekstu:
 
-Before finalizing the reframe, pressure-test it from a different angle than the investigation that produced it. The goal is to surface evidence the hypothesis investigation didn't see, not to confirm what you already believe.
+```
+Obserwacja może pochodzić z każdego z tych wymiarów:
 
-Pick whichever of these are useful for the case in front of you:
+  1. [Wymiar A] — [co mogłoby pójść nie tak / co zakładają tu ramy]
+  2. [Wymiar B] — [co mogłoby pójść nie tak / co zakładają tu ramy]   ← obecne ujęcie użytkownika
+  3. [Wymiar C] — [co mogłoby pójść nie tak / co zakładają tu ramy]
+  4. [Wymiar D] — [co mogłoby pójść nie tak / co zakładają tu ramy]
 
-- **Independent search.** Spawn a fresh Explore sub-agent with a prompt that does NOT name the leading hypothesis. Describe only the observation and ask: "What in this system or design space is most likely responsible? Look without preconception." If the agent independently lands on the same hypothesis, confidence rises. If it surfaces something different, that's a signal worth reading carefully.
-- **Look for prior occurrences.** Search `context/changes/**/` and `context/archive/**/`, commit messages, and issue history for similar observations or scope decisions in this project before. Past incidents and prior decisions often hold the answer or rule one out.
-- **Check the inverse.** What other evidence would the leading hypothesis predict — that you haven't checked yet? Verify it. What should NOT be visible if the hypothesis is true? Confirm its absence.
-- **Sanity-check against the user's stated framing once more.** If their original framing still fits the evidence equally well, the reframe may be unnecessary. Don't override a working framing with a more elegant one.
+Zamierzam zbadać każdy równolegle, zanim podejmiemy decyzję.
+```
 
-If pressure-testing strengthens the leading hypothesis, lock confidence. If it surfaces a credible alternative or contradicts the hypothesis, **stop** and re-run Step 3 with the new hypothesis on the map. A reframe is only valuable when it survives an honest attempt to break it.
+### Krok 3: Uruchom równoległych agentów hipotez
 
-### Step 6: Synthesize the Frame Brief
+Użyj TaskCreate, aby zarejestrować jedno zadanie dla każdego wiarygodnego wymiaru. Następnie uruchom równolegle pod-agentów — zazwyczaj 2–4, maksymalnie 5 — używając narzędzia Task, **wszystkich w jednej wiadomości**, aby zapewnić współbieżność.
 
-Resolve the change folder before writing:
+Dla każdej hipotezy pod-agent bada: „**Gdyby ujęcie problemu załamało się w tym wymiarze, jakich dowodów należałoby się spodziewać i czy takie dowody istnieją?**”
 
-- If invoked as `/10x-frame <change-id>` and `context/changes/<change-id>/` exists, write into it.
-- Otherwise derive a kebab-case `<change-id>` from the observation and create the folder + `change.md` (mirroring `/10x-new` semantics) before writing.
-- Refuse if the resolved path starts with `context/archive/` — print: "This change is archived. Open a new change with `/10x-new` instead." and STOP.
+- Użyj `subagent_type: "Explore"` dla „znajdź kod lub dokument obsługujący X, pokaż mi strukturę”.
+- Użyj `subagent_type: "general-purpose"` dla „prześledź ten łańcuch i powiedz mi, czy założenie Y jest prawdziwe”.
 
-Update `change.md`: set `updated: <today>` and, only if current `status` is `new`, advance to `status: preparing`.
+Każde polecenie musi zawierać:
 
-Write the brief to `context/changes/<change-id>/frame.md` (single artifact per change).
+- Dosłowną obserwację z Kroku 1 (verbatim).
+- Konkretną badaną hipotezę wymiaru.
+- Ujęcie oczekiwanych dowodów: „Co zobaczylibyśmy, gdyby TO był wymiar, w którym ujęcie problemu się załamuje? Szukaj tego. Zgłoś, czy jest obecne, częściowe czy nieobecne, z odniesieniami file:line lub document:section.”
+- Dyrektywę tylko do odczytu — bez edycji.
 
-Use this template:
+Gdy wszyscy wrócą, dokonaj syntezy: które hipotezy mają **silne**, **słabe** lub **żadne** dowody? Hipoteza mająca silne dowody, których nie ma początkowe ujęcie użytkownika, jest kandydatem do przeformułowania.
+
+### Krok 4: Pytania zawężające (sokratyczne, nie dotyczące rozwiązania)
+
+Użyj AskUserQuestion. **Pytania i opcje tutaj zasadniczo różnią się od tych w /10x-plan**: w /10x-plan opcje to *wybory rozwiązania*; tutaj opcje są *elementami rozróżniającymi hipotezy*. Odpowiedź użytkownika zawęża przestrzeń hipotez.
+
+**Zasady pytań zawężających:**
+
+- Każde pytanie powinno wyizolować jeden lub dwa wymiary mapy. Właściwe pytanie to takie, którego odpowiedź wyklucza lub potwierdza wymiary.
+- Opcje opisują **obserwacje lub pozycje projektowe** — to, co użytkownik rzeczywiście widzi, albo po której stronie rzeczywistego kompromisu się znajduje — nie przyczyny ani rozwiązania.
+- Zachowaj krótki `header`: np. „Pattern”, „When”, „Scope”, „Tradeoff”.
+- Dąż do łącznie 2–5 pytań — wystarczająco, by triangulować, ale nie na tyle, by przeciągać sprawę.
+- ZAWSZE uwzględnij opcję „Nie jestem pewien / nie sprawdzałem”. Pewność użytkownika sama w sobie jest sygnałem; fałszywa pewność jest wrogiem.
+
+Pytanie zawężające, które nie zmienia rankingu hipotez, jest zmarnowane. **Projektuj każde pytanie tak, aby było rozstrzygające.** Jedno dobrze wymierzone pytanie, na które udzielono szczerej odpowiedzi, często samodzielnie rozstrzyga całe zagadnienie przeformułowania.
+
+Jeżeli dowody dla hipotez z Kroku 3 są już rozstrzygające (jedna hipoteza ma silne dowody, pozostałe nie mają żadnych), możesz pominąć pytania i przejść do Kroku 5 — ale powiedz to wyraźnie: „Krok 3 znalazł silne dowody dla [hypothesis] i żadnych dla pozostałych. Pomijam etap pytań; przechodzę bezpośrednio do przeformułowania.”
+
+### Krok 5: Kontrola między systemami — przetestuj wiodącą hipotezę pod presją
+
+Przed sfinalizowaniem przeformułowania przetestuj je pod presją z innego kąta niż badanie, które je wykazało. Celem jest ujawnienie dowodów, których badanie hipotezy nie dostrzegło, a nie potwierdzenie tego, w co już wierzysz.
+
+Wybierz te z poniższych działań, które są przydatne w danym przypadku:
+
+- **Niezależne wyszukiwanie.** Uruchom świeżego pod-agenta Explore z poleceniem, które NIE wymienia wiodącej hipotezy. Opisz wyłącznie obserwację i zapytaj: „Co w tym systemie lub przestrzeni projektowej jest najprawdopodobniej odpowiedzialne? Szukaj bez uprzedzeń.” Jeśli agent niezależnie dochodzi do tej samej hipotezy, pewność rośnie. Jeśli ujawni coś innego, jest to sygnał, który warto uważnie przeanalizować.
+- **Poszukaj wcześniejszych wystąpień.** Przeszukaj `context/changes/**/` i `context/archive/**/`, komunikaty commitów oraz historię zgłoszeń pod kątem podobnych obserwacji lub decyzji dotyczących zakresu w tym projekcie. Wcześniejsze incydenty i wcześniejsze decyzje często zawierają odpowiedź albo pozwalają coś wykluczyć.
+- **Sprawdź odwrotność.** Jakie inne dowody przewidywałaby wiodąca hipoteza — których jeszcze nie sprawdziłeś? Zweryfikuj je. Co NIE powinno być widoczne, jeśli hipoteza jest prawdziwa? Potwierdź jego brak.
+- **Ponownie sprawdź zgodność z podanym przez użytkownika ujęciem.** Jeśli jego pierwotne ujęcie nadal równie dobrze pasuje do dowodów, przeformułowanie może być niepotrzebne. Nie zastępuj działającego ujęcia bardziej eleganckim.
+
+Jeśli testowanie pod presją wzmacnia wiodącą hipotezę, ustal poziom pewności. Jeśli ujawnia wiarygodną alternatywę lub przeczy hipotezie, **zatrzymaj się** i ponownie wykonaj Krok 3 z nową hipotezą na mapie. Przeformułowanie jest wartościowe tylko wtedy, gdy przetrwa uczciwą próbę jego podważenia.
+
+### Krok 6: Zsyntetyzuj Frame Brief
+
+Rozwiąż folder zmiany przed zapisem:
+
+- Jeśli wywołano jako `/10x-frame <change-id>` i istnieje `context/changes/<change-id>/`, zapisz w nim.
+- W przeciwnym razie wyprowadź kebab-case `<change-id>` z obserwacji i utwórz folder + `change.md` (odzwierciedlając semantykę `/10x-new`) przed zapisem.
+- Odmów, jeśli rozwiązana ścieżka zaczyna się od `context/archive/` — wypisz: „This change is archived. Open a new change with `/10x-new` instead.” i ZATRZYMAJ SIĘ.
+
+Zaktualizuj `change.md`: ustaw `updated: <today>` i tylko jeśli bieżący `status` to `new`, zmień go na `status: preparing`.
+
+Zapisz brief w `context/changes/<change-id>/frame.md` (jeden artefakt na zmianę).
+
+Użyj tego szablonu:
 
 ````markdown
-# Frame Brief: [Topic]
+# Frame Brief: [Temat]
 
-> Framing step before /10x-plan. This document captures what is *actually*
-> at issue, separated from what was initially assumed.
+> Etap ustalania ram przed /10x-plan. Ten dokument rejestruje, co jest *faktycznie*
+> przedmiotem problemu, oddzielone od tego, co początkowo założono.
 
-## Reported Observation
+## Zgłoszona obserwacja
 
-[Literal observable effect or stated scope/design question — copied from
-Step 1, unchanged.]
+[Dosłownie obserwowalny efekt lub podane pytanie o zakres/projekt — skopiowane z
+Kroku 1, bez zmian.]
 
-## Initial Framing (preserved)
+## Początkowe ujęcie (zachowane)
 
-- **User's stated cause or approach**: [from Step 1]
-- **User's proposed direction**: [from Step 1]
-- **Pre-dispatch narrowing**: [from Step 1.5 — the observation/scope position the user picked, in their words; "not separated yet" is itself a valid answer worth recording]
+- **Podana przez użytkownika przyczyna lub podejście**: [z Kroku 1]
+- **Proponowany przez użytkownika kierunek**: [z Kroku 1]
+- **Zawężenie przed delegowaniem**: [z Kroku 1.5 — pozycja dotycząca obserwacji/zakresu wybrana przez użytkownika, jego słowami; „jeszcze nie rozdzielono” samo w sobie jest prawidłową odpowiedzią wartą zapisania]
 
-## Dimension Map
+## Mapa wymiarów
 
-The observation could originate at any of these dimensions:
+Obserwacja może pochodzić z każdego z tych wymiarów:
 
-1. **[Dimension A]** — [what would go wrong / what the framing assumes here]
-2. **[Dimension B]** — [...]  ← initial framing
-3. **[Dimension C]** — [...]
-4. **[Dimension D]** — [...]
+1. **[Wymiar A]** — [co mogłoby pójść nie tak / co zakładają tu ramy]
+2. **[Wymiar B]** — [...]  ← początkowe ujęcie
+3. **[Wymiar C]** — [...]
+4. **[Wymiar D]** — [...]
 
-## Hypothesis Investigation
+## Badanie hipotez
 
-| Hypothesis | Evidence | Verdict |
+| Hipoteza | Dowody | Werdykt |
 | --- | --- | --- |
-| [Dimension A: brief claim] | [file:line / document:section / observations] | STRONG / WEAK / NONE |
-| [Dimension B: initial framing] | [evidence] | STRONG / WEAK / NONE |
-| [Dimension C] | [evidence] | STRONG / WEAK / NONE |
-| [Dimension D] | [evidence] | STRONG / WEAK / NONE |
+| [Wymiar A: krótkie stwierdzenie] | [file:line / document:section / obserwacje] | SILNE / SŁABE / BRAK |
+| [Wymiar B: początkowe ujęcie] | [dowody] | SILNE / SŁABE / BRAK |
+| [Wymiar C] | [dowody] | SILNE / SŁABE / BRAK |
+| [Wymiar D] | [dowody] | SILNE / SŁABE / BRAK |
 
-## Narrowing Signals
+## Sygnały zawężające
 
-Decisive observations from Step 4 (user reports + sub-agent findings) that
-narrowed the hypothesis space:
+Rozstrzygające obserwacje z Kroku 4 (relacje użytkownika + ustalenia pod-agentów), które
+zawęziły przestrzeń hipotez:
 
-- [Observation that ruled in or out a dimension]
-- [Observation that ruled in or out a dimension]
+- [Obserwacja, która potwierdziła lub wykluczyła wymiar]
+- [Obserwacja, która potwierdziła lub wykluczyła wymiar]
 
-## Cross-System Convention
+## Konwencja między systemami
 
-[How is this class of observation usually handled? Does the leading
-hypothesis match the convention?]
+[Jak zazwyczaj obsługiwana jest ta klasa obserwacji? Czy wiodąca
+hipoteza odpowiada tej konwencji?]
 
-## Reframed (or Confirmed) Problem Statement
+## Przeformułowany (lub potwierdzony) opis problemu
 
-> **The actual problem to plan around is**: [one sentence — root, not surface]
+> **Rzeczywisty problem, wokół którego należy planować, to**: [jedno zdanie — źródło, nie powierzchnia]
 
-[2–3 sentences explaining why this is the real problem and what would change
-if it were addressed. If the original framing held up, say so explicitly:
-"The initial framing was correct — proceed with the originally proposed
-direction." Do not manufacture a reframing if the evidence doesn't support
-one.]
+[2–3 zdania wyjaśniające, dlaczego to jest prawdziwy problem i co zmieniłoby się,
+gdyby został rozwiązany. Jeśli pierwotne ujęcie się potwierdziło, powiedz to wyraźnie:
+„Początkowe ujęcie było prawidłowe — kontynuuj w pierwotnie proponowanym
+kierunku.” Nie twórz sztucznego przeformułowania, jeśli dowody go nie wspierają.]
 
-## Confidence
+## Pewność
 
-- **HIGH** — strong evidence + matches convention + decisive narrowing signal
-- **MEDIUM** — evidence points one way but convention or signal weaker
-- **LOW** — evidence inconclusive; recommending further reproduction or
-  evidence-gathering before planning
+- **WYSOKA** — silne dowody + zgodność z konwencją + rozstrzygający sygnał zawężający
+- **ŚREDNIA** — dowody wskazują w jednym kierunku, ale konwencja lub sygnał są słabsze
+- **NISKA** — dowody są niejednoznaczne; zalecane dalsze odtworzenie lub
+  zbieranie dowodów przed planowaniem
 
-[Pick one. If LOW, list the specific verification step needed before /10x-plan.]
+[Wybierz jedną. Jeśli NISKA, wymień konkretny krok weryfikacji potrzebny przed /10x-plan.]
 
-## What Changes for /10x-plan
+## Co zmienia się dla /10x-plan
 
-[1–2 sentences: what the plan should actually be about, given the reframe.
-If reframe is "no change", state that the original framing held up.]
+[1–2 zdania: czego plan powinien faktycznie dotyczyć, biorąc pod uwagę przeformułowanie.
+Jeśli przeformułowanie oznacza „brak zmiany”, stwierdź, że pierwotne ujęcie się potwierdziło.]
 
-## References
+## Odniesienia
 
-- Source files: [file:line]
-- Related research: `context/changes/<change-id>/research.md` (if present)
-- Investigation tasks: [list of TaskCreate IDs from Step 3]
+- Pliki źródłowe: [file:line]
+- Powiązane badania: `context/changes/<change-id>/research.md` (jeśli istnieją)
+- Zadania badawcze: [lista ID TaskCreate z Kroku 3]
 ````
 
-Keep the brief tight — aim for ~80–150 lines. The hypothesis table is the heart; everything else supports it.
+Zachowaj zwięzłość briefu — celuj w ~80–150 wierszy. Tabela hipotez jest sednem; wszystko inne ją wspiera.
 
-### Step 7: Present and hand off
+### Krok 7: Przedstaw i przekaż dalej
 
-Print a one-screen summary, then offer the handoff:
+Wypisz podsumowanie mieszczące się na jednym ekranie, a następnie zaoferuj przekazanie:
 
 ```
 ═══════════════════════════════════════════════════════════
-  FRAME COMPLETE: [Topic]
-  Confidence: [HIGH/MEDIUM/LOW]
+  FRAME COMPLETE: [Temat]
+  Pewność: [WYSOKA/ŚREDNIA/NISKA]
 ═══════════════════════════════════════════════════════════
 
-  Reported observation: [one line]
-  Initial framing:      [one line]
-  Reframed problem:     [one line — or "Initial framing held"]
+  Zgłoszona obserwacja: [jeden wiersz]
+  Początkowe ujęcie:     [jeden wiersz]
+  Przeformułowany problem: [jeden wiersz — lub „Początkowe ujęcie się potwierdziło”]
 
   ► Brief: context/changes/<change-id>/frame.md
 ═══════════════════════════════════════════════════════════
 ```
 
-Then ask:
+Następnie zapytaj:
 
 AskUserQuestion:
-- question: "Frame done. How would you like to proceed?"
-  header: "Next step"
+- question: "Ramy gotowe. Jak chcesz kontynuować?"
+  header: "Następny krok"
   options:
-  - label: "Hand off to /10x-plan"
-    description: "Pass this brief to /10x-plan and start implementation planning."
-  - label: "Reproduce / verify first"
-    description: "Confidence is too low or the reframe needs a manual check before planning."
-  - label: "Discuss before planning"
-    description: "I want to push back on the reframe or explore alternatives."
-  - label: "Stop here"
-    description: "The brief alone is enough — no plan needed right now."
+  - label: "Przekaż do /10x-plan"
+    description: "Przekaż ten brief do /10x-plan i rozpocznij planowanie implementacji."
+  - label: "Najpierw odtwórz / zweryfikuj"
+    description: "Pewność jest zbyt niska albo przeformułowanie wymaga ręcznej kontroli przed planowaniem."
+  - label: "Omów przed planowaniem"
+    description: "Chcę zakwestionować przeformułowanie lub zbadać alternatywy."
+  - label: "Zakończ tutaj"
+    description: "Sam brief wystarczy — plan nie jest teraz potrzebny."
     multiSelect: false
 
-If the user picks "Hand off to /10x-plan", copy the command to clipboard:
+Jeśli użytkownik wybierze „Przekaż do /10x-plan”, skopiuj polecenie do schowka:
 
 ```bash
 echo -n "/10x-plan <change-id>" | pbcopy 2>/dev/null || echo -n "/10x-plan <change-id>" | clip.exe 2>/dev/null || echo -n "/10x-plan <change-id>" | xclip -selection clipboard 2>/dev/null || true
@@ -323,28 +321,28 @@ echo -n "/10x-plan <change-id>" | pbcopy 2>/dev/null || echo -n "/10x-plan <chan
 Set-Clipboard "/10x-plan <change-id>"
 ```
 
-And print: `→ /10x-plan <change-id> (✓ copied)`
+I wypisz: `→ /10x-plan <change-id> (✓ copied)`
 
-## Critical guardrails
+## Krytyczne zabezpieczenia
 
-1. **Allowed conclusion: "the framing was right."** This skill is not value-additive only when it produces a reframing. If the hypothesis investigation confirms the user's initial framing, that IS a successful frame — say so plainly and stop. Manufactured reframings are worse than no frame: they introduce confusion the user has to untangle later.
+1. **Dozwolony wniosek: „ramy były prawidłowe”.** Ta umiejętność nie tworzy wartości wyłącznie wtedy, gdy prowadzi do przeformułowania. Jeśli badanie hipotez potwierdza początkowe ujęcie użytkownika, to JEST udane ustalenie ram — powiedz to wprost i zakończ. Sztucznie tworzone przeformułowania są gorsze niż brak ram: wprowadzają zamieszanie, które użytkownik musi później rozplątać.
 
-2. **Observation and stated cause stay separate.** Through every step. The Frame Brief preserves the original framing verbatim — even when reframed — because future readers (and /10x-plan-review) need to see what was assumed vs what was discovered.
+2. **Obserwacja i podana przyczyna pozostają rozdzielone.** Na każdym etapie. Frame Brief zachowuje pierwotne ujęcie dosłownie — nawet po przeformułowaniu — ponieważ przyszli czytelnicy (oraz /10x-plan-review) muszą widzieć, co założono, a co odkryto.
 
-3. **No solution design.** This skill never picks an implementation approach. It does not propose phases, file changes, or technical decisions. It produces ONE artifact: the reframed (or confirmed) problem statement. /10x-plan owns the solution.
+3. **Bez projektowania rozwiązania.** Ta umiejętność nigdy nie wybiera podejścia implementacyjnego. Nie proponuje faz, zmian plików ani decyzji technicznych. Tworzy JEDEN artefakt: przeformułowany (lub potwierdzony) opis problemu. Właścicielem rozwiązania jest /10x-plan.
 
-4. **Narrowing questions ≠ solution questions.** /10x-plan asks "which approach?". /10x-frame asks "where in the dimension map does the actual problem live?". This rule binds both Step 1.5 (pre-dispatch scope/observation narrowing) and Step 4 (post-dispatch hypothesis narrowing). Options describe observations or design positions, not choices about how to address them. If you find yourself drafting a question whose answer changes the *direction*, you've crossed into /10x-plan territory — stop.
+4. **Pytania zawężające ≠ pytania o rozwiązanie.** /10x-plan pyta „które podejście?”. /10x-frame pyta „w którym miejscu mapy wymiarów znajduje się rzeczywisty problem?”. Ta zasada wiąże zarówno Krok 1.5 (zawężanie zakresu/obserwacji przed delegowaniem), jak i Krok 4 (zawężanie hipotez po delegowaniu). Opcje opisują obserwacje lub pozycje projektowe, a nie wybory dotyczące sposobu rozwiązania problemu. Jeśli zauważysz, że tworzysz pytanie, którego odpowiedź zmienia *kierunek*, wkroczyłeś na terytorium /10x-plan — zatrzymaj się.
 
-5. **Read the source material before reaching for priors.** Source material means code, docs, prior decisions, or whatever the framing actually rests on. It is tempting to recognize a shape from training-data familiarity and propose a reframing before investigating. Don't. Hypotheses must come from the dimension map you constructed in Step 2 from THIS material, and evidence must come from sub-agent reads of THIS project. A confident-sounding reframe with no file:line or document:section evidence is the failure mode this skill exists to prevent.
+5. **Przeczytaj materiał źródłowy, zanim sięgniesz po wcześniejsze przesłanki.** Materiał źródłowy oznacza kod, dokumentację, wcześniejsze decyzje lub cokolwiek, na czym faktycznie opierają się ramy. Łatwo jest rozpoznać wzorzec na podstawie znajomości danych treningowych i zaproponować przeformułowanie przed badaniem. Nie rób tego. Hipotezy muszą wynikać z mapy wymiarów utworzonej w Kroku 2 na podstawie TEGO materiału, a dowody muszą pochodzić z odczytów pod-agentów w TYM projekcie. Pewnie brzmiące przeformułowanie bez dowodów file:line lub document:section to tryb porażki, któremu ta umiejętność ma zapobiegać.
 
-6. **No hypothesis padding.** If only two dimensions are plausible, investigate two. Spawning agents to investigate hypotheses with no plausibility burns budget and signals false rigor.
+6. **Bez wypełniania hipotezami.** Jeśli wiarygodne są tylko dwa wymiary, zbadaj dwa. Uruchamianie agentów do badania hipotez bez wiarygodności marnuje budżet i stwarza pozory rygoru.
 
-7. **Time-box the investigation.** Frame should typically complete in 2–4 sub-agent rounds and 2–5 questions. If it's dragging past that, the case probably needs reproduction or evidence-gathering before any further analysis — recommend that and stop.
+7. **Ogranicz czas badania.** Frame powinien zwykle zostać ukończony w 2–4 rundach pod-agentów i 2–5 pytaniach. Jeśli trwa to dłużej, przypadek prawdopodobnie wymaga odtworzenia lub zebrania dowodów przed dalszą analizą — zalecaj to i zakończ.
 
-## Notes
+## Uwagi
 
-- This is a **framing** skill. Investigate and report — do not edit code, do not write plans.
-- Be specific. Specifics with `file:line` or `document:section` beat hand-waves.
-- Distinguish "evidence found in this project" (verifiable, with file:line or document:section) from "I have a hunch from past systems I've seen" (prior, unverified). Priors are useful for forming hypotheses; only verified evidence belongs in the Frame Brief.
-- If the user pushes back on the reframe, take it seriously — they may know context the investigation missed. Re-run Step 3 against their objection rather than defending the reframe.
-- The Frame Brief is the only artifact. Keep it short, scannable, and actionable for /10x-plan.
+- To umiejętność **ustalania ram**. Badaj i raportuj — nie edytuj kodu, nie pisz planów.
+- Bądź konkretny. Konkretne informacje z `file:line` lub `document:section` są lepsze niż ogólniki.
+- Rozróżniaj „dowody znalezione w tym projekcie” (weryfikowalne, z file:line lub document:section) od „mam przeczucie z wcześniejszych systemów, które widziałem” (wcześniejsza przesłanka, niezweryfikowana). Wcześniejsze przesłanki są przydatne do tworzenia hipotez; tylko zweryfikowane dowody należą do Frame Brief.
+- Jeśli użytkownik kwestionuje przeformułowanie, potraktuj to poważnie — może znać kontekst, którego badanie nie uwzględniło. Ponownie wykonaj Krok 3 wobec jego zastrzeżenia, zamiast bronić przeformułowania.
+- Frame Brief jest jedynym artefaktem. Zachowaj go krótki, łatwy do przejrzenia i użyteczny dla /10x-plan.

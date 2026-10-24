@@ -16,58 +16,57 @@ allowed-tools:
   - TaskCreate
   - TaskUpdate
 ---
+# Selektor stosu technologicznego: od PRD do startera
 
-# Tech Stack Selector: From PRD to Starter
+Ta umiejętność jest trzecim ogniwem w łańcuchu bootstrap (`/10x-shape → /10x-prd → 10x-tech-stack-selector → /10x-bootstrapper`). Jej jedyne zadanie: przekształcić napisany PRD w rekomendowany starter oraz małe, odczytywalne maszynowo przekazanie, które `/10x-bootstrapper` może odczytać, aby stworzyć szkielet projektu.
 
-This skill is the third link in the bootstrap chain (`/10x-shape → /10x-prd → 10x-tech-stack-selector → /10x-bootstrapper`). Its single job: turn a written PRD into a recommended starter and a small machine-readable hand-off `/10x-bootstrapper` can read to scaffold a project.
+Umiejętność jest **facylitatorem decyzji opartym na kuratorowanym rejestrze**, a nie mechanizmem rekomendacji od podstaw. Odczytuje przesłanki z PRD, zadaje maksymalnie ~6 pozostałych pytań na ścieżce niestandardowej (albo skraca proces do zweryfikowanej rekomendacji na ścieżce standardowej), analizuje karty starterów uwzględniające język w `references/starter-registry.yaml` i stosuje cztery bramki jakości będące twardymi filtrami. Rozbudowane uzasadnienie pozostaje w rozmowie; przekazanie plikowe jest minimalne.
 
-The skill is a **decision facilitator over a curated registry**, not a recommendation engine from first principles. It reads PRD priors, asks at most ~6 residual questions on the custom path (or short-circuits to a vetted recommendation on the standard path), reasons over language-aware starter cards in `references/starter-registry.yaml`, and applies four hard-filter quality gates. Rich rationale stays in conversation; the file hand-off is minimal.
+Rejestr starterów w `references/starter-registry.yaml` jest **jedynym źródłem prawdy** dla zweryfikowanych starterów. `/10x-bootstrapper` go odczytuje; walidator CI (`scripts/validate-starter-registry-sync.mjs`) zapobiega odwołaniu bootstrappera do `starter_id`, który tutaj nie istnieje.
 
-The starter registry in `references/starter-registry.yaml` is the **single source of truth** for vetted starters. `/10x-bootstrapper` reads it; a CI validator (`scripts/validate-starter-registry-sync.mjs`) prevents bootstrapper from referencing a `starter_id` that does not exist here.
+Rejestr jest listą rekomendacji, a nie listą dozwolonych stosów. Gdy użytkownik wskazuje framework bez karty, umiejętność go akceptuje, ocenia względem tych samych czterech bramek jakości i zapisuje jako `starter_id: custom` z blokiem `custom_starter` (zobacz `references/decision-flow.md` § Off-registry framework). Jawny wybór frameworka przez użytkownika ma pierwszeństwo przed rejestrem.
 
-The registry is a list of recommendations, not a list of permitted stacks. When the user names a framework that has no card, the skill accepts it, assesses it against the same four quality gates, and records it as `starter_id: custom` with a `custom_starter` block (see `references/decision-flow.md` § Off-registry framework). The user's explicit framework choice outranks the registry.
+## Kiedy używać, a kiedy pominąć
 
-## When to use, when to skip
+**Użyj, gdy**: istnieje `context/foundation/prd.md`, a użytkownik jest gotowy wybrać stos. Frazy wyzwalające: „what stack should I use”, „pick a starter”, „choose a framework”, „co wybrać”, „what should I build this in”, „can you recommend a stack”. Użyj również, gdy użytkownik prosi o porównanie („React vs Vue vs Svelte”) przy PRD zapisanym na dysku — umiejętność wymusza ścieżkę niestandardową i przechodzi przez warianty frameworków.
 
-**Use when**: `context/foundation/prd.md` exists and the user is ready to pick a stack. Trigger phrases: "what stack should I use", "pick a starter", "choose a framework", "co wybrać", "what should I build this in", "can you recommend a stack". Use also when the user asks for a comparison ("React vs Vue vs Svelte") with a PRD on disk — the skill forces the custom path and walks framework variants.
+**Pomiń, gdy**: `context/foundation/prd.md` nie istnieje — umiejętność odmawia i przekierowuje do `/10x-shape` + `/10x-prd`. Pomiń też, gdy użytkownik jest w trakcie implementacji w istniejącej bazie kodu i pyta o dodanie biblioteki lub zastąpienie pojedynczej zależności — to obszar `/10x-frame`, a nie wybór stosu.
 
-**Skip when**: `context/foundation/prd.md` is absent — the skill refuses and redirects to `/10x-shape` + `/10x-prd`. Skip also when the user is mid-implementation on an existing codebase asking about adding a library or replacing a single dependency — that is `/10x-frame` territory, not stack selection.
+## Relacja z innymi umiejętnościami
 
-## Relationship to other skills
+- `/10x-shape` — tworzy `shape-notes.md`, prekursor PRD. Dwa kroki upstream od tej umiejętności.
+- `/10x-prd` — tworzy `context/foundation/prd.md`, kanoniczne wejście. Zawsze upstream.
+- `/10x-bootstrapper` — konsument downstream. Odczytuje frontmatter `context/foundation/tech-stack.md` oraz rejestr; tworzy szkielet projektu.
 
-- `/10x-shape` — produces `shape-notes.md`, the precursor to PRD. Two upstream of this skill.
-- `/10x-prd` — produces `context/foundation/prd.md`, the canonical input. Always upstream.
-- `/10x-bootstrapper` — downstream consumer. Reads `context/foundation/tech-stack.md` frontmatter and the registry; scaffolds the project.
+## Wymagane wejścia
 
-## Required inputs
+1. Plik PRD — istnieje, jest czytelny, zgodny ze schematem PRD (`/skills/10x-shape/references/prd-schema.md`). Domyślna lokalizacja: `context/foundation/prd.md`. Użytkownik MOŻE przekazać inną ścieżkę jako argument (zobacz „Initial Response” poniżej). Umiejętność odczytuje **frontmatter** jako przesłanki (`product_type`, `target_scale`, `timeline_budget`, `project`) i może odczytać sekcje treści (`## Functional Requirements`, `## Non-Goals`) dla audytu funkcji oraz wykrywania momentów sokratejskich, w których FR-y PRD wskazują funkcję nieobecną w rekomendowanym starterze.
+2. `references/starter-registry.yaml` — dołączony do umiejętności. Ładowany podczas podejmowania decyzji.
+3. `references/residual-interview.md` — dołączony. Ładowany podczas wywiadu.
+4. `references/handoff-schema.md` — dołączony. Ładowany podczas zapisu.
+5. `references/agent-friendly-criteria.md` — dołączony. Ładowany podczas filtrowania.
+6. `references/decision-flow.md` — dołączony. Ładowany podczas podejmowania decyzji.
 
-1. A PRD file — exists, is readable, conforms to the PRD schema (`/skills/10x-shape/references/prd-schema.md`). Default location: `context/foundation/prd.md`. The user MAY pass a different path as the argument (see "Initial Response" below). The skill reads the **frontmatter** as priors (`product_type`, `target_scale`, `timeline_budget`, `project`) and may read body sections (`## Functional Requirements`, `## Non-Goals`) for the feature audit and to detect Socratic moments where the PRD's FRs surface a feature the recommended starter does not include.
-2. `references/starter-registry.yaml` — bundled with the skill. Loaded at decision time.
-3. `references/residual-interview.md` — bundled. Loaded at interview time.
-4. `references/handoff-schema.md` — bundled. Loaded at write time.
-5. `references/agent-friendly-criteria.md` — bundled. Loaded at filter time.
-6. `references/decision-flow.md` — bundled. Loaded at decision time.
+## Początkowa odpowiedź
 
-## Initial Response
+Gdy ta umiejętność zostanie wywołana:
 
-When this skill is invoked:
+1. **Jeśli podano argument ścieżki** (np. `/10x-tech-stack-selector @context/foundation/prd-v2.md` lub `/10x-tech-stack-selector path/to/prd.md`), usuń początkowy `@`, jeśli występuje, i użyj ścieżki dosłownie jako lokalizacji PRD dla tego uruchomienia.
+2. **Jeśli nie podano argumentu**, ustaw domyślną ścieżkę PRD na `context/foundation/prd.md`.
 
-1. **If a path argument was provided** (e.g. `/10x-tech-stack-selector @context/foundation/prd-v2.md` or `/10x-tech-stack-selector path/to/prd.md`), strip a leading `@` if present and use the path verbatim as the PRD location for this run.
-2. **If no argument was provided**, default the PRD path to `context/foundation/prd.md`.
+Przenieś rozwiązaną ścieżkę przez Step 0; reszta przepływu działa na niej jako `<prd-path>`.
 
-Carry the resolved path through Step 0; the rest of the workflow operates on it as `<prd-path>`.
+## Przepływ pracy
 
-## Workflow
+### Step 0 — Warunek wstępny PRD
 
-### Step 0 — PRD precondition
-
-Check the PRD precondition against the resolved path:
+Sprawdź warunek wstępny PRD względem rozwiązanej ścieżki:
 
 ```bash
 test -f "<prd-path>"
 ```
 
-If the file is **absent**, do exactly this and STOP — no fallback interview, no inline mini-PRD, no reading conversation history for substitute priors:
+Jeśli plik jest **nieobecny**, wykonaj dokładnie to i ZATRZYMAJ SIĘ — bez zastępczego wywiadu, bez wbudowanego mini-PRD, bez odczytywania historii rozmowy w celu pozyskania zastępczych przesłanek:
 
 ```bash
 echo -n "/10x-shape" | pbcopy 2>/dev/null || echo -n "/10x-shape" | clip.exe 2>/dev/null || echo -n "/10x-shape" | xclip -selection clipboard 2>/dev/null || true
@@ -78,28 +77,28 @@ echo -n "/10x-shape" | pbcopy 2>/dev/null || echo -n "/10x-shape" | clip.exe 2>/
 Set-Clipboard "/10x-shape"
 ```
 
-Print verbatim (substitute the resolved path; if defaulted, this is `context/foundation/prd.md`):
+Wypisz dosłownie (podstaw rozwiązaną ścieżkę; jeśli użyto domyślnej, jest to `context/foundation/prd.md`):
 
 ```
 Tech-stack-selector requires a PRD at `<prd-path>`. Run `/10x-shape` first, then re-invoke.
 ```
 
-Then STOP. The conversation context is **not** a fallback — even if PRD content was discussed earlier in chat, the skill demands the file on disk.
+Następnie ZATRZYMAJ SIĘ. Kontekst rozmowy **nie** jest rozwiązaniem zastępczym — nawet jeśli treść PRD była omawiana wcześniej na czacie, umiejętność wymaga pliku na dysku.
 
-If the file is **present**, read it FULLY (no `limit`/`offset`) and proceed to Step 1.
+Jeśli plik jest **obecny**, odczytaj go W CAŁOŚCI (bez `limit`/`offset`) i przejdź do Step 1.
 
-### Step 1 — Load PRD priors
+### Step 1 — Załaduj przesłanki PRD
 
-Parse the PRD frontmatter. Extract:
+Przeanalizuj frontmatter PRD. Wyodrębnij:
 
-- `project` → seeds `project_name` in the hand-off (kebab-case it for the hand-off if not already kebab-case).
-- `product_type` → drives Q0 path-fork lookup.
-- `target_scale.users` → priors weight (small/medium/large/enterprise).
-- `timeline_budget.mvp_weeks` → priors weight (short timelines favor battle-tested + popular starters).
+- `project` → inicjuje `project_name` w przekazaniu (zamień na kebab-case dla przekazania, jeśli nie jest już w kebab-case).
+- `product_type` → steruje wyszukiwaniem rozwidlenia ścieżki Q0.
+- `target_scale.users` → waga przesłanek (small/medium/large/enterprise).
+- `timeline_budget.mvp_weeks` → waga przesłanek (krótkie harmonogramy faworyzują sprawdzone w boju + popularne startery).
 
-Read PRD body for the feature audit context: scan `## Functional Requirements` for technology-forcing features (auth, payments, realtime, AI/LLM, background jobs, file storage, i18n). Surface them as a checklist later in Q1.
+Odczytaj treść PRD dla kontekstu audytu funkcji: przeskanuj `## Functional Requirements` pod kątem funkcji wymuszających określoną technologię (auth, payments, realtime, AI/LLM, background jobs, file storage, i18n). Pokaż je później jako listę kontrolną w Q1.
 
-Echo the priors back to the user:
+Powtórz użytkownikowi przesłanki:
 
 ```
 PRD priors:
@@ -114,50 +113,50 @@ PRD priors:
     - ...
 ```
 
-Ask one confirmation:
+Zadaj jedno pytanie potwierdzające:
 
 AskUserQuestion:
-- question: "Are these priors correct, or do you want to correct anything before we proceed?"
-  header: "Priors"
+- question: "Czy te przesłanki są poprawne, czy chcesz coś skorygować, zanim przejdziemy dalej?"
+  header: "Przesłanki"
   options:
-  - label: "Correct — proceed (Recommended)"
-    description: "Continue with these priors."
-  - label: "Correct a value"
-    description: "I'll ask which field to correct, then update an in-memory override (the PRD on disk is unchanged)."
-  - label: "Stop — fix the PRD first"
-    description: "Exit. Re-run /10x-prd to fix priors, then re-invoke /10x-tech-stack-selector."
+  - label: "Poprawne — przejdź dalej (zalecane)"
+    description: "Kontynuuj z tymi przesłankami."
+  - label: "Skoryguj wartość"
+    description: "Zapytam, które pole skorygować, a następnie zaktualizuję nadpisanie w pamięci (PRD na dysku pozostanie niezmieniony)."
+  - label: "Zatrzymaj — najpierw popraw PRD"
+    description: "Zakończ. Uruchom ponownie /10x-prd, aby poprawić przesłanki, a następnie ponownie wywołaj /10x-tech-stack-selector."
   multiSelect: false
 
-If "Correct a value": ask which field, capture an override, proceed with the override applied for this session only.
+Jeśli wybrano „Skoryguj wartość”: zapytaj, które pole, zapisz nadpisanie i kontynuuj z zastosowanym nadpisaniem tylko dla tej sesji.
 
-### Step 2 — Q0 path-fork + residual interview
+### Step 2 — Rozwidlenie ścieżki Q0 + wywiad pozostały
 
-Load `references/residual-interview.md` and follow the Q-flow described there.
+Załaduj `references/residual-interview.md` i postępuj zgodnie z opisanym tam przepływem Q.
 
-The interview has two paths:
+Wywiad ma dwie ścieżki:
 
-- **Standard path** (default-recommended at Q0): user accepts the vetted recommendation for their `(product_type, language_family)` cell. Q1–Q3 and Q6 are skipped. Q4 (deployment), Q5 (CI/CD), and the project-name confirmation still run; Q8 self-check is skipped (the recommended path is itself the safer choice).
-- **Custom path** (user opts to design their own): full Q1–Q6 walk plus conditional Q7 (testing runner) plus Q8 self-check before hand-off.
+- **Ścieżka standardowa** (domyślnie rekomendowana w Q0): użytkownik akceptuje zweryfikowaną rekomendację dla swojej komórki `(product_type, language_family)`. Q1–Q3 i Q6 są pomijane. Nadal wykonywane są Q4 (wdrożenie), Q5 (CI/CD) oraz potwierdzenie nazwy projektu; samokontrola Q8 jest pomijana (rekomendowana ścieżka sama w sobie jest bezpieczniejszym wyborem).
+- **Ścieżka niestandardowa** (użytkownik decyduje się zaprojektować własną): pełne przejście Q1–Q6 oraz warunkowe Q7 (runner testów), a następnie samokontrola Q8 przed przekazaniem.
 
-Q0 derives `language_family` from explicit PRD content if present, otherwise asks once at Q0 (PRD frontmatter does not carry tech_preferences). The recommended-defaults map at the top of `references/starter-registry.yaml` resolves `(product_type, language_family) → starter_id`. If the cell has a vetted default, present it by name with a one-line fit and the starter's `bootstrapper_confidence` value. If the cell has no default (the map shows `<none>`), force the custom path with a single-sentence note ("No vetted recommended default exists for `<product_type, language_family>`; we'll walk the full residual interview.").
+Q0 wyprowadza `language_family` z jawnej treści PRD, jeśli jest obecna, w przeciwnym razie pyta raz w Q0 (frontmatter PRD nie zawiera tech_preferences). Mapa rekomendowanych ustawień domyślnych na początku `references/starter-registry.yaml` rozwiązuje `(product_type, language_family) → starter_id`. Jeśli komórka ma zweryfikowaną wartość domyślną, przedstaw ją po nazwie z jednolinijkowym dopasowaniem oraz wartością `bootstrapper_confidence` startera. Jeśli komórka nie ma wartości domyślnej (mapa pokazuje `<none>`), wymuś ścieżkę niestandardową z jednoliniową notatką („No vetted recommended default exists for `<product_type, language_family>`; we'll walk the full residual interview.”).
 
-The Q0 default is **editorial, not silent**: name the recommended starter up front and ask for explicit confirmation. The user must consciously accept or branch — never accept-by-default-without-prompt.
+Domyślna opcja Q0 jest **redakcyjna, a nie cicha**: nazwij rekomendowany starter na początku i poproś o jawne potwierdzenie. Użytkownik musi świadomie zaakceptować albo wybrać inną ścieżkę — nigdy nie akceptuj domyślnie bez pytania.
 
-If the user answers Q0 (or any later question) by naming a specific framework instead of picking an option, treat it as the custom path with that framework as the user's pick. If the framework has a registry card, use the card. If it does not, follow the off-registry branch in `references/decision-flow.md` — never re-route the user to a registry card they did not ask for, and never suggest switching language family to reach one.
+Jeśli użytkownik odpowie w Q0 (lub w dowolnym późniejszym pytaniu), podając konkretny framework zamiast wybierania opcji, traktuj to jako ścieżkę niestandardową z tym frameworkiem jako wyborem użytkownika. Jeśli framework ma kartę w rejestrze, użyj karty. Jeśli jej nie ma, postępuj zgodnie z gałęzią spoza rejestru w `references/decision-flow.md` — nigdy nie przekierowuj użytkownika do karty rejestru, o którą nie prosił, i nigdy nie sugeruj zmiany rodziny językowej tylko po to, aby do niej dotrzeć.
 
-### Step 3 — Decide
+### Step 3 — Podejmij decyzję
 
-Load `references/decision-flow.md` and `references/agent-friendly-criteria.md`. Load `references/starter-registry.yaml` and read only the cards relevant to the constrained candidate set (filtered by `language_family` and `product_type` per the decision flow Step A) — not the whole registry, to keep the prompt cost down.
+Załaduj `references/decision-flow.md` i `references/agent-friendly-criteria.md`. Załaduj `references/starter-registry.yaml` i odczytaj tylko karty istotne dla ograniczonego zbioru kandydatów (przefiltrowane według `language_family` i `product_type` zgodnie z decision flow Step A) — nie cały rejestr, aby ograniczyć koszt promptu.
 
-Execute the decision flow:
+Wykonaj decision flow:
 
-- **Standard path** — the recommended_defaults pick is already the lead; jump to Step E (surface `bootstrapper_confidence`) and skip filter/scoring.
-- **Custom path** — execute Step A (filter by language_family + product_type + must-have features + deployment compatibility), Step B (drop entries failing any `agent_friendly.*` criterion, with the per-language-family caveat), Step C (reason over surviving cards weighting team_profile + tech_preferences + timeline_budget), Step D (lead + 1–2 alternatives from `alternatives_to_consider`), Step E (surface bootstrapper_confidence).
-- **Off-registry framework** — the user named a framework with no registry card. Skip the candidate filtering and the framework-variant question; assess the named framework per decision-flow § Off-registry framework, then continue to Step E.
+- **Ścieżka standardowa** — wybór z `recommended_defaults` jest już kandydatem wiodącym; przejdź do Step E (pokaż `bootstrapper_confidence`) i pomiń filtrowanie/punktację.
+- **Ścieżka niestandardowa** — wykonaj Step A (filtruj według language_family + product_type + funkcji wymaganych + zgodności z wdrożeniem), Step B (odrzuć wpisy niespełniające dowolnego kryterium `agent_friendly.*`, z zastrzeżeniem dla poszczególnych rodzin językowych), Step C (przeanalizuj pozostałe karty, uwzględniając team_profile + tech_preferences + timeline_budget), Step D (kandydat wiodący + 1–2 alternatywy z `alternatives_to_consider`), Step E (pokaż bootstrapper_confidence).
+- **Framework spoza rejestru** — użytkownik wskazał framework bez karty w rejestrze. Pomiń filtrowanie kandydatów i pytanie o wariant frameworka; oceń wskazany framework zgodnie z decision-flow § Off-registry framework, a następnie przejdź do Step E.
 
-Surface Socratic challenges where the decision flow says to: Q6 framework variant on custom path, `tech_preferences` names a starter that fails ≥1 quality gate, recommended-default starter doesn't include a feature the user named in PRD FRs, or the chosen starter has `bootstrapper_confidence: best-effort` AND the user is solo (extra heads-up).
+Pokaż wyzwania sokratejskie tam, gdzie wskazuje decision flow: wariant frameworka Q6 na ścieżce niestandardowej, `tech_preferences` wskazuje starter, który nie spełnia ≥1 bramki jakości, starter rekomendowany domyślnie nie zawiera funkcji wskazanej przez użytkownika w FR-ach PRD albo wybrany starter ma `bootstrapper_confidence: best-effort` ORAZ użytkownik pracuje solo (dodatkowe ostrzeżenie).
 
-Conversation output shape:
+Format wyjścia rozmowy:
 
 ```
 Recommendation: <starter_id> — <name>
@@ -175,43 +174,43 @@ Alternatives worth a glance:
  stack>
 ```
 
-### Step 4 — Write hand-off
+### Step 4 — Zapisz przekazanie
 
-Load `references/handoff-schema.md`. Build the hand-off content in memory first.
+Załaduj `references/handoff-schema.md`. Najpierw zbuduj zawartość przekazania w pamięci.
 
-Resolve `package_manager` from the chosen card's `toolchain.package_manager`. The field is open string (whatever the card prescribes — `npm`, `uv`, `poetry`, `bundle`, `gradle`, `cargo`, `go-modules`, `composer`, `dotnet`, etc.); for ecosystems with no external choice (e.g., Go), the card may omit the field, in which case omit it from the hand-off frontmatter too.
+Rozwiąż `package_manager` na podstawie `toolchain.package_manager` wybranej karty. Pole jest otwartym łańcuchem (cokolwiek określa karta — `npm`, `uv`, `poetry`, `bundle`, `gradle`, `cargo`, `go-modules`, `composer`, `dotnet` itd.); dla ekosystemów bez zewnętrznego wyboru (np. Go) karta może pominąć pole, w takim przypadku pomiń je również we frontmatter przekazania.
 
-For an off-registry framework, write `starter_id: custom`, fill the `custom_starter` block (`name`, `docs_url`), take `package_manager` from the framework's standard build tool, and set `hints.bootstrapper_confidence: best-effort`. See `references/handoff-schema.md` § `custom_starter`.
+Dla frameworka spoza rejestru zapisz `starter_id: custom`, wypełnij blok `custom_starter` (`name`, `docs_url`), pobierz `package_manager` ze standardowego narzędzia budowania frameworka i ustaw `hints.bootstrapper_confidence: best-effort`. Zobacz `references/handoff-schema.md` § `custom_starter`.
 
-Resolve `hints.deployment_target` from Q4. If the user picked "I don't know yet — pick the recommended default for me", land the card's first `deployment_default` value (NOT the literal string `unspecified`).
+Rozwiąż `hints.deployment_target` na podstawie Q4. Jeśli użytkownik wybrał „I don't know yet — pick the recommended default for me”, zastosuj pierwszą wartość `deployment_default` karty (NIE dosłowny łańcuch `unspecified`).
 
-Populate `hints.path_taken`: `standard` or `custom`. Populate `hints.self_check_answers` with the 5 booleans from Q8 if the custom path ran it; emit `null` if the standard path was taken.
+Wypełnij `hints.path_taken`: `standard` lub `custom`. Wypełnij `hints.self_check_answers` 5 wartościami logicznymi z Q8, jeśli ścieżka niestandardowa została wykonana; ustaw `null`, jeśli wybrano ścieżkę standardową.
 
-Check for collision:
+Sprawdź kolizję:
 
 ```bash
 test -f context/foundation/tech-stack.md
 ```
 
-If the file does not exist, write `context/foundation/tech-stack.md` with the validated content.
+Jeśli plik nie istnieje, zapisz `context/foundation/tech-stack.md` ze zwalidowaną zawartością.
 
-If the file exists, ask:
+Jeśli plik istnieje, zapytaj:
 
 AskUserQuestion:
-- question: "context/foundation/tech-stack.md already exists. How would you like to proceed?"
-  header: "Collision"
+- question: "context/foundation/tech-stack.md już istnieje. Jak chcesz postąpić?"
+  header: "Kolizja"
   options:
-  - label: "Overwrite (Recommended)"
-    description: "Replace the existing tech-stack.md with the new selection. The prior version is lost unless committed."
-  - label: "Save as tech-stack-v2.md"
-    description: "Preserve history. New selection lands at the next available tech-stack-vN.md slot."
-  - label: "Abort"
-    description: "Exit without writing. The conversation rationale is preserved in chat only."
+  - label: "Nadpisz (zalecane)"
+    description: "Zastąp istniejący tech-stack.md nowym wyborem. Poprzednia wersja zostanie utracona, chyba że została zatwierdzona w repozytorium."
+  - label: "Zapisz jako tech-stack-v2.md"
+    description: "Zachowaj historię. Nowy wybór trafi do następnego dostępnego miejsca tech-stack-vN.md."
+  - label: "Przerwij"
+    description: "Zakończ bez zapisywania. Uzasadnienie rozmowy zostanie zachowane wyłącznie na czacie."
   multiSelect: false
 
-The recommended default here is "Overwrite" because tech-stack-selector is a one-shot decision per project; multiple versions are usually a sign the user is reconsidering, in which case losing the prior pick is intentional. Versioned save is the escape hatch.
+Rekomendowaną opcją domyślną jest tutaj „Nadpisz”, ponieważ tech-stack-selector jest jednorazową decyzją dla projektu; wiele wersji zwykle oznacza, że użytkownik ponownie rozważa wybór, w którym to przypadku utrata poprzedniego wyboru jest zamierzona. Wersjonowany zapis jest rozwiązaniem awaryjnym.
 
-After the write lands, copy the next-step command and announce:
+Po zapisaniu skopiuj komendę następnego kroku i ogłoś:
 
 ```bash
 echo -n "/10x-bootstrapper" | pbcopy 2>/dev/null || echo -n "/10x-bootstrapper" | clip.exe 2>/dev/null || echo -n "/10x-bootstrapper" | xclip -selection clipboard 2>/dev/null || true
@@ -222,7 +221,7 @@ echo -n "/10x-bootstrapper" | pbcopy 2>/dev/null || echo -n "/10x-bootstrapper" 
 Set-Clipboard "/10x-bootstrapper"
 ```
 
-Print:
+Wypisz:
 
 ```
 ═══════════════════════════════════════════════════════════
@@ -238,13 +237,13 @@ Print:
 ═══════════════════════════════════════════════════════════
 ```
 
-STOP. Do not chain into `/10x-bootstrapper` automatically — the user runs it when ready.
+ZATRZYMAJ SIĘ. Nie przechodź automatycznie do `/10x-bootstrapper` — użytkownik uruchamia go, gdy jest gotowy.
 
-## Output
+## Wyjście
 
-Single file written: `context/foundation/tech-stack.md` (or `tech-stack-vN.md` if a versioned save was picked).
+Zapisywany jest jeden plik: `context/foundation/tech-stack.md` (lub `tech-stack-vN.md`, jeśli wybrano zapis wersjonowany).
 
-Frontmatter keyed on the schema in `references/handoff-schema.md`:
+Frontmatter zgodny ze schematem w `references/handoff-schema.md`:
 
 ```yaml
 ---
@@ -276,28 +275,28 @@ hints:
 <one paragraph, ≤ 200 words>
 ```
 
-## References
+## Referencje
 
-- `references/starter-registry.yaml` — canonical starter cards + `recommended_defaults` map.
-- `references/residual-interview.md` — Q0 path-fork + Q1–Q8 walk.
-- `references/handoff-schema.md` — `tech-stack.md` frontmatter contract.
-- `references/agent-friendly-criteria.md` — four quality gates + per-language-family caveat.
-- `references/decision-flow.md` — Steps A–E for both paths.
+- `references/starter-registry.yaml` — kanoniczne karty starterów + mapa `recommended_defaults`.
+- `references/residual-interview.md` — rozwidlenie ścieżki Q0 + przejście Q1–Q8.
+- `references/handoff-schema.md` — kontrakt frontmatter `tech-stack.md`.
+- `references/agent-friendly-criteria.md` — cztery bramki jakości + zastrzeżenie dla poszczególnych rodzin językowych.
+- `references/decision-flow.md` — Steps A–E dla obu ścieżek.
 
-## Critical guardrails
+## Krytyczne zabezpieczenia
 
-1. **PRD is a precondition, not a fallback.** No inline mini-PRD, no reading the conversation for substitute priors. The file on disk is the contract.
+1. **PRD jest warunkiem wstępnym, a nie rozwiązaniem zastępczym.** Żadnego wbudowanego mini-PRD, żadnego odczytywania rozmowy dla zastępczych przesłanek. Plik na dysku jest kontraktem.
 
-2. **Q0 default is editorial.** Name the recommendation up front; require explicit confirmation. Never accept-by-default-silently.
+2. **Domyślna opcja Q0 jest redakcyjna.** Nazwij rekomendację na początku; wymagaj jawnego potwierdzenia. Nigdy nie akceptuj domyślnie po cichu.
 
-3. **Standard vs custom path is binding.** Standard short-circuits to recommendation + Q4/Q5/project-name. Custom runs the full walk plus Q8 self-check. Don't blend them — the path the user picked at Q0 is what `hints.path_taken` records.
+3. **Wybór ścieżki standardowej lub niestandardowej jest wiążący.** Standard skraca proces do rekomendacji + Q4/Q5/nazwa projektu. Niestandardowa wykonuje pełne przejście oraz samokontrolę Q8. Nie łącz ich — ścieżka wybrana przez użytkownika w Q0 jest tym, co zapisuje `hints.path_taken`.
 
-4. **`bootstrapper_confidence` is informational, never blocking.** A `best-effort` confidence does NOT exclude a starter from recommendation; it surfaces in conversation as a heads-up and lands in `hints.bootstrapper_confidence` so bootstrapper can adjust.
+4. **`bootstrapper_confidence` ma charakter informacyjny, nigdy blokujący.** Poziom pewności `best-effort` NIE wyklucza startera z rekomendacji; pojawia się w rozmowie jako ostrzeżenie i trafia do `hints.bootstrapper_confidence`, aby bootstrapper mógł się dostosować.
 
-5. **One-way validator.** Bootstrapper may not reference a `starter_id` absent from this skill's registry; tech-stack-selector may carry starters bootstrapper hasn't yet wired (those starters carry `bootstrapper_confidence: best-effort` until they're verified end-to-end).
+5. **Walidator jednokierunkowy.** Bootstrapper nie może odwoływać się do `starter_id`, którego nie ma w rejestrze tej umiejętności; tech-stack-selector może przenosić startery, których bootstrapper jeszcze nie obsługuje (te startery mają `bootstrapper_confidence: best-effort`, dopóki nie zostaną zweryfikowane end-to-end).
 
-6. **Universal language only.** No private vault paths or organization-specific branding in shipped content. `pnpm validate:no-vault-paths` enforces this in CI. The recommended-defaults registry is multi-language by design; no single starter is "the" recommended path.
+6. **Wyłącznie uniwersalny język.** Żadnych prywatnych ścieżek do vaulta ani brandingu specyficznego dla organizacji w dostarczanej treści. `pnpm validate:no-vault-paths` wymusza to w CI. Rejestr recommended-defaults jest z założenia wielojęzykowy; żaden pojedynczy starter nie jest „tą” rekomendowaną ścieżką.
 
-7. **The registry recommends; the user decides.** Never present the registry as a rule the user must follow, never claim the next skill "cannot work" with an unlisted framework, and never invent constraints that are not in this skill. An unlisted framework is a valid pick with `bootstrapper_confidence: best-effort` — say plainly what that means (scaffolding will rely on the framework's own generator and may need manual steps) and let the user choose.
+7. **Rejestr rekomenduje; użytkownik decyduje.** Nigdy nie przedstawiaj rejestru jako reguły, której użytkownik musi przestrzegać, nigdy nie twierdź, że następna umiejętność „nie może działać” z niewymienionym frameworkiem, i nigdy nie wymyślaj ograniczeń, których nie ma w tej umiejętności. Niewymieniony framework jest prawidłowym wyborem z `bootstrapper_confidence: best-effort` — jasno wyjaśnij, co to oznacza (tworzenie szkieletu będzie opierać się na własnym generatorze frameworka i może wymagać ręcznych kroków), i pozwól użytkownikowi wybrać.
 
-8. **Skill-internal labels stay internal.** When speaking to the user, never reference Q-numbers (`Q0`, `Q3`, `Q6`), Step letters (`Step A`, `Step B`, …, `Step E`), or author phrases like "path-fork", "residual interview", "Socratic moment", "decision flow". These labels organize the reference docs for runtime navigation; the user has no way to map them to anything visible. Translate to plain language before printing — "this choice" instead of "the path-fork", "the framework question" instead of "Q6", "an alternative worth flagging" instead of "a Socratic moment", "I'll skip the feature audit, team profile, and tech preferences questions" instead of "I'll skip Q1–Q3". Same applies to internal field paths in conversation: `hints.deployment_target` / `agent_friendly.typed` / `bootstrapper_confidence` are field names in the hand-off / registry, not phrases to say to the user — "your deployment target", "whether the stack uses explicit types", "how smooth scaffolding will be" are the user-facing translations.
+8. **Wewnętrzne etykiety umiejętności pozostają wewnętrzne.** Podczas rozmowy z użytkownikiem nigdy nie odwołuj się do numerów Q (`Q0`, `Q3`, `Q6`), liter kroków (`Step A`, `Step B`, …, `Step E`) ani sformułowań autora, takich jak „path-fork”, „residual interview”, „Socratic moment”, „decision flow”. Te etykiety porządkują dokumenty referencyjne dla nawigacji w czasie działania; użytkownik nie ma możliwości powiązania ich z czymkolwiek widocznym. Przetłumacz je na prosty język przed wyświetleniem — „ten wybór” zamiast „path-fork”, „pytanie o framework” zamiast „Q6”, „alternatywa warta zaznaczenia” zamiast „Socratic moment”, „Pominę pytania o audyt funkcji, profil zespołu i preferencje technologiczne” zamiast „Pominę Q1–Q3”. To samo dotyczy wewnętrznych ścieżek pól w rozmowie: `hints.deployment_target` / `agent_friendly.typed` / `bootstrapper_confidence` są nazwami pól w przekazaniu / rejestrze, a nie sformułowaniami kierowanymi do użytkownika — „twój cel wdrożeniowy”, „czy stos używa jawnych typów”, „jak płynne będzie tworzenie szkieletu” są tłumaczeniami przeznaczonymi dla użytkownika.

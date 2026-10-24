@@ -14,157 +14,156 @@ allowed-tools:
   - TaskList
   - TaskGet
 ---
+# Przegląd implementacji
 
-# Implementation Review
+Porównaj faktyczne prace implementacyjne z pierwotnym planem, aby wykryć odchylenia, ryzykowne decyzje, naruszenia architektury i niewłaściwe użycie wzorców, zanim ich skutki się skumulują.
 
-Compare actual implementation work against the original plan to catch drift, dangerous decisions, architecture violations, and pattern misuse before they compound.
+Dwa poziomy szczegółowości:
+- **Przegląd fazy**: po pojedynczej fazie — szybki, skoncentrowany na zmianach z tej fazy
+- **Pełny przegląd planu**: po wszystkich fazach — kompleksowy przegląd
 
-Two granularities:
-- **Phase review**: after a single phase — fast, focused on that phase's changes
-- **Full plan review**: after all phases — comprehensive sweep
+Dwa tryby:
+- **Nowy przegląd**: analiza → ustalenia → interaktywny triage
+- **Wznowienie triage**: wczytaj zapisany raport i przejdź do triage dla poszczególnych problemów
 
-Two modes:
-- **Fresh review**: analyze → findings → interactive triage
-- **Resume triage**: load a saved report and jump to per-issue triage
+## Rozpoznawanie danych wejściowych
 
-## Input resolution
+1. Argument wskazuje na zapisany plik przeglądu (zawiera `<!-- IMPL-REVIEW-REPORT -->`) → **wznowienie triage** (przejdź do Kroku 5)
+2. Argument jest `<change-id>`, a `context/changes/<change-id>/plan.md` istnieje → nowy przegląd tego planu
+3. Podano ścieżkę planu (np. `@context/changes/<change-id>/plan.md`) → nowy przegląd tego planu
+4. Podano numer fazy (np. „phase 3”) → przegląd tylko tej fazy
+5. Brak argumentu → wylistuj `context/changes/*/change.md`; wybierz ostatnio `updated` zmianę ze `status` w `{implementing, implemented}` i potwierdź przez AskUserQuestion
 
-1. Argument points to a saved review file (contains `<!-- IMPL-REVIEW-REPORT -->`) → **resume triage** (skip to Step 5)
-2. Argument is a `<change-id>` and `context/changes/<change-id>/plan.md` exists → fresh review on that plan
-3. Plan path provided (e.g. `@context/changes/<change-id>/plan.md`) → fresh review on that plan
-4. Phase number provided (e.g. "phase 3") → review only that phase
-5. No argument → enumerate `context/changes/*/change.md`; pick the most recently `updated` change with `status` in `{implementing, implemented}` and confirm via AskUserQuestion
+Jeśli rozpoznana ścieżka planu zaczyna się od `context/archive/`, odmów: wypisz „This change is archived. Reviews are not appended to archived plans.” i ZATRZYMAJ się.
 
-If the resolved plan path starts with `context/archive/`, refuse: print "This change is archived. Reviews are not appended to archived plans." and STOP.
+## Krok 1: Wczytaj plan i wykryj zakres zmiany
 
-## Step 1: Load plan and detect change scope
+TaskCreate: „Implementation Review” / activeForm „Loading context”
 
-TaskCreate: "Implementation Review" / activeForm "Loading context"
-
-1. **Read the plan file fully** — no limit/offset.
-2. **Read `context/foundation/lessons.md` if present** and use accepted rules as priors when scanning for findings — a deviation that violates a known recurring rule is a stronger signal than a generic style nit.
-3. **Read the canonical state from the plan's `## Progress` section** (see `references/progress-format.md`): completion = `count([x]) / count([ ] + [x])`; current phase = phase containing the first `- [ ]` (or last phase if all done). Also read sibling `change.md` for `status` and `updated`.
-4. **Scope**: specific phase requested → that phase only; else all phases whose Progress checkboxes are fully `[x]` (i.e., completed phases).
-   Match descriptive `## Phase N:` and `## Faza N:` headings to Progress by number; preserve the language. Record the exact phase numbers actually reviewed, including for a full review (which may cover only completed phases).
-5. **Extract** from phases under review: file paths from "Changes Required", architectural decisions, success criteria (Automated/Manual bullets in Phase blocks + their `[ ]`/`[x]` mirror in Progress), and the "What We're NOT Doing" list (scope guardrails).
-6. **Git scope detection** — what actually changed:
+1. **Przeczytaj cały plik planu** — bez limitu/offsetu.
+2. **Przeczytaj `context/foundation/lessons.md`, jeśli istnieje** i użyj zaakceptowanych reguł jako priorytetów podczas skanowania ustaleń — odchylenie naruszające znaną, powtarzającą się regułę jest silniejszym sygnałem niż ogólna uwaga stylistyczna.
+3. **Odczytaj stan kanoniczny z sekcji `## Progress` planu** (zobacz `references/progress-format.md`): ukończenie = `count([x]) / count([ ] + [x])`; bieżąca faza = faza zawierająca pierwszy `- [ ]` (albo ostatnia faza, jeśli wszystkie są ukończone). Odczytaj również sąsiedni `change.md` dla `status` i `updated`.
+4. **Zakres**: zażądano konkretnej fazy → tylko ta faza; w przeciwnym razie wszystkie fazy, których pola wyboru Progress są w pełni `[x]` (tj. ukończone fazy).
+   Dopasuj opisowe nagłówki `## Phase N:` i `## Faza N:` do Progress według numeru; zachowaj język. Zapisz dokładne numery faktycznie przeglądanych faz, także dla pełnego przeglądu (który może obejmować tylko ukończone fazy).
+5. **Wyodrębnij** z przeglądanych faz: ścieżki plików z „Changes Required”, decyzje architektoniczne, kryteria sukcesu (punkty Automated/Manual w blokach Phase + ich odbicie `[ ]`/`[x]` w Progress) oraz listę „What We're NOT Doing” (ograniczenia zakresu).
+6. **Wykrywanie zakresu Git** — co faktycznie się zmieniło:
    ```bash
    PLAN_DATE="<YYYY-MM-DD from filename>"
    git log --oneline --after="${PLAN_DATE}" -- .
    git diff --name-only $(git log --reverse --after="${PLAN_DATE}" --format="%H" | head -1)^..HEAD 2>/dev/null
    ```
-   If the range can't be cleanly determined, fall back to commits whose messages reference the plan/feature.
+   Jeśli zakresu nie można jednoznacznie określić, użyj jako alternatywy commitów, których komunikaty odwołują się do planu/funkcji.
 
-Compare changed-file list against plan-file list:
-- **In plan AND in diff** → expected change, verify content matches intent
-- **In diff but NOT in plan** → unplanned change, investigate and flag
-- **In plan but NOT in diff** → potentially missing implementation
+Porównaj listę zmienionych plików z listą plików planu:
+- **W planie I w diffie** → oczekiwana zmiana, zweryfikuj, czy treść odpowiada intencji
+- **W diffie, ale NIE w planie** → nieplanowana zmiana, zbadaj i oznacz
+- **W planie, ale NIE w diffie** → potencjalnie brakująca implementacja
 
-Don't pre-read every changed file into the main context — let the sub-agents read what they need. Main context should carry the plan and the diff summary, not the full source of 20 files.
+Nie wczytuj wcześniej każdego zmienionego pliku do głównego kontekstu — pozwól subagentom przeczytać to, czego potrzebują. Główny kontekst powinien zawierać plan i podsumowanie diffu, a nie pełne źródła 20 plików.
 
-## Step 2: Parallel review via sub-agents
+## Krok 2: Równoległy przegląd przez subagentów
 
-TaskUpdate: activeForm "Gathering evidence"
+TaskUpdate: activeForm „Gathering evidence”
 
-Launch **two** sub-agents simultaneously. Each gets targeted context — don't dump the full plan into both.
+Uruchom **dwóch** subagentów jednocześnie. Każdy otrzymuje ukierunkowany kontekst — nie przekazuj pełnego planu obu.
 
-**Agent 1 — Plan Drift Detection** (`subagent_type: "general-purpose"`)
+**Agent 1 — Wykrywanie odchyleń od planu** (`subagent_type: "general-purpose"`)
 
-Give it: the "Changes Required" text for the reviewed phases, the list of file paths to read.
+Przekaż mu: tekst „Changes Required” dla przeglądanych faz oraz listę ścieżek plików do przeczytania.
 
-Instructions: for each planned change, read the actual file and verify implementation matches intent. Check for:
-- Changes implemented differently than planned (intent mismatch, not formatting)
-- Planned items skipped without documentation
-- Additions not described in the plan (scope creep)
+Instrukcje: dla każdej planowanej zmiany przeczytaj faktyczny plik i zweryfikuj, czy implementacja odpowiada intencji. Sprawdź:
+- Zmiany zaimplementowane inaczej niż zaplanowano (niezgodność intencji, nie formatowania)
+- Pominięte elementy planu bez dokumentacji
+- Dodatki nieopisane w planie (rozszerzanie zakresu)
 
-Report each: file path, what the plan said, what exists, verdict (MATCH / DRIFT / MISSING / EXTRA).
+Zgłoś dla każdego: ścieżkę pliku, co mówił plan, co istnieje, werdykt (MATCH / DRIFT / MISSING / EXTRA).
 
-**Agent 2 — Safety, Quality & Pattern Compliance** (`subagent_type: "general-purpose"`)
+**Agent 2 — Bezpieczeństwo, jakość i zgodność ze wzorcami** (`subagent_type: "general-purpose"`)
 
-Give it: the full list of changed files to read, the project root path.
+Przekaż mu: pełną listę zmienionych plików do przeczytania, ścieżkę katalogu głównego projektu.
 
-Instructions:
+Instrukcje:
 
-1. **Safety & quality scan** on each changed file. Flag:
-   - **Security**: injection risks (SQL, command, XSS), hardcoded secrets, missing authn/authz at system boundaries, overly permissive CORS/permissions.
-   - **Performance**: N+1 queries, unbounded iteration/recursion, missing pagination, unnecessary sync I/O.
-   - **Reliability**: missing error handling at external boundaries (API calls, file I/O, DB), race conditions, resource leaks.
-   - **Data safety**: destructive DB ops without rollback, schema changes without migration path, data loss potential.
+1. **Skan bezpieczeństwa i jakości** dla każdego zmienionego pliku. Oznacz:
+   - **Bezpieczeństwo**: ryzyka wstrzyknięć (SQL, command, XSS), zakodowane na stałe sekrety, brak authn/authz na granicach systemu, nadmiernie liberalne CORS/uprawnienia.
+   - **Wydajność**: zapytania N+1, nieograniczoną iterację/rekursję, brak paginacji, niepotrzebne synchroniczne I/O.
+   - **Niezawodność**: brak obsługi błędów na granicach zewnętrznych (wywołania API, I/O plików, DB), warunki wyścigu, wycieki zasobów.
+   - **Bezpieczeństwo danych**: destrukcyjne operacje DB bez wycofania, zmiany schematu bez ścieżki migracji, ryzyko utraty danych.
 
-2. **Pattern compliance** — for each changed file, find 1–2 similar existing files and compare naming, error handling approach, module structure, imports/exports, test structure, config patterns. **Only report substantive mismatches** (e.g., a new module uses camelCase where siblings use snake_case; a new endpoint skips the auth middleware pattern the rest of the API uses). Skip trivial style differences — if the code works and follows the plan, minor formatting is not a finding.
+2. **Zgodność ze wzorcami** — dla każdego zmienionego pliku znajdź 1–2 podobne istniejące pliki i porównaj nazewnictwo, podejście do obsługi błędów, strukturę modułu, importy/eksporty, strukturę testów, wzorce konfiguracji. **Zgłaszaj tylko istotne niezgodności** (np. nowy moduł używa camelCase, gdy sąsiednie używają snake_case; nowy endpoint pomija wzorzec middleware uwierzytelniania używany przez resztę API). Pomijaj trywialne różnice stylistyczne — jeśli kod działa i realizuje plan, drobne formatowanie nie jest ustaleniem.
 
-3. **Budget pattern work to scope** — if the diff changed ≤3 files, spend minimal time on patterns (not much to compare). Scale pattern depth with change scope.
+3. **Dopasuj nakład pracy nad wzorcami do zakresu** — jeśli diff zmienił ≤3 pliki, poświęć minimalny czas na wzorce (niewiele jest do porównania). Skaluj głębokość analizy wzorców wraz z zakresem zmian.
 
-Report each finding with: file, line number, category, severity (CRITICAL / WARNING / OBSERVATION), description, recommendation.
+Zgłoś każde ustalenie z: plikiem, numerem linii, kategorią, wagą (CRITICAL / WARNING / OBSERVATION), opisem, rekomendacją.
 
-## Step 3: Verify success criteria
+## Krok 3: Zweryfikuj kryteria sukcesu
 
-TaskUpdate: activeForm "Verifying success criteria"
+TaskUpdate: activeForm „Verifying success criteria”
 
-For each reviewed phase:
+Dla każdej przeglądanej fazy:
 
-**Automated**: run each command from the "Automated Verification" checkboxes with Bash. Record command, pass/fail, actual output (truncate if huge).
+**Automatyczne**: uruchom przez Bash każde polecenie z pól wyboru „Automated Verification”. Zapisz polecenie, sukces/porażkę, faktyczny wynik (skróć, jeśli jest ogromny).
 
-**Manual**: in the `## Progress` section, check Manual items as `- [x]` vs `- [ ]`. Flag items marked complete that lack observable evidence in the diff (possible rubber-stamping); acknowledge unchecked items as pending.
+**Ręczne**: w sekcji `## Progress` sprawdź elementy Manual jako `- [x]` względem `- [ ]`. Oznacz jako problem elementy oznaczone jako ukończone, dla których brakuje obserwowalnych dowodów w diffie (możliwe pozorne odhaczenie); uznaj nieodhaczone elementy za oczekujące.
 
-## Step 4: Compile findings and present report
+## Krok 4: Skompiluj ustalenia i przedstaw raport
 
-TaskUpdate: activeForm "Compiling findings"
+TaskUpdate: activeForm „Compiling findings”
 
-Each finding has:
+Każde ustalenie zawiera:
 - **ID**: F1, F2, F3…
-- **Severity**: CRITICAL / WARNING / OBSERVATION (how bad if ignored)
-- **Impact**: LOW / MEDIUM / HIGH (how much focus the decision needs)
-- **Dimension**: Plan Adherence / Scope Discipline / Safety & Quality / Architecture / Pattern Consistency / Success Criteria
-- **Title**: one line
-- **Location**: `file:line` (or "N/A" for missing items)
-- **Detail**: what's wrong with evidence — plan vs. actual, or code vs. expected
-- **Fix options**: 1 or 2 (see below)
+- **Waga**: CRITICAL / WARNING / OBSERVATION (jak poważne będą skutki zignorowania)
+- **Wpływ**: LOW / MEDIUM / HIGH (ile uwagi wymaga decyzja)
+- **Wymiar**: Plan Adherence / Scope Discipline / Safety & Quality / Architecture / Pattern Consistency / Success Criteria
+- **Tytuł**: jedna linia
+- **Lokalizacja**: `file:line` (lub „N/A” dla brakujących elementów)
+- **Szczegół**: co jest nie tak wraz z dowodami — plan względem stanu faktycznego lub kod względem oczekiwań
+- **Opcje naprawy**: 1 lub 2 (zobacz poniżej)
 
-### Impact
+### Wpływ
 
-Orthogonal to severity. A CRITICAL with LOW impact (obvious one-line fix) is cheap; a WARNING with HIGH impact (architectural rework) deserves careful thought.
+Niezależny od wagi. CRITICAL z LOW impact (oczywista poprawka w jednej linii) jest tani; WARNING z HIGH impact (przeróbka architektoniczna) zasługuje na staranne przemyślenie.
 
-| Impact | Meaning |
+| Wpływ | Znaczenie |
 |---|---|
-| 🏃 **LOW** | Quick decision. Fix is obvious and narrowly scoped. Safe to batch. |
-| 🔎 **MEDIUM** | Worth pausing. Real tradeoff or non-trivial edit — think before deciding. |
-| 🔬 **HIGH** | Architectural stakes. Wide blast radius, strategic implications, or unclear best path. |
+| 🏃 **LOW** | Szybka decyzja. Poprawka jest oczywista i ma wąski zakres. Bezpieczna do grupowania. |
+| 🔎 **MEDIUM** | Warto się zatrzymać. Rzeczywisty kompromis lub nietrywialna edycja — pomyśl przed podjęciem decyzji. |
+| 🔬 **HIGH** | Stawka architektoniczna. Szeroki promień oddziaływania, implikacje strategiczne lub niejasna najlepsza ścieżka. |
 
-### Fix options
+### Opcje naprawy
 
-Default to **one** fix. Only offer two when there's a genuine tradeoff a smart reviewer would want to weigh (e.g. "patch the call site" vs. "fix it at the source"). If you find yourself inventing a weak second option, don't — present one and move on.
+Domyślnie zaproponuj **jedną** poprawkę. Oferuj dwie tylko wtedy, gdy istnieje rzeczywisty kompromis, który rozsądny recenzent chciałby rozważyć (np. „załataj miejsce wywołania” kontra „napraw u źródła”). Jeśli łapiesz się na wymyślaniu słabej drugiej opcji, nie rób tego — przedstaw jedną i przejdź dalej.
 
-**LOW-impact findings**: just `Fix: [one line]`. Noise isn't helpful when the answer is obvious.
+**Ustalenia o LOW impact**: tylko `Fix: [one line]`. Szum nie pomaga, gdy odpowiedź jest oczywista.
 
-**MEDIUM/HIGH-impact findings**: each option gets:
+**Ustalenia o MEDIUM/HIGH impact**: każda opcja otrzymuje:
 ```
 [1-sentence approach] · Strength: [advantage, ideally grounded in code/plan evidence] · Tradeoff: [cost or risk] · Confidence: HIGH|MED|LOW — [1-line why] · Blind spot: [what we haven't verified, or "None significant"]
 ```
 
-When offering two options, mark exactly one `⭐ Recommended`.
+Przy oferowaniu dwóch opcji oznacz dokładnie jedną jako `⭐ Recommended`.
 
-### Dimension verdicts
+### Werdykty wymiarów
 
-PASS / WARNING / FAIL per dimension:
-- **Plan Adherence** — planned changes implemented as described? FAIL on MISSING or major DRIFT.
-- **Scope Discipline** — "not doing" boundaries respected? WARNING if EXTRA changes exist but are benign.
-- **Safety & Quality** — security, performance, reliability, data safety. FAIL on any CRITICAL finding.
-- **Architecture** — module boundaries, dependency direction, abstraction justification. FAIL on violations.
-- **Pattern Consistency** — follows existing conventions. WARNING on minor inconsistencies.
-- **Success Criteria** — automated checks pass, manual checks addressed. FAIL on automated failures.
+PASS / WARNING / FAIL dla każdego wymiaru:
+- **Plan Adherence** — zaplanowane zmiany zaimplementowane zgodnie z opisem? FAIL przy MISSING lub istotnym DRIFT.
+- **Scope Discipline** — granice „not doing” zachowane? WARNING, jeśli istnieją zmiany EXTRA, ale są nieszkodliwe.
+- **Safety & Quality** — bezpieczeństwo, wydajność, niezawodność, bezpieczeństwo danych. FAIL przy dowolnym ustaleniu CRITICAL.
+- **Architecture** — granice modułów, kierunek zależności, uzasadnienie abstrakcji. FAIL przy naruszeniach.
+- **Pattern Consistency** — zgodność z istniejącymi konwencjami. WARNING przy drobnych niespójnościach.
+- **Success Criteria** — automatyczne kontrole przechodzą, ręczne kontrole obsłużone. FAIL przy niepowodzeniach automatycznych.
 
-### Overall verdict
+### Werdykt ogólny
 
-- **APPROVED** — all PASS, or PASS with ≤2 minor warnings
-- **NEEDS ATTENTION** — multiple warnings or 1 non-critical FAIL
-- **REJECTED** — any critical FAIL (security, major drift, data safety, failing tests)
+- **APPROVED** — wszystkie PASS albo PASS z ≤2 drobnymi ostrzeżeniami
+- **NEEDS ATTENTION** — wiele ostrzeżeń albo 1 niekrytyczny FAIL
+- **REJECTED** — dowolny krytyczny FAIL (bezpieczeństwo, istotne odchylenie, bezpieczeństwo danych, nieudane testy)
 
-Sort findings by severity: CRITICAL → WARNING → OBSERVATION. Cap at 10 — consolidate related findings if more.
+Sortuj ustalenia według wagi: CRITICAL → WARNING → OBSERVATION. Ogranicz do 10 — skonsoliduj powiązane ustalenia, jeśli jest ich więcej.
 
-### Report format
+### Format raportu
 
-Plain text, box-drawing. PASS dimensions appear only in the verdicts table, never as findings. Omit severity groups with zero findings.
+Zwykły tekst, znaki ramki. Wymiary PASS pojawiają się tylko w tabeli werdyktów, nigdy jako ustalenia. Pomiń grupy wag z zerową liczbą ustaleń.
 
 ```
 ═══════════════════════════════════════════════════════════
@@ -253,22 +252,22 @@ Plain text, box-drawing. PASS dimensions appear only in the verdicts table, neve
 ═══════════════════════════════════════════════════════════
 ```
 
-### Formatting rules for the report
+### Reguły formatowania raportu
 
-- The **finding title line** holds only the ID and the short title — nothing else. Everything else goes below as labeled fields so each row is short and scannable.
-- **Always pair icons with a word.** Never use a bare icon as the only signal — `❌ CRITICAL`, not just `❌`. This keeps the report readable when skimming and doesn't force the user to memorize what each icon means.
-- **Impact always carries its one-line meaning** (copy from the Impact table — "architectural stakes; think carefully before deciding" / "real tradeoff; pause to reason through it" / "quick decision; fix is obvious and narrowly scoped"). This makes LOW/MEDIUM/HIGH self-explanatory at the point of use instead of relying on the user to remember the table.
-- Severity, Impact, Dimension, Location are each on their own line with aligned labels. Detail starts on its own line under a `Detail:` label so it can wrap naturally.
+- **Wiersz tytułu ustalenia** zawiera wyłącznie ID i krótki tytuł — nic więcej. Wszystko pozostałe trafia poniżej jako oznaczone pola, aby każdy wiersz był krótki i łatwy do przeskanowania.
+- **Zawsze łącz ikony ze słowem.** Nigdy nie używaj samej ikony jako jedynego sygnału — `❌ CRITICAL`, nie tylko `❌`. Dzięki temu raport pozostaje czytelny podczas szybkiego przeglądania i nie wymaga od użytkownika zapamiętywania znaczenia każdej ikony.
+- **Wpływ zawsze zawiera swoje jednoliniowe znaczenie** (skopiuj z tabeli Impact — „architectural stakes; think carefully before deciding” / „real tradeoff; pause to reason through it” / „quick decision; fix is obvious and narrowly scoped”). Dzięki temu LOW/MEDIUM/HIGH są zrozumiałe w miejscu użycia, zamiast wymagać od użytkownika pamiętania tabeli.
+- Waga, Wpływ, Wymiar, Lokalizacja znajdują się każda w osobnej linii z wyrównanymi etykietami. Szczegół rozpoczyna się w osobnej linii pod etykietą `Detail:`, aby mógł naturalnie się zawijać.
 
-### Saving the report (always)
+### Zapisywanie raportu (zawsze)
 
-Persist `Reviewed phases` as an explicit comma-separated list of phase numbers actually checked (e.g. `1, 3`), or `none` when none were checked. Never infer coverage from the report filename, verdict, or the label “Full plan”. A full review lists every reviewed number and can replace several phase reports for archive coverage; phases added or left unreviewed are not included. Resuming triage preserves the original coverage; do not backfill uncertain legacy scope.
+Zachowaj `Reviewed phases` jako jawną listę rozdzielonych przecinkami numerów faktycznie sprawdzonych faz (np. `1, 3`) albo `none`, gdy nie sprawdzono żadnej. Nigdy nie wyciągaj wniosków o pokryciu na podstawie nazwy pliku raportu, werdyktu ani etykiety „Full plan”. Pełny przegląd wymienia każdy sprawdzony numer i może zastąpić kilka raportów faz dla pokrycia archiwalnego; dodane lub pozostawione bez przeglądu fazy nie są uwzględniane. Wznowienie triage zachowuje pierwotne pokrycie; nie uzupełniaj niepewnego starszego zakresu.
 
-**Every path through this skill persists the report and stamps the change** — Triage now, Triage later, and Done all write the file. This is what lets `/10x-archive` and `/10x-status` see the review and keeps `change.md.status` correct. Do this *before* presenting the proceed options — never conditionally, and never only on the "save" branches.
+**Każda ścieżka w tym skillu zapisuje raport i oznacza zmianę** — Triage teraz, Triage później oraz Done wszystkie zapisują plik. To pozwala `/10x-archive` i `/10x-status` zobaczyć przegląd oraz utrzymuje poprawny `change.md.status`. Zrób to *przed* przedstawieniem opcji kontynuacji — nigdy warunkowo i nigdy wyłącznie w gałęziach „save”.
 
-1. **Write the report file** to `context/changes/<change-id>/reviews/impl-review.md` (or `context/changes/<change-id>/reviews/impl-review-phase-N.md` for a phase-scoped review), using the format below. Create the `reviews/` directory if absent.
-2. **Stamp `change.md`**: set `status: impl_reviewed` and `updated: <today>`. Once, here — independent of which proceed option the user picks. (If a `change.md` field is already `impl_reviewed`, just refresh `updated`.)
-3. If the user later triages, the on-disk report is the working copy: its `Decision:` fields are updated in place as each finding is decided (Step 5), and any "fix in plan/code" follow-ups are queued into `context/changes/<change-id>/follow-ups/review-fixes.md`.
+1. **Zapisz plik raportu** do `context/changes/<change-id>/reviews/impl-review.md` (lub `context/changes/<change-id>/reviews/impl-review-phase-N.md` dla przeglądu ograniczonego do fazy), używając poniższego formatu. Utwórz katalog `reviews/`, jeśli go nie ma.
+2. **Oznacz `change.md`**: ustaw `status: impl_reviewed` oraz `updated: <today>`. Raz, tutaj — niezależnie od tego, którą opcję kontynuacji wybierze użytkownik. (Jeśli pole `change.md` ma już wartość `impl_reviewed`, po prostu odśwież `updated`.)
+3. Jeśli użytkownik później przeprowadzi triage, raport na dysku jest kopią roboczą: jego pola `Decision:` są aktualizowane w miejscu po rozstrzygnięciu każdego ustalenia (Krok 5), a wszelkie działania następcze „fix in plan/code” są kolejkowane do `context/changes/<change-id>/follow-ups/review-fixes.md`.
 
 ```markdown
 <!-- IMPL-REVIEW-REPORT -->
@@ -338,11 +337,11 @@ Persist `Reviewed phases` as an explicit comma-separated list of phase numbers a
 - **Decision**: PENDING
 ```
 
-The `<!-- IMPL-REVIEW-REPORT -->` marker and `Decision: PENDING` fields enable resume mode.
+Znacznik `<!-- IMPL-REVIEW-REPORT -->` oraz pola `Decision: PENDING` umożliwiają tryb wznowienia.
 
-### Proceed options
+### Opcje kontynuacji
 
-With the report already saved and `change.md` already stamped, ask how to proceed:
+Po zapisaniu raportu i oznaczeniu `change.md` zapytaj, jak kontynuować:
 
 ```
 question: "Review saved to <report-path>. How would you like to proceed?"
@@ -357,25 +356,25 @@ options:
 multiSelect: false
 ```
 
-- **Triage findings now** → proceed to Step 5; the saved report is the working copy.
-- **Triage later** → print the saved report path and remind them to run `/10x-impl-review <report-path>`.
-- **Done** → print the saved report path and STOP.
+- **Triage findings now** → przejdź do Kroku 5; zapisany raport jest kopią roboczą.
+- **Triage later** → wypisz ścieżkę zapisanego raportu i przypomnij o uruchomieniu `/10x-impl-review <report-path>`.
+- **Done** → wypisz ścieżkę zapisanego raportu i ZATRZYMAJ się.
 
-Whichever they pick, the report file and the `impl_reviewed` stamp already exist on disk — the choice only decides whether triage happens now, later, or is left to the user.
+Niezależnie od wyboru plik raportu i oznaczenie `impl_reviewed` już istnieją na dysku — wybór określa jedynie, czy triage odbędzie się teraz, później, czy zostanie pozostawiony użytkownikowi.
 
-## Step 5: Interactive triage
+## Krok 5: Interaktywny triage
 
-TaskUpdate: activeForm "Triage"
+TaskUpdate: activeForm „Triage”
 
-### Resume mode
+### Tryb wznowienia
 
-If entered via saved file: read it, parse `### F` headers, filter to `Decision: PENDING`. If none: "All findings triaged." Done.
+Jeśli wejście nastąpiło przez zapisany plik: przeczytaj go, sparsuj nagłówki `### F`, przefiltruj do `Decision: PENDING`. Jeśli nie ma żadnych: „All findings triaged.” Gotowe.
 
-### Triage loop
+### Pętla triage
 
-Walk findings in severity order (CRITICAL → WARNING → OBSERVATION). For each:
+Przechodź przez ustalenia w kolejności wagi (CRITICAL → WARNING → OBSERVATION). Dla każdego:
 
-**With 2 fix options:**
+**Z 2 opcjami naprawy:**
 ```
 question: "F[N] — [title]\n\nSeverity: [sev icon] [SEV]\nImpact: [impact icon] [LEVEL] — [meaning]\nDimension: [dim]\nLocation: [loc]\n\nDetail: [detail]\n\n[Fix A block]\n\n[Fix B block]"
 header: "Finding [current] of [total remaining]"
@@ -391,7 +390,7 @@ options:
 multiSelect: false
 ```
 
-**With 1 fix option:**
+**Z 1 opcją naprawy:**
 ```
 question: "F[N] — [title]\n\nSeverity: [sev icon] [SEV]\nImpact: [impact icon] [LEVEL] — [meaning]\nDimension: [dim]\nLocation: [loc]\n\nDetail: [detail]\n\n[Fix block]"
 header: "Finding [current] of [total remaining]"
@@ -407,10 +406,10 @@ options:
 multiSelect: false
 ```
 
-**Handling responses:**
-- **Apply Fix A/B / Fix now**: show the exact before/after code change. Brief confirmation ("Apply this?"), then edit. Mark FIXED (record which option, e.g. "Fixed via Fix A").
-- **Fix differently**: ask the preferred approach, apply, mark FIXED.
-- **Record as lesson**: pre-fill four lessons-entry fields directly from the finding — `Context` from the finding's Location, `Problem` from the finding's Detail, `Rule` and `Applies to` left as empty placeholders for the user to fill. Show the proposed entry as a complete markdown block and ask the user to edit / confirm via AskUserQuestion ("Approve this entry?" / "Edit before saving" / "Cancel"). On confirm, append the entry as a new H2 section to `context/foundation/lessons.md` — if the file does not exist, create it first with this canonical 5-line header (no separate template file; the header is embedded inline here):
+**Obsługa odpowiedzi:**
+- **Apply Fix A/B / Fix now**: pokaż dokładną zmianę kodu przed/po. Krótkie potwierdzenie („Apply this?”), następnie edytuj. Oznacz FIXED (zapisz, która opcja, np. „Fixed via Fix A”).
+- **Fix differently**: zapytaj o preferowane podejście, zastosuj je, oznacz FIXED.
+- **Record as lesson**: wstępnie wypełnij cztery pola wpisu lekcji bezpośrednio z ustalenia — `Context` z Location ustalenia, `Problem` z Detail ustalenia, `Rule` i `Applies to` pozostaw jako puste placeholdery do wypełnienia przez użytkownika. Pokaż proponowany wpis jako kompletny blok markdown i poproś użytkownika o edycję / potwierdzenie przez AskUserQuestion („Approve this entry?” / „Edit before saving” / „Cancel”). Po potwierdzeniu dodaj wpis jako nową sekcję H2 do `context/foundation/lessons.md` — jeśli plik nie istnieje, najpierw utwórz go z tym kanonicznym 5-wierszowym nagłówkiem (bez osobnego pliku szablonu; nagłówek jest osadzony tutaj inline):
 
   ```
   # Lessons Learned
@@ -419,13 +418,13 @@ multiSelect: false
 
   ```
 
-  The pre-fill-then-confirm flow is the load-bearing UX detail; the user must see the full proposed entry with the pre-filled Context/Problem and have a chance to edit Rule and Applies-to before append. After the append succeeds, **always** ask a follow-up via AskUserQuestion: "Lesson saved. Also apply the fix to the current code?" with options "Yes — fix now" / "No — lesson only". **Never skip this question or decide on the user's behalf** — whether the fix is trivial, out of scope, or spans many files, the decision belongs to the user. If yes: show the before/after code change, apply, mark `FIXED + ACCEPTED-AS-RULE: <rule title>`. If no: mark `ACCEPTED-AS-RULE: <rule title>` (finding stays unfixed, rule is recorded for future work).
-- **Skip** → SKIPPED. Move on, don't argue.
-- **Other (free text)**: interpret the user's intent. Common intents: "fix differently" (especially in dual-fix context) → ask the preferred approach, apply, mark FIXED; "accept risk" → mark ACCEPTED with the user's justification; "dismiss"/"disagree" → mark DISMISSED.
+  Przepływ wstępnego wypełnienia, a następnie potwierdzenia jest kluczowym szczegółem UX; użytkownik musi zobaczyć pełny proponowany wpis z wstępnie wypełnionymi Context/Problem oraz mieć możliwość edycji Rule i Applies-to przed dodaniem. Po pomyślnym dodaniu **zawsze** zadaj pytanie uzupełniające przez AskUserQuestion: „Lesson saved. Also apply the fix to the current code?” z opcjami „Yes — fix now” / „No — lesson only”. **Nigdy nie pomijaj tego pytania ani nie decyduj za użytkownika** — niezależnie od tego, czy poprawka jest trywialna, poza zakresem czy obejmuje wiele plików, decyzja należy do użytkownika. Jeśli tak: pokaż zmianę kodu przed/po, zastosuj ją, oznacz `FIXED + ACCEPTED-AS-RULE: <rule title>`. Jeśli nie: oznacz `ACCEPTED-AS-RULE: <rule title>` (ustalenie pozostaje niepoprawione, reguła jest zapisana dla przyszłej pracy).
+- **Skip** → SKIPPED. Przejdź dalej, nie dyskutuj.
+- **Inne (wolny tekst)**: zinterpretuj intencję użytkownika. Typowe intencje: „fix differently” (szczególnie w kontekście dwóch poprawek) → zapytaj o preferowane podejście, zastosuj je, oznacz FIXED; „accept risk” → oznacz ACCEPTED wraz z uzasadnieniem użytkownika; „dismiss”/„disagree” → oznacz DISMISSED.
 
-After each decision, update the saved report's `Decision:` field for that finding (the report always exists on disk — see Step 4).
+Po każdej decyzji zaktualizuj pole `Decision:` zapisanego raportu dla tego ustalenia (raport zawsze istnieje na dysku — zobacz Krok 4).
 
-### Summary
+### Podsumowanie
 
 ```
 ═══════════════════════════════════════════════════════════
@@ -440,16 +439,16 @@ After each decision, update the saved report's `Decision:` field for that findin
 ═══════════════════════════════════════════════════════════
 ```
 
-Update the saved report with the final decisions. Mark the review task completed.
+Zaktualizuj zapisany raport o ostateczne decyzje. Oznacz zadanie przeglądu jako ukończone.
 
-## Notes
+## Uwagi
 
-- This is a **review** skill. Default to analyzing and reporting — only make edits during triage when the user explicitly chooses "Apply Fix" or "Fix differently" for a specific finding.
-- Be specific. "src/auth/handler.ts:42 — SQL query built with string concatenation, vulnerable to injection" — not "there might be a security issue somewhere".
-- Don't flag style preferences unless they matter. If the code works and follows the plan, minor style differences from existing code are observations, not warnings.
-- If the plan itself was flawed (e.g., planned an insecure approach), flag it — this review catches plan issues too.
-- Impact is about *decision effort*, not *severity*. LOW impact on a CRITICAL finding means the fix is obvious; HIGH impact on a WARNING means the tradeoff is real.
-- Two fix options only when there's a genuine tradeoff. Don't invent alternatives for trivial fixes.
-- When reviewing a single phase, still check if changes from that phase broke assumptions of previous phases. Phases can interact.
-- During triage, keep momentum. User already read the report.
-- When fixing, minimal targeted edits. Don't refactor surrounding code or "improve" things that weren't flagged.
+- To skill **przeglądu**. Domyślnie analizuj i raportuj — wprowadzaj edycje podczas triage tylko wtedy, gdy użytkownik wyraźnie wybierze „Apply Fix” lub „Fix differently” dla konkretnego ustalenia.
+- Bądź konkretny. „src/auth/handler.ts:42 — SQL query built with string concatenation, vulnerable to injection” — nie „there might be a security issue somewhere”.
+- Nie oznaczaj preferencji stylistycznych, jeśli nie mają znaczenia. Jeśli kod działa i realizuje plan, drobne różnice stylistyczne względem istniejącego kodu są obserwacjami, a nie ostrzeżeniami.
+- Jeśli sam plan był wadliwy (np. zaplanował niebezpieczne podejście), oznacz to — ten przegląd wykrywa również problemy planu.
+- Wpływ dotyczy *wysiłku decyzyjnego*, a nie *wagi*. LOW impact przy ustaleniu CRITICAL oznacza, że poprawka jest oczywista; HIGH impact przy WARNING oznacza, że kompromis jest rzeczywisty.
+- Dwie opcje naprawy tylko wtedy, gdy istnieje rzeczywisty kompromis. Nie wymyślaj alternatyw dla trywialnych poprawek.
+- Podczas przeglądu pojedynczej fazy nadal sprawdź, czy zmiany z tej fazy nie naruszyły założeń poprzednich faz. Fazy mogą na siebie oddziaływać.
+- Podczas triage utrzymuj tempo. Użytkownik już przeczytał raport.
+- Podczas naprawy wprowadzaj minimalne, ukierunkowane edycje. Nie refaktoryzuj otaczającego kodu ani nie „ulepszaj” rzeczy, które nie zostały oznaczone.
