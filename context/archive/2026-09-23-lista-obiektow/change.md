@@ -1,10 +1,10 @@
 ---
 change_id: lista-obiektow
 title: Lista obiektów do budowy drzewa — przegląd, dodawanie i edycja
-status: impl_reviewed
+status: archived
 created: 2026-09-23
-updated: 2026-09-24
-archived_at: null
+updated: 2026-10-25
+archived_at: 2026-10-25T11:24:37Z
 ---
 
 ## Notes

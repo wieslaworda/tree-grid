@@ -58,7 +58,7 @@ Przy celu sekwencjonowania `speed` to również fragment, który najtaniej odpow
 | F-01 | `szkielet-api-sqlite` | (foundation) działa proces API .NET obok aplikacji, z plikiem SQLite i kontraktem błędów   | —             | FR-001, FR-009, FR-010, NFR (izolacja kont)            | in-progress |
 | F-02 | `motyw-terminalowy`   | (foundation) aplikacja ma jeden motyw o gęstości roboczej, z przełącznikiem jasny/ciemny   | —             | NFR (gęstość odczytu liczb), NFR (dwa warianty motywu), NFR (kontrast i rola koloru) | in-progress |
 | S-01 | `konto-i-logowanie`   | założyć konto, zalogować się i wylogować; żaden widok nie jest dostępny bez logowania      | F-01          | FR-001, Access Control, NFR (izolacja kont)            | done |
-| S-02 | `lista-obiektow`      | przeglądać, dodawać i edytować obiekty dostępne do budowy drzewa                           | F-01          | FR-002                                                 | in-progress |
+| S-02 | `lista-obiektow`      | przeglądać, dodawać i edytować obiekty dostępne do budowy drzewa                           | F-01          | FR-002                                                 | done |
 | S-03 | `budowa-drzewa`       | prowadzić własne nazwane drzewa i składać w wybranym drzewie strukturę; zapętlenie jest odrzucane | S-02          | FR-003, FR-004, US-01, Business Logic, Access Control, NFR (izolacja kont), MS-03, MS-04, MS-05, MS-06, MS-07 | done |
 | S-07 | `menu-glowne`         | po zalogowaniu przechodzić między funkcjami z menu głównego; pierwsza pozycja to „Obiekty" | S-01, S-02    | MS-01, FR-002, Access Control                          | done |
 | S-09 | `lista-kategorii`     | przeglądać, dodawać, edytować i usuwać kategorie danych (kod, nazwa, funkcja agregująca)  | F-01, S-07    | MS-02, MS-01, FR-006                                   | done |
@@ -151,7 +151,7 @@ Foundations below assume these are present and do NOT re-scaffold them.
 - **Blockers:** —
 - **Unknowns:** —
 - **Risk:** Formalnie zależy tylko od `F-01`, więc może powstawać równolegle do `S-01` — to jedyne miejsce w całej roadmapie, gdzie da się rozdzielić pracę, a przy głównym ryzyku `time` to realna dźwignia. Warunek: widoki tego plastra muszą finalnie wylądować za bramą logowania z `S-01`, bo sekcja `Access Control` nie przewiduje dostępu bez zalogowania.
-- **Status:** in-progress
+- **Status:** done
 
 ### S-03: Własne drzewa i budowa ich struktury z blokadą zapętlenia
 
@@ -410,3 +410,4 @@ Rozstrzygnięte:
 - **S-03: Dyspozytor prowadzi listę własnych drzew i składa strukturę w drzewie wybranym z tej listy** — Archived 2026-10-25 → `context/archive/2026-09-23-budowa-drzewa/`. Lesson: —.
 - **S-01: Dyspozytor zakłada konto (e-mail + hasło), loguje się i wylogowuje; żaden widok aplikacji nie jest dostępny bez zalogowania, a niezalogowany użytkownik trafia na ekran logowania.** — Archived 2026-10-25 → `context/archive/2026-09-22-konto-i-logowanie/`. Lesson: —.
 - **S-09: Dyspozytor przegląda słownik kategorii danych, dodaje nowe, edytuje i usuwa istniejące — każda kategoria ma unikalny kod, nazwę, funkcję agregującą wybraną z listy (SUM, MIN, MAX) i kolor; słownik jest dostępny z pozycji „Kategorie" w menu głównym, w tym samym układzie co lista obiektów.** — Archived 2026-10-25 → `context/archive/2026-09-23-lista-kategorii/`. Lesson: —.
+- **S-02: Dyspozytor przegląda listę dostępnych obiektów, dodaje nowe i edytuje istniejące. Obiekt to kod i nazwa — bez podobiektów (usunięte 2026-09-24): strukturę składa dyspozytor w drzewie w `S-03`.** — Archived 2026-10-25 → `context/archive/2026-09-23-lista-obiektow/`. Lesson: —.
