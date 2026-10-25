@@ -66,3 +66,7 @@ playwright/.cache/
 .playwright-cli/
 # Baza SQLite stawiana na nowo przy każdym uruchomieniu E2E (playwright.config.ts)
 .e2e/
+
+# --- Skille agenta (.claude/skills) ---
+# Skille żyją lokalnie i nie trafiają do repo (usunięte z niego w 46e463e).
+.claude/skills/
