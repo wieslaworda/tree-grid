@@ -365,10 +365,10 @@ Nie dotyczy. Zmiana wyłącznie widoku, bez danych i API.
 
 #### Automated
 
-- [x] 2.1 Nowy test przechodzi: `npx playwright test tests/e2e/motyw-wymiary-wiersza.spec.ts`
-- [x] 2.2 Typy przechodzą: `npm run typecheck`
+- [x] 2.1 Nowy test przechodzi: `npx playwright test tests/e2e/motyw-wymiary-wiersza.spec.ts` — 9811577
+- [x] 2.2 Typy przechodzą: `npm run typecheck` — 9811577
 
 #### Manual
 
-- [x] 2.3 Nowy test czerwony po tymczasowym wycofaniu rezerwy, zielony po przywróceniu
-- [x] 2.4 Dane testu znikają po przebiegu, także czerwonym
+- [x] 2.3 Nowy test czerwony po tymczasowym wycofaniu rezerwy, zielony po przywróceniu — 9811577
+- [x] 2.4 Dane testu znikają po przebiegu, także czerwonym — 9811577
