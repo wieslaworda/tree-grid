@@ -35,17 +35,6 @@ import {
 
 import type { Route } from "./+types/obiekty";
 
-/**
- * Kody odmowy usunięcia z API (`src/Api/Errors/ApiError.cs`):
- * `ObjectInTree` — obiekt stoi w czyimkolwiek drzewie roboczym. Po nich widok
- * rozpoznaje, że odpowiedź dotyczy przycisku usuwania, a nie formularza
- * obiektu — oba wysyłają do tej samej `action`. Zbiór, a nie jedna stała:
- * każdy kod, który API zwraca wyłącznie z `DELETE /objects/{id}`, należy
- * tutaj, bo inaczej odmowa wylądowałaby w banerze formularza edycji, jakby
- * zawinił zapis.
- */
-const ODMOWY_USUNIECIA: ReadonlySet<string> = new Set(["object_in_tree"]);
-
 /** Wartości pola `intent` — po nich `action` rozróżnia trzy operacje. */
 const DODAJ = "dodaj";
 const ZAPISZ = "zapisz";
@@ -318,14 +307,6 @@ function EdycjaObiektu({
   obiekt: CatalogObject;
   blad: ApiErrorBody | undefined;
 }) {
-  // Odmowa usunięcia idzie do banera nad przyciskiem usuwania, wszystko inne
-  // — do formularza obiektu, który ma swój baner i komunikaty pod polami.
-  const odmowaUsuniecia =
-    blad !== undefined && ODMOWY_USUNIECIA.has(blad.error.code)
-      ? blad
-      : undefined;
-  const bladZapisu = odmowaUsuniecia === undefined ? blad : undefined;
-
   // Przycisk usuwania jest zawsze aktywny: słownik jest wspólny, a drzewa
   // prywatne, więc widok nie wie, czy obiekt stoi w czyimś drzewie. O tym
   // decyduje API odmową `object_in_tree`.
@@ -352,47 +333,37 @@ function EdycjaObiektu({
         </Button>
       }
     >
+      {/*
+        Każdy błąd tej karty — także z usuwania (np. obiekt usunięty
+        w drugiej karcie albo 409 `object_in_tree`, gdy obiekt stoi
+        w czyimkolwiek drzewie roboczym) — idzie do formularza, który ma
+        baner i komunikaty pod polami. Odmowa bez `context.fields` trafia do
+        banera.
+
+        „Usuń obiekt” stoi w rzędzie „Zapisz zmiany”, czyli wewnątrz `<form>`
+        zapisu, ale go nie wysyła — powód i wygląd przycisku
+        w `PotwierdzenieUsuniecia`. Potwierdzenie wysyła `intent` przez
+        `useSubmit` pod bieżący adres, więc z `?id=` wybranego obiektu —
+        z niego `action` bierze identyfikator.
+      */}
       <FormularzObiektu
         obiekt={obiekt}
-        blad={bladZapisu}
+        blad={blad}
         intent={ZAPISZ}
         etykietaZapisu="Zapisz zmiany"
-      />
-
-      {/*
-        Poziom 5: nagłówek stoi wewnątrz karty, pod jej tytułem, i nie ma być
-        od niego większy.
-      */}
-      <Typography.Title level={5} className="mt-tg-sekcja">
-        Usuwanie
-      </Typography.Title>
-
-      {odmowaUsuniecia === undefined ? null : (
-        <Alert
-          className="mb-tg-element"
-          type="error"
-          showIcon
-          title={odmowaUsuniecia.error.message}
-        />
-      )}
-
-      {/*
-        Bez własnego `<form>`: przycisk nie jest przyciskiem wysyłki, tylko
-        otwiera dymek potwierdzenia, a dopiero potwierdzenie wysyła `intent`
-        przez `useSubmit` — pod bieżący adres, więc z `?id=` wybranego
-        obiektu. Wygląd przycisku i zakaz `danger` — w
-        `PotwierdzenieUsuniecia`.
-      */}
-      <PotwierdzenieUsuniecia
-        pytanie={`Usunąć obiekt „${obiekt.code}"?`}
-        etykieta="Usuń obiekt"
-        wylaczone={zajety}
-        wToku={usuwanie}
-        onPotwierdz={() =>
-          wyslij(
-            { intent: USUN },
-            { method: "post", preventScrollReset: true },
-          )
+        obokZapisu={
+          <PotwierdzenieUsuniecia
+            pytanie={`Usunąć obiekt „${obiekt.code}"?`}
+            etykieta="Usuń obiekt"
+            wylaczone={zajety}
+            wToku={usuwanie}
+            onPotwierdz={() =>
+              wyslij(
+                { intent: USUN },
+                { method: "post", preventScrollReset: true },
+              )
+            }
+          />
         }
       />
     </RamkaPanelu>
