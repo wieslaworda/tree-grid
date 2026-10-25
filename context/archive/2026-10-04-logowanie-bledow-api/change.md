@@ -1,10 +1,10 @@
 ---
 change_id: logowanie-bledow-api
 title: Logowanie błędów API do plików w katalogu Log
-status: impl_reviewed
+status: archived
 created: 2026-10-04
-updated: 2026-10-24
-archived_at: null
+updated: 2026-10-25
+archived_at: 2026-10-25T11:25:37Z
 ---
 
 ## Notes
