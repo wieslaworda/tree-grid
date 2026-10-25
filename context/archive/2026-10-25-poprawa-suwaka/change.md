@@ -1,10 +1,10 @@
 ---
 change_id: poprawa-suwaka
 title: Paski przewijania gridu ekranu nie zasłaniają ostatniego wiersza i kolumny
-status: impl_reviewed
+status: archived
 created: 2026-10-25
 updated: 2026-10-25
-archived_at: null
+archived_at: 2026-10-25T07:34:56Z
 ---
 
 ## Notes
