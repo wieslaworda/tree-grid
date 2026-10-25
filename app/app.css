@@ -231,8 +231,13 @@ html {
      w narożnik. Skrócony kończy się na dole ciała — i tylko wtedy jego kciuk
      dojeżdża do końca, bo zakres liczy z wysokości ciała. Pionowy renderuje
      się przed poziomym w tym samym kontenerze (`List.js`), stąd
-     `:has(~ …)`. */
-  .tg-grid-ekranu .ant-table-tbody-virtual-scrollbar {
+     `:has(~ …)`.
+
+     Stała widoczność tylko poza zasłoną budowy (`invisible` tabeli
+     w `GridEkranu.tsx`): `!important` przebija dziedziczone
+     `visibility: hidden`, więc bez `:not(.invisible)` paski stałyby nad
+     postępem. */
+  .tg-grid-ekranu:not(.invisible) .ant-table-tbody-virtual-scrollbar {
     visibility: visible !important;
   }
 

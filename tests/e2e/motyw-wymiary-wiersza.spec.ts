@@ -185,7 +185,14 @@ test.describe("#3 zmiana motywu nie psuje wyglądu aplikacji", () => {
       await cialo.hover();
       await page.mouse.wheel(0, 10_000);
       const pasek = await prostokat(pasekPoziomy);
-      const dolOstatniegoWiersza = Math.max(...(await prostokaty(komorkiKategorii)).map((k) => k.y + k.height));
+      // Dół komórki tabeli, a nie tekstu: tekst jest niższy o odstęp komórki,
+      // więc nakładka na sam ten odstęp by umknęła. Pusta lista dałaby
+      // `-Infinity` i asercja przeszłaby bez sprawdzenia wiersza.
+      const dolyKomorek = await komorkiKategorii.evaluateAll((teksty) =>
+        teksty.map((tekst) => (tekst.closest(".ant-table-cell") ?? tekst).getBoundingClientRect().bottom),
+      );
+      expect(dolyKomorek.length, "wiersze gridu do pomiaru").toBeGreaterThan(0);
+      const dolOstatniegoWiersza = Math.max(...dolyKomorek);
       expect(dolOstatniegoWiersza, "dół ostatniego wiersza względem poziomego paska").toBeLessThanOrEqual(
         pasek.y + TOLERANCJA_PX,
       );

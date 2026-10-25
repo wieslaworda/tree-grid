@@ -84,6 +84,10 @@ E2E przypina to zachowanie w wariancie 288-kolumnowym.
 
 - Nie zmieniamy wyglądu paska: grubości 12 px, stałej widoczności ani koloru
   `colorPrimary` (decyzja z `3d2472a` zostaje świadomie).
+  Dodatek przyjęty w trakcie (c92730b): tor pionowego paska dostał tło
+  `--tg-panel` (`app/app.css`), bo do końca przewijania w poziomie pasek
+  wisi nad komórkami danych i przez przezroczysty tor prześwitywały linie
+  wierszy. Grubość, widoczność i kolor kciuka bez zmian.
 - Nie przesuwamy poziomego paska na dół ramki w krótkim gridzie. Stoi tuż pod
   ostatnim wierszem, bez wymuszania wysokości holdera.
 - Nie zmieniamy wysokości wiersza 24 px, skoku wirtualizacji ani

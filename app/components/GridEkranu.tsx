@@ -223,14 +223,20 @@ function pustaKomorka() {
  * powiększenie `scroll.x`: `scroll.x` ponad sumę `width` kolumn rozciąga
  * proporcjonalnie wszystkie kolumny (powód przy {@link szerokoscPrzypietych}).
  * Nagłówek ma tło nagłówka gridu, bo stoi nad paskiem, a komórka ciała jest
- * pusta i bez wyboru węzła — leży pod paskiem. Stała, bo antd porównuje
- * kolumny po referencji.
+ * pusta i bez wyboru węzła — leży pod paskiem. Obie są `aria-hidden`: to
+ * miejsce na pasek, a nie kolumna danych, więc czytnik ekranu nie ma czego
+ * ogłaszać. Stała, bo nie zależy od niczego w komponencie — lista kolumn
+ * zmienia się tylko wtedy, gdy pasek się pojawi albo zniknie.
  */
+const NAGLOWEK_REZERWY = { ...WLASCIWOSCI_NAGLOWKA, "aria-hidden": true };
+const KOMORKA_REZERWY = { "aria-hidden": true };
+
 const KOLUMNA_REZERWY: TableColumnsType<WierszTabeli>[number] = {
-  onHeaderCell: wlasciwosciNaglowka,
+  onHeaderCell: () => NAGLOWEK_REZERWY,
   key: "rezerwa-paska",
   className: KLASA_KOMORKI,
   width: METRYKI.gruboscSuwakaPrzewijania,
+  onCell: () => KOMORKA_REZERWY,
   render: pustaKomorka,
 };
 
@@ -268,11 +274,13 @@ const WYSOKOSC_PRZED_POMIAREM =
 /**
  * Wysokość ciała (`scroll.y`): zmierzona wysokość pod nagłówkiem minus
  * wiersz poziomego paska, gdy tabela go narysuje — pasek stoi w układzie
- * pod ciałem, więc tabela z nim dalej mieści się w kontenerze.
+ * pod ciałem, więc tabela z nim dalej mieści się w kontenerze. Co najmniej
+ * jeden wiersz: przy `scroll.y` = 0 lista wirtualna wyłącza wirtualizację
+ * i renderuje wszystkie wiersze naraz.
  */
 function wysokoscCiala(wysokoscTresci: number, poziomy: boolean) {
   return Math.max(
-    0,
+    METRYKI.wysokoscWiersza,
     wysokoscTresci - (poziomy ? METRYKI.gruboscSuwakaPrzewijania : 0),
   );
 }
