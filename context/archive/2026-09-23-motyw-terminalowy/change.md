@@ -1,10 +1,10 @@
 ---
 change_id: motyw-terminalowy
 title: Motyw „Terminal dyspozytorski" — tokeny, gęstość i przełącznik jasny/ciemny
-status: implemented
+status: archived
 created: 2026-09-23
-updated: 2026-09-23
-archived_at: null
+updated: 2026-10-25
+archived_at: 2026-10-25T11:27:07Z
 ---
 
 ## Notes

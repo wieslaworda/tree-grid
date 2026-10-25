@@ -56,7 +56,7 @@ Przy celu sekwencjonowania `speed` to również fragment, który najtaniej odpow
 | ID   | Change ID             | Outcome (użytkownik może …)                                                              | Prerequisites | PRD refs                                               | Status   |
 | ---- | --------------------- | ---------------------------------------------------------------------------------------- | ------------- | ------------------------------------------------------ | -------- |
 | F-01 | `szkielet-api-sqlite` | (foundation) działa proces API .NET obok aplikacji, z plikiem SQLite i kontraktem błędów   | —             | FR-001, FR-009, FR-010, NFR (izolacja kont)            | in-progress |
-| F-02 | `motyw-terminalowy`   | (foundation) aplikacja ma jeden motyw o gęstości roboczej, z przełącznikiem jasny/ciemny   | —             | NFR (gęstość odczytu liczb), NFR (dwa warianty motywu), NFR (kontrast i rola koloru) | in-progress |
+| F-02 | `motyw-terminalowy`   | (foundation) aplikacja ma jeden motyw o gęstości roboczej, z przełącznikiem jasny/ciemny   | —             | NFR (gęstość odczytu liczb), NFR (dwa warianty motywu), NFR (kontrast i rola koloru) | done |
 | S-01 | `konto-i-logowanie`   | założyć konto, zalogować się i wylogować; żaden widok nie jest dostępny bez logowania      | F-01          | FR-001, Access Control, NFR (izolacja kont)            | done |
 | S-02 | `lista-obiektow`      | przeglądać, dodawać i edytować obiekty dostępne do budowy drzewa                           | F-01          | FR-002                                                 | done |
 | S-03 | `budowa-drzewa`       | prowadzić własne nazwane drzewa i składać w wybranym drzewie strukturę; zapętlenie jest odrzucane | S-02          | FR-003, FR-004, US-01, Business Logic, Access Control, NFR (izolacja kont), MS-03, MS-04, MS-05, MS-06, MS-07 | done |
@@ -125,7 +125,7 @@ Foundations below assume these are present and do NOT re-scaffold them.
 - **Blockers:** —
 - **Unknowns:** —
 - **Risk:** Praca poprzeczna: dotyka każdego istniejącego ekranu naraz, a jedyną automatyczną weryfikacją w repo jest `npm run typecheck`, który o wyglądzie nie powie nic — regresja wychodzi wyłącznie okiem. Drugie ryzyko siedzi w kontraktach renderowania z `CLAUDE.md`: motyw wchodzi dokładnie w ścieżkę `StyleProvider` / `extractStyle`, więc błąd tutaj nie wywala buildu, tylko po cichu wypycha style antd poza `<head>`. Trzecie: `konto-i-logowanie` ma otwarte ręczne kroki 4.4–4.8 dotyczące tych samych plików formularzy, więc kolejność obu prac trzeba rozstrzygnąć świadomie, żeby nie unieważnić cudzej weryfikacji.
-- **Status:** in-progress
+- **Status:** done
 
 ## Slices
 
@@ -413,3 +413,4 @@ Rozstrzygnięte:
 - **S-02: Dyspozytor przegląda listę dostępnych obiektów, dodaje nowe i edytuje istniejące. Obiekt to kod i nazwa — bez podobiektów (usunięte 2026-09-24): strukturę składa dyspozytor w drzewie w `S-03`.** — Archived 2026-10-25 → `context/archive/2026-09-23-lista-obiektow/`. Lesson: —.
 - **S-11: (operacyjne) Każdy błąd w warstwie backendu — nieobsłużony wyjątek w żądaniu (dziś odpowiedź 500 `internal_error`) i odmowa startu API (brak sekretów, niezmigrowana baza) — trafia do pliku logu w katalogu `Log`. Plik przeżywa restart API, więc ślad awarii nie znika razem z procesem. Katalog logowania jest ustawiony w `src/Api/appsettings.json`, a nie wpisany w kod, a poziom logowania do pliku to Error: do pliku trafiają wyłącznie błędy, bez wpisów informacyjnych i bez zapytań SQL. Dyspozytor nie widzi żadnej zmiany w interfejsie.** — Archived 2026-10-25 → `context/archive/2026-10-04-logowanie-bledow-api/`. Lesson: —.
 - **S-07: Zalogowany dyspozytor widzi na każdym widoku aplikacji menu główne i przechodzi z niego do dostępnych funkcji; pierwszą pozycją jest „Obiekty", a każdy kolejny plaster, który doda widok produktu, dopisuje do menu swoją pozycję. Niezalogowany użytkownik menu nie widzi.** — Archived 2026-10-25 → `context/archive/2026-09-23-menu-glowne/`. Lesson: —.
+- **F-02: (foundation) aplikacja ma jeden język wizualny zapisany w tokenach, a nie w plikach tras: ciemny wariant domyślny i jasny wariant przełączany przez użytkownika, obie palety o tej samej gęstości roboczej (wiersz 24 px, `fontSize` 12, cyfry o stałej szerokości). Wybór wariantu przeżywa odświeżenie i nie daje przeskoku wyglądu po załadowaniu. Każdy istniejący ekran — logowanie, rejestracja, strona główna i widok błędu — mówi tym samym językiem.** — Archived 2026-10-25 → `context/archive/2026-09-23-motyw-terminalowy/`. Lesson: —.
