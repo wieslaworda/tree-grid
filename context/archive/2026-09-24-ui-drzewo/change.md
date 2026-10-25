@@ -1,10 +1,10 @@
 ---
 change_id: ui-drzewo
 title: Audyt i poprawa widoku /drzewo na istniejącym systemie tokenów
-status: impl_reviewed
+status: archived
 created: 2026-09-24
-updated: 2026-09-24
-archived_at: null
+updated: 2026-10-25
+archived_at: 2026-10-25T11:29:15Z
 ---
 
 ## Notes
