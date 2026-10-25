@@ -1,10 +1,10 @@
 ---
 change_id: zapisane-ekrany
 title: Nowy ekran — tworzenie, lista własnych ekranów, odtworzenie i usunięcie
-status: impl_reviewed
+status: archived
 created: 2026-09-24
-updated: 2026-10-24
-archived_at: null
+updated: 2026-10-25
+archived_at: 2026-10-25T11:32:15Z
 ---
 
 ## Notes
