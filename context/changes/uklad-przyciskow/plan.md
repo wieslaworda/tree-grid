@@ -261,13 +261,13 @@ Brak.
 
 #### Automated
 
-- [x] 2.1 Kontrola typów przechodzi: `npm run typecheck`
-- [x] 2.2 W `app/` nie zostało `ODMOWY_USUNIECIA` ani nagłówek „Usuwanie”
-- [x] 2.3 Spec Node przechodzi: `npm run test:node`
-- [ ] 2.4 E2E klikające „Usuń obiekt” / „Usuń kategorię” przechodzą
+- [x] 2.1 Kontrola typów przechodzi: `npm run typecheck` — 774fdfe
+- [x] 2.2 W `app/` nie zostało `ODMOWY_USUNIECIA` ani nagłówek „Usuwanie” — 774fdfe
+- [x] 2.3 Spec Node przechodzi: `npm run test:node` — 774fdfe
+- [x] 2.4 E2E klikające „Usuń obiekt” / „Usuń kategorię” przechodzą — 5df9a8d
 
 #### Manual
 
-- [x] 2.5 Na `/kategorie?id=<id>` „Usuń kategorię” stoi w jednym rzędzie z „Zapisz zmiany”, bez nagłówka „Usuwanie”, w obu wariantach motywu
-- [x] 2.6 Usunięcie kategorii będącej jedyną domyślną ekranu pokazuje odmowę `category_sole_screen_default` w banerze nad polami
-- [x] 2.7 Karty edycji `/obiekty`, `/kategorie` i `/drzewo` położone obok siebie mają ten sam układ nagłówka i rzędu przycisków
+- [x] 2.5 Na `/kategorie?id=<id>` „Usuń kategorię” stoi w jednym rzędzie z „Zapisz zmiany”, bez nagłówka „Usuwanie”, w obu wariantach motywu — 774fdfe
+- [x] 2.6 Usunięcie kategorii będącej jedyną domyślną ekranu pokazuje odmowę `category_sole_screen_default` w banerze nad polami — 774fdfe
+- [x] 2.7 Karty edycji `/obiekty`, `/kategorie` i `/drzewo` położone obok siebie mają ten sam układ nagłówka i rzędu przycisków — 774fdfe
