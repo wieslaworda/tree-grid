@@ -1,10 +1,10 @@
 ---
 change_id: budowa-drzewa
 title: Budowa struktury drzewa z blokadą zapętlenia (S-03)
-status: impl_reviewed
+status: archived
 created: 2026-09-23
-updated: 2026-10-24
-archived_at: null
+updated: 2026-10-25
+archived_at: 2026-10-25T11:18:17Z
 ---
 
 ## Notes

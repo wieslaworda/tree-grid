@@ -3,7 +3,7 @@ project: TreeGrid
 version: 1
 status: draft
 created: 2026-09-21
-updated: 2026-10-17
+updated: 2026-10-25
 prd_version: 1
 main_goal: speed
 top_blocker: time
@@ -59,7 +59,7 @@ Przy celu sekwencjonowania `speed` to również fragment, który najtaniej odpow
 | F-02 | `motyw-terminalowy`   | (foundation) aplikacja ma jeden motyw o gęstości roboczej, z przełącznikiem jasny/ciemny   | —             | NFR (gęstość odczytu liczb), NFR (dwa warianty motywu), NFR (kontrast i rola koloru) | in-progress |
 | S-01 | `konto-i-logowanie`   | założyć konto, zalogować się i wylogować; żaden widok nie jest dostępny bez logowania      | F-01          | FR-001, Access Control, NFR (izolacja kont)            | in-progress |
 | S-02 | `lista-obiektow`      | przeglądać, dodawać i edytować obiekty dostępne do budowy drzewa                           | F-01          | FR-002                                                 | in-progress |
-| S-03 | `budowa-drzewa`       | prowadzić własne nazwane drzewa i składać w wybranym drzewie strukturę; zapętlenie jest odrzucane | S-02          | FR-003, FR-004, US-01, Business Logic, Access Control, NFR (izolacja kont), MS-03, MS-04, MS-05, MS-06, MS-07 | in-progress |
+| S-03 | `budowa-drzewa`       | prowadzić własne nazwane drzewa i składać w wybranym drzewie strukturę; zapętlenie jest odrzucane | S-02          | FR-003, FR-004, US-01, Business Logic, Access Control, NFR (izolacja kont), MS-03, MS-04, MS-05, MS-06, MS-07 | done |
 | S-07 | `menu-glowne`         | po zalogowaniu przechodzić między funkcjami z menu głównego; pierwsza pozycja to „Obiekty" | S-01, S-02    | MS-01, FR-002, Access Control                          | done |
 | S-09 | `lista-kategorii`     | przeglądać, dodawać, edytować i usuwać kategorie danych (kod, nazwa, funkcja agregująca)  | F-01, S-07    | MS-02, MS-01, FR-006                                   | in-progress |
 | S-06 | `zapisane-ekrany`     | utworzyć ekran (nazwa, własne drzewo, ziarno, domyślne kategorie), widzieć na bieżąco wiersze węzły × kategorie, zapisać go, wybrać z listy własnych ekranów, odtworzyć i usunąć | S-03, S-09    | FR-009, FR-010, FR-012, FR-007, FR-008, US-01, Access Control, NFR (izolacja kont), MS-01 | in-progress |
@@ -169,7 +169,7 @@ Foundations below assume these are present and do NOT re-scaffold them.
 - **Blockers:** —
 - **Unknowns:** —
 - **Risk:** To główny dowód działania produktu. Pytanie o przeciąganie rozstrzygnął plan `budowa-drzewa`: pełne przeciąganie, w osobnej, ostatniej fazie. Budowa na jednym drzewie roboczym ma już działający kod. Rozszerzenie o nazwane drzewa (MS-03–MS-07) zmienia jednak podstawę, na której ten kod stoi — węzły należą teraz do drzewa, a nie wprost do konta. Każda reguła (zapętlenie, duplikat, limit rozmiaru) musi więc działać w obrębie wybranego drzewa, a izolacja kont musi objąć zarówno drzewa, jak i ich węzły, po stronie serwera. Istniejące drzewo robocze trzeba przenieść bez utraty danych. Plaster łączy teraz dwie czynności: zarządzanie listą drzew i budowę struktury. Zostaje jednym plastrem na wyraźne życzenie użytkownika, a rozdział tych czynności należy do faz planu. Usuwanie przeciągnięciem odbywa się bez potwierdzenia i nie ma „cofnij", więc upuszczenie gałęzi na listę musi być jednoznaczne i nie może się mylić z przesunięciem w drzewie.
-- **Status:** in-progress
+- **Status:** done
 
 ### S-07: Menu główne aplikacji po zalogowaniu
 
@@ -407,3 +407,4 @@ Rozstrzygnięte:
 
 - **S-12: Dyspozytor buduje drzewo, które może mieć wiele korzeni, a aplikacja pilnuje reguł użycia obiektów** — Archived 2026-10-10 → `context/archive/2026-10-08-kontrola-drzewa/`. Lesson: —.
 - **S-16: Nowa osoba po założeniu konta od razu ogląda działający ekran zamiast pustego stanu (decyzja z 2026-10-17)** — Archived 2026-10-17 → `context/archive/2026-10-17-drzewo-domyslne/`. Lesson: —.
+- **S-03: Dyspozytor prowadzi listę własnych drzew i składa strukturę w drzewie wybranym z tej listy** — Archived 2026-10-25 → `context/archive/2026-09-23-budowa-drzewa/`. Lesson: —.
