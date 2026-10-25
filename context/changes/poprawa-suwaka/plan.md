@@ -346,29 +346,29 @@ Nie dotyczy. Zmiana wyłącznie widoku, bez danych i API.
 
 #### Automated
 
-- [x] 1.1 Typy przechodzą: `npm run typecheck`
-- [x] 1.2 Spece Node przechodzą: `npm run test:node`
-- [x] 1.3 Istniejący spec wiersza zostaje zielony (skok wiersza ≤ 24 px, brak przesunięć przy zmianie wariantu)
-- [x] 1.4 Spec warstwy stylów zostaje zielony
+- [x] 1.1 Typy przechodzą: `npm run typecheck` — c92730b
+- [x] 1.2 Spece Node przechodzą: `npm run test:node` — c92730b
+- [x] 1.3 Istniejący spec wiersza zostaje zielony (skok wiersza ≤ 24 px, brak przesunięć przy zmianie wariantu) — c92730b
+- [x] 1.4 Spec warstwy stylów zostaje zielony — c92730b
 
 #### Manual
 
-- [x] 1.5 Ekran 11, doba 2026-10-25: wiersz „Dyspozycyjność minimalna” ADM 2-05 w całości nad paskiem stojącym tuż pod nim
-- [x] 1.6 Długie drzewo w /prezentacja: koniec przewijania w pionie i w poziomie bez przykrycia, oba warianty motywu
-- [x] 1.7 /wzornik: oba paski bez nakładania i kolizji w narożniku; grid bez nadmiaru treści bez pasków i pustych pasów
-- [x] 1.8 /ekrany z długim drzewem: pionowy pasek nie przykrywa „Kategorii”, brak poziomego
-- [x] 1.9 Zmiana szerokości okna nie zostawia pustego pasa ani przykrytego wiersza; zasłona nie odsłania przeskoku
-- [x] 1.10 Przewijanie wariantu 288-kolumnowego tak samo płynne jak przed zmianą
-- [x] 1.11 W DOM-ie gridu brak rodzicielskiego StickyScrollBar
+- [x] 1.5 Ekran 11, doba 2026-10-25: wiersz „Dyspozycyjność minimalna” ADM 2-05 w całości nad paskiem stojącym tuż pod nim — c92730b
+- [x] 1.6 Długie drzewo w /prezentacja: koniec przewijania w pionie i w poziomie bez przykrycia, oba warianty motywu — c92730b
+- [x] 1.7 /wzornik: oba paski bez nakładania i kolizji w narożniku; grid bez nadmiaru treści bez pasków i pustych pasów — c92730b
+- [x] 1.8 /ekrany z długim drzewem: pionowy pasek nie przykrywa „Kategorii”, brak poziomego — c92730b
+- [x] 1.9 Zmiana szerokości okna nie zostawia pustego pasa ani przykrytego wiersza; zasłona nie odsłania przeskoku — c92730b
+- [x] 1.10 Przewijanie wariantu 288-kolumnowego tak samo płynne jak przed zmianą — c92730b
+- [x] 1.11 W DOM-ie gridu brak rodzicielskiego StickyScrollBar — c92730b
 
 ### Phase 2: Test E2E widoczności ostatniego wiersza i kolumny
 
 #### Automated
 
-- [ ] 2.1 Nowy test przechodzi: `npx playwright test tests/e2e/motyw-wymiary-wiersza.spec.ts`
-- [ ] 2.2 Typy przechodzą: `npm run typecheck`
+- [x] 2.1 Nowy test przechodzi: `npx playwright test tests/e2e/motyw-wymiary-wiersza.spec.ts`
+- [x] 2.2 Typy przechodzą: `npm run typecheck`
 
 #### Manual
 
-- [ ] 2.3 Nowy test czerwony po tymczasowym wycofaniu rezerwy, zielony po przywróceniu
-- [ ] 2.4 Dane testu znikają po przebiegu, także czerwonym
+- [x] 2.3 Nowy test czerwony po tymczasowym wycofaniu rezerwy, zielony po przywróceniu
+- [x] 2.4 Dane testu znikają po przebiegu, także czerwonym

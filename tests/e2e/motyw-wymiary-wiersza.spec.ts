@@ -3,6 +3,9 @@
 // przełącznikiem i przez ciasteczko po przeładowaniu — nie przesuwa ani jednego
 // wiersza (kontrakt 4 w CLAUDE.md: wariant zmienia wyłącznie kolory). Miejsce
 // i warstwę stylów antd w dokumencie pokrywa warstwa-stylow-antd.spec.ts.
+// Facet: paski przewijania gridu — przy końcu przewijania w obu osiach ostatni
+// wiersz i ostatnia kolumna czasowa nie leżą pod paskami (zmiana
+// poprawa-suwaka, `context/changes/poprawa-suwaka/frame.md`).
 // seed: tests/e2e/seed.spec.ts
 import { test, expect, type Locator, type Page } from "@playwright/test";
 
@@ -24,6 +27,19 @@ const MAKS_WIERSZ_PX = 24;
  * Dowolna doba bez zmiany czasu z zakresu lat przyjmowanego przez API.
  */
 const DOBA_288_KOLUMN = "2026-06-15";
+
+/**
+ * Luz na zaokrąglenia pozycji ułamkowych przy porównaniu krawędzi komórki
+ * i paska przewijania. Pasek-nakładka przykrywa 12 px, więc luz go nie ukryje.
+ */
+const TOLERANCJA_PX = 1;
+
+/**
+ * Limit jednej osi przewijania do końca. Własny, a nie limit testu, żeby
+ * czerwona pierwsza oś zostawiła czas na drugą i raport pokazał asercję,
+ * a nie przekroczenie czasu.
+ */
+const CZAS_PRZEWIJANIA_MS = 10_000;
 
 type Obiekt = { kod: string; nazwa: string };
 type Prostokat = { x: number; y: number; width: number; height: number };
@@ -61,7 +77,7 @@ test.describe("#3 zmiana motywu nie psuje wyglądu aplikacji", () => {
       kategorie.push({ kategoria, adres: await dodajKategorie(page, kategoria) });
     }
     adresDrzewa = await dodajDrzewo(page, nazwaDrzewa, sufiks, rodzic, [pierwsze, drugie]);
-    adresEkranu = await dodajEkran(page, nazwaEkranu, nazwaDrzewa, [kat1, kat2]);
+    adresEkranu = await dodajEkran(page, nazwaEkranu, nazwaDrzewa, [kat1, kat2], 6);
     const idEkranu = new URL(adresEkranu).searchParams.get("ekran");
 
     // --- Grid prezentacji w wariancie domyślnym (ciemnym, brak ciasteczka) ---
@@ -109,6 +125,84 @@ test.describe("#3 zmiana motywu nie psuje wyglądu aplikacji", () => {
 
     await przelaczWariant(page, "ciemny");
     expect(await prostokaty(wezly), "drzewo po przełączeniu na ciemny").toEqual(drzewoJasne);
+  });
+
+  test("last row and last time column are not covered by the scroll bars at the end of scrolling", async ({ page }) => {
+    // Setup zakłada przez formularze osiem pozycji słowników, drzewo i ekran —
+    // zielony przebieg trwa ok. 20 s, za blisko domyślnego limitu.
+    test.slow();
+    const sufiks = `${Date.now().toString(36)}${test.info().parallelIndex}`.toUpperCase();
+    test.info().annotations.push({ type: "test-data", description: sufiks });
+    const rodzic = { kod: `P-${sufiks}`, nazwa: `Rodzic ${sufiks}` };
+    const dzieci = [1, 2, 3, 4, 5].map((i) => ({ kod: `C${i}-${sufiks}`, nazwa: `Dziecko ${i} ${sufiks}` }));
+    const kat1 = { kod: `K-${sufiks}`, nazwa: `Kategoria K ${sufiks}` };
+    const kat2 = { kod: `L-${sufiks}`, nazwa: `Kategoria L ${sufiks}` };
+    nazwaDrzewa = `Drzewo ${sufiks}`;
+    nazwaEkranu = `Ekran ${sufiks}`;
+
+    // --- Setup: drzewo P → (C1…C5), dwie kategorie i ekran 5-minutowy, czyli
+    //     wariant 288-kolumnowy z 6 × 2 = 12 wierszami. Sekcja gridu stoi na
+    //     minimalnej wysokości budowy (`min-h-tg-budowa`, 10 wierszy razem
+    //     z nagłówkiem), więc 12 wierszy wymusza pionowy pasek ---
+    for (const obiekt of [rodzic, ...dzieci]) {
+      obiekty.push({ obiekt, adres: await dodajObiekt(page, obiekt) });
+    }
+    for (const kategoria of [kat1, kat2]) {
+      kategorie.push({ kategoria, adres: await dodajKategorie(page, kategoria) });
+    }
+    adresDrzewa = await dodajDrzewo(page, nazwaDrzewa, sufiks, rodzic, dzieci);
+    adresEkranu = await dodajEkran(page, nazwaEkranu, nazwaDrzewa, [kat1, kat2], 12);
+    const idEkranu = new URL(adresEkranu).searchParams.get("ekran");
+
+    // Okno niższe niż strona prezentacji: sekcja gridu nie dostaje nic ponad
+    // swoją minimalną wysokość, a strona przewija się w `main`.
+    await page.setViewportSize({ width: 1280, height: 400 });
+    await page.goto(`/prezentacja?ekran=${idEkranu}&doba=${DOBA_288_KOLUMN}`);
+    const grid = page.getByRole("region", { name: "Grid ekranu" });
+    await expect(grid.getByText("Wierszy: 12 · Kolumn czasowych: 288")).toBeVisible();
+
+    // Warunek wstępny: tabela narysowała oba paski. Bez nich asercje niżej
+    // przechodziłyby pusto. Klasy z prefiksem antd, bo paski listy wirtualnej
+    // nie mają roli ani nazwy dostępnej.
+    const pasekPoziomy = grid.locator(".ant-table-tbody-virtual-scrollbar-horizontal");
+    const pasekPionowy = grid.locator(".ant-table-tbody-virtual-scrollbar-vertical");
+    await expect(pasekPoziomy).toBeVisible();
+    await expect(pasekPionowy).toBeVisible();
+
+    // Lista wirtualna przewija własnym stanem, więc przewijamy kółkiem nad
+    // ciałem. Wyrocznia z `frame.md` („rozwiązany problem”), nie z
+    // implementacji. Powtarzana do skutku: w trakcie przewijania ostatni wiersz
+    // i ostatnia kolumna są dalej niż przy końcu, więc nie przejdzie
+    // przedwcześnie, a z paskiem-nakładką nie przejdzie nigdy, bo przy końcu
+    // zakresu leżą dokładnie pod paskiem.
+    const cialo = grid.locator(".ant-table-tbody-virtual-holder");
+    const komorkiKategorii = grid.getByText(new RegExp(`^(${kat1.nazwa}|${kat2.nazwa})$`));
+
+    // --- Koniec w pionie: komórka „Kategoria” najniższego wiersza (przy
+    //     końcu — ostatni węzeł × ostatnia kategoria) kończy się nad poziomym
+    //     paskiem ---
+    await expect(async () => {
+      await cialo.hover();
+      await page.mouse.wheel(0, 10_000);
+      const pasek = await prostokat(pasekPoziomy);
+      const dolOstatniegoWiersza = Math.max(...(await prostokaty(komorkiKategorii)).map((k) => k.y + k.height));
+      expect(dolOstatniegoWiersza, "dół ostatniego wiersza względem poziomego paska").toBeLessThanOrEqual(
+        pasek.y + TOLERANCJA_PX,
+      );
+    }).toPass({ timeout: CZAS_PRZEWIJANIA_MS });
+
+    // --- Koniec w poziomie: etykieta `24:00` w nagłówku kończy się na lewo
+    //     od pionowego paska ---
+    const etykietaKonca = grid.getByText("24:00", { exact: true });
+    await expect(async () => {
+      await cialo.hover();
+      await page.mouse.wheel(100_000, 0);
+      const pasek = await prostokat(pasekPionowy);
+      const etykieta = await prostokat(etykietaKonca);
+      expect(etykieta.x + etykieta.width, "prawa krawędź „24:00” względem pionowego paska").toBeLessThanOrEqual(
+        pasek.x + TOLERANCJA_PX,
+      );
+    }).toPass({ timeout: CZAS_PRZEWIJANIA_MS });
   });
 
   // --- Cleanup — z asercjami, więc nieudane sprzątanie barwi przebieg na czerwono ---
@@ -173,6 +267,13 @@ async function prostokaty(lokator: Locator): Promise<Prostokat[]> {
       return { x, y, width, height };
     }),
   );
+}
+
+/** Położenie i rozmiar jednego elementu. */
+async function prostokat(lokator: Locator): Promise<Prostokat> {
+  const [jedyny] = await prostokaty(lokator);
+  expect(jedyny, "element do pomiaru").toBeDefined();
+  return jedyny;
 }
 
 /** Odległości w pionie między kolejnymi elementami. */
@@ -259,8 +360,18 @@ async function dodajDrzewo(
   return adres;
 }
 
-/** Zakłada ekran z ziarnem 5 min na wskazanym drzewie i kategoriach; zwraca adres ekranu. */
-async function dodajEkran(page: Page, nazwa: string, nazwaDrzewa: string, kategorie: Obiekt[]): Promise<string> {
+/**
+ * Zakłada ekran z ziarnem 5 min na wskazanym drzewie i kategoriach; zwraca
+ * adres ekranu. `wierszy` to węzły drzewa × kategorie — po tej liczbie
+ * w podglądzie poznajemy, że grid złożył się z wybranych kategorii.
+ */
+async function dodajEkran(
+  page: Page,
+  nazwa: string,
+  nazwaDrzewa: string,
+  kategorie: Obiekt[],
+  wierszy: number,
+): Promise<string> {
   await page.goto("/ekrany?nowy");
   // Lista wyboru otwiera się dopiero po hydratacji, więc wybór drzewa
   // powtarzamy, aż pole pokaże wybrane drzewo. Ponowne wybranie tego samego
@@ -280,8 +391,10 @@ async function dodajEkran(page: Page, nazwa: string, nazwaDrzewa: string, katego
     await poleKategorii.press("Enter");
   }
   await poleKategorii.press("Escape");
-  // Podgląd przebudowuje grid na bieżąco: 3 węzły × 2 kategorie.
-  await expect(page.getByRole("region", { name: "Grid ekranu" }).getByText("Wierszy: 6")).toBeVisible();
+  // Podgląd przebudowuje grid na bieżąco: węzły × kategorie.
+  await expect(
+    page.getByRole("region", { name: "Grid ekranu" }).getByText(`Wierszy: ${wierszy}`, { exact: true }),
+  ).toBeVisible();
 
   await page.getByRole("textbox", { name: "Nazwa", exact: true }).fill(nazwa);
   await page.getByRole("radiogroup", { name: "Ziarno czasowe" }).getByText("5 min", { exact: true }).click();
