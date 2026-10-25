@@ -226,7 +226,8 @@ html {
      Paski nie leżą na treści: `GridEkranu.tsx` rezerwuje na nie miejsce.
      Poziomy stoi w układzie pod ciałem (`sticky` tabeli, mniejsze
      `scroll.y`), pionowy nad pustą kolumną-rezerwą na końcu zakresu
-     przewijania. Pionowy ma jednak `top: 0; bottom: 0` w kontenerze, który
+     przewijania — albo, w gridzie bez kolumn czasowych (widok „Ekrany”),
+     nad prawym brzegiem „Kategorii”. Pionowy ma jednak `top: 0; bottom: 0` w kontenerze, który
      zawiera też wiersz poziomego paska, więc bez korekty wjechałby
      w narożnik. Skrócony kończy się na dole ciała — i tylko wtedy jego kciuk
      dojeżdża do końca, bo zakres liczy z wysokości ciała. Pionowy renderuje
@@ -253,8 +254,11 @@ html {
      leży pod nim tylko przy końcu przewijania w poziomie, a wcześniej pasek
      wisi nad komórkami danych. Tło `panel` — to samo co tło tabeli
      (`colorBgContainer` w `app/theme/antd.ts`). Poziomy tła nie potrzebuje,
-     bo stoi w układzie pod ciałem, nie nad wierszami. */
-  .tg-grid-ekranu .ant-table-tbody-virtual-scrollbar-vertical {
+     bo stoi w układzie pod ciałem, nie nad wierszami. Tylko przy kolumnach
+     czasowych (`tg-grid-z-danymi`, „Prezentacja ekranu”): bez nich (widok
+     „Ekrany”) pasek leży na brzegu „Kategorii”, a przezroczysty tor
+     przepuszcza linie wierszy i zaznaczenie węzła do prawej krawędzi. */
+  .tg-grid-ekranu.tg-grid-z-danymi .ant-table-tbody-virtual-scrollbar-vertical {
     background-color: var(--tg-panel);
   }
 

@@ -218,7 +218,11 @@ function pustaKomorka() {
 
 /**
  * Kolumna-rezerwa pod pionowym paskiem przewijania — ostatnia, dokładana
- * tylko wtedy, gdy tabela ten pasek narysuje ({@link paskiPrzewijania}).
+ * tylko wtedy, gdy tabela ten pasek narysuje ({@link paskiPrzewijania}),
+ * i wyłącznie za kolumnami czasowymi. Bez nich (widok „Ekrany”) pasek leży
+ * na prawym brzegu „Kategorii”, której nazwy mieszczą się z zapasem —
+ * a rezerwa za węższą od kontenera treścią byłaby rozciągnięta razem
+ * z pozostałymi kolumnami, więc pasek przykrywałby tylko jej część.
  * Szerokość paska wchodzi do zakresu przewijania jako kolumna, a nie samo
  * powiększenie `scroll.x`: `scroll.x` ponad sumę `width` kolumn rozciąga
  * proporcjonalnie wszystkie kolumny (powód przy {@link szerokoscPrzypietych}).
@@ -300,6 +304,9 @@ function wysokoscCiala(wysokoscTresci: number, poziomy: boolean) {
  * z rezerwą poziomą i — gdy pionowy dopiero wtedy doszedł — poziomy jeszcze
  * raz.
  *
+ * Bez rezerwy pionowej (`zRezerwaPionowa` = false, grid bez kolumn
+ * czasowych) pionowy pasek nie poszerza treści, więc nie wywołuje poziomego.
+ *
  * Do pierwszego pomiaru wysokości albo szerokości (render serwerowy,
  * hydracja) pasków nie ma, więc rezerwy też nie — zasłona czeka na oba
  * pomiary.
@@ -309,6 +316,7 @@ function paskiPrzewijania(
   wysokoscTresci: number | undefined,
   szerokoscKontenera: number | undefined,
   szerokoscTresci: number,
+  zRezerwaPionowa: boolean,
 ): { poziomy: boolean; pionowy: boolean } {
   if (wysokoscTresci === undefined || szerokoscKontenera === undefined) {
     return { poziomy: false, pionowy: false };
@@ -318,7 +326,8 @@ function paskiPrzewijania(
   const pionowyPrzy = (poziomy: boolean) =>
     wysokoscWierszy > wysokoscCiala(wysokoscTresci, poziomy);
   const poziomyPrzy = (pionowy: boolean) =>
-    szerokoscTresci + (pionowy ? METRYKI.gruboscSuwakaPrzewijania : 0) >
+    szerokoscTresci +
+      (pionowy && zRezerwaPionowa ? METRYKI.gruboscSuwakaPrzewijania : 0) >
     szerokoscKontenera;
 
   const pionowyBezPoziomego = pionowyPrzy(false);
@@ -419,9 +428,10 @@ function klasyKomorki(
  * renderem, które paski tabela narysuje ({@link paskiPrzewijania}),
  * i rezerwuje miejsce tylko na nie. Poziomy stoi w układzie pod ciałem
  * (`sticky` tabeli daje mu `position: sticky` zamiast nakładki), a `scroll.y`
- * maleje o jego grubość. Pionowy dostaje pustą kolumnę-rezerwę na końcu
- * zakresu przewijania ({@link KOLUMNA_REZERWY}) i `scroll.x` większe o tę
- * samą liczbę — samo większe `scroll.x` rozciągnęłoby wszystkie kolumny.
+ * maleje o jego grubość. Pionowy przy kolumnach czasowych dostaje pustą
+ * kolumnę-rezerwę na końcu zakresu przewijania ({@link KOLUMNA_REZERWY})
+ * i `scroll.x` większe o tę samą liczbę — samo większe `scroll.x`
+ * rozciągnęłoby wszystkie kolumny. Bez kolumn czasowych leży na „Kategorii”.
  * Narożnik, w którym pionowy kończy się nad poziomym, ustawia `app/app.css`
  * (`.tg-grid-ekranu`). Grubość obu to `METRYKI.gruboscSuwakaPrzewijania`.
  */
@@ -598,29 +608,33 @@ export function GridEkranu({
     wysokoscTresci,
     szerokoscKontenera,
     szerokoscTresci,
+    zKolumnamiCzasowymi,
   );
+  const rezerwaPionowa = pionowy && zKolumnamiCzasowymi;
 
-  // Kolumna-rezerwa tylko przy pionowym pasku, a obie listy kolumn i stała
-  // rezerwa zachowują referencje, więc pojawienie się paska nie przebudowuje
-  // kolumny danych.
+  // Kolumna-rezerwa tylko przy pionowym pasku za kolumnami czasowymi, a obie
+  // listy kolumn i stała rezerwa zachowują referencje, więc pojawienie się
+  // paska nie przebudowuje kolumny danych.
   const kolumny = useMemo(() => {
     const tresc =
       kolumnyDanych.length === 0
         ? kolumnyPrzypiete
         : [...kolumnyPrzypiete, ...kolumnyDanych];
 
-    return pionowy ? [...tresc, KOLUMNA_REZERWY] : tresc;
-  }, [kolumnyPrzypiete, kolumnyDanych, pionowy]);
+    return rezerwaPionowa ? [...tresc, KOLUMNA_REZERWY] : tresc;
+  }, [kolumnyPrzypiete, kolumnyDanych, rezerwaPionowa]);
 
   const przewijanie = useMemo(
     () => ({
-      x: szerokoscTresci + (pionowy ? METRYKI.gruboscSuwakaPrzewijania : 0),
+      x:
+        szerokoscTresci +
+        (rezerwaPionowa ? METRYKI.gruboscSuwakaPrzewijania : 0),
       y:
         wysokoscTresci === undefined
           ? WYSOKOSC_PRZED_POMIAREM
           : wysokoscCiala(wysokoscTresci, poziomy),
     }),
-    [wysokoscTresci, szerokoscTresci, poziomy, pionowy],
+    [wysokoscTresci, szerokoscTresci, poziomy, rezerwaPionowa],
   );
 
   // Kciuk pasków przewijania w kolorze aktywnej pozycji menu głównego:
@@ -631,7 +645,8 @@ export function GridEkranu({
   // `app/app.css` (`.tg-grid-ekranu`). Paski mają zarezerwowane miejsce,
   // więc niczego nie przykrywają: poziomy stoi w układzie pod ciałem przez
   // `sticky` tabeli, a pionowy nad kolumną-rezerwą ({@link KOLUMNA_REZERWY}),
-  // bo `scroll.x` ponad sumę kolumn rozciągnąłby wszystkie kolumny.
+  // bo `scroll.x` ponad sumę kolumn rozciągnąłby wszystkie kolumny — albo,
+  // bez kolumn czasowych, nad brzegiem „Kategorii”, której nazwy się mieszczą.
   const { token } = theme.useToken();
   const stylTabeli = useMemo(
     () =>
@@ -691,9 +706,17 @@ export function GridEkranu({
             bo z niego biorą się pomiary, na które zasłona czeka.
             `sticky` zawsze: w tabeli wirtualnej zmienia wyłącznie poziomy
             pasek (w układzie zamiast nakładki), a nagłówkowi w przycinającym
-            kontenerze niczego nie zmienia. */}
+            kontenerze niczego nie zmienia. `tg-grid-z-danymi` daje torowi
+            pionowego paska tło — tylko przy kolumnach czasowych; bez nich
+            pasek leży na „Kategorii” i linie wierszy biegną pod nim do końca. */}
         <Table<WierszTabeli>
-          className={zasloniety ? "tg-grid-ekranu invisible" : "tg-grid-ekranu"}
+          className={[
+            "tg-grid-ekranu",
+            zKolumnamiCzasowymi ? "tg-grid-z-danymi" : null,
+            zasloniety ? "invisible" : null,
+          ]
+            .filter((klasa) => klasa !== null)
+            .join(" ")}
           style={stylTabeli}
           virtual
           sticky
