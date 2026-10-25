@@ -74,6 +74,8 @@ type Wlasciwosci = {
   intent: string;
   /** Tekst przycisku wysyłki. */
   etykietaZapisu: string;
+  /** Przyciski stojące w jednym rzędzie z przyciskiem wysyłki. */
+  obokZapisu?: React.ReactNode;
 };
 
 /**
@@ -108,6 +110,7 @@ export function FormularzKategorii({
   blad,
   intent,
   etykietaZapisu,
+  obokZapisu,
 }: Wlasciwosci) {
   const pola = naruszeniaPol(blad);
   const ogolny = komunikatOgolny(blad, pola);
@@ -120,9 +123,9 @@ export function FormularzKategorii({
   );
   const [kolor, ustawKolor] = useState(kategoria?.color ?? KOLOR_DOMYSLNY);
 
-  // Zajęty jest cały widok, gdy trwa dowolna nawigacja — także wysyłka
-  // usuwania obok. Kręciołek dostaje jednak tylko ten przycisk, którego
-  // formularz faktycznie wysłano, rozpoznany po `intent`.
+  // Zajęty jest cały widok, gdy trwa dowolna nawigacja — także usuwanie
+  // kategorii z przycisku obok. Kręciołek dostaje jednak tylko przycisk
+  // wysyłki tego formularza, rozpoznanej po `intent`.
   const nawigacja = useNavigation();
   const zajety = nawigacja.state !== "idle";
   const wysylanyTen =
@@ -271,14 +274,18 @@ export function FormularzKategorii({
           </AntForm.Item>
 
           <AntForm.Item className="mb-0">
-            <Button
-              type="primary"
-              htmlType="submit"
-              loading={wysylanyTen}
-              disabled={zajety || !moznaZapisac}
-            >
-              {etykietaZapisu}
-            </Button>
+            <div className="flex flex-wrap gap-tg-element">
+              <Button
+                type="primary"
+                htmlType="submit"
+                loading={wysylanyTen}
+                disabled={zajety || !moznaZapisac}
+              >
+                {etykietaZapisu}
+              </Button>
+
+              {obokZapisu}
+            </div>
           </AntForm.Item>
         </AntForm>
       </RouterForm>

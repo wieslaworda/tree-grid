@@ -9,7 +9,7 @@ type Wlasciwosci = {
   onPotwierdz: () => void;
   /** Przycisk nieczynny, więc dymka nie da się otworzyć (brak celu, trwająca operacja). */
   wylaczone?: boolean;
-  /** Usuwanie w toku — kręciołek na przycisku uruchamiającym. */
+  /** Usunięcie w toku — kręciołek na przycisku uruchamiającym. */
   wToku?: boolean;
 };
 
@@ -50,8 +50,9 @@ const OBRYSOWANY = { color: "default", variant: "outlined" } as const;
  * tym samym kolorem.
  *
  * Przycisk zostaje przy domyślnym `htmlType="button"` antd i to jest nośne:
- * „Usuń drzewo” stoi w rzędzie „Zapisz zmiany”, czyli wewnątrz `<form>`
- * zmiany nazwy (`FormularzDrzewa`), i nie może go wysłać.
+ * w kartach edycji stoi w rzędzie „Zapisz zmiany”, czyli wewnątrz `<form>`
+ * zapisu — w `FormularzDrzewa`, `FormularzObiektu`, `FormularzKategorii`
+ * i w karcie ekranu (`routes/ekrany.tsx`) — i nie może go wysłać.
  */
 export function PotwierdzenieUsuniecia({
   pytanie,

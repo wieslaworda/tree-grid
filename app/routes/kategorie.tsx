@@ -39,17 +39,6 @@ const ZAPISZ = "zapisz";
 const USUN = "usun";
 
 /**
- * Kody odmów usunięcia kategorii — dziś `CategorySoleScreenDefault`:
- * kategoria jest jedyną domyślną jakiegoś ekranu. Po nich widok rozpoznaje,
- * że odpowiedź dotyczy przycisku usuwania, a nie formularza kategorii — powód
- * i zasada „każdy kod emitowany wyłącznie przez `DELETE`" jak przy tym samym
- * zbiorze w `routes/obiekty.tsx`.
- */
-const ODMOWY_USUNIECIA: ReadonlySet<string> = new Set([
-  "category_sole_screen_default",
-]);
-
-/**
  * Parametr adresu z identyfikatorem kategorii wybranej do edycji. Wybór
  * siedzi w adresie, a nie w stanie komponentu — powody jak w
  * `routes/obiekty.tsx`: przeżywa odświeżenie, działa przed hydracją i trafia
@@ -322,15 +311,6 @@ function EdycjaKategorii({
   kategoria: CatalogCategory;
   blad: ApiErrorBody | undefined;
 }) {
-  // Odmowa usunięcia idzie do banera nad przyciskiem usuwania, wszystko inne
-  // — także 404 z usuwania kategorii usuniętej w międzyczasie — do formularza,
-  // który ma swój baner i komunikaty pod polami.
-  const odmowaUsuniecia =
-    blad !== undefined && ODMOWY_USUNIECIA.has(blad.error.code)
-      ? blad
-      : undefined;
-  const bladZapisu = odmowaUsuniecia === undefined ? blad : undefined;
-
   const wyslij = useSubmit();
   const nawigacja = useNavigation();
   const zajety = nawigacja.state !== "idle";
@@ -352,47 +332,40 @@ function EdycjaKategorii({
         </Button>
       }
     >
-      <FormularzKategorii
-        kategoria={kategoria}
-        blad={bladZapisu}
-        intent={ZAPISZ}
-        etykietaZapisu="Zapisz zmiany"
-      />
-
       {/*
-        Poziom 5: nagłówek stoi wewnątrz karty, pod jej tytułem, i nie ma być
-        od niego większy.
-      */}
-      <Typography.Title level={5} className="mt-tg-sekcja">
-        Usuwanie
-      </Typography.Title>
+        Każdy błąd tej karty — także z usuwania (odmowa
+        `category_sole_screen_default`, gdy kategoria jest jedyną domyślną
+        jakiegoś ekranu, albo 404 kategorii usuniętej w międzyczasie) — idzie
+        do formularza, który ma baner i komunikaty pod polami. Odmowa bez
+        `context.fields` trafia do banera.
 
-      {odmowaUsuniecia === undefined ? null : (
-        <Alert
-          className="mb-tg-element"
-          type="error"
-          showIcon
-          title={odmowaUsuniecia.error.message}
-        />
-      )}
-
-      {/*
-        Bez własnego `<form>` — powód przy usuwaniu obiektu
-        w `routes/obiekty.tsx`: potwierdzenie wysyła `intent` przez
-        `useSubmit` pod bieżący adres (z `?id=`). Wygląd przycisku i zakaz
-        `danger` — w `PotwierdzenieUsuniecia`. Przycisk wyłącza tylko trwająca
+        „Usuń kategorię” stoi w rzędzie „Zapisz zmiany”, czyli wewnątrz
+        `<form>` zapisu, ale go nie wysyła — powód i wygląd przycisku
+        w `PotwierdzenieUsuniecia`. Potwierdzenie wysyła `intent` przez
+        `useSubmit` pod bieżący adres, więc z `?id=` wybranej kategorii —
+        z niego `action` bierze identyfikator. Przycisk wyłącza tylko trwająca
         nawigacja: czy kategorii używa jakiś ekran, rozstrzyga API przy
         usuwaniu. Usunięcie zdejmuje kategorię z ekranów kaskadą (S-06), więc
-        pytanie o tym uprzedza; kategorię będącą jedyną domyślną ekranu API
-        odrzuca, a odmowa trafia do banera nad tym przyciskiem.
+        pytanie o tym uprzedza.
       */}
-      <PotwierdzenieUsuniecia
-        pytanie={`Usunąć kategorię „${kategoria.code}”? Zniknie też z ekranów, które jej używają.`}
-        etykieta="Usuń kategorię"
-        wylaczone={zajety}
-        wToku={usuwanie}
-        onPotwierdz={() =>
-          wyslij({ intent: USUN }, { method: "post", preventScrollReset: true })
+      <FormularzKategorii
+        kategoria={kategoria}
+        blad={blad}
+        intent={ZAPISZ}
+        etykietaZapisu="Zapisz zmiany"
+        obokZapisu={
+          <PotwierdzenieUsuniecia
+            pytanie={`Usunąć kategorię „${kategoria.code}”? Zniknie też z ekranów, które jej używają.`}
+            etykieta="Usuń kategorię"
+            wylaczone={zajety}
+            wToku={usuwanie}
+            onPotwierdz={() =>
+              wyslij(
+                { intent: USUN },
+                { method: "post", preventScrollReset: true },
+              )
+            }
+          />
         }
       />
     </RamkaPanelu>

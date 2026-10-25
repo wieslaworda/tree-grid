@@ -247,27 +247,27 @@ Brak.
 
 #### Automated
 
-- [x] 1.1 Kontrola typów przechodzi: `npm run typecheck`
-- [x] 1.2 W `app/routes/obiekty.tsx` nie ma `ODMOWY_USUNIECIA` ani tekstu „Usuwanie”
+- [x] 1.1 Kontrola typów przechodzi: `npm run typecheck` — 9f8fe95
+- [x] 1.2 W `app/routes/obiekty.tsx` nie ma `ODMOWY_USUNIECIA` ani tekstu „Usuwanie” — 9f8fe95
 
 #### Manual
 
-- [x] 1.3 Na `/obiekty?id=<id>` „Usuń obiekt” stoi w jednym rzędzie z „Zapisz zmiany”, bez nagłówka „Usuwanie”, w obu wariantach motywu
-- [x] 1.4 Usunięcie obiektu użytego w drzewie pokazuje odmowę `object_in_tree` w banerze nad polami, a wpisane zmiany w polach zostają
-- [x] 1.5 Enter w polu „Nazwa” zapisuje zmianę i nie otwiera dymka usuwania; „Usuń” w dymku usuwa obiekt i wraca do karty „Nowy obiekt”
-- [x] 1.6 Karta „Nowy obiekt” nie ma przycisku usuwania i wygląda jak przed zmianą
+- [x] 1.3 Na `/obiekty?id=<id>` „Usuń obiekt” stoi w jednym rzędzie z „Zapisz zmiany”, bez nagłówka „Usuwanie”, w obu wariantach motywu — 9f8fe95
+- [x] 1.4 Usunięcie obiektu użytego w drzewie pokazuje odmowę `object_in_tree` w banerze nad polami, a wpisane zmiany w polach zostają — 9f8fe95
+- [x] 1.5 Enter w polu „Nazwa” zapisuje zmianę i nie otwiera dymka usuwania; „Usuń” w dymku usuwa obiekt i wraca do karty „Nowy obiekt” — 9f8fe95
+- [x] 1.6 Karta „Nowy obiekt” nie ma przycisku usuwania i wygląda jak przed zmianą — 9f8fe95
 
 ### Phase 2: Kategorie
 
 #### Automated
 
-- [ ] 2.1 Kontrola typów przechodzi: `npm run typecheck`
-- [ ] 2.2 W `app/` nie zostało `ODMOWY_USUNIECIA` ani nagłówek „Usuwanie”
-- [ ] 2.3 Spec Node przechodzi: `npm run test:node`
+- [x] 2.1 Kontrola typów przechodzi: `npm run typecheck`
+- [x] 2.2 W `app/` nie zostało `ODMOWY_USUNIECIA` ani nagłówek „Usuwanie”
+- [x] 2.3 Spec Node przechodzi: `npm run test:node`
 - [ ] 2.4 E2E klikające „Usuń obiekt” / „Usuń kategorię” przechodzą
 
 #### Manual
 
-- [ ] 2.5 Na `/kategorie?id=<id>` „Usuń kategorię” stoi w jednym rzędzie z „Zapisz zmiany”, bez nagłówka „Usuwanie”, w obu wariantach motywu
-- [ ] 2.6 Usunięcie kategorii będącej jedyną domyślną ekranu pokazuje odmowę `category_sole_screen_default` w banerze nad polami
-- [ ] 2.7 Karty edycji `/obiekty`, `/kategorie` i `/drzewo` położone obok siebie mają ten sam układ nagłówka i rzędu przycisków
+- [x] 2.5 Na `/kategorie?id=<id>` „Usuń kategorię” stoi w jednym rzędzie z „Zapisz zmiany”, bez nagłówka „Usuwanie”, w obu wariantach motywu
+- [x] 2.6 Usunięcie kategorii będącej jedyną domyślną ekranu pokazuje odmowę `category_sole_screen_default` w banerze nad polami
+- [x] 2.7 Karty edycji `/obiekty`, `/kategorie` i `/drzewo` położone obok siebie mają ten sam układ nagłówka i rzędu przycisków
