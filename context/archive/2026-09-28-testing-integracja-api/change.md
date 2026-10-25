@@ -1,10 +1,10 @@
 ---
 change_id: testing-integracja-api
 title: Testy integracyjne API — atomowość operacji na drzewie i kaskady ekranów
-status: impl_reviewed
+status: archived
 created: 2026-09-28
-updated: 2026-10-01
-archived_at: null
+updated: 2026-10-25
+archived_at: 2026-10-25T11:28:38Z
 ---
 
 ## Notes
