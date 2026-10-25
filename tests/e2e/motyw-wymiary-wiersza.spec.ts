@@ -17,6 +17,14 @@ import { PALETY, type Wariant } from "~/theme/tokeny";
  */
 const MAKS_WIERSZ_PX = 24;
 
+/**
+ * Doba prezentacji przypięta w adresie. Bez `?doba=` widok bierze dzisiejszą
+ * dobę w Europe/Warsaw, a doba zmiany czasu ma 276 albo 300 kolumn
+ * pięciominutowych zamiast 288 — test padał wtedy bez związku z wyglądem.
+ * Dowolna doba bez zmiany czasu z zakresu lat przyjmowanego przez API.
+ */
+const DOBA_288_KOLUMN = "2026-06-15";
+
 type Obiekt = { kod: string; nazwa: string };
 type Prostokat = { x: number; y: number; width: number; height: number };
 
@@ -57,7 +65,7 @@ test.describe("#3 zmiana motywu nie psuje wyglądu aplikacji", () => {
     const idEkranu = new URL(adresEkranu).searchParams.get("ekran");
 
     // --- Grid prezentacji w wariancie domyślnym (ciemnym, brak ciasteczka) ---
-    await page.goto(`/prezentacja?ekran=${idEkranu}`);
+    await page.goto(`/prezentacja?ekran=${idEkranu}&doba=${DOBA_288_KOLUMN}`);
     const grid = page.getByRole("region", { name: "Grid ekranu" });
     await expect(grid.getByText("Wierszy: 6 · Kolumn czasowych: 288")).toBeVisible();
     await expect(page.getByRole("radio", { name: "Ciemny" })).toBeChecked();
