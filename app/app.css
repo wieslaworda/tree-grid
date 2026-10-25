@@ -221,7 +221,17 @@ html {
      z prefiksem (`ant-table-tbody-virtual-scrollbar-*`), nie po
      hashowanych. Pasek renderuje się tylko, gdy treść się nie mieści, więc
      stała widoczność nie pokaże pustego paska. Grubość
-     `METRYKI.gruboscSuwakaPrzewijania`. */
+     `METRYKI.gruboscSuwakaPrzewijania`.
+
+     Paski nie leżą na treści: `GridEkranu.tsx` rezerwuje na nie miejsce.
+     Poziomy stoi w układzie pod ciałem (`sticky` tabeli, mniejsze
+     `scroll.y`), pionowy nad pustą kolumną-rezerwą na końcu zakresu
+     przewijania. Pionowy ma jednak `top: 0; bottom: 0` w kontenerze, który
+     zawiera też wiersz poziomego paska, więc bez korekty wjechałby
+     w narożnik. Skrócony kończy się na dole ciała — i tylko wtedy jego kciuk
+     dojeżdża do końca, bo zakres liczy z wysokości ciała. Pionowy renderuje
+     się przed poziomym w tym samym kontenerze (`List.js`), stąd
+     `:has(~ …)`. */
   .tg-grid-ekranu .ant-table-tbody-virtual-scrollbar {
     visibility: visible !important;
   }
@@ -232,6 +242,22 @@ html {
 
   .tg-grid-ekranu .ant-table-tbody-virtual-scrollbar-vertical {
     width: var(--tg-gruboscSuwakaPrzewijania) !important;
+  }
+
+  /* Tor pionowego paska bez tła prześwitywał liniami wierszy: kolumna-rezerwa
+     leży pod nim tylko przy końcu przewijania w poziomie, a wcześniej pasek
+     wisi nad komórkami danych. Tło `panel` — to samo co tło tabeli
+     (`colorBgContainer` w `app/theme/antd.ts`). Poziomy tła nie potrzebuje,
+     bo stoi w układzie pod ciałem, nie nad wierszami. */
+  .tg-grid-ekranu .ant-table-tbody-virtual-scrollbar-vertical {
+    background-color: var(--tg-panel);
+  }
+
+  .tg-grid-ekranu
+    .ant-table-tbody-virtual-scrollbar-vertical:has(
+      ~ .ant-table-tbody-virtual-scrollbar-horizontal
+    ) {
+    bottom: var(--tg-gruboscSuwakaPrzewijania) !important;
   }
 
   /* Krótki separator między etykietami punktów w nagłówku — ten sam, który

@@ -16,6 +16,7 @@ import {
   kluczSerii,
   wierszeTabeli,
 } from "~/lib/ekran";
+import { useSzerokoscKontenera } from "~/lib/useSzerokoscKontenera";
 import { useSzerokoscTekstu } from "~/lib/useSzerokoscTekstu";
 import { useWysokoscTresci } from "~/lib/useWysokoscTresci";
 import { METRYKI } from "~/theme/tokeny";
@@ -211,6 +212,28 @@ function szerokoscPrzypietych(szerokoscKategorii: number) {
   return METRYKI.szerokoscKolumnyWezla + szerokoscKategorii;
 }
 
+function pustaKomorka() {
+  return null;
+}
+
+/**
+ * Kolumna-rezerwa pod pionowym paskiem przewijania — ostatnia, dokładana
+ * tylko wtedy, gdy tabela ten pasek narysuje ({@link paskiPrzewijania}).
+ * Szerokość paska wchodzi do zakresu przewijania jako kolumna, a nie samo
+ * powiększenie `scroll.x`: `scroll.x` ponad sumę `width` kolumn rozciąga
+ * proporcjonalnie wszystkie kolumny (powód przy {@link szerokoscPrzypietych}).
+ * Nagłówek ma tło nagłówka gridu, bo stoi nad paskiem, a komórka ciała jest
+ * pusta i bez wyboru węzła — leży pod paskiem. Stała, bo antd porównuje
+ * kolumny po referencji.
+ */
+const KOLUMNA_REZERWY: TableColumnsType<WierszTabeli>[number] = {
+  onHeaderCell: wlasciwosciNaglowka,
+  key: "rezerwa-paska",
+  className: KLASA_KOMORKI,
+  width: METRYKI.gruboscSuwakaPrzewijania,
+  render: pustaKomorka,
+};
+
 /**
  * Nazwy wszystkich kategorii drzewa, bez powtórzeń — także w gałęziach
  * zwiniętych, żeby zwinięcie nie zmieniało szerokości kolumny.
@@ -241,6 +264,65 @@ function nazwyKategorii(wezly: readonly WezelGridu[]): string[] {
  */
 const WYSOKOSC_PRZED_POMIAREM =
   (METRYKI.wierszeMinimalnejBudowy - 1) * METRYKI.wysokoscWiersza;
+
+/**
+ * Wysokość ciała (`scroll.y`): zmierzona wysokość pod nagłówkiem minus
+ * wiersz poziomego paska, gdy tabela go narysuje — pasek stoi w układzie
+ * pod ciałem, więc tabela z nim dalej mieści się w kontenerze.
+ */
+function wysokoscCiala(wysokoscTresci: number, poziomy: boolean) {
+  return Math.max(
+    0,
+    wysokoscTresci - (poziomy ? METRYKI.gruboscSuwakaPrzewijania : 0),
+  );
+}
+
+/**
+ * Paski przewijania, które narysuje tabela wirtualna — rozstrzygnięte przed
+ * jej renderem, żeby zarezerwować na nie miejsce. Porównania są dokładnie
+ * tymi z `@rc-component/virtual-list` (`List.js`, warunki renderu obu
+ * `ScrollBar`): pionowy, gdy wysokość wierszy przekracza `scroll.y`,
+ * poziomy, gdy `scroll.x` przekracza szerokość holdera. Ostre `>`, więc przy
+ * równości paska nie ma, a rezerwy też nie.
+ *
+ * Paski zależą od siebie: rezerwa pionowa poszerza treść i może wywołać
+ * poziomy pasek, a poziomy zmniejsza `scroll.y` i może wywołać pionowy. Obie
+ * zależności tylko dokładają pasek, więc wystarcza stała kolejność, bez
+ * pętli: pionowy bez poziomego, poziomy z tą rezerwą pionową, pionowy
+ * z rezerwą poziomą i — gdy pionowy dopiero wtedy doszedł — poziomy jeszcze
+ * raz.
+ *
+ * Do pierwszego pomiaru wysokości albo szerokości (render serwerowy,
+ * hydracja) pasków nie ma, więc rezerwy też nie — zasłona czeka na oba
+ * pomiary.
+ */
+function paskiPrzewijania(
+  liczbaWierszy: number,
+  wysokoscTresci: number | undefined,
+  szerokoscKontenera: number | undefined,
+  szerokoscTresci: number,
+): { poziomy: boolean; pionowy: boolean } {
+  if (wysokoscTresci === undefined || szerokoscKontenera === undefined) {
+    return { poziomy: false, pionowy: false };
+  }
+
+  const wysokoscWierszy = liczbaWierszy * METRYKI.wysokoscWiersza;
+  const pionowyPrzy = (poziomy: boolean) =>
+    wysokoscWierszy > wysokoscCiala(wysokoscTresci, poziomy);
+  const poziomyPrzy = (pionowy: boolean) =>
+    szerokoscTresci + (pionowy ? METRYKI.gruboscSuwakaPrzewijania : 0) >
+    szerokoscKontenera;
+
+  const pionowyBezPoziomego = pionowyPrzy(false);
+  let poziomy = poziomyPrzy(pionowyBezPoziomego);
+  const pionowy = pionowyPrzy(poziomy);
+
+  if (pionowy && !pionowyBezPoziomego) {
+    poziomy = poziomyPrzy(pionowy);
+  }
+
+  return { poziomy, pionowy };
+}
 
 /**
  * Klasy komórki ciała: linia sekcji na pierwszym wierszu węzła, tło
@@ -321,6 +403,19 @@ function klasyKomorki(
  * (`min-h-0 flex-1` w `ObszarPrzewijania`). Rodzic musi więc dać gridowi
  * ograniczoną wysokość. Kontener tylko przycina — przewija wyłącznie ciało
  * tabeli.
+ *
+ * Paski przewijania rysuje lista wirtualna jako nakładkę na krawędzi ciała,
+ * bez miejsca w układzie i w zakresie przewijania — bez rezerwy przykrywałyby
+ * ostatni wiersz i ostatnią kolumnę przy końcu przewijania. Komponent mierzy
+ * więc też szerokość kontenera (`useSzerokoscKontenera`), rozstrzyga przed
+ * renderem, które paski tabela narysuje ({@link paskiPrzewijania}),
+ * i rezerwuje miejsce tylko na nie. Poziomy stoi w układzie pod ciałem
+ * (`sticky` tabeli daje mu `position: sticky` zamiast nakładki), a `scroll.y`
+ * maleje o jego grubość. Pionowy dostaje pustą kolumnę-rezerwę na końcu
+ * zakresu przewijania ({@link KOLUMNA_REZERWY}) i `scroll.x` większe o tę
+ * samą liczbę — samo większe `scroll.x` rozciągnęłoby wszystkie kolumny.
+ * Narożnik, w którym pionowy kończy się nad poziomym, ustawia `app/app.css`
+ * (`.tg-grid-ekranu`). Grubość obu to `METRYKI.gruboscSuwakaPrzewijania`.
  */
 export function GridEkranu({
   wezly,
@@ -338,6 +433,7 @@ export function GridEkranu({
   const zKolumnamiCzasowymi = liczbaPunktow > 0;
   const kontener = useRef<HTMLDivElement>(null);
   const wysokoscTresci = useWysokoscTresci(kontener);
+  const szerokoscKontenera = useSzerokoscKontenera(kontener);
 
   // Szerokość „Kategorii” dopasowana do najdłuższej nazwy — tylko przy
   // samych nazwach. Do pomiaru (i bez `tylkoNazwaKategorii`) zostaje
@@ -485,30 +581,49 @@ export function GridEkranu({
     ];
   }, [punkty, wartosci]);
 
-  const kolumny = useMemo(
-    () =>
+  // Szerokość treści bez rezerwy na pionowy pasek — dotychczasowe `scroll.x`.
+  const szerokoscTresci =
+    szerokoscPrzypietych(szerokoscKategorii) +
+    liczbaPunktow * METRYKI.szerokoscKolumnyCzasowej;
+  const { poziomy, pionowy } = paskiPrzewijania(
+    wiersze.length,
+    wysokoscTresci,
+    szerokoscKontenera,
+    szerokoscTresci,
+  );
+
+  // Kolumna-rezerwa tylko przy pionowym pasku, a obie listy kolumn i stała
+  // rezerwa zachowują referencje, więc pojawienie się paska nie przebudowuje
+  // kolumny danych.
+  const kolumny = useMemo(() => {
+    const tresc =
       kolumnyDanych.length === 0
         ? kolumnyPrzypiete
-        : [...kolumnyPrzypiete, ...kolumnyDanych],
-    [kolumnyPrzypiete, kolumnyDanych],
-  );
+        : [...kolumnyPrzypiete, ...kolumnyDanych];
+
+    return pionowy ? [...tresc, KOLUMNA_REZERWY] : tresc;
+  }, [kolumnyPrzypiete, kolumnyDanych, pionowy]);
 
   const przewijanie = useMemo(
     () => ({
-      x:
-        szerokoscPrzypietych(szerokoscKategorii) +
-        liczbaPunktow * METRYKI.szerokoscKolumnyCzasowej,
-      y: wysokoscTresci ?? WYSOKOSC_PRZED_POMIAREM,
+      x: szerokoscTresci + (pionowy ? METRYKI.gruboscSuwakaPrzewijania : 0),
+      y:
+        wysokoscTresci === undefined
+          ? WYSOKOSC_PRZED_POMIAREM
+          : wysokoscCiala(wysokoscTresci, poziomy),
     }),
-    [wysokoscTresci, liczbaPunktow, szerokoscKategorii],
+    [wysokoscTresci, szerokoscTresci, poziomy, pionowy],
   );
 
   // Kciuk pasków przewijania w kolorze aktywnej pozycji menu głównego:
   // `colorPrimary` przeliczony przez algorytm antd z ziarna `akcent` (menu
   // bierze go jako `itemSelectedColor`), a nie heks z palety — ten sam heks
   // dałby inny odcień niż menu (kontrakt 4 w `CLAUDE.md`). Zmienną czyta
-  // styl inline paska listy wirtualnej; grubość i widoczność — `app/app.css`
-  // (`.tg-grid-ekranu`).
+  // styl inline paska listy wirtualnej; grubość, widoczność i narożnik —
+  // `app/app.css` (`.tg-grid-ekranu`). Paski mają zarezerwowane miejsce,
+  // więc niczego nie przykrywają: poziomy stoi w układzie pod ciałem przez
+  // `sticky` tabeli, a pionowy nad kolumną-rezerwą ({@link KOLUMNA_REZERWY}),
+  // bo `scroll.x` ponad sumę kolumn rozciągnąłby wszystkie kolumny.
   const { token } = theme.useToken();
   const stylTabeli = useMemo(
     () =>
@@ -518,7 +633,9 @@ export function GridEkranu({
     [token.colorPrimary],
   );
 
-  // Zasłona budowy: grid gotowy, gdy dane są i oba pomiary już spłynęły.
+  // Zasłona budowy: grid gotowy, gdy dane są i wszystkie pomiary już
+  // spłynęły — także szerokość kontenera, bez której nie ma rezerwy na paski,
+  // więc odsłonięty grid przeskoczyłby potem o grubość paska.
   // Odsłonięcie dopiero klatkę później — pierwszy render z danymi zmienia
   // nagłówek, a `useWysokoscTresci` mierzy go ponownie po zatwierdzeniu,
   // więc bez tej klatki widać byłoby jeszcze przeliczenie wysokości.
@@ -526,6 +643,7 @@ export function GridEkranu({
   const gotowy =
     wczytywanie === false &&
     wysokoscTresci !== undefined &&
+    szerokoscKontenera !== undefined &&
     (!tylkoNazwaKategorii || szerokoscNazw !== undefined);
   const [odsloniety, ustawOdsloniety] = useState(false);
 
@@ -562,11 +680,15 @@ export function GridEkranu({
         {/* `tg-grid-ekranu` — grubsze i widoczne paski przewijania listy
             wirtualnej (`app/app.css`); ich kolor niesie `stylTabeli`.
             Pod zasłoną `invisible`, a nie `hidden`: tabela musi mieć układ,
-            bo z niego biorą się pomiary, na które zasłona czeka. */}
+            bo z niego biorą się pomiary, na które zasłona czeka.
+            `sticky` zawsze: w tabeli wirtualnej zmienia wyłącznie poziomy
+            pasek (w układzie zamiast nakładki), a nagłówkowi w przycinającym
+            kontenerze niczego nie zmienia. */}
         <Table<WierszTabeli>
           className={zasloniety ? "tg-grid-ekranu invisible" : "tg-grid-ekranu"}
           style={stylTabeli}
           virtual
+          sticky
           size="small"
           rowKey="key"
           columns={kolumny}

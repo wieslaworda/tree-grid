@@ -294,8 +294,11 @@ export const METRYKI: Metryki = {
   gruboscLiniiSekcji: 2,
   // Grubość pasków przewijania gridu ekranu (`.tg-grid-ekranu` w
   // `app/app.css`) — poziomego i pionowego. Domyślne 8 px tabeli wirtualnej
-  // ginęło na tle drzewa. Pasek leży **na** treści, nie obok niej, więc
-  // grubszy zasłania więcej ostatniego wiersza i ostatniej kolumny.
+  // ginęło na tle drzewa. Ta sama liczba ustala rezerwę miejsca na pasek
+  // w obu osiach (`GridEkranu.tsx`): wiersz poziomego paska pod ciałem
+  // i kolumnę-rezerwę pod pionowym. Pasek stoi więc obok treści, a nie na
+  // niej — grubszy zabiera więcej miejsca, zamiast zasłaniać ostatni wiersz
+  // i ostatnią kolumnę.
   gruboscSuwakaPrzewijania: 12,
   // Bok kwadratowego przełącznika +/− węzła w gridzie (`.tg-przelacznik`
   // w `app/app.css`), z ramką. Nieparzysty celowo: przy ramce 1 px zostaje
