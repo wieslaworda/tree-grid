@@ -1,10 +1,10 @@
 ---
 change_id: zakladanie-konta
 title: Zakładanie konta loginem, hasłem i e-mailem z kodem weryfikacyjnym do administratora
-status: impl_reviewed
+status: archived
 created: 2026-10-10
-updated: 2026-10-24
-archived_at: null
+updated: 2026-10-25
+archived_at: 2026-10-25T11:30:58Z
 ---
 
 ## Notes
