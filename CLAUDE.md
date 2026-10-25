@@ -461,8 +461,8 @@ konfiguracją ani rozszerzać jej wyjątku. Hosta API nie dopisuj do
 Nie traktuj ich jako błędów do naprawienia przy okazji — to zaległa praca:
 
 - Brak testów jednostkowych frontendu poza jednym specem Node
-  (`tests/node/`) i nieliczne testy procesowe (E2E) z
-  `context/changes/testy-procesowe-playwright/`. Runner testów jednostkowych
+  (`tests/node/`) i nieliczne testy procesowe (E2E) w `tests/e2e/`
+  (`context/foundation/test-stack.md`). Runner testów jednostkowych
   stoi w roadmapie w sekcji *Parked* — nie rozbudowuj zestawu na zapas.
 - Testy integracyjne API (`*IntegrationTests`) pokrywają drzewa, ekrany oraz
   rejestrację z kodem weryfikacyjnym i logowanie loginem

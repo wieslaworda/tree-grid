@@ -394,7 +394,7 @@ Rozstrzygnięte:
 - **Integracja z realnym źródłem danych** — Why parked: PRD `## Non-Goals`; wartości w punktach czasowych są generowane losowo, co zdejmuje z MVP zależność od systemów zewnętrznych.
 - **Gwarancje dla ekranów mobilnych** — Why parked: wymaganie niefunkcjonalne wprost ogranicza produkt do przeglądarek desktopowych.
 - **Pipeline CI (GitHub Actions)** — Why parked: `tech-stack.md` deklaruje `ci_provider: github-actions`, ale PRD nie stawia takiego wymagania, a cel sekwencjonowania to `speed`. Wraca, gdy termin przestanie być głównym ryzykiem.
-- **Runner testów i automatyczna weryfikacja zachowania** — Why parked: znana luka repozytorium bez odpowiednika w wymaganiach PRD; przy głównym ryzyku `time` nie wchodzi na ścieżkę rzeczy koniecznych.
+- **Runner testów i automatyczna weryfikacja zachowania** — Why parked: znana luka repozytorium bez odpowiednika w wymaganiach PRD; przy głównym ryzyku `time` nie wchodzi na ścieżkę rzeczy koniecznych. Istnieje już kilka testów procesowych (E2E) w `tests/e2e/` (`context/foundation/test-stack.md`), w tym ścieżka odrzuconej operacji na drzewie z przeładowaniem; odroczony pozostaje pełny zestaw testów zachowania.
 - **Docker / Compose jako ścieżka wdrożenia** — Why parked: Docker nie jest zainstalowany na maszynie deweloperskiej, a zweryfikowana ścieżka wdrożenia to natywny Node za quick tunnelem. `Dockerfile` zostaje jako kontrakt na przyszłość.
 
 ## Milestone History

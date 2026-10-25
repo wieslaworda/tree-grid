@@ -6,7 +6,7 @@
 >
 > Refresh: re-run `/10x-test-plan --refresh` when stale (see §8).
 >
-> Last updated: 2026-10-01
+> Last updated: 2026-10-25
 
 ## 1. Strategy
 
@@ -65,7 +65,7 @@ wraz z pojawianiem się artefaktów na dysku.
 |---|---|---|---|---|---|---|
 | 1 | Integracja API: drzewo i ekrany | Udowodnić atomowość operacji na drzewie i poprawność kaskad ekranu na prawdziwym SQLite | #1, #2 | integracja (xUnit + WebApplicationFactory) | complete | context/changes/testing-integracja-api/ |
 | 2 | Granice dostępu | Udowodnić izolację kont, skuteczność blokady logowania i kontrolę originu za tunelem | #4, #5, #6 | integracja API + unit TS (pierwszy runner frontendu) | change opened | context/changes/testing-granice-dostepu/ |
-| 3 | Przepływ krytyczny e2e | Udowodnić, że odrzucona pętla nie zmienia drzewa w widoku i że struktura przeżywa reload | #1 | e2e (Playwright) | planned | context/changes/testy-procesowe-playwright/ |
+| 3 | Przepływ krytyczny e2e | Udowodnić, że odrzucona pętla nie zmienia drzewa w widoku i że struktura przeżywa reload | #1 | e2e (Playwright) | complete | tests/e2e/seed.spec.ts (`597d054`; plan `testy-procesowe-playwright` wyprzedzony) |
 | 4 | Wygląd i motyw | Udowodnić, że zmiana widoku nie łamie warstwy stylów, wysokości wiersza ani wymiarów przy zmianie wariantu | #3 | kontrola HTML z buildu, pomiar w przeglądarce, visual diff, opcjonalnie review wizyjne | not started | — |
 | 5 | Bramki jakości | Zablokować poziom z faz 1–4 w jednej bramce i zalecanym hooku po edycji | cross-cutting | gates, post-edit hook | not started | — |
 
@@ -76,7 +76,7 @@ wraz z pojawianiem się artefaktów na dysku.
 | unit (.NET) | xUnit | 2.9.3 | istnieje: reguły domenowe i koperty błędów w `tests/Api.Tests/` |
 | integracja API | Microsoft.AspNetCore.Mvc.Testing (WebApplicationFactory) + SQLite | 10.0.12 | istnieje od Phase 1: `TestApiFactory` + `IntegrationSeed`, klasy `*IntegrationTests` w `tests/Api.Tests/`, plik SQLite w `%TEMP%` na klasę (nie provider InMemory); wzorce w §6.2 |
 | unit (TS) | Vitest | do ustalenia w Phase 2 | none yet — see Phase 2; `createRoutesStub` nie nadaje się do tras z typami `Route.*` |
-| e2e | @playwright/test | do ustalenia w Phase 3 | none yet — plan w `testy-procesowe-playwright`; Chromium, `workers: 1` |
+| e2e | @playwright/test | ^1.63.0 | istnieje od Phase 3: specy w `tests/e2e/`, konfiguracja `playwright.config.ts`; komendy i stan w `context/foundation/test-stack.md` |
 | visual diff | Playwright screenshot comparison | jak e2e | none yet — see Phase 4; 1–3 ekrany, oba warianty |
 | (optional) AI-native | review wizyjne modelem multimodalnym — checked: 2026-09-28 | n/a | When NOT to use: gdy deterministyczny pomiar wymiarów lub visual diff już łapie regresję |
 
