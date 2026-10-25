@@ -1,7 +1,7 @@
 ---
 change_id: uklad-przyciskow
 title: Układ przycisków edycji Obiektów i Kategorii jak w nagłówku formularza Drzewa
-status: implemented
+status: impl_reviewed
 created: 2026-10-25
 updated: 2026-10-25
 archived_at: null

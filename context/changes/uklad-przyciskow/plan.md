@@ -71,6 +71,10 @@ kategoria” wygląda jak dotąd (bez przycisku usuwania).
   przycisków (`PRZYCISKI`, zakaz `danger` zostają).
 - Bez zmian w karcie dodawania, nagłówku karty i przycisku „Nowy …”.
 - Bez nowych testów E2E — istniejące klikają przyciski po nazwie.
+  Dodatek przyjęty w trakcie (5df9a8d): `motyw-wymiary-wiersza.spec.ts`
+  przypina `?doba=2026-06-15`, bo w dobę zmiany czasu (2026-10-25) grid
+  ma 300 kolumn i oczekiwanie 288 padało bez związku z układem; test
+  sprawdza to samo co wcześniej.
 
 ## Implementation Approach
 

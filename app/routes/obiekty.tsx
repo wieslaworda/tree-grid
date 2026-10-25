@@ -360,7 +360,11 @@ function EdycjaObiektu({
             onPotwierdz={() =>
               wyslij(
                 { intent: USUN },
-                { method: "post", preventScrollReset: true },
+                {
+                  method: "post",
+                  action: adresWyboru(obiekt.id),
+                  preventScrollReset: true,
+                },
               )
             }
           />
