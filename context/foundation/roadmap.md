@@ -61,7 +61,7 @@ Przy celu sekwencjonowania `speed` to również fragment, który najtaniej odpow
 | S-02 | `lista-obiektow`      | przeglądać, dodawać i edytować obiekty dostępne do budowy drzewa                           | F-01          | FR-002                                                 | in-progress |
 | S-03 | `budowa-drzewa`       | prowadzić własne nazwane drzewa i składać w wybranym drzewie strukturę; zapętlenie jest odrzucane | S-02          | FR-003, FR-004, US-01, Business Logic, Access Control, NFR (izolacja kont), MS-03, MS-04, MS-05, MS-06, MS-07 | done |
 | S-07 | `menu-glowne`         | po zalogowaniu przechodzić między funkcjami z menu głównego; pierwsza pozycja to „Obiekty" | S-01, S-02    | MS-01, FR-002, Access Control                          | done |
-| S-09 | `lista-kategorii`     | przeglądać, dodawać, edytować i usuwać kategorie danych (kod, nazwa, funkcja agregująca)  | F-01, S-07    | MS-02, MS-01, FR-006                                   | in-progress |
+| S-09 | `lista-kategorii`     | przeglądać, dodawać, edytować i usuwać kategorie danych (kod, nazwa, funkcja agregująca)  | F-01, S-07    | MS-02, MS-01, FR-006                                   | done |
 | S-06 | `zapisane-ekrany`     | utworzyć ekran (nazwa, własne drzewo, ziarno, domyślne kategorie), widzieć na bieżąco wiersze węzły × kategorie, zapisać go, wybrać z listy własnych ekranów, odtworzyć i usunąć | S-03, S-09    | FR-009, FR-010, FR-012, FR-007, FR-008, US-01, Access Control, NFR (izolacja kont), MS-01 | in-progress |
 | S-05 | `prezentacja-ekranu`  | wybrać dobę dla ekranu i zobaczyć kolumny czasowe wynikające z ziarna (288 / 96 / 24)       | S-06, F-02    | FR-007, FR-008, US-01, NFR (288 kolumn, feedback >2 s, gęstość odczytu liczb) | in-progress |
 | S-04 | `edycja-ekranu`       | w trybie edycji zapisanego ekranu dokładać i zdejmować kategorie wskazanego węzła, zmienić nazwę, ziarno i domyślne kategorie | S-06          | FR-006, FR-011, US-02, NFR (izolacja kont)             | in-progress |
@@ -194,7 +194,7 @@ Foundations below assume these are present and do NOT re-scaffold them.
 - **Unknowns:**
   - Gdzie i kiedy funkcja agregująca kategorii zaczyna działać na danych (np. przy przejściu między ziarnami czasowymi w `S-05`), skoro PRD odkłada agregacje danych poza zakres? — Owner: użytkownik. Block: no.
 - **Risk:** Plaster kusi skopiowaniem widoku listy obiektów w całości — tabela, filtry, stronicowanie i panel w drugim egzemplarzu zaczną dryfować przy pierwszej poprawce; czy wydzielić część wspólną, rozstrzyga plan. Drugie ryzyko: słownik nie może wyprzedzić ekranów — kategorie domyślne ekranu należą do `S-06`, dopasowanie kategorii poszczególnych węzłów do `S-04`, a funkcja agregująca jest tu wyłącznie atrybutem kategorii, nie liczeniem czegokolwiek.
-- **Status:** in-progress
+- **Status:** done
 
 ### S-06: Nowy ekran — tworzenie, lista własnych ekranów i odtworzenie
 
@@ -409,3 +409,4 @@ Rozstrzygnięte:
 - **S-16: Nowa osoba po założeniu konta od razu ogląda działający ekran zamiast pustego stanu (decyzja z 2026-10-17)** — Archived 2026-10-17 → `context/archive/2026-10-17-drzewo-domyslne/`. Lesson: —.
 - **S-03: Dyspozytor prowadzi listę własnych drzew i składa strukturę w drzewie wybranym z tej listy** — Archived 2026-10-25 → `context/archive/2026-09-23-budowa-drzewa/`. Lesson: —.
 - **S-01: Dyspozytor zakłada konto (e-mail + hasło), loguje się i wylogowuje; żaden widok aplikacji nie jest dostępny bez zalogowania, a niezalogowany użytkownik trafia na ekran logowania.** — Archived 2026-10-25 → `context/archive/2026-09-22-konto-i-logowanie/`. Lesson: —.
+- **S-09: Dyspozytor przegląda słownik kategorii danych, dodaje nowe, edytuje i usuwa istniejące — każda kategoria ma unikalny kod, nazwę, funkcję agregującą wybraną z listy (SUM, MIN, MAX) i kolor; słownik jest dostępny z pozycji „Kategorie" w menu głównym, w tym samym układzie co lista obiektów.** — Archived 2026-10-25 → `context/archive/2026-09-23-lista-kategorii/`. Lesson: —.

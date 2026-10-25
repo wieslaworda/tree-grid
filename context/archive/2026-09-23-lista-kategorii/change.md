@@ -1,10 +1,10 @@
 ---
 change_id: lista-kategorii
 title: Słownik kategorii danych — przegląd, dodawanie, edycja i usuwanie
-status: impl_reviewed
+status: archived
 created: 2026-09-23
-updated: 2026-10-24
-archived_at: null
+updated: 2026-10-25
+archived_at: 2026-10-25T11:23:30Z
 ---
 
 ## Notes
