@@ -36,6 +36,8 @@
  * tekstem i odczyt zakodowanej wartości rozjechałyby się po cichu.
  */
 
+import { wartoscCiasteczka } from "~/lib/ciasteczka";
+
 /**
  * Nazwa ciasteczka. Zapis, odczyt i skasowanie **muszą** czytać ją stąd —
  * rozjazd między nimi to okno, które otwiera się po każdym odświeżeniu, albo
@@ -86,35 +88,7 @@ export function naglowekUstawienia(): string {
  * skutek cichej zgody to okno, które się nie otworzyło.
  */
 export function czyPokazacOProgramie(request: Request): boolean {
-  try {
-    const naglowek = request.headers.get("Cookie");
-
-    if (naglowek === null) {
-      return false;
-    }
-
-    for (const kawalek of naglowek.split(";")) {
-      const rownosc = kawalek.indexOf("=");
-
-      if (rownosc === -1) {
-        continue;
-      }
-
-      if (kawalek.slice(0, rownosc).trim() !== NAZWA_CIASTECZKA_O_PROGRAMIE) {
-        continue;
-      }
-
-      // Bez `decodeURIComponent`, z tego samego powodu co w
-      // `app/theme/ciasteczko.ts`: wartość jest zapisywana dosłownie, a
-      // dekodowanie dokładałoby tylko miejsce, w którym da się rzucić.
-      return kawalek.slice(rownosc + 1).trim() === WARTOSC;
-    }
-  } catch {
-    // Nagłówek `Cookie` przychodzi z zewnątrz i nie ma gwarantowanego
-    // kształtu — brak okna jest tu jedyną sensowną odpowiedzią.
-  }
-
-  return false;
+  return wartoscCiasteczka(request, NAZWA_CIASTECZKA_O_PROGRAMIE) === WARTOSC;
 }
 
 /**

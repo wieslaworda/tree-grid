@@ -20,8 +20,8 @@ import type { Route } from "./+types/powloka";
  * Powłoka: nagłówek z linkiem „Prezentacja ekranu”, menu głównym, przyciskiem
  * „O programie”, loginem i wylogowaniem nad każdym widokiem produktu, oraz
  * okno „O programie” (`components/OknoOProgramie.tsx`), otwierane samo po
- * nowym zalogowaniu albo założeniu konta i na żądanie z nagłówka. Layout bez segmentu ścieżki, zagnieżdżony
- * w `app/routes.ts` **pod** bramą.
+ * nowym zalogowaniu albo założeniu konta i na żądanie z nagłówka. Layout bez
+ * segmentu ścieżki, zagnieżdżony w `app/routes.ts` **pod** bramą.
  *
  * Powłoka nie jest bramą i brama nie jest powłoką — to są dwa pliki
  * świadomie. `routes/chronione.tsx` decyduje wyłącznie o dostępie i ma zakaz
@@ -54,18 +54,21 @@ export function loader({ context, request }: Route.LoaderArgs) {
 export default function Powloka({ loaderData }: Route.ComponentProps) {
   const { login, pokazOProgramie } = loaderData;
 
-  // Znacznik z loadera ustawia wyłącznie stan *początkowy* — wzorem wariantu
-  // motywu w `app/root.tsx`. Powłoka montuje się świeżo po zalogowaniu
-  // (logowanie i rejestracja stoją poza nią), a późniejsze rewalidacje
-  // loadera nie mają prawa okna otwierać ani zamykać.
-  const [oknoOtwarte, ustawOknoOtwarte] = useState(pokazOProgramie);
+  // Okno startuje zamknięte, także gdy znacznik jest: `Modal` renderuje się
+  // w portalu, którego serwer nie maluje, więc `open` już w SSR dawałoby inne
+  // drzewo po stronie serwera i klienta. Otwiera je dopiero efekt niżej.
+  const [oknoOtwarte, ustawOknoOtwarte] = useState(false);
 
-  // Raz po zamontowaniu i tylko wtedy, gdy znacznik był: od tej chwili
-  // odświeżenie ani nawigacja okna nie otworzą. Nie przy zamknięciu okna —
-  // odświeżenie przy otwartym oknie otwierałoby je znowu. Puste zależności
-  // celowo: efekt ma widzieć wartość z pierwszego renderu, nie z rewalidacji.
+  // Raz po zamontowaniu i tylko wtedy, gdy znacznik był: otwiera okno
+  // i kasuje znacznik, więc od tej chwili odświeżenie ani nawigacja okna nie
+  // otworzą. Nie przy zamknięciu okna — odświeżenie przy otwartym oknie
+  // otwierałoby je znowu. Puste zależności celowo: efekt ma widzieć wartość
+  // z pierwszego renderu, bo późniejsze rewalidacje loadera nie mają prawa
+  // okna otwierać ani zamykać. Powłoka montuje się świeżo po zalogowaniu
+  // (logowanie i rejestracja stoją poza nią).
   useEffect(() => {
     if (pokazOProgramie) {
+      ustawOknoOtwarte(true);
       skasujZnacznikOProgramie();
     }
   }, []);

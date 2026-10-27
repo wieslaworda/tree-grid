@@ -28,6 +28,7 @@
  * `jestWariantem` — nie ma czego escapować ani czego podpisywać.
  */
 
+import { wartoscCiasteczka } from "~/lib/ciasteczka";
 import { WARIANT_DOMYSLNY, jestWariantem, type Wariant } from "~/theme/tokeny";
 
 /**
@@ -69,39 +70,13 @@ const ATRYBUTY = "Path=/; Max-Age=31536000; SameSite=Lax; Secure";
  * zamieniłby literówkę w cudzym ciasteczku w ekran błędu całej aplikacji.
  */
 export function odczytajWariant(request: Request): Wariant {
-  try {
-    const naglowek = request.headers.get("Cookie");
+  // Odczyt nie rzuca (`wartoscCiasteczka`); `jestWariantem` odrzuca resztę,
+  // także `null`. Najgorszy skutek to motyw inny niż wybrany.
+  const wartosc = wartoscCiasteczka(request, NAZWA_CIASTECZKA);
 
-    if (naglowek === null) {
-      return WARIANT_DOMYSLNY;
-    }
-
-    for (const kawalek of naglowek.split(";")) {
-      const rownosc = kawalek.indexOf("=");
-
-      if (rownosc === -1) {
-        continue;
-      }
-
-      if (kawalek.slice(0, rownosc).trim() !== NAZWA_CIASTECZKA) {
-        continue;
-      }
-
-      // Bez `decodeURIComponent`: wartość jest zapisywana dosłownie i należy
-      // do dwuelementowego zbioru, w którym nie ma znaku wymagającego
-      // kodowania. Dekodowanie dokładałoby tylko miejsce, w którym da się
-      // rzucić na uszkodzonym wejściu.
-      const wartosc = kawalek.slice(rownosc + 1).trim();
-
-      return jestWariantem(wartosc) ? wartosc : WARIANT_DOMYSLNY;
-    }
-  } catch {
-    // Nagłówek `Cookie` przychodzi z zewnątrz i nie ma gwarantowanego
-    // kształtu. Cicha zgoda jest tu właściwa, bo najgorszy skutek to motyw
-    // inny niż wybrany — a alternatywą jest 500 na każdej trasie.
-  }
-
-  return WARIANT_DOMYSLNY;
+  return wartosc !== null && jestWariantem(wartosc)
+    ? wartosc
+    : WARIANT_DOMYSLNY;
 }
 
 /**

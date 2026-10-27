@@ -2,6 +2,8 @@ import { readFileSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 import { test as setup, expect } from "@playwright/test";
 
+import { NAZWA_CIASTECZKA_O_PROGRAMIE } from "~/lib/o-programie";
+
 const authFile = "playwright/.auth/user.json";
 
 // Adres API jest stały (`app/lib/api.server.ts`); `playwright.config.ts`
@@ -109,6 +111,10 @@ setup("sign in once and save the session", async ({ page, request }) => {
   // nazywa się „Zamknij” (`aria-label`), więc `name` trafiłoby w dwa przyciski.
   await oProgramie.getByRole("button").filter({ hasText: "Zamknij" }).click();
   await expect(oProgramie).toBeHidden();
+  // Wprost, nie tylko przez zamknięcie okna: ciche zepsucie kasowania (np.
+  // rozjazd `Path`) wpuściłoby znacznik do stanu wszystkich speców.
+  const ciasteczka = await page.context().cookies();
+  expect(ciasteczka.map((c) => c.name)).not.toContain(NAZWA_CIASTECZKA_O_PROGRAMIE);
 
   await page.context().storageState({ path: authFile });
 });
