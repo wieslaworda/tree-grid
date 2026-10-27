@@ -1,10 +1,10 @@
 ---
 change_id: o-programie
 title: Okno modalne z opisem aplikacji po zalogowaniu, przed widokiem drzewa
-status: impl_reviewed
+status: archived
 created: 2026-10-27
 updated: 2026-10-27
-archived_at: null
+archived_at: 2026-10-27T06:10:51Z
 ---
 
 ## Notes
