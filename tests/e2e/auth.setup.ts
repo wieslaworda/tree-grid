@@ -98,5 +98,17 @@ setup("sign in once and save the session", async ({ page, request }) => {
   await expect(page.getByRole("banner").getByText(username, { exact: true })).toBeVisible();
   await expect(page.getByRole("button", { name: "Wyloguj się" })).toBeVisible();
 
+  // Po nowym zalogowaniu powłoka otwiera okno „O programie” i kasuje
+  // jednorazowe ciasteczko `tg-o-programie` (`app/lib/o-programie.ts`).
+  // Zamknięcie okna przed zapisem stanu gwarantuje, że efekt kasujący już
+  // przebiegł — inaczej ciasteczko trafiłoby do stanu dzielonego przez spece
+  // i okno przykrywałoby im grid.
+  const oProgramie = page.getByRole("dialog", { name: "O programie TreeGrid" });
+  await expect(oProgramie).toBeVisible();
+  // Po tekście, nie po samej nazwie: krzyżyk okna w lokalizacji `pl_PL` też
+  // nazywa się „Zamknij” (`aria-label`), więc `name` trafiłoby w dwa przyciski.
+  await oProgramie.getByRole("button").filter({ hasText: "Zamknij" }).click();
+  await expect(oProgramie).toBeHidden();
+
   await page.context().storageState({ path: authFile });
 });

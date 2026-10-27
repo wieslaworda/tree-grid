@@ -21,6 +21,7 @@ import {
   readJson,
 } from "~/lib/api.server";
 import { describeShape, logApiFailure, requestIdOf } from "~/lib/log.server";
+import { naglowekUstawienia } from "~/lib/o-programie";
 import {
   findSessionStorage,
   requireSessionStorage,
@@ -148,6 +149,15 @@ export const kontekstUzytkownika = createContext<SessionUser>();
  * logowanie dopisywało tożsamość do sesji podsuniętej przez wywołującego,
  * ciasteczko narzucone ofierze przed zalogowaniem pozostałoby ważne po nim —
  * to jest utrwalenie sesji i jedyną obroną jest wydanie nowej.
+ *
+ * Druga rola: obok sesji wystawia jednorazowy znacznik `tg-o-programie`
+ * (`app/lib/o-programie.ts`), po którym powłoka otwiera okno „O programie”.
+ * To jedyne miejsce zakładania sesji, a każda nowa sesja to logowanie albo
+ * założenie konta — dokładnie chwile, w których okno ma się otworzyć.
+ *
+ * Dwa osobne nagłówki `Set-Cookie` przez `Headers.append`, nie literał
+ * obiektu: `{ "Set-Cookie": … }` mieści tylko jeden, a sklejenie dwóch
+ * ciasteczek w jedną wartość przeglądarka odczytałaby jako jedno, zepsute.
  */
 export async function createUserSession(
   user: SessionUser,
@@ -159,9 +169,11 @@ export async function createUserSession(
   session.set("user", user);
   session.set("issuedAt", Date.now());
 
-  return redirect(redirectTo, {
-    headers: { "Set-Cookie": await storage.commitSession(session) },
-  });
+  const headers = new Headers();
+  headers.append("Set-Cookie", await storage.commitSession(session));
+  headers.append("Set-Cookie", naglowekUstawienia());
+
+  return redirect(redirectTo, { headers });
 }
 
 /**

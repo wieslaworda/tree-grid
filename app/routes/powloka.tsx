@@ -1,18 +1,26 @@
 import { Button } from "antd";
+import { useEffect, useState } from "react";
 import { Form, NavLink, Outlet } from "react-router";
 
 import { MenuGlowne } from "~/components/MenuGlowne";
+import { OknoOProgramie } from "~/components/OknoOProgramie";
 // Wartość z modułu `.server` wolno tu zaimportować tylko dlatego, że czyta ją
 // wyłącznie `loader` — znika z bundla klienckiego razem z nim. Sięgnięcie po
 // nią w komponencie wciągnęłoby moduł `.server` do przeglądarki i wywaliło
 // build.
 import { kontekstUzytkownika } from "~/lib/auth.server";
+import {
+  czyPokazacOProgramie,
+  skasujZnacznikOProgramie,
+} from "~/lib/o-programie";
 
 import type { Route } from "./+types/powloka";
 
 /**
- * Powłoka: nagłówek z linkiem „Prezentacja ekranu”, menu głównym, loginem i wylogowaniem
- * nad każdym widokiem produktu. Layout bez segmentu ścieżki, zagnieżdżony
+ * Powłoka: nagłówek z linkiem „Prezentacja ekranu”, menu głównym, przyciskiem
+ * „O programie”, loginem i wylogowaniem nad każdym widokiem produktu, oraz
+ * okno „O programie” (`components/OknoOProgramie.tsx`), otwierane samo po
+ * nowym zalogowaniu albo założeniu konta i na żądanie z nagłówka. Layout bez segmentu ścieżki, zagnieżdżony
  * w `app/routes.ts` **pod** bramą.
  *
  * Powłoka nie jest bramą i brama nie jest powłoką — to są dwa pliki
@@ -26,7 +34,7 @@ import type { Route } from "./+types/powloka";
  * Tożsamość bierze z kontekstu odłożonego przez bramę, nie z drugiego
  * `getUser` — sesja jest czytana raz na żądanie.
  */
-export function loader({ context }: Route.LoaderArgs) {
+export function loader({ context, request }: Route.LoaderArgs) {
   // `get` bez wartości domyślnej rzuca, gdy brama nic nie odłożyła — czyli
   // gdy ktoś wyjął powłokę spod bramy. Tak ma zostać; uzasadnienie przy
   // `kontekstUzytkownika` w `app/lib/auth.server.ts`.
@@ -35,11 +43,32 @@ export function loader({ context }: Route.LoaderArgs) {
   // Tylko login: dane loadera lądują w HTML-u i w odpowiedziach `.data`,
   // a widok nie potrzebuje ani `id`, ani adresu e-mail, więc nie ma powodu
   // ich tam wystawiać.
-  return { login };
+  //
+  // `pokazOProgramie` czyta jednorazowy znacznik wystawiony przy zakładaniu
+  // sesji. Odczyt nie rzuca, a ciasteczka loader nie kasuje: w łańcuchu
+  // przekierowań po logowaniu biegnie dwa razy, więc skasowanie przy
+  // pierwszym odczycie zgubiłoby sygnał. Kasuje je komponent po zamontowaniu.
+  return { login, pokazOProgramie: czyPokazacOProgramie(request) };
 }
 
 export default function Powloka({ loaderData }: Route.ComponentProps) {
-  const { login } = loaderData;
+  const { login, pokazOProgramie } = loaderData;
+
+  // Znacznik z loadera ustawia wyłącznie stan *początkowy* — wzorem wariantu
+  // motywu w `app/root.tsx`. Powłoka montuje się świeżo po zalogowaniu
+  // (logowanie i rejestracja stoją poza nią), a późniejsze rewalidacje
+  // loadera nie mają prawa okna otwierać ani zamykać.
+  const [oknoOtwarte, ustawOknoOtwarte] = useState(pokazOProgramie);
+
+  // Raz po zamontowaniu i tylko wtedy, gdy znacznik był: od tej chwili
+  // odświeżenie ani nawigacja okna nie otworzą. Nie przy zamknięciu okna —
+  // odświeżenie przy otwartym oknie otwierałoby je znowu. Puste zależności
+  // celowo: efekt ma widzieć wartość z pierwszego renderu, nie z rewalidacji.
+  useEffect(() => {
+    if (pokazOProgramie) {
+      skasujZnacznikOProgramie();
+    }
+  }, []);
 
   return (
     // Kolumna na wysokość okna: nagłówek tyle, ile wyznaczy menu, a obszar
@@ -84,6 +113,16 @@ export default function Powloka({ loaderData }: Route.ComponentProps) {
         <MenuGlowne />
 
         <div className="flex items-center gap-tg-sekcja">
+          {/*
+            Przycisk, nie pozycja `MenuGlowne`: okno nie jest widokiem, a menu
+            ma regułę „pozycja = widok” (`components/MenuGlowne.tsx`). Stoi
+            poza formularzem wylogowania, a `Button` domyślnie renderuje
+            `type="button"`, więc niczego nie wysyła.
+          */}
+          <Button size="small" onClick={() => ustawOknoOtwarte(true)}>
+            O programie
+          </Button>
+
           <span className="text-tg-tekst-drugorzedny">{login}</span>
 
           {/*
@@ -108,6 +147,11 @@ export default function Powloka({ loaderData }: Route.ComponentProps) {
       <div className="min-h-0 flex-1">
         <Outlet />
       </div>
+
+      <OknoOProgramie
+        otwarte={oknoOtwarte}
+        onZamknij={() => ustawOknoOtwarte(false)}
+      />
     </div>
   );
 }
