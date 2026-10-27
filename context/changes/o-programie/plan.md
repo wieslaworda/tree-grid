@@ -261,17 +261,17 @@ Nie dotyczy — brak zmian w danych i API.
 
 #### Automated
 
-- [x] 1.1 Typecheck przechodzi: `npm run typecheck`
-- [x] 1.2 Build produkcyjny przechodzi: `npm run build`
-- [x] 1.3 Spec Node przechodzi: `npm run test:node`
-- [x] 1.4 Zbudowany bundle kliencki nie zawiera modułów `.server` (build nie zgłasza błędu importu serwerowego)
+- [x] 1.1 Typecheck przechodzi: `npm run typecheck` — 4c3f667
+- [x] 1.2 Build produkcyjny przechodzi: `npm run build` — 4c3f667
+- [x] 1.3 Spec Node przechodzi: `npm run test:node` — 4c3f667
+- [x] 1.4 Zbudowany bundle kliencki nie zawiera modułów `.server` (build nie zgłasza błędu importu serwerowego) — 4c3f667
 
 #### Manual
 
-- [ ] 1.5 Po zalogowaniu na `/prezentacja` otwiera się okno „O programie TreeGrid” z pełnym opisem, a grid wczytuje się pod nim
-- [ ] 1.6 Po założeniu konta (krok 2 rejestracji) okno otwiera się tak samo
-- [ ] 1.7 Odświeżenie strony, przejście na inny widok i wejście wprost na `/prezentacja` nie otwierają okna
-- [ ] 1.8 Przycisk „O programie” w nagłówku otwiera okno na `/obiekty`, `/drzewo` i `/prezentacja`
-- [ ] 1.9 Okno zamyka się przyciskiem „Zamknij”, krzyżykiem, `Esc` i kliknięciem w maskę
-- [ ] 1.10 Okno i przycisk wyglądają poprawnie w wariancie jasnym i ciemnym
-- [ ] 1.11 Pełny przebieg E2E (`npx playwright test`) przechodzi z dostosowanym `auth.setup.ts`
+- [x] 1.5 Po zalogowaniu na `/prezentacja` otwiera się okno „O programie TreeGrid” z pełnym opisem, a grid wczytuje się pod nim — 4c3f667
+- [x] 1.6 Po założeniu konta (krok 2 rejestracji) okno otwiera się tak samo — 4c3f667
+- [x] 1.7 Odświeżenie strony, przejście na inny widok i wejście wprost na `/prezentacja` nie otwierają okna — 4c3f667
+- [x] 1.8 Przycisk „O programie” w nagłówku otwiera okno na `/obiekty`, `/drzewo` i `/prezentacja` — 4c3f667
+- [x] 1.9 Okno zamyka się przyciskiem „Zamknij”, krzyżykiem, `Esc` i kliknięciem w maskę — 4c3f667
+- [x] 1.10 Okno i przycisk wyglądają poprawnie w wariancie jasnym i ciemnym — 4c3f667
+- [x] 1.11 Pełny przebieg E2E (`npx playwright test`) przechodzi z dostosowanym `auth.setup.ts` — 4c3f667
