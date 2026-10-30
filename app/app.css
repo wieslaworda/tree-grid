@@ -238,6 +238,21 @@ html {
      w `GridEkranu.tsx`): `!important` przebija dziedziczone
      `visibility: hidden`, więc bez `:not(.invisible)` paski stałyby nad
      postępem. */
+  /* Jawna wysokość komórki ciała gridu. Lista wirtualna mierzy wiersz przez
+     `offsetHeight` (liczba całkowita, `@rc-component/virtual-list`,
+     `hooks/useHeights.js`) i z sumy tych pomiarów stawia scalone komórki
+     „Węzła” (`VirtualTable/BodyGrid.js`, `extraRender`), a zwykłe wiersze
+     leżą jeden pod drugim w układzie. Przy powiększeniu innym niż 100 %
+     ramka 1 px przyciąga się do piksela urządzenia, więc wiersz złożony
+     z treści i ramki ma np. 23,89 px przy 110 %, pomiar mówi 24 i linie
+     sekcji „Węzła” odjeżdżały od linii „Kategorii” o ułamek piksela na
+     wiersz. Z wysokością na komórce (`border-box`, ramka w środku) wiersz ma
+     dokładnie tyle, ile mierzy lista. Scalona komórka dostaje wysokość
+     inline z tej samej sumy, więc ta reguła jej nie dotyczy. */
+  .tg-grid-ekranu .ant-table-tbody-virtual .ant-table-cell {
+    height: var(--tg-wysokoscWiersza);
+  }
+
   .tg-grid-ekranu:not(.invisible) .ant-table-tbody-virtual-scrollbar {
     visibility: visible !important;
   }

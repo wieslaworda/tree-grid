@@ -65,6 +65,10 @@ function blokWspolny(): string {
     // linii między kolumnami gridu, której antd bez `bordered` nie rysuje.
     `  --tg-gruboscLinii: ${px(METRYKI.lineWidth)};`,
     `  --tg-gruboscLiniiSekcji: ${px(METRYKI.gruboscLiniiSekcji)};`,
+    // Jawna wysokość komórki ciała gridu (`.tg-grid-ekranu` w `app/app.css`)
+    // — przy powiększeniu przeglądarki wiersz złożony z treści i ramki nie
+    // ma dokładnie tej wysokości, a tabela wirtualna liczy z niej położenia.
+    `  --tg-wysokoscWiersza: ${px(METRYKI.wysokoscWiersza)};`,
     // Komórki pasa danych gridu (`.tg-pas-danych` w `app/app.css`) nie są
     // komórkami antd, więc szerokość i odstęp kolumny czasowej czytają z CSS.
     `  --tg-szerokoscKolumnyCzasowej: ${px(METRYKI.szerokoscKolumnyCzasowej)};`,
